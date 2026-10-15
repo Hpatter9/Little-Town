@@ -106,6 +106,7 @@ import {
   type PostSite,
 } from '../data/tradeEmpire';
 import { hashSeed, Rng } from '../rng';
+import { alignPush, orderPush } from './alignment';
 import { depositNear, totalStock } from './buildings';
 import { ally } from './classes';
 import { takeFromStorage } from './expeditions';
@@ -704,6 +705,9 @@ function dealsDaily(s: GameState, e: EmpireState): void {
       e.deals.splice(e.deals.indexOf(d), 1);
       if (mk && d.good) mk.swings = mk.swings.filter((w) => !(w.m === d.good && w.why.includes(d.guild)));
       log(s, e, `The town broke its bargain with ${d.guild}: ${why}. The guilds' trust falls.`, true);
+      // (a broken word shows in the town's alignment too: sim/alignment.ts)
+      alignPush(s, -3, 'A broken deal');
+      orderPush(s, -2, 'A broken deal');
     };
     if (d.kind === 'monopoly' && d.good) {
       if ((totalStock(s)[d.good] ?? 0) < MONOPOLY_KEEP) d.short = (d.short ?? 0) + 1;

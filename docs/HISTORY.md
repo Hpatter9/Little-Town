@@ -5530,3 +5530,9 @@ identical). Side stream `new Rng(hashSeed(`${seed}:empire:${tick}:<salt>`))`, ne
   knights (2 seeds): identical to main without a direction; with Trade, settlers and knights identical (no region mapped or power met
   yet, little coin: the empire sleeps), dwarves 3.5 -> 5.5 people, 8 -> 5.5 deaths (hired swords). Late-town fixture, Trade, 20 days,
   8 seeds: 1-2 posts founded, 2-9 caravans each (200-640 coins made), one caravan lost, deaths 13.3 -> 10.7, people 51.3 -> 46.8.
+
+## A broken deal weighs on the town's alignment
+
+The trade empire's `breach` (`sim/tradeEmpire.ts`, `dealsDaily`) now calls `alignPush(s, -3, 'A broken deal')` and
+`orderPush(s, -2, 'A broken deal')` from `sim/alignment.ts`, the hook the alignment work asked for. Only towns under the
+Trade direction with a deal to break are touched.
