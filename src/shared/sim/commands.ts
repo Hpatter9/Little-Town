@@ -2,6 +2,7 @@
 // start of the next tick so every change happens at a well-defined point in sim time.
 
 import type { TacticsOrder } from './tactics';
+import { GAME_SPEEDS } from './battle';
 import type { RealmOp } from './factions';
 const REALM_OPS: readonly RealmOp[] = ['gift', 'peace', 'trade', 'alliance', 'war', 'demand', 'free', 'marry'];
 import { TAX_RATES, type TaxRate } from '../data/economy';
@@ -290,7 +291,7 @@ export function parseCommand(raw: unknown): Command | null {
     case 'scene':
       return (c.op === 'watch' || c.op === 'done' || c.op === 'skip') && Number.isInteger(c.key) ? { type: 'scene', op: c.op, key: c.key as number } : null;
     case 'gameSpeed':
-      return c.speed === 1 || c.speed === 2 || c.speed === 3 ? { type: 'gameSpeed', speed: c.speed } : null;
+      return typeof c.speed === 'number' && (GAME_SPEEDS as readonly number[]).includes(c.speed) ? { type: 'gameSpeed', speed: c.speed } : null;
     case 'raidSkip':
       return { type: 'raidSkip' };
     case 'skipRaids':
