@@ -7,6 +7,7 @@ import type { Era } from './eras';
 import type { ItemDef, ItemEffects } from './items';
 import { FAMILIES, quirkWords, tierDamage, WEAPONS, type FamilyId } from './weapons';
 import { FORGE } from './hunts';
+import { GREAT_ENEMY_UNIQUES } from './greatEnemy';
 
 /** A unique's row: id, name, family, tier, era (for its ammo), its own quirks, a line of lore, and the bosses that drop it
  *  (none: a quest's). */
@@ -153,6 +154,8 @@ const ROWS: Row[] = [
   ['wyrmscale_blade', 'Wyrmscale', 'sw', 8, M, { pierce: 0.4, crit: 0.1 }, 'A blade of drake scales ground to an edge and welded to iron.', [FORGED]],
   ['ghostbinder', 'Ghostbinder', 'st', 7, M, { undeadDamage: 10, lifesteal: 0.08 }, 'A staff that drinks the dead: ghost essence swirls in its bone head.', [FORGED]],
   ['heart_of_the_wyrm', 'Heart of the Wyrm', 'sp', 10, M, { beastDamage: 10, pierce: 0.5, lifesteal: 0.1 }, "A spear with a dragon's heart for a head. It beats.", [FORGED]],
+  // the Great Enemies' and their lieutenants' (data/greatEnemy.ts)
+  ...(GREAT_ENEMY_UNIQUES as Row[]),
 ];
 
 /** How much harder a unique hits than a made weapon of its tier and family. */

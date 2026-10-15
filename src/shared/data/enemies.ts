@@ -11,6 +11,7 @@ import { SKY_ENEMIES } from './skies';
 import { MENAGERIE } from './menagerie';
 import { NEST_ENEMIES } from './nests';
 import { CALAMITY_ENEMIES } from './calamity';
+import { GREAT_ENEMY_FOES } from './greatEnemy';
 import { GROVE_ENEMIES } from './grove';
 import { LEGEND_ENEMIES } from './legends';
 import { PACK_SHEETS, type PackSheetId } from './packSheets';
@@ -121,6 +122,7 @@ export const ENEMIES: Readonly<Record<string, EnemyDef>> = {
   // the nests' masters and the Calamity's avatars (data/nests.ts, data/calamity.ts)
   ...NEST_ENEMIES,
   ...CALAMITY_ENEMIES,
+  ...GREAT_ENEMY_FOES,
   ...GROVE_ENEMIES,
   ...LEGEND_ENEMIES,
   wolf: { id: 'wolf', name: 'Wolf', hp: 28, damage: [3, 6], accuracy: 0.7, dodge: 0.12, interval: 1.1, ranged: false, loot: { hide: 1, meat: 1, bone: 1 }, sprite: { sheet: 'wolf', block: 1, scale: 1 } },

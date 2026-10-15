@@ -115,7 +115,7 @@ export interface News {
   line: string;
 }
 /** The questions a rider brings word of (the rest ask at the gate, or are the town's own: an envoy rides in himself). */
-export const NEWS_PROMPTS = new Set(['event', 'raid', 'saga', 'village', 'strangers', 'dragon']);
+export const NEWS_PROMPTS = new Set(['event', 'raid', 'saga', 'village', 'strangers', 'dragon', 'enemy']);
 /** What of the snapshot the news is read from. */
 export interface NewsShot {
   prompts: readonly { id: number; kind: string; title: string }[];

@@ -420,6 +420,10 @@ export interface Raid {
   saga?: number;
   /** One of the Calamity's raids: its army, or the last siege (sim/calamity.ts). */
   calamity?: 'army' | 'siege';
+  /** One of the Great Enemy's raids (sim/greatEnemy.ts): bearing its mark, a host led by a lieutenant (which), or the
+   *  last siege. */
+  enemy?: 'mark' | 'host' | 'siege';
+  enemyLt?: number;
   /** Fallen raiders raised by necromancers this raid, and when a Beast Tamer can tame again. */
   raised?: number;
   nextTame?: number;
@@ -744,7 +748,7 @@ export interface Secret {
 /** A question waiting for the player, answered by default when the timer runs out. */
 export interface Prompt {
   id: number;
-  kind: 'strangers' | 'raid' | 'rite' | 'lich' | 'gate' | 'event' | 'thirst' | 'visitor' | 'secret' | 'saga' | 'road' | 'debrief' | 'envoy' | 'watch' | 'dragon' | 'evolve' | 'refugees' | 'village' | 'council' | 'trial' | 'revolt' | 'ways';
+  kind: 'strangers' | 'raid' | 'rite' | 'lich' | 'gate' | 'event' | 'thirst' | 'visitor' | 'secret' | 'saga' | 'road' | 'debrief' | 'envoy' | 'watch' | 'dragon' | 'evolve' | 'refugees' | 'village' | 'council' | 'trial' | 'revolt' | 'ways' | 'enemy';
   /** A people's own question (the origins made deeper: sim/heritage.ts `answerWays`): whose, and about what. */
   ways?: { system: string; about: string; id?: number };
   /** A question of the town's politics (sim/politics.ts): a council vote, a trial or a revolt. */
@@ -1291,6 +1295,8 @@ export interface GameState {
   skirmishes?: Skirmish[];
   /** The Calamity (sim/calamity.ts): what it is, how far its dread has risen, its heart and sieges. */
   calamity?: CalamityState;
+  /** The Great Enemy: one villain a town and the long arc of the game (sim/greatEnemy.ts). */
+  greatEnemy?: import('./greatEnemy').GreatEnemyState;
   /** The Deep under the town (sim/deep.ts), once a shaft is sunk; and the level the player is looking at, if any. */
   deep?: DeepState;
   watchingDeep?: number;

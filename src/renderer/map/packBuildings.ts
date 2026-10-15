@@ -489,6 +489,8 @@ const PICKS: Record<string, Pick> = {
   ward_stone: { url: caveCrystal, overhang: 0 },
   // (a statue's own figure in stone is map/statueArt.ts; the Rocky Area pack's old man stands in while it loads)
   statue: { url: statueOld, overhang: 4 },
+  // (the Great Enemy's victory monument: sim/greatEnemy.ts)
+  victory_monument: { url: caveStatue, overhang: 4 },
   temple: { url: suMageTower, overhang: 4 },
   cathedral: { url: suCastle, overhang: 4 },
   phylactery: { url: caveCrystal, overhang: 0, variants: [{ styles: ['lich'], pick: { url: caveGem, overhang: 0 } }] },

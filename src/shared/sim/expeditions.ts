@@ -72,6 +72,7 @@ import { dragonDestination, dragonHome, isDragonDest } from './dragon';
 import { isVillageDest, villageDestination, villageHome } from './villages';
 import { isPortalDest, portalDestination, portalHome } from './portals';
 import { heartCleared, heartDestination, heartOpen, isHeartDest } from './calamity';
+import { enemyDestination, enemyPlaceCleared, isEnemyDest } from './greatEnemy';
 import { HUNT_DEST, HUNT_PARTY, isPackDest } from '../data/pack';
 import { packDestinationOf, packDestUnlocked, packHome } from './pack';
 import { tireless, townFull, addStock, carryCapacity, earn, ERA_MULTIPLIER, makePerson, maxHp, meet, notify, poolSize, type Expedition, type FightResult, type GameState, type Person } from './state';
@@ -108,6 +109,7 @@ export function destinationOf(s: GameState, id: string): Destination | undefined
   if (isVillageDest(id)) return villageDestination(s, id);
   if (isPortalDest(id)) return portalDestination(s, id);
   if (isHeartDest(id)) return heartDestination(s, true); // (held: a party that cleared it still has to get home)
+  if (isEnemyDest(id)) return enemyDestination(s, id, true); // (the Great Enemy's seat and outposts, held the same way)
   if (isAssaultDest(id)) return assaultDestination(s, id);
   if (isWildDest(id)) return wildDestination(id); // (a fight with a band out on the land: sim/roamers.ts)
   if (isArenaDest(id)) return arenaDestination(id); // (a bout in the arena: sim/arena.ts)
@@ -128,6 +130,8 @@ export function destinationUnlocked(s: GameState, d: Destination): boolean {
   if (isPortalDest(d.id)) return !!portalDestination(s, d.id);
   // (the Calamity's heart, while it can be struck at)
   if (isHeartDest(d.id)) return heartOpen(s);
+  // (the Great Enemy's seat, once found, and its lieutenants' outposts while they live)
+  if (isEnemyDest(d.id)) return !!enemyDestination(s, d.id);
   // (an assault: on a power at war, or a dungeon on the board)
   if (isAssaultDest(d.id)) return assaultTargets(s, (id) => !destinationHidden(s, id) && !!DESTINATION_BY_ID[id] && destinationUnlocked(s, DESTINATION_BY_ID[id])).includes(d.id);
   // (a place on the town's land: while it's found and waiting)
@@ -643,6 +647,7 @@ function finishBattle(s: GameState, e: Expedition, d: Destination, members: Pers
         e.cleared = true;
         placeCleared(s, e.dest, e.loot, rng); // (a place on the town's land: its hoard too)
         if (isHeartDest(e.dest)) heartCleared(s); // (the Calamity's heart: sim/calamity.ts)
+        if (isEnemyDest(e.dest)) enemyPlaceCleared(s, e.dest); // (the Great Enemy's: sim/greatEnemy.ts)
       }
       break;
     }

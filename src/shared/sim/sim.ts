@@ -68,6 +68,7 @@ import { delvesHourly } from './delves';
 import { placesHourly } from './places';
 import { nestsHourly } from './nests';
 import { calamityHourly } from './calamity';
+import { greatEnemyHourly } from './greatEnemy';
 import { deepHourly } from './deep';
 import { portalsHourly } from './portals';
 import { ancestorsHourly } from './ancestors';
@@ -248,6 +249,7 @@ export class Sim {
     placesHourly(s, this.rng);
     nestsHourly(s); // (monster nests on the land: sim/nests.ts)
     calamityHourly(s); // (the Calamity: sim/calamity.ts)
+    greatEnemyHourly(s); // (the Great Enemy: sim/greatEnemy.ts)
     deepHourly(s); // (the Deep under the town: sim/deep.ts)
     portalsHourly(s); // (other worlds through an arch or a rift: sim/portals.ts)
     ancestorsHourly(s); // (a descendant's forebears: spirits, the heirloom, the Old House: sim/ancestors.ts)
