@@ -382,3 +382,11 @@ are the ladder of **Craftpix.net**'s free Green Zone Tileset (`gate_ladder.png`)
 The cannon on the town map (`src/renderer/art/packs/dp_cannon.png`) is the cannon from Craftpix's free Pixel Dungeon
 Props and Objects pack (craftpix.net, free licence). The machines' sentry bot (`src/renderer/art/packs/rw_scarab.png`)
 is the Scarab from the Robot Warfare Asset Pack (CC0, public domain).
+
+## Magic: the Mage Tower and the Arcane Library
+
+The Mage Tower on the map (`src/renderer/art/packs/su_stonetower.png`, scaled down) is the Magic Stone Tower prop of
+**Craftpix.net**'s free Simple Summer Top-Down Vector Tileset, used under Craftpix's free licence (use in the game; the
+raw files are not redistributed). The Arcane Library is laid from the glass jar, the shelves of tomes and potions and the
+reading tables of Craftpix's free Pixel Dungeon Props and Objects pack (`src/renderer/art/village/dprops.png`, already in
+the game). The rites, the surges and the cast in a fight play strips of the **5000 Pixel Effects** atlas (see Effects).

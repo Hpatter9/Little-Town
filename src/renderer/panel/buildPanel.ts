@@ -6,6 +6,7 @@ import { faithSection } from './faithPanel';
 import { villagesSection } from './villagesPanel';
 import { politicsSection } from './politicsPanel';
 import { heritageKey, heritageSection } from './heritagePanel';
+import { magicSection } from './magicPanel';
 import { BUILD_PACE } from '../../shared/data/economy';
 import { buildSkill } from '../../shared/sim/property';
 import { TOWN_SIZES } from '../../shared/sim/state';
@@ -220,6 +221,7 @@ export function renderBuild(s: Snapshot, bridge: Bridge | undefined, rerender: (
   out.push(...villagesSection(s, bridge));
   out.push(...politicsSection(s, bridge));
   out.push(...heritageSection(s));
+  out.push(...magicSection(s));
 
   // everything it knows how to build (for reference: it decides for itself)
   out.push(

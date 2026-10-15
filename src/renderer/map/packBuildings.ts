@@ -164,6 +164,7 @@ import suWatchtower from '../art/packs/su_watchtower.png';
 import suLookout from '../art/packs/su_lookout.png';
 import suCastle from '../art/packs/su_castle.png';
 import suMageTower from '../art/packs/su_magetower.png';
+import suStoneTower from '../art/packs/su_stonetower.png';
 import suRoundCastle from '../art/packs/su_roundcastle.png';
 import suTent from '../art/packs/su_tent.png';
 import suHouse from '../art/packs/su_house.png';
@@ -445,6 +446,10 @@ const PICKS: Record<string, Pick> = {
   bandstand: { parts: [[tent2, 16, 0], [log1, 0, 46], [log3, 50, 52], [lantern, 0, 4], [lantern, 80, 4]], size: [96, 68], overhang: 0, lamps: [[8, 13], [88, 13]] },
   // the dungeon props: bookshelves for the library, an alchemist's bench for the healer, a plain table for the workbench
   library: { parts: [[dprops, 0, 0, 16, 256, 48, 48], [dprops, 48, 0, 64, 256, 48, 48], [dprops, 96, 0, 112, 256, 48, 48]], size: [144, 48], overhang: 0 },
+  // magic (data/magic.ts): the Simple Summer pack's crystal tower over its ley; the library a mana jar, shelves of tomes and
+  // potions and two reading tables from the Dungeon Props pack
+  mage_tower: { url: suStoneTower, overhang: 4, lamps: [[36, 22]] },
+  arcane_library: { parts: [[dprops, 0, 8, 231, 9, 35, 50], [dprops, 36, 0, 21, 256, 37, 40], [dprops, 72, 0, 133, 256, 37, 40], [dprops, 96, 24, 225, 311, 47, 33], [dprops, 30, 30, 321, 271, 47, 31]], size: [144, 58], overhang: 0 },
   healers_hut: { parts: [[dprops, 0, 0, 16, 304, 48, 48]], size: [48, 48], overhang: 0 },
   workbench: { parts: [[dprops, 0, 0, 80, 144, 64, 32]], size: [64, 32], overhang: 0 },
   // the undead pack's graves for the graveyard

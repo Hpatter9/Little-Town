@@ -11,7 +11,9 @@ import { CLASS_DEFS, type ClassId } from '../data/classes';
 import { BAD_STATUS, type Effect, type Element, type Status, type Target, type Use } from '../data/effects';
 import { ENEMIES, natureOf } from '../data/enemies';
 import { levelOf } from '../data/levels';
-import { spellsKnown, type SpellDef } from '../data/spells';
+import { SPELL_BY_ID, spellsKnown, type SpellDef } from '../data/spells';
+import { CURSED, ENCHANTED, FOCI } from '../data/magic';
+import { ITEM_BY_ID } from '../data/items';
 import type { Rng } from '../rng';
 import type { Person } from './state';
 import { TICK_HZ } from './time';
@@ -101,8 +103,10 @@ const secs = (n: number) => Math.round(n * TICK_HZ);
 /** The three spells a caster keeps ready: the best they know for what their class does most, then the next most
  *  useful kinds (a healer keeps two mends and a strike; a sorcerer two strikes and a hindrance), each the highest
  *  learned of its kind. */
-export function readySpells(cls: ClassId, level: number): SpellDef[] {
-  const known = spellsKnown(cls, level).sort((a, b) => b.level - a.level);
+export function readySpells(cls: ClassId, level: number, studied: readonly string[] = []): SpellDef[] {
+  // (and the spells they've learned by study: sim/magic.ts)
+  const own = spellsKnown(cls, level);
+  const known = [...own, ...studied.map((id) => SPELL_BY_ID[id]).filter((d) => d && !own.includes(d))].sort((a, b) => b.level - a.level);
   if (!known.length) return [];
   const role = CLASS_DEFS[cls].role;
   // (callers keep a summons ready first of all)
@@ -121,14 +125,17 @@ const CALLERS: Partial<Record<ClassId, Use[]>> = { summoner: ['summon', 'attack'
 const NO_PASSIVE = (): Kit['passive'] => ({ damage: 0, power: 0, healing: 0, crit: 0, critDamage: 0, counter: 0, lifesteal: 0, thorns: 0, guard: 0, resist: 0, regen: 0, lastStand: 0, firstStrike: false });
 
 /** Someone's kit: their ready spells, their active skills, and their passive skills added up. */
-export function kitOf(p: Pick<Person, 'cls' | 'level' | 'road'> & { gear?: { weapon?: string | null } }): Kit | undefined {
+export function kitOf(p: Pick<Person, 'cls' | 'level' | 'road'> & { gear?: { weapon?: string | null; charm?: string | null }; arcana?: Person['arcana'] }): Kit | undefined {
   if (!p.cls) return undefined;
   const lv = levelOf(p);
   // (a calling's skills come only with its weapon in hand: no bow, no volley; spells need nothing: data/armed.ts)
   const armed = !p.gear || armedForSkills(p.cls, p.gear.weapon);
   const actions: KitAction[] = [];
-  for (const s of readySpells(p.cls, lv)) actions.push({ id: s.id, name: s.name, spell: true, level: s.level, cooldown: secs(s.cooldown), ready: 0, effects: s.effects, use: s.use, cost: spellCost(s.level), pool: 'mp' });
+  for (const s of readySpells(p.cls, lv, p.arcana?.spells)) actions.push({ id: s.id, name: s.name, spell: true, level: s.level, cooldown: secs(s.cooldown), ready: 0, effects: s.effects, use: s.use, cost: spellCost(s.level), pool: 'mp' });
   const passive = NO_PASSIVE();
+  // (a caster's focus, enchanted or cursed charm feeds their spells: data/magic.ts)
+  const charm = p.gear?.charm;
+  if (charm && (FOCI.includes(charm) || ENCHANTED.includes(charm) || CURSED.includes(charm))) passive.power += ITEM_BY_ID[charm]?.effects.power ?? 0;
   for (const a of abilitiesKnown(p.cls, lv, p.road)) {
     if (a.active && armed) actions.push({ id: a.id, name: a.name, spell: false, level: a.level, cooldown: secs(a.active.cooldown), ready: 0, effects: a.active.effects, use: a.use as Use, cost: a.ultimate ? 1 : skillCost(a.level), pool: a.ultimate ? 'limit' : 'sp' });
     if (a.passive) {

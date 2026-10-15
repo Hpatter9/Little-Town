@@ -74,6 +74,7 @@ import { greatEnemyHourly } from './greatEnemy';
 import { deepHourly } from './deep';
 import { underdarkHourly } from './underdark';
 import { portalsHourly } from './portals';
+import { magicHourly } from './magic';
 import { ancestorsHourly } from './ancestors';
 import { lookInside } from './interiors';
 import { dynastyHourly } from './dynasty';
@@ -270,6 +271,7 @@ export class Sim {
     deepHourly(s); // (the Deep under the town: sim/deep.ts)
     underdarkHourly(s); // (the Underdark, the caves under the land: sim/underdark.ts)
     portalsHourly(s); // (other worlds through an arch or a rift: sim/portals.ts)
+    magicHourly(s); // (mana from the leylines, study, the town's rites and what they cost: sim/magic.ts)
     ancestorsHourly(s); // (a descendant's forebears: spirits, the heirloom, the Old House: sim/ancestors.ts)
     lineageHourly(s); // (children's lessons and apprenticeships: sim/lineage.ts)
     diaryTick(s); // (the day's doings counted for each townsperson's diary: sim/diary.ts)

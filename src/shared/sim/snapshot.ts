@@ -161,6 +161,8 @@ import { arenaTrip, arenaView, type ArenaView } from './arena';
 import { ARENA_AWAY } from '../data/arena';
 import { EMPIRE_AWAY } from '../data/tradeEmpire';
 import { portalDestinations, portalSummaries, portalView, type PortalSummary, type PortalView } from './portals';
+import { arcanaView, magicView, type MagicView } from './magic';
+import { MAGIC_FX_NAMES, RITES, type RiteId } from '../data/magic';
 import { politicsView, type PoliticsView } from './politics';
 import { calamityView, heartDestinations, type CalamityView } from './calamity';
 import { enemyDestinations, greatEnemyView, type GreatEnemyView } from './greatEnemy';
@@ -179,6 +181,7 @@ import { underDestinations, underSummary, underView, type UnderSummary, type Und
 const spellName = (spell: string): string => {
   const [side, id] = spell.split(':');
   if (side === 'town') return POWERS[id]?.name ?? id;
+  if (side === 'magic') return RITES[id as RiteId]?.name ?? MAGIC_FX_NAMES[id] ?? id; // (the town's rites: sim/magic.ts)
   for (const sp of ALL_LORD_SPELLS()) if (sp.id === id) return sp.name;
   return id;
 };
@@ -364,6 +367,9 @@ export interface PersonView {
   kit: { name: string; spell: boolean; level: number; cost: number; pool: 'mp' | 'sp' | 'limit'; text: string }[];
   /** The passive skills they've learned (always on), with what each gives. */
   passives: { name: string; level: number; text: string }[];
+  /** A caster's magic (sim/magic.ts): every spell they know (those learned by study marked), what they study, their
+   *  practice and madness; null for anyone who doesn't cast. */
+  arcana?: ReturnType<typeof arcanaView>;
 }
 
 export interface CraftOrderView {
@@ -1005,6 +1011,8 @@ export interface Snapshot {
   skipRaids: boolean;
   /** The town's people's own ways (sim/heritage.ts). */
   heritage: HeritageView | null;
+  /** The town's magic (sim/magic.ts): mana, the wild magic, the schools, the casters, the rites, the leylines. */
+  magic: MagicView | null;
   /** A descendant's town: its line, spirits, heirloom and the old town (sim/ancestors.ts). */
   ancestry: AncestryView | null;
   /** Quests open (sim/quests.ts): what, for which dungeon, and hours left to take it up. */
@@ -1388,6 +1396,7 @@ export function snapshot(s: GameState): Snapshot {
     raidSkipping: !!s.raidSkip && !!s.raid,
     skipRaids: !!s.skipRaids,
     heritage: slow(s, 'heritage', () => heritageView(s)),
+    magic: slow(s, 'magic', () => magicView(s)),
     ancestry: slow(s, 'ancestry', () => ancestryView(s)),
     hero: s.hero !== undefined && s.people.some((p) => p.id === s.hero) ? s.hero : null,
     prompts: s.prompts.map((p) => ({
@@ -2128,9 +2137,10 @@ function roadView(s: GameState, p: Person): PersonView['road'] {
 }
 
 /** Someone's fighting stats and kit, worked out again only when what they depend on changes. */
-const fightCache = new Map<number, { key: string; view: Pick<PersonView, 'battle' | 'kit' | 'passives'> }>();
-function fightView(p: Person): Pick<PersonView, 'battle' | 'kit' | 'passives'> {
-  const key = JSON.stringify([p.cls, p.road, p.attrPts, levelOf(p), p.gear, p.gearQ, p.skills.melee.level, p.skills.ranged.level, p.skills.social.level, p.traits, p.monster, Math.round(p.hp)]);
+const fightCache = new Map<number, { key: string; view: Pick<PersonView, 'battle' | 'kit' | 'passives' | 'arcana'> }>();
+function fightView(p: Person): Pick<PersonView, 'battle' | 'kit' | 'passives' | 'arcana'> {
+  const a = p.arcana;
+  const key = JSON.stringify([p.cls, p.road, p.attrPts, levelOf(p), p.gear, p.gearQ, p.skills.melee.level, p.skills.ranged.level, p.skills.social.level, p.traits, p.monster, Math.round(p.hp), a && [a.spells.length, a.study?.spell, Math.floor(a.study?.hours ?? 0), Math.round(a.madness * 20), a.rites, a.miscasts]]);
   const hit = fightCache.get(p.id);
   if (hit?.key === key) return hit.view;
   if (fightCache.size > 500) fightCache.clear();
@@ -2140,6 +2150,7 @@ function fightView(p: Person): Pick<PersonView, 'battle' | 'kit' | 'passives'> {
     battle: { damage: f.damage, accuracy: f.accuracy, dodge: f.dodge, armor: f.armor, block: f.block, crit: f.quirks?.crit ?? 0, ranged: f.ranged, attrs: f.attrs!, mp: f.maxMp ?? 0, sp: f.maxSp ?? 0, interval: f.interval, range: weaponRange(p, ranged(p)) },
     kit: (kit?.actions ?? []).map((a) => ({ name: a.name, spell: a.spell, level: a.level, cost: a.cost, pool: a.pool, text: describeAct(a.effects, a.cooldown / TICK_HZ, a.pool === 'limit') })),
     passives: p.cls ? abilitiesKnown(p.cls, levelOf(p), p.road).filter((a) => a.passive).map((a) => ({ name: a.name, level: a.level, text: describePassive(a.passive!) })) : [],
+    arcana: arcanaView(p),
   };
   fightCache.set(p.id, { key, view });
   return view;

@@ -5,6 +5,7 @@
 
 import { CONQUEST } from '../data/conquest';
 import { PRISON_BUILDINGS, SICKBEDS } from '../data/prisons';
+import { magicTopicWorth } from '../data/magic';
 import { needsSickbed, sickbedsOf } from './sickbeds';
 import { cellsOf } from './prisoners';
 import { bloodTown } from './vampires';
@@ -296,6 +297,7 @@ function topicScore(t: Topic, n: Needs): number {
   if (t.id === 'family_life') score += n.people >= 4 ? 40 : 10;
   // (boats: fishing when food runs short, islands and the sea's markets once the town is a few strong: data/boats.ts)
   if (t.id === 'planar_lore') score += n.people >= 6 ? 18 : 2; // (the Portal Arch: other worlds, sim/portals.ts)
+  score += magicTopicWorth(t.id, n.people, n.raided); // (the leylines and the schools of magic: data/magic.ts)
   if (t.id === 'delving') score += n.people >= 5 ? 30 : 4; // (the shaft to the Deep: ore below, and what lives with it, sim/deep.ts)
   if (t.id === 'monster_lore') score += n.people >= 5 ? 20 : 4; // (the Monster Hunters' Guild: hunts for a purse, and gear from the parts)
   if (BOAT_TOPICS.some((b) => b.id === t.id)) score += (n.people >= 4 ? 24 : 6) + (t.id === 'boatbuilding' && n.shore ? 16 : 0) + (n.foodDays < 5 && t.id === 'boatbuilding' ? 12 : 0) + (n.direction === 'trade' && (t.id === 'navigation' || t.id === 'steamships') ? 10 : 0);
