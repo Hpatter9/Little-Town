@@ -210,3 +210,38 @@ export const MAGE_DAMAGE: [number, number] = [6, 10];
 export const MAGE_PER_LEVEL = 1.2;
 export const MAGE_SPLASH = 0.5;
 export const MAGE_BURST_PX = 24;
+
+/* ------------------------------------------------------------ the odds weighed (sim/raidOdds.ts) */
+
+/** A band of people whose might is under this share of the town's turns back at the sight of it (and the town may
+ *  hunt it down or let it go). */
+export const ODDS_TURN = 0.5;
+/** A band that turns back gathers until it would make a fair fight (this share of the town's might), as much as
+ *  `ODDS_GATHER_CAP` times bigger and tougher than first; `ODDS_GATHER_STEP` is one step of that in the town's tally
+ *  (`raidOdds.extra`); after `ODDS_GATHER_MAX` turnings-back in a row the next comes whatever the odds. */
+export const ODDS_FAIR = 0.7;
+export const ODDS_GATHER_STEP = 0.4;
+export const ODDS_GATHER_CAP = 3;
+export const ODDS_GATHER_MAX = 3;
+/** The Hunter's Guild's anger (`GameState.guild`) falls with mercy, rises with a hunt. */
+export const GUILD_MERCY = 10;
+/** What a pit or a tower is worth beside a fighter: the health it is reckoned to have. */
+export const ODDS_TOWER_HP = 120;
+/** Walls count for at most this share of the town's fighters (and the towers the same). */
+export const ODDS_WALL_SHARE = 0.5;
+export const ODDS_WALL_RATE = 0.25;
+/** How long a parley/mercy question waits for an answer (hours). */
+export const ODDS_ASK_HOURS = 2;
+/** A broken band is worth asking about only from this many raiders. */
+export const MERCY_MIN_RAIDERS = 3;
+/** Hunted raiders are run down at this chance a tick, and the experience each hunter gets for one (a swing's worth). */
+export const HUNT_CHANCE = 0.05;
+export const HUNT_XP = 12;
+/** Mercy: the standing with their people (the faction's attitude). Slaughter: what it falls by. */
+export const MERCY_STANDING = 8;
+export const SLAUGHTER_STANDING = -10;
+/** A slaughter's survivor carries a grudge: chance one is left even with none fled, the days before they come back
+ *  (min, max) and how much bigger they come (more of them, tougher, a bigger budget). */
+export const GRUDGE_CHANCE = 0.3;
+export const GRUDGE_DAYS: [number, number] = [4, 9];
+export const GRUDGE_BIGGER = 1.5;
