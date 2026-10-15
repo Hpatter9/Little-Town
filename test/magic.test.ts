@@ -393,7 +393,7 @@ test('a cursed charm drains its bearer and weighs on the mind, until the ward-wr
 test('a master mage makes their masterwork once: an enchanted charm', () => {
   const s = town('master');
   const p = mageOf(s);
-  p.arcana = { spells: SCHOOL_SPELLS.evocation.slice(0, MASTER_SPELLS), practice: 0, madness: 0, rites: 0, miscasts: 0 };
+  p.arcana = { spells: SCHOOL_IDS.flatMap((k) => SCHOOL_SPELLS[k]).slice(0, MASTER_SPELLS), practice: 0, madness: 0, rites: 0, miscasts: 0 };
   hour(s);
   const made = ENCHANTED.filter((id) => (s.items[id] ?? 0) > 0 || Object.values(s.people.map((q) => q.gear.charm)).includes(id));
   assert.equal(made.length, 1);

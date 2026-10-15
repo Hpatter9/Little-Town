@@ -39,11 +39,12 @@ side stream (`${seed}:magic:${tick}`), never the town's.
     gives `CASTER_MANA` (0.25).
   - The store is capped at `MANA_CAP` 30, +60 a tower, +30 a library.
   - The town lays its first tower itself on the strongest ley near the camp (`placeTower`); the library is the planner's
-    "learned to build it".
+    "learned to build it". Neither is laid before the town has `TOWER_PEOPLE` (6) grown-ups and a spare build slot (a
+    one-line hook in planner.ts's "learned to build it" loop): a hamlet's stone goes on homes first.
 - **Study** (`studyHourly`):
   - Each caster at home (`castsSpells`: data/spells.ts `SPELLCASTERS`) studies the most advanced spell of the town's
     schools they can reach (`nextStudy`: up to `STUDY_AHEAD` (5) levels past their own) and don't know.
-  - A spell takes `STUDY_PER_LEVEL` (2) hours a level. Study is ×2 at the library (×1.4 at the tower), quicker with the
+  - A spell takes `STUDY_PER_LEVEL` (4) hours a level. Study is ×2 at the library (×1.4 at the tower), quicker with the
     tome, by Intellect (`STUDY_INT`), and for a favoured school.
   - The Forbidden Arts tempt only a witch, a necromancer, the half-mad, or a people that favours them.
   - Learned spells are `Person.arcana.spells` (`Arcana`: also the study in hand, practice, madness, rites, miscasts).
@@ -52,7 +53,7 @@ side stream (`${seed}:magic:${tick}`), never the town's.
     (`focusCasters`), and `canWear` keeps them out of anyone else's hands (classes.ts).
   - The library writes each school's tome once, and the tower makes foci while a caster lacks one (`wantTomes`, through
     `queueCraft`).
-  - A caster with `MASTER_SPELLS` (6) learned makes their masterwork once: an enchanted charm (`masterworks`).
+  - A caster with `MASTER_SPELLS` (10) learned makes their masterwork once: an enchanted charm (`masterworks`).
 - **The rites** (`RITES`, `RITE_ORDER`; `ritesHourly`, one an hour):
   - Each hour the town casts the first rite it wants that it has the mana and a caster for. The caster is the one best
     at that school (`riteCaster`).
@@ -75,7 +76,8 @@ side stream (`${seed}:magic:${tick}`), never the town's.
     mana an hour and fetches wood and stone. Starved, one turns on someone (`SERVANT_TURNS`, a share of their health)
     and is gone.
   - **The Blood Rite** (Forbidden, below `BLOOD_WHEN` of the cap): bleeds a prisoner dry, else a townsperson
-    (`BLOOD_TAKES`; it may kill), for `BLOOD_MANA` (45). It may leave a cursed charm behind.
+    (`BLOOD_TAKES`; it may kill), for `BLOOD_MANA` (45). It is only cast with a prisoner to bleed, or in a town of
+    `TOWER_PEOPLE` grown-ups. It may leave a cursed charm behind.
   - Alignment: rites push `alignPush`/`orderPush` (the Blood Rite −3 and −0.5 order, scaled by `bloodGuilt`; Mending
     +0.5; the Ward +0.3 order). A mad mage cast out costs −1, and one who kills −2.
 - **What it costs:**

@@ -111,7 +111,7 @@ export const SURGE_CURSE = 0.3;
 /* ------------------------------------------------------------ study, practice, madness */
 
 /** Hours of study a spell needs for each of its levels. */
-export const STUDY_PER_LEVEL = 2;
+export const STUDY_PER_LEVEL = 4;
 /** A caster may study spells this many levels beyond their own. */
 export const STUDY_AHEAD = 5;
 /** Study goes this much faster at the Arcane Library, or at the Mage Tower; and with the school's tome in store. */
@@ -302,7 +302,7 @@ export const CURSED: readonly string[] = ['ashen_grimoire', 'hollow_crown', 'blo
 export const CURSE_MADNESS = 0.012;
 export const CURSE_DRAIN = 0.02;
 /** A caster with this many spells learned by study makes their masterwork (one of `ENCHANTED`), once each. */
-export const MASTER_SPELLS = 6;
+export const MASTER_SPELLS = 10;
 
 /** What a magic topic is worth to the planner (sim/planner.ts topicScore): the lore once the town is a few strong, the
  *  schools after it, the ones against raiders more once it has been raided. */
