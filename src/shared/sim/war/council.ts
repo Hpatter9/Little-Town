@@ -14,7 +14,7 @@ import {
 import { FACTION_BY_ID } from '../../data/factions';
 import { alignPush, alignScore, orderPush } from '../alignment';
 import { declareWar, realm, realmCommand, townMight } from '../factions';
-import { mayGo } from '../parties';
+import { isChild } from '../social';
 import { directionOf } from '../planner';
 import { earn, type Faction, type GameState } from '../state';
 import { TICKS_PER_DAY } from '../time';
@@ -25,8 +25,9 @@ const nameOf = (id: string) => FACTION_BY_ID[id]?.name ?? id;
 export const waysOf = (s: GameState): WarWays => WAR_WAYS[s.origin ?? 'settlers'] ?? WAR_WAYS.default;
 const standing = (f: Faction) => f.stance !== 'destroyed';
 const friendly = (f: Faction) => f.stance === 'alliance' || f.stance === 'vassal' || f.stance === 'trade';
-/** The grown-ups fit to march now. */
-export const fighters = (s: GameState) => s.people.filter((p) => mayGo(s, p)).length;
+/** The grown-ups the town could field (the founder and the guards stay home; who is fit to march is reckoned when
+ *  the party sets out, sim/war/campaigns.ts `sendParty`). */
+export const fighters = (s: GameState) => s.people.filter((p) => !isChild(p) && p.id !== s.mainId && !p.guard && p.away === null && !p.downed).length;
 /** Wicked enough to break its word for gain (the orcs need only be strong). */
 const wicked = (s: GameState) => alignScore(s) <= EVIL_AT;
 
@@ -197,8 +198,8 @@ export function councilDaily(s: GameState): void {
   if ((dir === 'growth' || dir === 'trade') && !ways.proud) {
     for (const f of fs.filter((x) => x.stance === 'war')) {
       const gifted = (w.gifted ??= {});
-      if ((s.coins ?? 0) >= GIFT_COINS * PEACE_TREASURY && day - (gifted[f.id] ?? -99) >= PEACE_GIFT_EVERY_DAYS) {
-        gifted[f.id] = day;
+      if ((s.coins ?? 0) >= GIFT_COINS * PEACE_TREASURY && day - (gifted[f.id] ?? -99) >= PEACE_GIFT_EVERY_DAYS && !Object.values(gifted).includes(day)) {
+        gifted[f.id] = day; // (one gift a day, to one power)
         realmCommand(s, f.id, 'gift', rng);
         warLog(s, `The council sent gifts to ${nameOf(f.id)}, to buy an end to the war.`);
       }

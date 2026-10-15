@@ -39,14 +39,14 @@ export const MARCH_RAMP_FROM = 6;
 export const MARCH_RAMP_DAYS = 10;
 /** The deserters of the side that lost a strike: on this chance a band of them comes for the town (a small raid of
  *  that power's people), more likely when the town fought against them; this many at most, by the loser's troops. */
-export const DESERT_CHANCE = 0.22;
+export const DESERT_CHANCE = 0.12;
 export const DESERT_AGAINST_TOWN = 2;
 export const DESERT_SHARE = 0.12;
 export const DESERT_MOST = 7;
 /** Deserters wait this many hours after the strike before they reach the town, and never come within this many hours
  *  of another raid of theirs. */
 export const DESERT_HOURS = 10;
-export const DESERT_GAP_HOURS = 48;
+export const DESERT_GAP_HOURS = 96;
 /** No deserters come to a town of fewer grown-ups than this, and a band is never more than half its grown-ups. */
 export const DESERT_TOWN_LEAST = 5;
 
