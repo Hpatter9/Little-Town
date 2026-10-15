@@ -23,6 +23,7 @@ import { alignmentYearLines } from './alignment';
 import { religionYearLines } from './religion';
 import { topicName } from '../data/originResearch';
 import type { GuildRole } from '../data/guilds';
+import { warFallen, warYearLines } from './war/memory';
 
 /** Midwinter: the middle day of winter, of an evening. */
 export const CHRONICLE_DAY = Math.ceil(DAYS_PER_SEASON / 2);
@@ -73,6 +74,7 @@ export interface YearStart {
 
 /** Remember someone who has died, for the hall of heroes and the year's chronicle. */
 export function recordFallen(s: GameState, p: Person, cause: string): void {
+  warFallen(s, p); // (one of the war dead? a widow, orphans, a memorial: sim/war/memory.ts)
   const f: Fallen = {
     id: p.id,
     name: p.name,
@@ -192,6 +194,7 @@ export function writeChronicle(s: GameState): Chronicle {
   lines.push(...alignmentYearLines(s, y.tick)); // (the town's swings toward good or evil: sim/alignment.ts)
   lines.push(...religionYearLines(s, y.tick)); // (the year's miracles and the cult: sim/religion.ts)
   lines.push(...dynastyYearLines(s, y.tick)); // (the houses' year: feuds, the ruling house, heirlooms: sim/dynasty.ts)
+  lines.push(...warYearLines(s, y.tick)); // (the realm's wars, and the town's war dead: sim/war/memory.ts)
   // the Great Enemy's turns this year (sim/greatEnemy.ts)
   const foe = s.greatEnemy && s.greatEnemy.chosen >= 0 ? s.greatEnemy : null;
   const turns = (foe?.log ?? []).filter((l) => l.day >= calendar(y.tick).day).map((l) => l.text);

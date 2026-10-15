@@ -29,6 +29,8 @@ export interface Honoured extends Fallen {
   monster: MonsterKind | null;
   /** When their statue was finished and the town gathered to see it (once). */
   unveiled?: number;
+  /** A war memorial (sim/war/memory.ts): the names of the war's fallen it carries, in place of one hero's deeds. */
+  memorial?: string[];
 }
 
 /** Is someone who has died famous enough for a statue? */
@@ -48,10 +50,27 @@ export function honour(s: GameState, p: Person, f: Fallen): void {
   }
 }
 
+/** A memorial to a war's fallen (sim/war/memory.ts): raised once the war has taken enough of the town, a statue in the
+ *  square in the look of one who fell (`p`, still on the roll as they die), the names of all of them on it. Its id is
+ *  its own (below every townsperson's), and a later death in the war adds a name. */
+export function warMemorial(s: GameState, war: string, names: string[], p: Person, first: boolean): void {
+  const list = (s.honoured ??= []);
+  const title = `The fallen of the war with ${war}`;
+  const had = list.find((h) => h.memorial && h.name === title);
+  if (had) {
+    had.memorial = [...names];
+    return;
+  }
+  if (!first) return;
+  const id = -8_000_000 - list.filter((h) => h.memorial).length;
+  list.push({ id, name: title, day: 0, cause: `in the war with ${war}`, level: 0, calling: null, titles: [], felled: 0, trips: 0, founder: false, look: { ...p.look }, gear: { ...p.gear }, cls: null, stage: 0, fcls: false, monster: null, memorial: [...names] });
+}
+
 const plural = (n: number, one: string, many = `${one}s`) => `${n} ${n === 1 ? one : many}`;
 
 /** What they did, for the statue's card: a line each, the founding first. */
-export function deedsOf(h: Pick<Fallen, 'founder' | 'titles' | 'felled' | 'level' | 'trips' | 'calling'>): string[] {
+export function deedsOf(h: Pick<Fallen, 'founder' | 'titles' | 'felled' | 'level' | 'trips' | 'calling'> & { memorial?: string[] }): string[] {
+  if (h.memorial) return [`In memory of the ${h.memorial.length} of the town who fell in it:`, `${h.memorial.join(', ')}.`];
   const out: string[] = [];
   if (h.founder) out.push('Founded the town, or led it after its founder.');
   if (h.titles.length) out.push(`Known as ${h.titles.join(', ')}.`);

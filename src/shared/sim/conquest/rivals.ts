@@ -1,22 +1,21 @@
-// The rival realms on the conquest map (sim/factions.ts holds who they are and how they stand with the town; this
-// is what they do on the map): each day a power may march an army (its strength a share of its troops: the realm's
-// own `troops` are the same count the hosts and the Realm tab use) on a province beside its land: free ground is
-// taken; a lair is cleared by a strong enough army; a province of the town's is attacked when the power is at war
-// (the garrison and the walls hold it, or an army of the town's standing there; lost, it changes hands); another
-// power's when the two are at feud (sim/worldLife.ts). A destroyed power's provinces go free. And the win: every
-// province the town's, or an ally's or a vassal's (the owner's call: by conquest or alliance).
+// The powers on the War tab's map (sim/factions.ts holds who they are and how they stand with the town; this is how
+// their borders move): in the marching seasons (sim/war/state.ts `warSeason`: spring and summer) a power may march an
+// army (its strength a share of its troops: the realm's own `troops`, the same count the hosts use) on a province
+// beside its land: free ground is taken, a lair is cleared by a strong enough army, and a province of the town's is
+// attacked when the power is at war with the town (its settlement and walls hold it, with a share of the town's
+// might, more under the Defence direction; lost, it changes hands). The wars between the powers strike at each
+// other's provinces through sim/war/strikes.ts. A destroyed power's provinces go free. And the win: every province
+// the town's, or an ally's or a vassal's.
 
 import { FACTION_BY_ID } from '../../data/factions';
 import { FORTS } from '../../data/conquest';
-import { DEFENCE_PER_TIER, DEFENCE_PER_WALL, RIVAL_EDGE, RIVAL_LAIR_STRENGTH, RIVAL_LOSS_PER_DEFENCE, RIVAL_MOVE_CHANCE, RIVAL_MOVE_DAYS, RIVAL_PER_PROVINCE, RIVAL_PER_TROOP, RIVAL_SATED, TROOP_BY_ID } from '../../data/troops';
+import { CROSSROADS_PACE, DEFENCE_PER_TIER, DEFENCE_PER_WALL, MARCH_HOURS, MARCH_PER_CELL, RIVAL_EDGE, RIVAL_LAIR_STRENGTH, RIVAL_LOSS_PER_DEFENCE, RIVAL_MOVE_CHANCE, RIVAL_MOVE_DAYS, RIVAL_PER_PROVINCE, RIVAL_PER_TROOP, RIVAL_SATED } from '../../data/troops';
 import { hashSeed, Rng } from '../../rng';
-import { realm } from '../factions';
+import { realm, townMight } from '../factions';
 import { notify, type Faction, type GameState } from '../state';
-import { TICKS_PER_DAY } from '../time';
-import { armiesOf, armyStrength, legTicks } from './armies';
-import { lairCleared } from './battles';
+import { TICKS_PER_DAY, TICKS_PER_HOUR } from '../time';
+import { warSeason } from '../war/state';
 import { holdings, worldOf, type ConquestState } from './conquest';
-import { troopWorth } from './squads';
 import type { ConquestWorld } from './world';
 
 export interface RivalArmy {
@@ -25,33 +24,56 @@ export interface RivalArmy {
   to: number;
   arrive: number;
   strength: number;
+  /** The tick it set out (for the map's march line). */
+  start?: number;
 }
+
+/** A share of the town's might stands behind each of its provinces (more under Defence: walls and militia). */
+export const TOWN_LAND_GUARD = 0.25;
+export const DEFENCE_GUARD = 1.5;
 
 export const rivalArmiesOf = (c: ConquestState): RivalArmy[] => (c.rivalArmies ??= []);
 const factionOf = (s: GameState, id: string): Faction | undefined => realm(s).find((f) => f.id === id);
-/** A province's defence against a rival: the town's garrison and army, else its settlement and walls. */
+export const lairCleared = (c: ConquestState, province: number) => (c.cleared ?? []).includes(province);
+
+/** How long a march from one province to the next takes (ticks): by the distance, quicker into a crossroads. */
+export function legTicks(w: ConquestWorld, from: number, to: number): number {
+  const a = w.provinces[from];
+  const b = w.provinces[to];
+  const hours = (MARCH_HOURS + Math.hypot(a.x - b.x, a.y - b.y) * MARCH_PER_CELL) * (b.landmark === 'crossroads' ? CROSSROADS_PACE : 1);
+  return Math.round(hours * TICKS_PER_HOUR);
+}
+
+/** A province's defence: its settlement and walls, and for the town's a share of the town's might. */
 export function defenceOf(s: GameState, c: ConquestState, w: ConquestWorld, province: number): number {
   const p = w.provinces[province];
   let d = p.tier * DEFENCE_PER_TIER + FORTS[p.fort].walls * DEFENCE_PER_WALL;
-  if (c.holder[province] === 'town') {
-    for (const [k, n] of Object.entries(c.garrisons?.[province] ?? {})) d += (TROOP_BY_ID[k] ? troopWorth(TROOP_BY_ID[k]) : 1) * n;
-    for (const a of armiesOf(c)) if (a.going === null && a.at === province) d += armyStrength(s, c, a);
-  }
+  if (c.holder[province] === 'town') d += townMight(s) * TOWN_LAND_GUARD * (s.direction === 'defense' ? DEFENCE_GUARD : 1);
   return d;
 }
-const feuding = (s: GameState, a: string, b: string) => (s.feuds ?? []).some((f) => (f.a === a && f.b === b) || (f.a === b && f.b === a));
 
-/** Each day: destroyed powers' land goes free; each power may march. */
+/** The powers on the map: the world's own realms and any power that has come to hold land since (a rising power's
+ *  seat). */
+export function powersOnMap(c: ConquestState): string[] {
+  const ids = c.realmIds.slice(1);
+  for (const h of c.holder) if (h && h !== 'town' && !ids.includes(h)) ids.push(h);
+  return ids;
+}
+
+/** Each day: destroyed powers' land goes free; in the marching seasons each power may march into free land, or on a
+ *  province of the town's when at war with it. */
 export function rivalsDaily(s: GameState, c: ConquestState, w: ConquestWorld): void {
   const day = Math.floor(s.tick / TICKS_PER_DAY);
   c.rivalMoved ??= {};
-  for (const id of c.realmIds.slice(1)) {
+  const marching = warSeason(s) === 'march';
+  for (const id of powersOnMap(c)) {
     const f = factionOf(s, id);
     if (!f) continue;
     if (f.stance === 'destroyed') {
       for (const i of holdings(c, id)) c.holder[i] = null;
       continue;
     }
+    if (!marching) continue;
     if (rivalArmiesOf(c).some((a) => a.realm === id)) continue;
     if (day - (c.rivalMoved[id] ?? -RIVAL_MOVE_DAYS) < RIVAL_MOVE_DAYS) continue;
     const rng = new Rng(hashSeed(`${s.seed}:rival:${id}:${day}`));
@@ -66,20 +88,18 @@ export function rivalsDaily(s: GameState, c: ConquestState, w: ConquestWorld): v
         const h = c.holder[n];
         const p = w.provinces[n];
         if (h === id) continue;
-        if (p.capitalOf !== null && h !== null) continue; // (a capital is its realm's seat: the town's is the town itself, taken only by its fall; a rival's only by the town's armies)
+        if (p.capitalOf !== null && h !== null) continue; // (a capital is its realm's seat: the town's is the town itself; a power's falls only to a war's strike: sim/war/strikes.ts)
         if (h === null) {
           if (p.landmark === 'lair' && !lairCleared(c, n)) {
             if (strength >= RIVAL_LAIR_STRENGTH) picks.push({ from: i, to: n, worth: 2 + p.tier });
           } else picks.push({ from: i, to: n, worth: 3 + p.tier });
-        } else if (h === 'town') {
-          if (f.stance === 'war' && strength > defenceOf(s, c, w, n) * RIVAL_EDGE) picks.push({ from: i, to: n, worth: 4 + p.tier });
-        } else if (feuding(s, id, h) && strength > defenceOf(s, c, w, n) * RIVAL_EDGE) picks.push({ from: i, to: n, worth: 2 + p.tier });
+        } else if (h === 'town' && f.stance === 'war' && strength > defenceOf(s, c, w, n) * RIVAL_EDGE) picks.push({ from: i, to: n, worth: 4 + p.tier });
       }
     if (!picks.length) continue;
     picks.sort((a, b) => b.worth - a.worth);
     const best = picks.filter((x) => x.worth === picks[0].worth);
     const pick = best[rng.int(0, best.length - 1)];
-    rivalArmiesOf(c).push({ realm: id, from: pick.from, to: pick.to, arrive: s.tick + legTicks(w, pick.from, pick.to), strength });
+    rivalArmiesOf(c).push({ realm: id, from: pick.from, to: pick.to, arrive: s.tick + legTicks(w, pick.from, pick.to), strength, start: s.tick });
     c.rivalMoved[id] = day;
     if (c.holder[pick.to] === 'town') notify(s, `${FACTION_BY_ID[id]?.name ?? id} march on ${w.provinces[pick.to].name}!`, true);
   }
@@ -112,20 +132,9 @@ export function rivalsTick(s: GameState, c: ConquestState): void {
     }
     const defence = defenceOf(s, c, w, a.to);
     if (a.strength > defence * RIVAL_EDGE) {
-      // taken
-      const was = h;
       c.holder[a.to] = a.realm;
-      delete c.garrisons?.[a.to];
       f.troops = Math.max(1, Math.round(f.troops - defence * RIVAL_LOSS_PER_DEFENCE * 0.5));
-      if (was === 'town') {
-        // an army of the town's standing there falls back
-        for (const own of armiesOf(c)) if (own.going === null && own.at === a.to) {
-          const back = p.neighbours.find((n) => c.holder[n] === 'town') ?? w.realms[0].capital;
-          own.at = back;
-          own.path = [];
-        }
-        notify(s, `${p.name} has fallen to ${name}.`, true);
-      }
+      if (h === 'town') notify(s, `${p.name} has fallen to ${name}.`, true);
     } else {
       f.troops = Math.max(1, Math.round(f.troops - defence * RIVAL_LOSS_PER_DEFENCE));
       if (h === 'town') notify(s, `${name}'s attack on ${p.name} is thrown back.`, true);

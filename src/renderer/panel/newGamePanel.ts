@@ -193,7 +193,7 @@ export function renderNewGame(snap: Snapshot, bridge: Bridge): HTMLElement[] {
     draw();
     wrap.scrollIntoView({ block: 'start' });
   };
-  /** The conquest's world (data/conquest.ts): the realms that share it, the town counted; more realms, a bigger map. */
+  /** The War tab's world (data/conquest.ts): the realms that share it, the town counted; more realms, a bigger map. */
   const realmsPage = () => {
     const box = el('div', 'realms-page');
     const row = el('div', 'row realms-row');
@@ -205,7 +205,7 @@ export function renderNewGame(snap: Snapshot, bridge: Bridge): HTMLElement[] {
     box.append(
       row,
       el('div', 'purpose', `${realms} realms: your town and ${rivals} rival ${rivals === 1 ? 'power' : 'powers'}, over ${PROVINCES_PER_REALM * realms} provinces.`),
-      el('div', 'hint', 'Conquest: the game is won when every province is yours, or an ally\'s or vassal\'s. More realms make a bigger world with more to take, and more to take it from you.'),
+      el('div', 'hint', 'The realm\'s powers make war on each other by the season, and draw the town in. More realms make a bigger world, with more wars in it; if every province ever answers to the town or its friends, the world is won.'),
     );
     return box;
   };

@@ -1480,10 +1480,12 @@
       }
       .map-march.host { background: #8a2a1a; border-color: #ffb090; font-weight: bold; }
       .map-march.feud { background: #5a3a6a; border-color: #d8b0f0; }
+      .map-march.campaign { background: #7a5a10; border-color: #ffe08a; font-weight: bold; }
       .map-march.trade, .map-march.envoy { background: transparent; border: none; font-size: 14px; }
       .map-feud { position: absolute; transform: translate(-50%, -50%); font-size: 14px; color: #ff8070; text-shadow: 0 0 3px #000; pointer-events: none; }
       .map-route.host { stroke: #d04030; stroke-dasharray: 5 4; stroke-width: 2.5; }
       .map-route.feud { stroke: #a070c0; stroke-dasharray: 3 4; stroke-width: 1.5; }
+      .map-route.campaign { stroke: #f0c040; stroke-dasharray: 5 3; stroke-width: 2.5; }
       .map-route.trade-road { stroke: #f0c860; stroke-dasharray: 4 4; stroke-width: 2.5; opacity: 0.85; }
       .map-march.caravan, .map-march.ship { background: transparent; border: none; font-size: 15px; filter: drop-shadow(0 0 2px #ffe9a0); }
       .map-post { position: absolute; transform: translate(-50%, -50%); min-width: 18px; height: 18px; border-radius: 4px; background: #4a3a14; border: 1.5px solid #f0c860; color: #ffe9a0; font-size: 11px; line-height: 15px; text-align: center; pointer-events: auto; box-shadow: 0 0 4px #000a; }
@@ -2464,7 +2466,9 @@
       .war-map {
         position: relative;
         overflow: hidden;
-        margin: 6px 0;
+        width: fit-content;
+        max-width: 100%;
+        margin: 6px auto;
         border: 1px solid var(--wood-edge, #5a3a1a);
         border-radius: 4px;
         background: #1a2a3a;
@@ -2491,6 +2495,18 @@
         font-size: 18px;
         line-height: 1;
       }
+      .war-season {
+        margin: 2px 0 6px;
+        padding: 6px 8px;
+        border-radius: 6px;
+        border-left: 4px solid #8a8a8a;
+        background: rgba(255, 255, 255, 0.04);
+        font-size: 13px;
+      }
+      .war-season.march { border-left-color: #d04a4a; }
+      .war-season.harvest { border-left-color: #e0a040; }
+      .war-season.hold { border-left-color: #8fb4d8; }
+      .war-season .hint { margin: 2px 0 0; }
       .war-legend {
         display: flex;
         flex-wrap: wrap;

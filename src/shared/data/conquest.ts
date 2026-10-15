@@ -8,11 +8,12 @@
 import type { Biome } from './biomes';
 import type { Material } from './materials';
 
-/** The conquest (the War tab, provinces, armies, squads) is switched off for now (the owner's call: "remove the war
- *  feature for now and we can work on it later"). The code and the save state stay; with this false there is no War
- *  tab, no realms page on the New Town wizard, no hourly conquest, no war notices, and no training grounds built. The
- *  conquest's own tests turn it on (`CONQUEST.on = true`), so its code stays tested while it's parked. */
-export const CONQUEST = { on: false };
+/** The War tab and its world of provinces. It was switched off at 0.29.0 (the owner: "remove the war feature for now
+ *  and we can work on it later") and came back with the seasons of war (sim/war/): the world, its provinces and their
+ *  holders stay, the borders moved by the realm's own wars; the town's armies, squads, troops and battles by hand were
+ *  removed (a town that runs itself picks no targets). With this off: no War tab, no realms page on the New Town
+ *  wizard, no seasons of war (sim.ts `warHourly`) and no war in the snapshot. */
+export const CONQUEST = { on: true };
 
 export const REALMS_MIN = 2;
 export const REALMS_MAX = 12;
