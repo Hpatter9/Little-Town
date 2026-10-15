@@ -3,8 +3,9 @@ import { test } from 'node:test';
 import { Couriers } from '../src/renderer/map/mapCourier';
 import { BUILDING_BY_ID } from '../src/shared/data/buildings';
 import { footprint, placeBlueprint } from '../src/shared/sim/buildings';
-import { castleLayout, castleStep, coreRect, digOrder, digRoom, rooms } from '../src/shared/sim/castle';
-import { CELL, groundAt, setGround, stepCost } from '../src/shared/sim/land';
+import { castleGate, castleLayout, castleStep, coreRect, digOrder, digRoom, hallCells, isHallway, rooms } from '../src/shared/sim/castle';
+import { buildingDoor } from '../src/shared/sim/buildings';
+import { CELL, idx, groundAt, setGround, stepCost } from '../src/shared/sim/land';
 import { Sim } from '../src/shared/sim/sim';
 import { campCell, edgeXY, newGame } from '../src/shared/sim/state';
 import { TICKS_PER_DAY } from '../src/shared/sim/time';
@@ -103,4 +104,41 @@ test('a dwarves hold finishes its rooms with nobody standing in the rock', () =>
   assert.equal(on, 0, 'townsfolk seen on rock');
   assert.ok(rooms(s).filter((b) => b.status === 'done').length >= 4, 'rooms were finished');
   assert.ok(BUILDING_BY_ID.longhouse);
+});
+
+test('every new room of a hold opens off the entrance hall or a hallway, and the hallways join the entrance', () => {
+  const sim = new Sim(newGame('solid-halls', { origin: 'dwarves' }));
+  const s = sim.state;
+  for (let t = 0; t < 8 * TICKS_PER_DAY && !s.gameOver; t++) sim.step();
+  const m = s.land;
+  const halls = s.buildings.filter((b) => b.room && isHallway(b));
+  assert.ok(halls.length >= 1, 'a hallway was cut');
+  assert.ok(halls.some((b) => b.status === 'done'), 'a hallway was finished');
+  const hall = hallCells(s);
+  // the hallways are one body with the entrance hall (flood from the hall's cells over the hall-like cells)
+  const core = coreRect(s);
+  const seen = new Set<number>([idx(m, core.x, core.y)]);
+  const queue = [idx(m, core.x, core.y)];
+  for (let q = 0; q < queue.length; q++) {
+    const x = queue[q] % m.w;
+    const y = Math.floor(queue[q] / m.w);
+    for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+      const i = idx(m, x + dx, y + dy);
+      if (hall.has(i) && !seen.has(i)) {
+        seen.add(i);
+        queue.push(i);
+      }
+    }
+  }
+  for (const i of hall) assert.ok(seen.has(i), 'a hallway cell cut off from the entrance hall');
+  const gate = castleGate(s);
+  const from = { x: (gate.x + 0.5) * CELL, y: (gate.y + 0.5) * CELL };
+  for (const b of s.buildings.filter((q) => q.room && q.halled)) {
+    const f = footprint(b);
+    let touches = false;
+    for (let y = f.y; y < f.y + f.h; y++) for (let x = f.x; x < f.x + f.w; x++) for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) if (hall.has(idx(m, x + dx, y + dy))) touches = true;
+    assert.ok(touches, `${b.def} opens off a hallway or the hall`);
+    if (b.status === 'done') assert.ok(pathTo(s, from, buildingDoor(b)), `a way from the gate to ${b.def}`);
+  }
+  assert.ok(castleLayout(s));
 });
