@@ -4754,3 +4754,95 @@ a gallery dug for ore).
   hallways join the entrance"). `tools/hold-map.mjs [days]` prints a hold as a map.
 - Soak (dwarves, 20 days, 6 seeds): people 4.2 before, 4.0 with solid rock and hallways (3.8 with solid rock alone),
   one town of six lost its last founder to lightning on day 20. Settlers, orcs and knights (2 seeds) unchanged.
+
+## Walls and doors stand taller than the townsfolk
+
+The owner: "The walls and doors are too short for the height of the townsfolk." A townsperson is drawn 48 px tall
+(`HK_K` in `map/mapPeople.ts`; founders 55, children 34); the castle's partitions were 22 px of face and their doorways
+15 px high, the curtain wall 16 to 26, the gate 32. Renderer only: the sim and its hashes are unchanged
+(`node tools/sim-hash.mjs` matches main).
+
+- `map/castleArt.ts` (the vampires' castle and the dwarves' hold): `TALL` = 64 is how far a wall face stands above its
+  foot, `DOOR_H` = 54 and `DOOR` = 24 the doorway in a partition, `TALL_S` = 44 the south wall (the town is seen over
+  it, so it stands lower and the hall stays in view). The pieces are drawn taller *upward* from the same foot: their
+  zIndex and the footprint are as before, so paths, doorways, `wallDepth` and the clutter placement don't move. A wall
+  down a column is its top shown `TALL` above the foot with the wall's end below it. Gates (castle, side gates, the
+  hold's carved gate) are drawn `TALL` square (the pack's arch, doubled-ish), opening about 52 px. `TOWER_H` (keepArt)
+  58 to 96 so the towers stay above the walls.
+- Tall walls would hide the rooms behind them, so `CastleDrawing.walls` lists them and `MapView.seeThrough` draws a
+  wall at `WALL_SEE_THROUGH` (0.3) alpha while a person's feet are behind it (eased, like the trees).
+- `map/packBuildings.ts`: the ring wall's stone, brick, concrete and force tiers (`STONE_WALL`, stacked crops of the
+  dungeon pack's tile) are 80 px tall (were 48, a person's height); their gates are drawn with `GATE_OVER` = 14 px of
+  overhang, 1.9 times as big (opening about 28 to 54 px).
+- Not changed (baked pack sprites): ordinary buildings' doors (cottage, row house, house3/4 trades 0.35 to 0.5 of a
+  person; tavern, inn 0.5 to 0.6; lean-to, hide tent 0.25 to 0.3), the palisade gate's door leaf (30 px) and the single
+  palisade posts (32 px), the painted homes' arches (11 to 16 px), the merfolk huts. Fixing these needs redrawn doors
+  in `packDressing`.
+
+## Fight bars, labelled
+
+The side-view fight HUD (`fight/fightHud.ts`, CSS in `index.html`) reads clearer. Renderer only; the sim and snapshot
+are unchanged (`FighterView` already carried `hp`/`maxHp`). Changes the "Watching a party's fights" HUD.
+
+- Party rows: a short labelled `Turn` gauge beside the name (26px); under it a long `HP` bar with `hp/max` over it
+  (green, amber under a quarter, red when down); then `MP`, `SP` and `Limit` bars side by side, each named.
+- Foes: each kind's row has a life bar with numbers on it (the kind's living foes added together, "×3" in the
+  name) and the short `Turn` gauge. Past three kinds (`.ff-foes.crowd`) rows go one line each (name, bar) and the
+  foes' turn gauge is hidden to keep the window short.
+- Helpers `turnGauge` and `meter` in `fightHud.ts`; classes `.ff-meter`, `.ff-gauge`, `.ff-lab`, `.ff-turnwrap`.
+- Preview: `__skirmish(...)` (main's debug hook) starts a watched skirmish.
+
+## The living wilderness (claude/wilderness; the owner's ask)
+
+The land beyond the town is an ecosystem. Everything runs only with the autopilot on, on its own side stream
+(`${seed}:wild:...`), and lives in the optional `GameState.wild` (older saves just seed it on their first autopilot hour).
+No manual controls.
+
+**Herds and predators** (`sim/wild.ts`, `data/wild.ts`). `wildHourly(s)` (called from `sim.ts` after `nestsHourly`)
+seeds `HERD_TARGET` herds (deer and boar; camels in the desert, boar in swamp and jungle: `BIOME_GAME`) between
+`HERD_NEAR` and `HERD_FAR` cells of the camp, and `PACK_TARGET` predator packs (`BIOME_PREDATORS`: wolves, bears,
+lions, wild dogs). A herd has a summer ground (`ax,ay`) and a winter ground (`bx,by`): it grazes, walks to the winter
+ground in autumn and back in spring (`MIGRATE_STEP` cells an hour), breeds in spring and summer (`BIRTH_RATE`, thinned
+towards the herd's cap) and dies back in the cold (`DEATH_RATE`). Herds keep `HERD_KEEP_OFF` cells from the town. A herd
+under two head scatters. In spring, each day, a missing herd drifts in from beyond `HERD_FAR`. A pack follows the nearest
+herd and kills now and then (`KILL_CHANCE`); hunger rises `HUNGER_RATE` an hour and a kill takes `KILL_RELIEF` off. A
+pack past `HUNGRY_AT` with no game within 30 cells (or starving) walks to the town's edge, and there `strike`s: a
+small roaming band (`spawnRoamerAt`, group from `packFoes`, no raid budget) goes out at whoever is on the land, and
+it may take up to `PEN_TAKE` animals from a pen nothing shelters. Like the roamers it waits for `ROAM_FIRST_DAY` and
+`ROAM_PEOPLE`, never comes in a raid, and rests `PACK_REST_DAYS` after. This is added to the bands that already roam
+(`roamersHourly` is unchanged): the land is no safer than before.
+
+**Hunting tracks real prey.** `huntFactors(s)` reads the nearest herd's distance from the camp: past `HUNT_NEAR`
+cells the yield of a `type: 'hunt'` expedition falls (down to `HUNT_YIELD_MIN`), the road is longer (outTicks,
+up to `HUNT_TRAVEL_MAX`) and the odds of a fight on arrival and ambush rise (`HUNT_RISK_PER_CELL`, up to
+`HUNT_RISK_MAX`). Every `HUNT_UNITS_PER_HEAD` units the hunters bring in, a head falls from the nearest herd
+(`huntedUnit`, from `expeditions.ts`'s work phase). Hunted out near town, the herds are further off and the hunting poorer;
+left alone they breed back and drift in. `parties.ts` `pull` favours hunts while the game is near and looks elsewhere
+when it is thin. A town without `s.wild` hunts as before.
+
+**Forests that live.** Daily (06:00) `spreadWoods` turns open grass with at least three woodland neighbours into young
+woods (half the usual pool): `SPREAD_PER_DAY` by season (none in winter), never over the town, a road, a worn path, a
+regrowing cell or the blight, and never past `WOOD_CAP` times the woods the land began with (`Wild.woodBase`), so
+woodcutters' clearings let it spread again.
+
+**Wildfires in dry summers.** `dryYear(s)` is `DRY_YEAR` of the years (by seed and year) and every drought; in a dry
+summer, with no disaster on, `wildfireStart` lights a woodland wildfire at `DRY_FIRE_HOURLY` an hour through the
+existing disaster (`disasters.ts`). The day's wind (`Wild.wind`, turned a little each day by `WIND_TURN`) rides on the
+fire (`Disaster.wind`): a fire spreads `1 + 0.9 cos(angle to the wind)` times as readily downwind (floor 0.1), and
+likewise for buildings the fire catches (`fireSpread` in `disasters.ts`, then `fire.ts` `setFire`). A dry fire (`Disaster.dry`) also crosses grass (0.8) and
+fields' soil (0.5). Burnt woods are marked `LandMap.rich` and come back after `RICH_DAYS` with `RICH_POOL` times the
+pool (`regrow.ts`). The old (wind-less, forest-only) fires of `disasters.ts` behave as before.
+
+**Rivers that move** (`sim/rivers.ts`). When a flood ends, `maybeShiftRiver` (`RIVER_SHIFT_CHANCE`, rare) may cut a new
+channel `RIVER_SHIFT` cells to one side over a 15-cell stretch near the town; the old bed turns to fertile silt with an
+oxbow pond left in the middle. Fields and huts in the way are lost (`demolish`), road and planned-street cells under it
+go (so a bridge there is lost; the streets replan). It never crosses the camp, the seat, the ring wall's rect, a place
+or a mountain, loses at most six buildings, and is tried on a copy: it is made only if everything the camp could walk to
+before is still reachable (`reach`). People and herds standing in the new water are set on the bank.
+
+**Seen.** `Snapshot.wild` (`wildView`: herds, packs, wind in px) feeds `map/mapWildlife.ts`, which draws the herd
+members around each sim herd from the existing wildlife atlas (the DawnLike critters cut by
+`tools/compose-wildlife.cjs`), and the packs.
+
+Tests: `test/wild.test.ts` (seeding, migration, overhunting and recovery, a hungry pack's band, woods spreading, fire
+downwind and through dry grass, richer regrowth, a river move keeping the land walkable).

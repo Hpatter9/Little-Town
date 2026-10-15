@@ -6,6 +6,7 @@
 // the place, it doesn't go. A bounty the treasury posts draws the adventurers to a place, is held aside, and is paid to the party that does the
 // job.
 
+import { huntFactors } from './wild';
 import { ASSAULT_MOST } from '../data/factions';
 import { BUILDING_BY_ID } from '../data/buildings';
 import { CLASS_DEFS, type ClassRole } from '../data/classes';
@@ -234,6 +235,7 @@ function pull(s: GameState, leader: Person, d: Destination): number {
   if (!s.scouted.includes(d.id)) n += PULL_NEW;
   if (ambitionOf(leader) === 'adventurer' && dangerOf(d) > 0) n += PULL_FIGHT;
   if (d.type === 'gather') n += 1;
+  if (d.type === 'hunt' && s.wild) n += (huntFactors(s).yield - 0.6) * 2; // (the hunters go where the herds are, and look elsewhere when the game is thin: sim/wild.ts)
   if (isSagaDest(d.id)) n += PULL_SAGA; // (a saga waits on it)
   n += huntStars(s, d.id) * PULL_HUNT_STAR; // (the guild's purse, bigger for the harder hunts)
   const nest = isPlaceDest(d.id) ? placeOfDest(s, d.id)?.nest : undefined;

@@ -6,6 +6,8 @@
 // this is in the sim. None on a slow phone; the blighted land has only its wolves.
 
 import { Container, Rectangle, Sprite, Texture } from 'pixi.js';
+import { hashSeed } from '../../shared/rng';
+import type { WildView } from '../../shared/sim/wild';
 import { CELL, groundAt, isRoad, type Ground, type LandMap } from '../../shared/sim/land';
 import wildUrl from '../art/wildlife.png';
 import { loadImage } from '../art/loadImage';
@@ -46,6 +48,23 @@ const DEFS: Record<WildKind, KindDef> = {
 const KEEP_OFF = 3 * CELL;
 /** The most animals about at once. */
 const MOST = 9;
+/** The most herd and pack beasts drawn at once (the sim's herds and packs, on top of the odd decoration). */
+const MOST_KEPT = 24;
+/** Beasts drawn for a herd, and for a pack, at most. */
+const HERD_SHOWN = 7;
+const PACK_SHOWN = 4;
+/** How far (px) a herd spreads about its centre, and a pack prowls. */
+const HERD_SPREAD = 2.5 * CELL;
+const PACK_SPREAD = 1.6 * CELL;
+/** How far past the view (px) a herd or pack is still kept drawn. */
+const KEEP_NEAR = 160;
+/** The small things that stay random decoration when the sim keeps the herds and packs. */
+const SMALL: WildKind[] = ['fox', 'squirrel', 'snowfox'];
+
+/** A steady 0..1 from a name (so a herd's members sit in the same places every frame). */
+function steady(key: string): number {
+  return (hashSeed(key) % 10007) / 10007;
+}
 
 /** What the land offers, by its biome, the season, the hour and the look: kinds with their odds, and how many come
  *  together. */
@@ -88,6 +107,8 @@ interface Beast {
   step: number;
   /** A deer's group is led by the first; the others keep near. */
   lead: Beast | null;
+  /** A herd or pack member (kept by the sim's herds and packs): its place about the centre. */
+  kept?: { key: string; ox: number; oy: number; ph: number; pack: boolean; calm: number };
 }
 
 let frames: Texture[][] | null = null;
@@ -119,6 +140,8 @@ export class MapWildlife {
   biome = 'forest';
   blighted = false;
   land: LandMap | null = null;
+  /** The sim's herds and packs (snapshot.wild); none in older saves, and then the old comings and goings apply. */
+  wild: WildView | undefined = undefined;
   /** Everyone about (world px), who scares them off. */
   folk: { x: number; y: number }[] = [];
   private readonly beasts: Beast[] = [];
@@ -144,13 +167,16 @@ export class MapWildlife {
   render(dt: number, now: number): void {
     const want = this.on && !this.map.calm && this.land && frames ? MOST : 0;
     const { x, y, w, h } = this.map.view;
+    this.renderKept(dt, now, want > 0, x, y, w, h);
     this.nextGroup -= dt;
-    if (this.beasts.length < want && this.nextGroup <= 0) {
+    const loose = this.beasts.filter((b) => !b.kept).length;
+    if (loose < want && this.nextGroup <= 0) {
       this.nextGroup = 4 + Math.random() * 7;
-      this.comeOut(x, y, w, h, want - this.beasts.length);
+      this.comeOut(x, y, w, h, want - loose);
     }
     for (let i = this.beasts.length - 1; i >= 0; i--) {
       const b = this.beasts[i];
+      if (b.kept) continue;
       const d = DEFS[b.kind];
       b.life -= dt;
       const near = this.folk.find((f) => (f.x - b.x) ** 2 + (f.y - b.y) ** 2 < d.shy * d.shy);
@@ -221,9 +247,140 @@ export class MapWildlife {
     }
   }
 
+  /** The sim's herds and packs in view: a few beasts drawn about each one's centre, which moves on a slow hour by hour. */
+  private renderKept(dt: number, now: number, on: boolean, x: number, y: number, w: number, h: number): void {
+    const wild = this.wild;
+    const wanted = new Map<string, { kind: WildKind; cx: number; cy: number; ox: number; oy: number; ph: number; pack: boolean; hungry: boolean }>();
+    if (on && wild) {
+      const near = (px: number, py: number) => px > x - KEEP_NEAR && px < x + w + KEEP_NEAR && py > y - KEEP_NEAR && py < y + h + KEEP_NEAR;
+      const add = (id: string, n: number, cx: number, cy: number, kind: (i: number) => WildKind, pack: boolean, hungry: boolean) => {
+        if (!near(cx, cy)) return;
+        // (nothing is shown on land the town has not yet seen)
+        if (this.land && visibility(this.land, Math.floor(cx / CELL), Math.floor(cy / CELL)) === 0) return;
+        const spread = pack ? PACK_SPREAD : HERD_SPREAD;
+        for (let i = 0; i < n; i++) {
+          if (wanted.size >= MOST_KEPT) return;
+          const key = `${id}:${i}`;
+          const a = steady(key + ':a') * Math.PI * 2;
+          const r = (0.3 + 0.7 * steady(key + ':r')) * spread;
+          wanted.set(key, { kind: kind(i), cx, cy, ox: Math.cos(a) * r, oy: Math.sin(a) * r * 0.6, ph: steady(key + ':p') * 6.28, pack, hungry });
+        }
+      };
+      for (const hd of wild.herds) {
+        const k: WildKind = hd.kind === 'camel' ? 'camel' : hd.kind === 'boar' ? 'boar' : 'deer';
+        add('h' + hd.id, Math.min(hd.n, HERD_SHOWN), hd.x, hd.y, (i) => (k === 'deer' && i === 0 ? 'stag' : k), false, false);
+      }
+      for (const pk of wild.packs) {
+        if (pk.out) continue; // (out on the land, the roaming bands show them)
+        const k: WildKind = pk.kind === 'bears' ? 'bear' : 'wolf';
+        add('p' + pk.id, Math.min(pk.n, PACK_SHOWN), pk.x, pk.y, () => k, true, pk.hungry);
+      }
+    }
+    // those no longer wanted slip away; those wanted and not yet drawn come in
+    for (let i = this.beasts.length - 1; i >= 0; i--) {
+      const b = this.beasts[i];
+      if (!b.kept || (wanted.has(b.kept.key) && wanted.get(b.kept.key)!.kind === b.kind)) continue;
+      b.s.destroy();
+      b.sh.destroy();
+      this.beasts.splice(i, 1);
+    }
+    if (!frames || !wanted.size) return;
+    const have = new Set(this.beasts.filter((b) => b.kept).map((b) => b.kept!.key));
+    const t = now / 1000;
+    for (const [key, o] of wanted) {
+      if (!have.has(key)) {
+        const bx = o.cx + o.ox;
+        const by = o.cy + o.oy;
+        const b = this.spawn(o.kind, bx, by, null);
+        b.kept = { key, ox: o.ox, oy: o.oy, ph: o.ph, pack: o.pack, calm: 0 };
+        b.life = 1e9;
+        b.fade = 1;
+        have.add(key);
+      }
+    }
+    for (const b of this.beasts) {
+      const kp = b.kept;
+      const o = kp && wanted.get(kp.key);
+      if (!kp || !o) continue;
+      const d = DEFS[b.kind];
+      // where it would be: about the centre, grazing a little this way and that; a pack circles in a prowl
+      let gx = o.cx + kp.ox + Math.sin(t * 0.21 + kp.ph) * 18;
+      let gy = o.cy + kp.oy + Math.cos(t * 0.17 + kp.ph) * 10;
+      let sp = d.walk;
+      if (kp.pack) {
+        const ang = t * (o.hungry ? 0.32 : 0.18) + kp.ph;
+        gx = o.cx + Math.cos(ang) * (PACK_SPREAD * 0.7) + kp.ox * 0.3;
+        gy = o.cy + Math.sin(ang) * (PACK_SPREAD * 0.45) + kp.oy * 0.3;
+        sp = d.walk * (o.hungry ? 1.5 : 1);
+      }
+      const gc = this.land ? groundAt(this.land, Math.floor(gx / CELL), Math.floor(gy / CELL)) : 'grass';
+      if (gc === 'water' || gc === 'shallows') {
+        gx = o.cx;
+        gy = o.cy;
+      }
+      let moving = false;
+      const near = this.folk.find((f) => (f.x - b.x) ** 2 + (f.y - b.y) ** 2 < d.shy * d.shy);
+      if (near && b.state !== 'flee') {
+        const ang = Math.atan2(b.y - near.y, b.x - near.x) + (steady(kp.key + Math.floor(t)) - 0.5) * 0.6;
+        b.state = 'flee';
+        b.vx = Math.cos(ang) * d.run;
+        b.vy = Math.sin(ang) * d.run * 0.7;
+        kp.calm = 2.5;
+      }
+      if (b.state === 'flee') {
+        b.x += b.vx * dt;
+        b.y += b.vy * dt;
+        kp.calm -= dt;
+        // (once clear of them, it drifts back to the herd)
+        if (kp.calm <= 0) b.state = 'walk';
+        moving = true;
+      } else {
+        const dx = gx - b.x;
+        const dy = gy - b.y;
+        const dd = Math.hypot(dx, dy);
+        // (far from home it hurries, to rejoin the rest)
+        const pace = dd > 2 * CELL ? d.run * 0.5 : sp;
+        if (dd > 1.5) {
+          const step = Math.min(dd, pace * dt);
+          b.x += (dx / dd) * step;
+          b.y += (dy / dd) * step;
+          b.vx = dx;
+          moving = true;
+          b.state = 'walk';
+        } else b.state = o.pack ? 'walk' : 'graze';
+      }
+      this.pose(b, d, moving, dt);
+    }
+  }
+
+  /** Sets a beast's sprite and shadow for where it now stands. */
+  private pose(b: Beast, d: KindDef, moving: boolean, dt: number): void {
+    // the step's frames swap as it goes (quick at a run); grazing, the head dips now and then
+    b.step += dt * (b.state === 'flee' ? 10 : moving ? 3.5 : 0.35);
+    const frame = Math.floor(b.step) % 2;
+    b.s.texture = frames![WILD_KINDS.indexOf(b.kind)][frame];
+    const lift = b.state === 'flee' ? Math.abs(Math.sin(b.step * Math.PI * 0.5)) * d.bound : 0;
+    // (DawnLike's beasts face left)
+    if (Math.abs(b.vx) > 0.5) b.s.scale.x = (b.vx > 0 ? -1 : 1) * d.scale;
+    b.s.scale.y = d.scale;
+    b.s.alpha = b.fade;
+    b.s.position.set(Math.round(b.x), Math.round(b.y - lift));
+    b.s.zIndex = b.y;
+    b.sh.alpha = 0.3 * b.fade * (1 - Math.min(0.6, lift / 20));
+    b.sh.position.set(Math.round(b.x), Math.round(b.y));
+    b.sh.zIndex = b.y - 0.5;
+  }
+
   /** A group comes out on the wild ground in view, away from everyone. */
   private comeOut(x: number, y: number, w: number, h: number, room: number): void {
-    const choices = wildChoices(this.biome, this.season, this.night, this.blighted);
+    let choices = wildChoices(this.biome, this.season, this.night, this.blighted);
+    if (this.wild) {
+      // (the sim keeps the herds and packs; only the small things are left to chance)
+      choices = choices.filter((c) => SMALL.includes(c[0]));
+      const total = choices.reduce((t, c) => t + c[1], 0);
+      if (!total) return;
+      choices = choices.map((c) => [c[0], c[1] / total, c[2]]);
+    }
     let r = Math.random();
     let pick = choices[0];
     for (const c of choices) {

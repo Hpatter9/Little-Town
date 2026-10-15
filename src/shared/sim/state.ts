@@ -1291,6 +1291,8 @@ export interface GameState {
    *  town (snapshot.watch). */
   watching?: number;
   /** Hostile bands roaming the town's land, and the fights they've started with townsfolk out on it (sim/roamers.ts). */
+  /** The living wilderness: herds, predator packs, the wind (sim/wild.ts). */
+  wild?: import('./wild').Wild;
   roamers?: Roamer[];
   skirmishes?: Skirmish[];
   /** The Calamity (sim/calamity.ts): what it is, how far its dread has risen, its heart and sieges. */
