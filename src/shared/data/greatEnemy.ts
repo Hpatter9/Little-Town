@@ -1,5 +1,5 @@
 // The Great Enemy (the owner's ask: one slow-building villain a town, a long arc for a game meant to last months).
-// Unlike the Calamity (data/calamity.ts), which is a force of the land, the Great Enemy is someone: a lord with a name,
+// The Calamity (data/calamity.ts) is this Enemy's stirring made manifest, a force of the land it sends; the Enemy is someone: a lord with a name,
 // a seat far off on the world map, a goal, lieutenants who do its work, and its own way of fighting. One is chosen for
 // each town soon after the founding, to fit the land and the people (`ENEMY_FITS`): a dark lord in a tower, a dragon
 // brood in the peaks, a plague cult in the fens, a machine mind in the wastes, a drowned king for a shore town, an
@@ -304,22 +304,22 @@ export const ENEMY_KINDS = Object.keys(GREAT_ENEMIES) as EnemyKind[];
 export const STAGE_ORDER: readonly EnemyStage[] = ['dormant', 'omens', 'stirring', 'march', 'siege', 'peace', 'fallen'];
 export const STAGE_LABEL: Record<EnemyStage, string> = { dormant: 'Asleep', omens: 'Omens', stirring: 'Stirring', march: 'The march', siege: 'The last siege', peace: 'Peace', fallen: 'The town fell' };
 
-/** How well an enemy fits a town: its land, its people, and the Calamity it already has (two dark lords at once would
- *  be one too many). A weight; 0 never. */
-export function enemyFit(kind: EnemyKind, biome: Biome, origin: OriginId, shore: boolean, calamity?: string): number {
+/** How well an enemy fits a town: its land and its people (its Calamity follows from it: data/calamity.ts
+ *  `ENEMY_CALAMITY`). A weight; 0 never. */
+export function enemyFit(kind: EnemyKind, biome: Biome, origin: OriginId, shore: boolean): number {
   switch (kind) {
     case 'tower':
-      return calamity === 'tyrant' ? 0.5 : 2;
+      return 2;
     case 'brood':
       return ['highlands', 'tundra', 'taiga', 'ashlands', 'desert'].includes(biome) ? 4 : 1;
     case 'plague':
-      return calamity === 'rot' ? 0 : ['swamp', 'jungle', 'forest'].includes(biome) ? 4 : 1;
+      return ['swamp', 'jungle', 'forest'].includes(biome) ? 4 : 1;
     case 'engine':
       return ['robot', 'alchemists', 'dwarves'].includes(origin) ? 3 : ['desert', 'steppe', 'ashlands'].includes(biome) ? 2 : 1;
     case 'drowned':
       return shore ? 6 : 0;
     case 'undying':
-      return calamity === 'tyrant' || origin === 'lich' ? 0.3 : ['steppe', 'ashlands'].includes(biome) ? 4 : 1.5;
+      return origin === 'lich' ? 0.3 : ['steppe', 'ashlands'].includes(biome) ? 4 : 1.5;
   }
 }
 
@@ -353,6 +353,8 @@ export const REFUSED_HASTE = 2;
 /** Omens: most nights at this hour, from the omens on. Dreams are written in the diaries the morning after. */
 export const OMEN_HOUR = 23;
 export const OMEN_NIGHTLY = 0.25;
+/** The share of its omens that are its Calamity's, foretold (the grey mould, the red light on the horizon). */
+export const CALAMITY_OMEN_SHARE = 0.4;
 /** A traveller goes missing (a morning's chance), and a stranger comes to warn the town (once, in the omens). */
 export const MISSING_DAILY = 0.12;
 export const WARNING_DAILY = 0.1;

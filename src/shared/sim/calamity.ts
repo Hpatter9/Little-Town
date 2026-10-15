@@ -8,45 +8,44 @@
 // again, and the third lost siege is the end. Each stage is told in the event box. Only in a town running itself;
 // rolls are the seed's own.
 
+// The Calamity (data/calamity.ts): the Great Enemy's stirring made manifest, not a second villain on a clock of its
+// own. Which Calamity a town has follows from its Enemy (`ENEMY_CALAMITY`), and the Enemy's **plan** (sim/greatEnemy.ts)
+// drives it: it wakes far off in the omens (`CALAMITY_AT.wakes`), its heart opens on the Expedition Board and its scar
+// blights the land round it after the stirring (`spreading`; nests come thicker and grow faster), its cult takes root
+// and lures the low-spirited (`cults`), and from the march the Enemy's hosts are its armies; the last siege is the
+// Enemy's, and so is the peace. Its heart is the Enemy's forward seat, held by a lieutenant's work: a party that clears
+// it sets the plan back (`HEART_SETBACK`), which is a setback and not the end of the story. Nests burned out and
+// ward stones standing slow the plan too. The dread the menus show is the plan's share of the way to the siege.
+// Only in a town running itself; rolls are the seed's own (the `calamity` stream).
+
 import {
-  ARMY_DAILY,
-  ARMY_SHARE,
   CALAMITIES,
-  CALAMITY_HOUR,
-  CALAMITY_KINDS,
-  CALAMITY_WAKES,
+  CALAMITY_AT,
   CULT_DAILY,
-  DREAD_PER_DAY,
-  DREAD_PER_NEST_LEVEL,
+  ENEMY_CALAMITY,
   FOUND_CHANCE,
-  HEART_DREAD,
   HEART_FAR,
   HEART_QUIET_DAYS,
+  HEART_SETBACK,
   LURE_BELOW,
   LURE_CHANCE,
-  OMEN_HOUR,
-  OMEN_NIGHTLY,
+  NEST_HASTE,
+  RITE_PLAN,
   SCAR_MOST,
   SCAR_PER_DAY,
   SCAR_START,
-  SIEGE_LOST_DREAD,
-  SIEGE_RUIN,
-  SIEGE_SIZE,
-  SIEGE_SIZE_PER_LOSS,
-  SIEGE_WARNING_HOURS,
-  SIEGES_TO_FALL,
   STAGE_NAMES,
   WARD,
-  WARD_DREAD,
+  WARD_SLOW,
   WARDS_MOST,
-  stageOfDread,
   type CalamityKind,
   type CalamityStage,
 } from '../data/calamity';
+import { GREAT_ENEMIES, PLAN_AT } from '../data/greatEnemy';
 import { BUILDING_BY_ID } from '../data/buildings';
-import { RAID_KIND_BY_ID } from '../data/raids';
 import { eventPicture } from '../data/eventScenes';
 import type { Destination } from '../data/expeditions';
+import { DANGER_PACE } from '../data/pace';
 import { directionName } from '../data/places';
 import { hashSeed, Rng } from '../rng';
 import { assignBeds } from './townsfolk';
@@ -55,9 +54,9 @@ import { setFire } from './fire';
 import { groundAt, inMap, wet } from './land';
 import { nestsOf } from './nests';
 import { findSpot } from './planner';
-import { raidBudget, scheduleNextRaid, startRaid } from './raids';
 import { seaTown } from './sea';
-import { campCell, notify, type GameState, type Person, type Prompt, type Raid } from './state';
+import { campCell, notify, type GameState, type Person, type Prompt } from './state';
+import type { GreatEnemyState } from './greatEnemy';
 import { calendar, TICKS_PER_DAY, TICKS_PER_HOUR } from './time';
 import { weatherAt } from './weather';
 import { isChild } from './social';
@@ -66,7 +65,7 @@ import { STAGE_SCENES, wakeSceneOf } from '../data/cutscenes';
 
 export interface CalamityState {
   kind: CalamityKind;
-  /** 0 to 100: how near it is. */
+  /** 0 to 100: the Enemy's plan as a share of the way to the siege (kept for the menus). */
   dread: number;
   stage: CalamityStage;
   woke: number;
@@ -75,26 +74,46 @@ export interface CalamityState {
   scar: number;
   /** When a party last cleared its heart (it reforms after `HEART_QUIET_DAYS`). */
   heartCleared?: number;
-  /** The last siege: when it comes (warned), and the sieges lost. */
-  siegeAt?: number;
-  lost: number;
-  /** When it was beaten for good. */
+  /** Driven by the Great Enemy's plan (set once; a save from before the Calamity became its stage lacks it: sim/greatEnemy.ts `bindCalamity`). */
+  driven?: true;
+  /** When the Enemy was slain and the land began to heal. */
   beaten?: number;
   /** The latest omen, for the menus. */
   omen?: string;
+  /** (Old saves, from when it ran its own siege: sim/greatEnemy.ts `bindCalamity` carries them to the Enemy.) */
+  siegeAt?: number;
+  lost?: number;
 }
 
 const roll = (s: GameState, ...salt: (number | string)[]) => new Rng(hashSeed(`${s.seed}:calamity:${salt.join(':')}`));
 const def = (c: CalamityState) => CALAMITIES[c.kind];
+const enemyIn = (s: GameState) => s.greatEnemy && s.greatEnemy.chosen >= 0 ? GREAT_ENEMIES[s.greatEnemy.kind] : undefined;
+const ended = (e: GreatEnemyState) => e.stage === 'peace' || e.stage === 'fallen';
+const planOfDread = (dread: number) => (dread * PLAN_AT.siege) / 100;
 
-/** Which Calamity a town's seed brings. */
-export const calamityKindOf = (seed: string): CalamityKind => CALAMITY_KINDS[hashSeed(`${seed}:calamity-kind`) % CALAMITY_KINDS.length];
+/** A line in the Enemy's Chronicle (the arc's one telling: sim/greatEnemy.ts keeps the last 24). */
+function chronicle(s: GameState, e: GreatEnemyState | undefined, text: string): void {
+  if (!e) return;
+  e.log.push({ day: calendar(s.tick).day, text });
+  if (e.log.length > 24) e.log.splice(0, e.log.length - 24);
+}
 
-/** It wakes: its kind from the seed, its heart far out on the land. */
-export function wakeCalamity(s: GameState, kind: CalamityKind = calamityKindOf(s.seed)): CalamityState {
-  const c: CalamityState = { kind, dread: 0, stage: 1, woke: s.tick, heart: heartSpot(s), scar: 0, lost: 0 };
+/** The stage the Enemy's plan has brought it to (never back). */
+export function stageOfEnemy(e: Pick<GreatEnemyState, 'plan' | 'stage'>): CalamityStage {
+  if (e.stage === 'siege') return 5;
+  if (e.stage === 'march') return 4;
+  if (e.plan >= CALAMITY_AT.cults) return 3;
+  if (e.plan >= CALAMITY_AT.spreading) return 2;
+  return e.plan >= CALAMITY_AT.wakes ? 1 : 0;
+}
+
+/** It wakes: its heart far out on the land, its kind the Enemy's. */
+export function wakeCalamity(s: GameState, kind: CalamityKind = s.greatEnemy ? ENEMY_CALAMITY[s.greatEnemy.kind] : 'tyrant'): CalamityState {
+  const c: CalamityState = { kind, dread: 0, stage: 1, woke: s.tick, heart: heartSpot(s), scar: 0, driven: true };
   s.calamity = c;
-  tell(s, c, `${capital(def(c).name)} wakes`, def(c).waking, 'omen', wakeSceneOf(c.kind));
+  const e = enemyIn(s);
+  chronicle(s, s.greatEnemy, `${capital(def(c).name)} woke, ${e?.short ?? 'the Enemy'}'s doing`);
+  tell(s, c, `${capital(def(c).name)} wakes`, `${def(c).waking}${e ? ` It is ${e.name}'s doing: ${e.short} sends it ahead of itself, and the land will feel it first.` : ''}`, 'omen', wakeSceneOf(c.kind));
   return c;
 }
 
@@ -115,76 +134,85 @@ function heartSpot(s: GameState): { x: number; y: number } | null {
   return null;
 }
 
-/** Each hour: it wakes on its day; each night an omen may come; each morning the dread is reckoned and the stage's
- *  doings done; the siege comes when warned. */
-export function calamityHourly(s: GameState): void {
-  if (s.tick % TICKS_PER_HOUR !== 0 || s.gameOver || s.autopilot === false) return;
-  const cal = calendar(s.tick);
-  if (!s.calamity) {
-    if (cal.day - 1 >= CALAMITY_WAKES && cal.hour === CALAMITY_HOUR) wakeCalamity(s);
-    return;
-  }
-  const c = s.calamity;
-  if (c.beaten !== undefined) return;
-  if (c.siegeAt !== undefined && s.tick >= c.siegeAt && !s.raid) startSiege(s, c);
-  if (cal.hour === OMEN_HOUR && roll(s, 'omen', cal.day).chance(OMEN_NIGHTLY)) omen(s, c);
-  if (cal.hour === CALAMITY_HOUR) calamityDaily(s, c, roll(s, 'day', cal.day));
-}
+/* ------------------------------------------------------------ driven by the plan */
 
-/** How much the dread rises today. */
-export function dreadToday(s: GameState): number {
+/** How much the Calamity quickens the Enemy's plan today (a day's pace): for each level of each nest left on the land,
+ *  less for each ward stone standing. Nothing before it has spread. */
+export function calamityPace(s: GameState): number {
+  const c = s.calamity;
+  if (!c || c.beaten !== undefined || c.stage < 2) return 0;
   const nests = nestsOf(s).reduce((n, p) => n + p.nest!.level, 0);
   const wards = s.buildings.filter((b) => b.def === WARD && b.status === 'done').length;
-  return Math.max(0, DREAD_PER_DAY + DREAD_PER_NEST_LEVEL * nests - WARD_DREAD * wards);
+  return NEST_HASTE * nests - WARD_SLOW * wards;
 }
 
-function calamityDaily(s: GameState, c: CalamityState, g: Rng): void {
-  if (c.siegeAt === undefined) c.dread = Math.min(100, c.dread + dreadToday(s));
-  setStage(s, c, stageOfDread(c.dread));
+/** The plan moves by some days (a nest burned out, a heart struck, a rite held), never into the siege on its own. */
+export function shiftPlan(s: GameState, days: number): boolean {
+  const e = s.greatEnemy;
+  if (!e || ended(e) || e.siegeAt !== undefined) return false;
+  e.plan = Math.max(0, Math.min(PLAN_AT.siege - 0.1, e.plan + days));
+  return true;
+}
+
+/** The dread (as the menus count it, 0 to 100) moves: the plan moves with it. */
+export const shiftDread = (s: GameState, dread: number) => shiftPlan(s, planOfDread(dread));
+
+/** The Enemy's plan has moved (from sim/greatEnemy.ts, each morning and when a stage is forced): the Calamity wakes
+ *  and passes into its stages with it, each told once, and the dread follows the plan. */
+export function calamitySync(s: GameState, e: GreatEnemyState): void {
+  const c = s.calamity;
+  if (c?.beaten !== undefined || ended(e)) return;
+  const stage = stageOfEnemy(e);
+  if (!c) {
+    if (stage < 1) return;
+    wakeCalamity(s, ENEMY_CALAMITY[e.kind]);
+  }
+  const now = s.calamity!;
+  now.dread = Math.min(100, Math.round(((e.plan * 100) / PLAN_AT.siege) * 10) / 10);
+  if (stage > now.stage) {
+    for (let k = now.stage + 1; k <= stage; k++) {
+      now.stage = k as CalamityStage;
+      if (k <= 3) chronicle(s, e, `${capital(def(now).name)}: ${STAGE_NAMES[k].toLowerCase()}`);
+      if (k <= 3) tell(s, now, `${capital(def(now).name)}: ${STAGE_NAMES[k].toLowerCase()}`, stageStory(s, now, k), 'omen', STAGE_SCENES[k]);
+    }
+  }
+}
+
+/** Each morning, from the Enemy's day (`g` is the Calamity's own stream): the scar widens, ward stones are raised, the
+ *  cult does its deeds. */
+export function calamityDaily(s: GameState, e: GreatEnemyState, g: Rng = roll(s, 'day', calendar(s.tick).day)): void {
+  calamitySync(s, e);
+  const c = s.calamity;
+  if (!c || c.beaten !== undefined || ended(e)) return;
   if (c.stage >= 2) {
     if (c.heartCleared === undefined || s.tick - c.heartCleared >= HEART_QUIET_DAYS * TICKS_PER_DAY) c.scar = Math.min(SCAR_MOST, Math.max(c.scar, SCAR_START) + SCAR_PER_DAY);
     raiseWards(s, c);
   }
   if (c.stage >= 3 && g.chance(CULT_DAILY)) cultDeed(s, c, g);
   if (c.stage >= 3) cultFound(s, c, g);
-  if (c.stage === 4 && !s.raid && s.tick >= s.nextRaidTick - TICKS_PER_DAY && g.chance(ARMY_DAILY)) {
-    const kind = RAID_KIND_BY_ID[def(c).army];
-    const r = startRaid(s, kind, raidBudget(s) * ARMY_SHARE * (1 + c.dread / 100), g);
-    r.calamity = 'army';
-    scheduleNextRaid(s, g);
-    notify(s, `${kind.name} march on the town!`, true);
-  }
-  if (c.stage === 5 && c.siegeAt === undefined && s.raid?.calamity !== 'siege') {
-    c.siegeAt = s.tick + SIEGE_WARNING_HOURS * TICKS_PER_HOUR;
-    notify(s, `${capital(def(c).name)} is coming. Its whole host will be at the gate within a day.`, true);
-  }
 }
 
-/** The town passes into a stage: told in the event box. */
-function setStage(s: GameState, c: CalamityState, stage: CalamityStage): void {
-  if (stage <= c.stage) return;
-  c.stage = stage;
-  tell(s, c, `${capital(def(c).name)}: ${STAGE_NAMES[stage].toLowerCase()}`, stageStory(c, stage), stage >= 4 ? 'war' : 'omen', STAGE_SCENES[stage]);
+/** The Enemy is slain (from sim/greatEnemy.ts `victory`): the blight lifts and the cult scatters. */
+export function calamityLifts(s: GameState): void {
+  const c = s.calamity;
+  if (!c || c.beaten !== undefined) return;
+  c.beaten = s.tick;
+  c.scar = 0;
+  for (const p of s.people) if (p.cultist) p.cultist = undefined;
 }
 
-function stageStory(c: CalamityState, stage: CalamityStage): string {
+/** An omen of the Enemy's, foreshadowing the Calamity it will bring (the lines of its Calamity, from the omens on). */
+export const calamityOmens = (kind: keyof typeof ENEMY_CALAMITY): string[] => CALAMITIES[ENEMY_CALAMITY[kind]].omens;
+
+function stageStory(s: GameState, c: CalamityState, stage: number): string {
   const d = def(c);
+  const e = enemyIn(s);
+  const by = e ? ` It is ${e.name}'s work.` : '';
   const more: Record<number, string> = {
-    2: `Its heart, ${d.heart}, can be struck at: a party that clears it pushes the dread back. Ward stones slow it, and every nest burned out weakens it.`,
+    2: `Its heart, ${d.heart}, ${e ? `where ${e.short}'s lieutenant works the land` : 'can be struck at'}, can be struck at: a party that clears it sets ${e ? e.short + "'s" : 'the'} plans back. Ward stones slow the blight, and every nest burned out weakens it.`,
     3: `${capital(d.cult)} meets in secret. Anyone in low spirits may be drawn in, and do the town harm before they're found out.`,
-    4: 'Its armies will come against the walls now. Keep the defences manned.',
-    5: 'There is no turning it back now. Win, and the town is saved for good. Lose, and it will come again.',
   };
-  return `${d.stages[stage]} ${more[stage] ?? ''}`.trim();
-}
-
-/** An omen in the night (a line in the journal, a chill on everyone). */
-function omen(s: GameState, c: CalamityState): void {
-  const lines = def(c).omens;
-  const line = lines[roll(s, 'omen-line', s.tick).int(0, lines.length - 1)];
-  c.omen = line;
-  notify(s, `An omen: ${line}`, true);
-  (s.marks ??= []).push({ lever: 'morale', value: -2, until: s.tick + 12 * TICKS_PER_HOUR, text: 'A bad omen' });
+  return `${d.stages[stage]}${by} ${more[stage] ?? ''}`.trim();
 }
 
 /** Ward stones: one for each stage from the spreading, up to `WARDS_MOST`, raised one at a time. */
@@ -207,7 +235,7 @@ function cultDeed(s: GameState, c: CalamityState, g: Rng): void {
   }
   const hidden = s.people.filter((p) => p.cultist && !p.cultist.found);
   if (!hidden.length) {
-    c.dread = Math.min(100, c.dread + 1);
+    shiftPlan(s, RITE_PLAN);
     notify(s, `Fires were seen in the woods last night: ${cult} keeping its rites.`);
     return;
   }
@@ -220,7 +248,7 @@ function cultDeed(s: GameState, c: CalamityState, g: Rng): void {
     s.coins = (s.coins ?? 0) - took;
     notify(s, `${took} coins are missing from the treasury. Nobody saw who took them.`, true);
   } else {
-    c.dread = Math.min(100, c.dread + 3);
+    shiftPlan(s, 3 * RITE_PLAN);
     notify(s, `A rite was held at the town's edge in the night: someone of the town is with ${cult}.`, true);
   }
 }
@@ -237,59 +265,19 @@ function cultFound(s: GameState, c: CalamityState, g: Rng): void {
   }
 }
 
-/* ------------------------------------------------------------ the last siege */
-
-function startSiege(s: GameState, c: CalamityState): void {
-  const d = def(c);
-  const kind = RAID_KIND_BY_ID[d.army];
-  const most = SIEGE_SIZE + SIEGE_SIZE_PER_LOSS * c.lost;
-  const g = roll(s, 'siege', c.lost);
-  const r = startRaid(s, kind, raidBudget(s) * 3, g, undefined, { most, siege: 0, leader: d.avatar, host: `calamity:${c.kind}` });
-  r.calamity = 'siege';
-  c.siegeAt = undefined;
-  notify(s, `The last siege: ${d.name} has come to the gate with its whole host!`, true);
-}
-
-/** A raid of the Calamity's is over (from sim/raids.ts `endRaid`): a siege won is the game won; lost, the town burns
- *  and it comes again. */
-export function calamityRaidOver(s: GameState, r: Raid): void {
-  const c = s.calamity;
-  if (!c || r.calamity !== 'siege') return;
-  const d = def(c);
-  const avatar = r.raiders.find((rd) => rd.kind === d.avatar && !rd.ally);
-  if (avatar?.down) {
-    c.beaten = s.tick;
-    c.dread = 0;
-    c.scar = 0;
-    (s.marks ??= []).push({ lever: 'morale', value: 15, until: s.tick + 5 * TICKS_PER_DAY, text: `${capital(d.name)} is beaten!` });
-    tell(s, c, `${capital(d.name)} is beaten`, `${d.stages[5].split('.')[0]} and fell before the walls. The blight lifts from the land, the cult scatters, and the town stands. Whatever comes after, this generation saved it.`, 'war', 'calamity_victory');
-    s.gameOver = { tick: s.tick, won: true, text: `${capital(d.name)} fell before the town's walls. The land is healing, and the town will be remembered for as long as anyone tells stories.` };
-    return;
-  }
-  c.lost++;
-  c.siegeAt = undefined;
-  c.dread = SIEGE_LOST_DREAD;
-  c.stage = 4;
-  const g = roll(s, 'ruin', c.lost);
-  const standing = s.buildings.filter((b) => b.status === 'done' && b.def !== 'campfire' && !BUILDING_BY_ID[b.def]?.seat);
-  for (let i = 0; i < SIEGE_RUIN && standing.length; i++) setFire(s, standing.splice(g.int(0, standing.length - 1), 1)[0], true);
-  if (c.lost >= SIEGES_TO_FALL) {
-    s.gameOver = { tick: s.tick, text: `${capital(d.name)} broke the town at the third siege. Its people are scattered, and the land is its.` };
-    return;
-  }
-  tell(s, c, `${capital(d.name)} withdraws`, `The town held, barely, but ${d.name} was not struck down. It draws back to gather its strength, and the town burns behind it. It will come again (${SIEGES_TO_FALL - c.lost} more ${SIEGES_TO_FALL - c.lost === 1 ? 'siege' : 'sieges'} lost and the town falls).`, 'war', 'calamity_defeat');
-}
-
 /* ------------------------------------------------------------ the heart */
 
 export const HEART_DEST = 'calamity:heart';
 export const isHeartDest = (id: string) => id === HEART_DEST;
 
-/** Whether the heart stands to be struck at: from the spreading on, and not lately cleared. */
+/** Whether the heart stands to be struck at: from the spreading on, while the Enemy lives, and not lately cleared. */
 export const heartOpen = (s: GameState) => {
   const c = s.calamity;
-  return !!c?.heart && c.stage >= 2 && c.beaten === undefined && (c.heartCleared === undefined || s.tick - c.heartCleared >= HEART_QUIET_DAYS * TICKS_PER_DAY);
+  return !!c?.heart && c.stage >= 2 && c.beaten === undefined && (!s.greatEnemy || !ended(s.greatEnemy)) && (c.heartCleared === undefined || s.tick - c.heartCleared >= HEART_QUIET_DAYS * TICKS_PER_DAY);
 };
+
+/** The lieutenant whose work the heart is (by the seed, so it is the same one every time). */
+const keeperOf = (s: GameState, e: GreatEnemyState) => GREAT_ENEMIES[e.kind].lieutenants[hashSeed(`${s.seed}:calamity-keeper`) % GREAT_ENEMIES[e.kind].lieutenants.length];
 
 /** The heart as a place on the Expedition Board (while it stands). A party already out `held` there keeps its place
  *  after clearing it (the heart is shut for a while, but the party still has to come home from it). */
@@ -297,9 +285,11 @@ export function heartDestination(s: GameState, held = false): Destination | unde
   const c = s.calamity;
   if (!c?.heart || (!held && !heartOpen(s))) return undefined;
   const d = def(c);
+  const e = s.greatEnemy && s.greatEnemy.chosen >= 0 ? s.greatEnemy : undefined;
   const camp = campCell(s);
   const cells = Math.hypot(c.heart.x - camp.x, c.heart.y - camp.y);
   const guard = d.guard[Math.min(d.guard.length - 1, c.stage - 2)];
+  const owner = e ? `${GREAT_ENEMIES[e.kind].name}'s forward seat, raised by ${capital(keeperOf(s, e).name)}` : `The heart of ${d.name}`;
   return {
     id: HEART_DEST,
     name: d.heart,
@@ -312,7 +302,7 @@ export function heartDestination(s: GameState, held = false): Destination | unde
     encounters: { arrival: 1, ambush: 0, groups: [{ enemies: { ...guard }, weight: 1 }] },
     recommendedParty: 5,
     scenery: 'cave',
-    description: `The heart of ${d.name}, ${directionName(c.heart.x - camp.x, c.heart.y - camp.y)} of the town. Clearing it pushes the dread back by ${HEART_DREAD} and shrinks its scar.`,
+    description: `${owner}, ${directionName(c.heart.x - camp.x, c.heart.y - camp.y)} of the town. Clearing it sets the plan back by ${HEART_SETBACK} days and shrinks its scar, but the Enemy is not ended by it.`,
   };
 }
 
@@ -321,16 +311,20 @@ export const heartDestinations = (s: GameState): Destination[] => {
   return d ? [d] : [];
 };
 
-/** A party cleared the heart (from sim/expeditions.ts, as a place is cleared). */
+/** A party cleared the heart (from sim/expeditions.ts, as a place is cleared): the Enemy's plan is set back. */
 export function heartCleared(s: GameState): void {
   const c = s.calamity;
   if (!c || !heartOpen(s)) return;
   c.heartCleared = s.tick;
-  c.dread = Math.max(0, c.dread - HEART_DREAD);
   c.scar = Math.max(SCAR_START, c.scar / 2);
+  shiftPlan(s, -HEART_SETBACK);
+  const e = s.greatEnemy;
+  const who = e ? GREAT_ENEMIES[e.kind].short : def(c).name;
+  chronicle(s, e, `A party broke ${def(c).heart}`);
+  if (e) c.dread = Math.round(((e.plan * 100) / PLAN_AT.siege) * 10) / 10;
   (s.marks ??= []).push({ lever: 'morale', value: 6, until: s.tick + 2 * TICKS_PER_DAY, text: `We struck at ${def(c).heart}` });
   queueScene(s, 'calamity_heart');
-  notify(s, `${def(c).heart} is broken! ${capital(def(c).name)} reels (dread −${HEART_DREAD}); its heart will be a while gathering itself again.`, true);
+  notify(s, `${def(c).heart} is broken! ${capital(who)}'s plans are set back (−${HEART_SETBACK} days); its heart will be a while gathering itself again.`, true);
 }
 
 /* ------------------------------------------------------------ telling */
@@ -351,7 +345,8 @@ function tell(s: GameState, c: CalamityState, title: string, story: string, word
     expiresTick: s.tick + 8 * TICKS_PER_HOUR,
   };
   // (with a cutscene to watch, the telling waits on it: sim/cutscenes.ts)
-  if (scene) queueScene(s, scene, { fallback: prompt });
+  const e = enemyIn(s);
+  if (scene) queueScene(s, scene, { fallback: prompt, ...(e ? { vars: { enemy: e.name, short: e.short, seat: e.seat } } : {}) });
   else s.prompts.push(prompt);
   notify(s, `${title}.`, true);
 }
@@ -363,10 +358,13 @@ const capital = (t: string) => t.charAt(0).toUpperCase() + t.slice(1);
 export interface CalamityView {
   kind: CalamityKind;
   name: string;
+  /** The Great Enemy whose stirring it is (its name), and the lieutenant who keeps the heart. */
+  enemy: string | null;
+  keeper: string | null;
   heart: string;
   stage: number;
   stageName: string;
-  /** 0 to 100, and how much it rises today. */
+  /** 0 to 100 (the plan's share of the way to the siege), and how much it rises today. */
   dread: number;
   rising: number;
   /** What comes next, in a line. */
@@ -380,7 +378,7 @@ export interface CalamityView {
   heartOpen: boolean;
   /** The heart as a trip on the board, while it can be struck at. */
   dest: Destination | null;
-  /** Hours till the siege (warned), and the sieges lost. */
+  /** Hours till the siege (warned), and the sieges lost (the Enemy's). */
   siegeIn: number | null;
   lost: number;
   beaten: boolean;
@@ -391,19 +389,23 @@ export function calamityView(s: GameState): CalamityView | null {
   const c = s.calamity;
   if (!c) return null;
   const d = def(c);
-  const rising = dreadToday(s);
-  const nextAt = [0, 20, 45, 70, 100, 100][c.stage];
+  const e = s.greatEnemy && s.greatEnemy.chosen >= 0 ? s.greatEnemy : undefined;
+  const ed = e ? GREAT_ENEMIES[e.kind] : undefined;
+  const rising = e ? ((e.pace * 100) / PLAN_AT.siege) / DANGER_PACE : 0;
+  const nextPlan = [0, CALAMITY_AT.wakes, CALAMITY_AT.spreading, CALAMITY_AT.cults, PLAN_AT.march, PLAN_AT.siege][Math.min(5, c.stage + 1)];
   const next =
     c.beaten !== undefined
       ? 'Beaten. The land is healing.'
-      : c.siegeAt !== undefined
+      : e?.siegeAt !== undefined
         ? 'The last siege is coming.'
         : c.stage >= 5
           ? 'The last siege.'
-          : `${STAGE_NAMES[c.stage + 1]} at dread ${nextAt}${rising > 0 ? `, in about ${Math.max(1, Math.ceil((nextAt - c.dread) / rising))} days` : ''}.`;
+          : `${STAGE_NAMES[c.stage + 1]} at dread ${Math.round((nextPlan * 100) / PLAN_AT.siege)}${e && e.pace > 0 ? `, in about ${Math.max(1, Math.ceil(((nextPlan - e.plan) * DANGER_PACE) / e.pace))} days` : ''}.`;
   return {
     kind: c.kind,
     name: capital(d.name),
+    enemy: ed ? capital(ed.name) : null,
+    keeper: e ? capital(keeperOf(s, e).name) : null,
     heart: d.heart,
     stage: c.stage,
     stageName: STAGE_NAMES[c.stage],
@@ -417,8 +419,8 @@ export function calamityView(s: GameState): CalamityView | null {
     scar: c.scar,
     heartOpen: heartOpen(s),
     dest: heartDestination(s) ?? null,
-    siegeIn: c.siegeAt !== undefined ? Math.max(0, Math.ceil((c.siegeAt - s.tick) / TICKS_PER_HOUR)) : null,
-    lost: c.lost,
+    siegeIn: e?.siegeAt !== undefined ? Math.max(0, Math.ceil((e.siegeAt - s.tick) / TICKS_PER_HOUR)) : null,
+    lost: e?.lost ?? 0,
     beaten: c.beaten !== undefined,
     cultists: s.people.filter((p: Person) => p.cultist && !p.cultist.found).length,
   };

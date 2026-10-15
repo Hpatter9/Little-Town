@@ -27,6 +27,7 @@ import {
   type NestKind,
 } from '../data/nests';
 import { CALAMITIES, NEST_CLEARED_DREAD, NEST_CLEARED_PER_LEVEL } from '../data/calamity';
+import { shiftDread } from './calamity';
 import { RAID_KIND_BY_ID } from '../data/raids';
 import { ROAM_FIRST_DAY, ROAM_PEOPLE, SPAWN_BEYOND } from '../data/roamers';
 import { directionName } from '../data/places';
@@ -202,7 +203,7 @@ export function nestCleared(s: GameState, p: MapPlace): void {
   const c = s.calamity;
   if (c && c.stage > 0) {
     const off = NEST_CLEARED_DREAD + NEST_CLEARED_PER_LEVEL * n.level;
-    c.dread = Math.max(0, c.dread - off);
+    shiftDread(s, -off); // (the Enemy's plan slips back: sim/calamity.ts)
     notify(s, `With the ${NEST_DEFS[n.kind].name.toLowerCase()} burned out, ${CALAMITIES[c.kind].name} loses its hold a little (dread −${off}).`, true);
   }
   s.roamers = (s.roamers ?? []).filter((r) => r.nest !== p.id || r.fighting !== undefined);
