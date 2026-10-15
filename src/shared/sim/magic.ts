@@ -14,7 +14,7 @@ import {
   MAD_SETTLES, MAD_TURNS, MAGE_TOWER, MANA_CAP, MANA_CAP_LIBRARY, MANA_CAP_TOWER, MASTER_SPELLS, MASTERY_HALF, MASTERY_MAX, MEND_MOST, MEND_SHARE, MISCAST_ODDS, OMEN_HOURS, POTENCY_PER_SPELL,
   PRACTICE_RITE, PRACTICE_SPELL, RITE_ORDER, RITES, SCHOOL_IDS, SCHOOL_SPELLS, SCHOOLS, SERVANT_FETCH, SERVANT_TURNS, SERVANT_UPKEEP, SERVANTS_MOST, STORM_BURN, STORM_HITS, STUDY_AHEAD,
   STUDY_INT, STUDY_LIBRARY, STUDY_PER_LEVEL, STUDY_TOME, STUDY_TOWER, SURGE_AT, SURGE_CURSE, SURGE_FIRES, SURGE_KILLS, SURGE_LEAVES, SURGE_PLAGUE, SURGE_R, SURGE_TEAR, SURGE_WOUNDS, TOWER_BASE,
-  TOWER_MANA, WARD_MOST, WARD_SAP, WELL_POWER, WELL_R, type Flavour, type RiteId, type SchoolId,
+  TOWER_MANA, TOWER_PEOPLE, WARD_MOST, WARD_SAP, WELL_POWER, WELL_R, type Flavour, type RiteId, type SchoolId,
 } from '../data/magic';
 import { ATTR_BASE } from '../data/attributes';
 import { eraReached } from '../data/eras';
@@ -28,7 +28,7 @@ import type { ClassId } from '../data/classes';
 import { hashSeed, Rng } from '../rng';
 import { alignPush, orderPush } from './alignment';
 import { attributesOf } from './attributes';
-import { buildingCentre, depositNear, placeBlueprint, townRadius } from './buildings';
+import { blueprintCount, buildingCentre, buildSlots, depositNear, placeBlueprint, townRadius } from './buildings';
 import { queueCraft, equip } from './crafting';
 import { setFire } from './fire';
 import { killPerson, stabilize } from './health';
@@ -268,9 +268,13 @@ export function manaPerHour(s: GameState): number {
 
 /* ------------------------------------------------------------ the hour */
 
-/** Each hour: mana gathered, study, the wild magic settling or surging, servants fed, curses and madness, one rite. */
+/** Each hour: mana gathered, study, the wild magic settling or surging, servants fed, curses and madness, one rite;
+ *  and every tick of a raid's warning, the rites against it. */
 export function magicHourly(s: GameState): void {
-  if (s.tick % TICKS_PER_HOUR !== 0 || s.autopilot === false || !magicOpen(s)) return;
+  if (s.autopilot === false) return;
+  // (a raid's warning is minutes long: the rites against it are looked to every tick while it lasts)
+  if (s.raid?.phase === 'warning' && s.magic && magicOpen(s)) raidRites(s, s.magic);
+  if (s.tick % TICKS_PER_HOUR !== 0 || !magicOpen(s)) return;
   const m = magicOf(s);
   const g = roll(s);
   placeTower(s);
@@ -292,7 +296,10 @@ export function magicHourly(s: GameState): void {
 
 /** The Mage Tower stands where the ley runs strongest near the town: the town lays it itself, once it knows how. */
 function placeTower(s: GameState): void {
-  if (s.buildings.some((b) => b.def === MAGE_TOWER)) return;
+  // (looked to every six hours: the queue may be full, and the planner may lay one first)
+  if (calendar(s.tick).hour % 6 !== 0 || s.buildings.some((b) => b.def === MAGE_TOWER)) return;
+  // (never in the way of the town's homes and food: a few hands first, and a spare slot in the queue)
+  if (s.people.filter((p) => !isChild(p)).length < TOWER_PEOPLE || blueprintCount(s) >= buildSlots(s) - 1) return;
   const c = campCell(s);
   const r = Math.min(30, townRadius(s) + 6);
   let best: { x: number; y: number; v: number } | null = null;
@@ -547,6 +554,20 @@ function wanted(s: GameState, m: MagicState): Want[] {
   return out;
 }
 
+const RAID_RITES: readonly RiteId[] = ['ward', 'firestorm', 'foresight'];
+/** A raid on its way: each rite against it once, as the town can afford them (beside the hour's one rite). */
+function raidRites(s: GameState, m: MagicState): void {
+  const raid = s.raid!;
+  if (m.warded === raid.id && m.stormed === raid.id && m.foreseen === raid.id) return;
+  for (const w of wanted(s, m)) {
+    if (!RAID_RITES.includes(w.rite)) continue;
+    const def = RITES[w.rite];
+    if ((m.ready[w.rite] ?? 0) > s.tick || m.mana < def.mana) continue;
+    const p = riteCaster(s, def.school);
+    if (p) castRite(s, m, p, w, roll(s, 'raid', w.rite));
+  }
+}
+
 /** One rite an hour: the first wanted that the town can afford and has a caster for. */
 function ritesHourly(s: GameState, m: MagicState, g: Rng): void {
   for (const w of wanted(s, m)) {
@@ -575,7 +596,7 @@ export function castRite(s: GameState, m: MagicState, p: Person, w: Want, g: Rng
   const chance = miscastChance(s, p, w.rite);
   castSpellFx(s, `magic:${w.rite}`, { x: p.x, y: p.y, id: p.id }, [], 3);
   if (g.chance(chance)) {
-    miscast(s, m, p, def.name, g);
+    miscast(s, m, p, def.name.replace(/^The /, ''), g);
     return;
   }
   const told = w.cast(p, potency(s, p, def.school));

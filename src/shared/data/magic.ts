@@ -80,6 +80,8 @@ export const LEY_BIOME: Record<Biome, number> = { forest: 1.1, desert: 0.8, tund
 
 /* ------------------------------------------------------------ mana and the wild magic */
 
+/** The town lays its tower itself once it has this many grown-ups (and a build slot to spare). */
+export const TOWER_PEOPLE = 6;
 /** A finished Mage Tower's mana an hour, times (`TOWER_BASE` + the ley under it). */
 export const TOWER_MANA = 3;
 export const TOWER_BASE = 0.4;
@@ -91,8 +93,8 @@ export const MANA_CAP_TOWER = 60;
 export const MANA_CAP_LIBRARY = 30;
 /** The wild magic: each point of mana spent on a rite stirs it this much; it settles by `FLUX_SETTLES` a share an
  *  hour; a tower on a strong line stirs it a little by itself (`FLUX_LEY` an hour per point of ley over 1). */
-export const FLUX_PER_MANA = 0.012;
-export const FLUX_SETTLES = 0.015;
+export const FLUX_PER_MANA = 0.006;
+export const FLUX_SETTLES = 0.03;
 export const FLUX_LEY = 0.004;
 /** Past this the wild magic surges; afterwards it falls back to `SURGE_LEAVES`. */
 export const SURGE_AT = 1;
@@ -245,7 +247,7 @@ export const FLAVOURS: Record<OriginId, Flavour> = {
 export const MAGE_TOWER = 'mage_tower';
 export const ARCANE_LIBRARY = 'arcane_library';
 export const MAGIC_BUILDINGS: BuildingDef[] = [
-  { id: MAGE_TOWER, name: 'Mage Tower', layer: 'mid', width: 2, cost: { stone: 30, wood: 10, gems: 1 }, buildSeconds: 240, purpose: 'Drinks mana from the leyline under it (stand it on a strong line): the town\'s rites draw on it. Casters study here, and foci are made here.', research: LEY_LORE },
+  { id: MAGE_TOWER, name: 'Mage Tower', layer: 'mid', width: 2, cost: { stone: 30, wood: 12 }, buildSeconds: 240, purpose: 'Drinks mana from the leyline under it (stand it on a strong line): the town\'s rites draw on it. Casters study here, and foci are made here.', research: LEY_LORE },
   { id: ARCANE_LIBRARY, name: 'Arcane Library', layer: 'mid', width: 3, cost: { wood: 20, stone: 10, hide: 6 }, buildSeconds: 180, purpose: 'Shelves of spellbooks: casters study here twice as fast, and the schools\' tomes are written here.', research: LEY_LORE },
 ];
 

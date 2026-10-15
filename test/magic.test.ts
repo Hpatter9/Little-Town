@@ -48,6 +48,14 @@ const hour = (s: GameState) => {
   s.tick += TICKS_PER_HOUR;
   magicHourly(s);
 };
+/** The rites never go wrong (for the tests of what each does), until `restore` is called. */
+function sure(): () => void {
+  const was = Object.values(RITES).map((r) => [r, r.danger] as const);
+  for (const [r] of was) r.danger = 0;
+  return () => {
+    for (const [r, d] of was) r.danger = d;
+  };
+}
 /** A roll that always comes up the same (for a miscast's outcome). */
 const fixed = (v: number): Rng => {
   const g = new Rng(1);
@@ -119,7 +127,7 @@ test('mana: a finished tower drinks from the ley under it, casters add a little,
 
 test('the town lays its Mage Tower out itself once it knows how', () => {
   const s = town('tower');
-  hour(s);
+  for (let i = 0; i < 6; i++) hour(s);
   assert.ok(s.buildings.some((b) => b.def === MAGE_TOWER), 'a tower blueprint');
 });
 
@@ -184,6 +192,7 @@ function raidOn(s: GameState) {
 }
 
 test('the Great Ward saps the raiders as they come, once a raid', () => {
+  const restore = sure();
   const s = town('ward', 1, 6, ['school_abjuration']);
   const m = magicOf(s);
   m.mana = 200;
@@ -195,9 +204,11 @@ test('the Great Ward saps the raiders as they come, once a raid', () => {
   const mana = m.mana;
   hour(s);
   assert.ok(m.mana >= mana - 1, 'not twice for one raid');
+  restore();
 });
 
 test('foresight gives the town more time; Firestorm burns raiders on the road', () => {
+  const restore = sure();
   const s = town('sight', 1, 6, ['school_divination']);
   magicOf(s).mana = 200;
   const r = raidOn(s);
@@ -210,9 +221,11 @@ test('foresight gives the town more time; Firestorm burns raiders on the road', 
   const hp = q.raiders.reduce((n, x) => n + x.hp, 0);
   hour(t);
   assert.ok(q.raiders.reduce((n, x) => n + x.hp, 0) < hp, 'burned');
+  restore();
 });
 
 test('a healing rite keeps the downed from bleeding out and mends the hurt; the alignment warms to it', () => {
+  const restore = sure();
   const s = town('mend', 1, 6, ['school_restoration']);
   magicOf(s).mana = 200;
   const hurt = s.people[3];
@@ -223,9 +236,11 @@ test('a healing rite keeps the downed from bleeding out and mends the hurt; the 
   assert.equal(hurt.downed?.bleedUntil ?? null, null);
   assert.ok(hurt.hp > 2);
   assert.ok((s.align?.score ?? 0) > align);
+  restore();
 });
 
 test('rain called down breaks a drought; scrying maps a far region', () => {
+  const restore = sure();
   const s = town('rain', 1, 6, ['school_transmutation']);
   magicOf(s).mana = 200;
   s.doom = { kind: 'drought', phase: 'active', untilTick: s.tick + 10 * TICKS_PER_DAY };
@@ -238,9 +253,11 @@ test('rain called down breaks a drought; scrying maps a far region', () => {
   hour(t);
   assert.equal((t.regions ?? []).length, known + 1);
   assert.ok(REGIONS.some((r) => r.id === t.regions!.at(-1)));
+  restore();
 });
 
 test('enchanted tools quicken all work for a day', () => {
+  const restore = sure();
   const s = town('enchant', 1, 6, ['school_transmutation']);
   const p = s.people[4];
   const before = workFactor(s, p);
@@ -249,9 +266,11 @@ test('enchanted tools quicken all work for a day', () => {
   hour(s);
   assert.ok(magicOf(s).enchanted! > s.tick);
   assert.ok(Math.abs(workFactor(s, p) / before - ENCHANT_WORK) < 1e-9);
+  restore();
 });
 
 test('servants fetch on mana, and turn on the town when it runs out', () => {
+  const restore = sure();
   const s = town('servants', 1, 6, ['school_conjuration', 'school_transmutation']);
   const m = magicOf(s);
   m.mana = manaCap(s);
@@ -266,9 +285,11 @@ test('servants fetch on mana, and turn on the town when it runs out', () => {
   s.research.done = s.research.done.filter((x) => x !== 'school_conjuration');
   hour(s);
   assert.equal(m.servants, n - 1, 'one starved and turned');
+  restore();
 });
 
 test('the Blood Rite bleeds a prisoner for mana, and darkens the town', () => {
+  const restore = sure();
   const s = town('blood', 1, 6, ['school_forbidden']);
   const witch = mageOf(s);
   witch.cls = 'witch';
@@ -281,6 +302,7 @@ test('the Blood Rite bleeds a prisoner for mana, and darkens the town', () => {
   assert.ok(m.mana >= Math.min(manaCap(s), BLOOD_MANA) - 1);
   assert.ok((s.align?.score ?? 0) < align);
   assert.ok(witch.arcana!.madness > 0, 'it marks the one who did it');
+  restore();
 });
 
 test('a miscast: the backlash burns, madness takes, death, the spell runs wild, the world tears', () => {
@@ -352,6 +374,7 @@ test('the wild magic surges past its mark: fire, harm near the tower, and it fal
 });
 
 test('a cursed charm drains its bearer and weighs on the mind, until the ward-wright breaks it', () => {
+  const restore = sure();
   const s = town('curse', 1, 6, ['school_abjuration']);
   const bearer = s.people[4];
   bearer.gear.charm = CURSED[0];
@@ -364,6 +387,7 @@ test('a cursed charm drains its bearer and weighs on the mind, until the ward-wr
   magicOf(s).mana = 200;
   hour(s);
   assert.equal(bearer.gear.charm, undefined, 'broken');
+  restore();
 });
 
 test('a master mage makes their masterwork once: an enchanted charm', () => {
@@ -397,4 +421,16 @@ test('seen: the Magic view, the leylines, and a caster\'s spellbook on their pag
   const mv = snap.people.find((q) => q.id === mageOf(s).id)!;
   assert.ok(mv.arcana && mv.arcana.spells.length > 0);
   assert.equal(snap.people.find((q) => q.cls !== 'mage' && q.cls !== null && !['witch', 'white_mage'].includes(q.cls ?? ''))?.arcana ?? null, null);
+});
+
+test('a raid\'s short warning is not missed: the rites against it come between the hours', () => {
+  const restore = sure();
+  const s = town('warn-tick', 1, 6, ['school_abjuration']);
+  const m = magicOf(s);
+  m.mana = 200;
+  s.tick += 7; // (not on the hour)
+  const r = raidOn(s);
+  magicHourly(s);
+  assert.equal(m.warded, r.id);
+  restore();
 });
