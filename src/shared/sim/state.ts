@@ -275,6 +275,8 @@ export type Task =
   | { type: 'toil' }
   /** On strike with their bloc, gathered before the seat (sim/politics.ts). */
   | { type: 'protest' }
+  /** A priest at their altar for the dawn rite (sim/religion.ts `priestDuty`). */
+  | { type: 'officiate'; building: number }
   /** A child at lessons (at a building, or round the fire), or at their master's side (sim/lineage.ts). */
   | { type: 'lesson'; building: number | null }
   | { type: 'apprentice'; master: number }
@@ -585,6 +587,9 @@ export interface Person {
   origin?: OriginId;
   /** Their nature (data/natures.ts), when not the one their id decides. */
   nature?: NatureId | null;
+  /** The god they follow (or none, or the rival cult), and how zealous they are, 0 to 100 (sim/religion.ts). */
+  creed?: import('../data/religion').Creed;
+  zeal?: number;
   /** A monster (werewolf or vampire), its standing order for the Hunter's Guild, and when it last fed. */
   monster?: MonsterKind | null;
   /** A special newcomer's secret (data/specials.ts, sim/specials.ts): who they really are, and how it stands. */
@@ -1270,6 +1275,8 @@ export interface GameState {
   ruins?: import('./ruins').Ruin[];
   /** The town's gods: their favour and the latest signs (sim/faith.ts). */
   faith?: import('./faith').FaithState;
+  /** The townsfolk's faith: omens, miracles, idols, the rival cult, the priests' doings (sim/religion.ts). */
+  religion?: import('./religion').ReligionState;
   /** A natural disaster under way on the map, when the next is due, and the last (for its ash: sim/disasters.ts). */
   disaster?: import('./disasters').Disaster;
   nextDisaster?: number;

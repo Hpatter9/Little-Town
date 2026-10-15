@@ -20,6 +20,7 @@ import { honour } from './memorials';
 import { empireYearLines } from './empireYear';
 import { dynastyYearLines } from './dynasty';
 import { alignmentYearLines } from './alignment';
+import { religionYearLines } from './religion';
 import { topicName } from '../data/originResearch';
 
 /** Midwinter: the middle day of winter, of an evening. */
@@ -183,6 +184,7 @@ export function writeChronicle(s: GameState): Chronicle {
   if (uniques > 0) lines.push(`${uniques === 1 ? 'A treasure of legend was' : `${uniques} treasures of legend were`} won.`);
   lines.push(...empireYearLines(s)); // (the trade empire's year: sim/empireYear.ts)
   lines.push(...alignmentYearLines(s, y.tick)); // (the town's swings toward good or evil: sim/alignment.ts)
+  lines.push(...religionYearLines(s, y.tick)); // (the year's miracles and the cult: sim/religion.ts)
   lines.push(...dynastyYearLines(s, y.tick)); // (the houses' year: feuds, the ruling house, heirlooms: sim/dynasty.ts)
   // the Great Enemy's turns this year (sim/greatEnemy.ts)
   const foe = s.greatEnemy && s.greatEnemy.chosen >= 0 ? s.greatEnemy : null;
