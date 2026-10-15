@@ -8,6 +8,7 @@ import { weddingFeast } from './ceremonies';
 import { natureFit, natureOf } from '../data/natures';
 import { POP_HARD_CAP } from '../data/pace';
 import { NAMES, randomLook } from '../data/people';
+import { fashionName } from './culture';
 import {
   CHILD_CHANCE,
   CHILD_HOURS,
@@ -180,7 +181,7 @@ function welcomeChild(s: GameState, a: Person, b: Person, rng: Rng): void {
   const look = { ...randomLook(rng), skin: rng.chance(0.5) ? a.look.skin : b.look.skin, hairColor: rng.chance(0.5) ? a.look.hairColor : b.look.hairColor, ...(ears ? { ears } : {}) };
   const child: Person = {
     id: s.nextId++,
-    name: rng.pick(free.length ? free : NAMES),
+    name: fashionName(s, rng.pick(free.length ? free : NAMES), taken), // (the town's fashion in names leans it: sim/culture.ts)
     type: 'child',
     look: { ...look, beard: false },
     x: a.x,

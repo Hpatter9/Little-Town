@@ -35,6 +35,7 @@ import { ruinsView, type RuinView } from './ruins';
 import { RECAP_HOURS, type RaidRecap } from './raidRecap';
 import { gatheringRadius, processing, processionHead } from './ceremonies';
 import { festivalsView, type FestivalsView } from './festivals';
+import { cultureView, type CultureView } from './culture';
 import { walkingHome } from './nightOut';
 import { realmView, type RealmView } from './factions';
 import { warView, type WarView } from './conquest/warView';
@@ -945,6 +946,8 @@ export interface Snapshot {
   gathering: { kind: 'funeral' | 'great_funeral' | 'wedding' | 'feast' | 'rite' | 'festival'; x: number; y: number; ring: number; key: number; fire: boolean; head?: { x: number; y: number } | null; bearers?: number[]; festival?: string } | null;
   /** The year's festivals and what's next (sim/festivals.ts). */
   festivals: FestivalsView;
+  /** The town's own customs, traits and sayings (sim/culture.ts). */
+  culture: CultureView;
   prompts: PromptView[];
   /** Seconds until the player can rally a defender again (0: now). */
   rallyIn: number;
@@ -1287,6 +1290,7 @@ export function snapshot(s: GameState): Snapshot {
     war: CONQUEST.on ? warView(s) : null,
     gathering: s.gathering && s.tick < s.gathering.until && !s.raid ? { kind: s.gathering.kind, x: s.gathering.x, y: s.gathering.y, ring: gatheringRadius(s.gathering), key: s.gathering.from ?? 0, fire: Math.hypot(s.gathering.x - campXY(s).x, s.gathering.y - campXY(s).y) > 40, head: processing(s.gathering, s.tick) ? processionHead(s.gathering, s.tick) : null, bearers: s.gathering.ids.slice(0, 2), festival: s.gathering.festival } : null,
     festivals: festivalsView(s),
+    culture: cultureView(s),
     debris: (s.debris ?? []).filter((m) => s.tick - m.tick < DEBRIS_LASTS).map((m) => ({ x: m.x, y: m.y, kind: m.kind, age: s.tick - m.tick, key: `${m.tick}:${m.x}:${m.y}:${m.kind}` })),
     blood: (s.blood ?? []).filter((m) => s.tick - m.tick < BLOOD_LASTS).map((m) => ({ x: m.x, y: m.y, from: m.from, age: s.tick - m.tick, key: `${m.tick}:${m.x}:${m.y}` })),
     rallyIn: Math.max(0, Math.ceil(((s.rallyReady ?? 0) - s.tick) / TICK_HZ)),

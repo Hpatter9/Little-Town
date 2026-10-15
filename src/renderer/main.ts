@@ -183,6 +183,9 @@ import { noTone, textureCanvas } from './art/pixelArt';
 import { MapCamera } from './map/mapCamera';
 import { MapView } from './map/mapView';
 import { MapPeople } from './map/mapPeople';
+import { setTownSayings } from './map/speech';
+import { setCultureColour } from './map/mapFestival';
+import { setCultureMotif } from './musicScore';
 import { MapTownLife } from './map/mapTownLife';
 import { darkHomes, LOOKOUT_TOWERS, snowballPairs, snowmanHomes, snowmanLeft } from './map/townLife';
 import { MapRaiders } from './map/mapRaiders';
@@ -1914,6 +1917,10 @@ async function start(): Promise<void> {
       document.body.append(skipNote);
     }
     if (skipNote) skipNote.style.display = next.raidSkipping ? '' : 'none';
+    setTownSayings(next.culture?.sayings);
+    setCultureColour(next.culture?.colour ?? null);
+    setCultureMotif(next.culture?.song ?? null);
+    map.festival.syncProp(next.culture?.kit ?? null, next.culture?.at ?? null);
     map.festival.sync(next.gathering, next.festivals?.on && next.festivals.on.phase !== 'held' ? next.festivals.on : null);
     map.syncCastle(next.castle ?? null, next.buildings);
     map.syncPlaces(next.places);
