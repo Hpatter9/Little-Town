@@ -50,7 +50,7 @@ import { offerBloodRite, offerLichRite, offerMoonRite } from './occult';
 import { cropOf, fieldSpot, fieldToWork, isField, mineToWork, workField, workMine } from './farming';
 import { isPen, needsTending, penToTend, workPen } from './livestock';
 import { fightFire, fireToFight } from './fire';
-import { defenderAttack, defenderReach, nearestRaider, rallyPoint, townEdgeX } from './raids';
+import { caughtOut, defenderAttack, defenderReach, nearestRaider, rallyPoint, townEdgeX } from './raids';
 import { ENEMIES } from '../data/enemies';
 import { THROW_RANGE } from '../data/raids';
 import { freeStation, modifiers, researchMods, researchStations, studyingAt, tidyPicks, topicFor } from './research';
@@ -524,7 +524,7 @@ export function updatePerson(s: GameState, p: Person, rng: Rng, ctx: TickContext
       // (at the alarm the children run for home: SHELTER_RUN)
       const pace = isChild(p) ? SHELTER_RUN : 1;
       if (!(bed ? goTo(s, p, buildingDoor(bed), footprint(bed), pace) : goTo(s, p, campXY(s), undefined, pace))) break;
-      p.activity = bed ? 'sleep' : 'idle'; // inside, out of sight; or huddled by the fire
+      p.activity = bed && !caughtOut(s, p) ? 'sleep' : 'idle'; // inside, out of sight; or huddled by the fire, or caught out at the door
       break;
     }
   }

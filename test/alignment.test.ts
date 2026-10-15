@@ -115,7 +115,7 @@ test('with nothing pushing, the bar drifts back toward home', () => {
   assert.ok(alignScore(s) < 20);
 });
 
-test('the slow drift pulls toward neutral, whatever the people\'s home', () => {
+test('the slow drift pulls toward neutral, except for a dark people, which it pulls to its own home', () => {
   const drift = (origin: 'knights' | 'vampire' | 'settlers', from: number) => {
     const s = newGame(`align-neutral-${origin}`, { origin });
     s.autopilot = true;
@@ -128,7 +128,9 @@ test('the slow drift pulls toward neutral, whatever the people\'s home', () => {
     return alignScore(s);
   };
   assert.ok(drift('knights', 40) < 40 && drift('knights', 40) > 0, 'a knightly town is not pulled back up to its home');
-  assert.ok(drift('vampire', -45) > -45 && drift('vampire', -45) < 0, 'nor a vampire one down');
+  assert.equal(drift('vampire', -45), -45, 'a vampire town at home stays there');
+  assert.ok(drift('vampire', -10) < -10 && drift('vampire', -10) > -45, 'and drifts back down to it from a kinder bar');
+  assert.ok(drift('vampire', 30) < 30, 'from a good one too');
   assert.ok(drift('settlers', -20) > -20 && drift('settlers', 20) < 20);
 });
 
