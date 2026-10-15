@@ -17,6 +17,7 @@ import { weatherAt } from './weather';
 import { seaTown } from './sea';
 import { notify, type GameState, type Person, type Prompt } from './state';
 import { honour } from './memorials';
+import { empireYearLines } from './empireYear';
 import { dynastyYearLines } from './dynasty';
 import { alignmentYearLines } from './alignment';
 import { topicName } from '../data/originResearch';
@@ -179,6 +180,7 @@ export function writeChronicle(s: GameState): Chronicle {
   if (sagas.length) lines.push(`${sagas.length === 1 ? 'A tale was' : `${sagas.length} tales were`} brought to an end.`);
   const uniques = (s.uniques ?? []).length - y.uniques;
   if (uniques > 0) lines.push(`${uniques === 1 ? 'A treasure of legend was' : `${uniques} treasures of legend were`} won.`);
+  lines.push(...empireYearLines(s)); // (the trade empire's year: sim/empireYear.ts)
   lines.push(...alignmentYearLines(s, y.tick)); // (the town's swings toward good or evil: sim/alignment.ts)
   lines.push(...dynastyYearLines(s, y.tick)); // (the houses' year: feuds, the ruling house, heirlooms: sim/dynasty.ts)
   // the Great Enemy's turns this year (sim/greatEnemy.ts)

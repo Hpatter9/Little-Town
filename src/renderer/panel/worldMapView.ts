@@ -56,7 +56,7 @@ export class WorldMapView {
 
   update(dests: MapDestination[], picked: string | null, parties: ExpeditionView[], known: string[], holds: MapHold[] = [], world?: Snapshot['world'], sea?: MapSea, enemy: GreatEnemyView | null = null, caves: { name: string; kind: string; stance: string }[] = []): void {
     const foe = enemy && [enemy.stage, enemy.seatKnown, enemy.seatOpen, enemy.spread, enemy.lieutenants.map((l) => [l.slain, l.dest])];
-    const key = JSON.stringify([dests, picked, parties.map((e) => [e.id, e.dest, Math.round(tripProgress(e) * 200), e.phase]), known, holds, world?.feuds, world?.routes, world?.marches.map((m) => [m.kind, m.label, Math.round(m.t * 100)]), sea, foe, caves]);
+    const key = JSON.stringify([dests, picked, parties.map((e) => [e.id, e.dest, Math.round(tripProgress(e) * 200), e.phase]), known, holds, world?.feuds, world?.routes, world?.posts, world?.marches.map((m) => [m.kind, m.label, Math.round(m.t * 100)]), sea, foe, caves]);
     if (key === this.key) return;
     this.key = key;
     this.svg.replaceChildren();
@@ -95,6 +95,8 @@ export class WorldMapView {
     for (const e of parties) if (MAP_SPOTS[e.dest]) route(MAP_SPOTS[e.dest], 'map-route party');
     // the trade house's open routes (sim/markets.ts), faint gold
     for (const r of world?.routes ?? []) route(r.to, 'map-route trade-road');
+    // the trade empire's roads to its posts (sim/tradeEmpire.ts)
+    for (const p of world?.posts ?? []) route(p, 'map-route post-road');
     const pickedSpot = picked ? MAP_SPOTS[picked] : undefined;
     if (pickedSpot) route(pickedSpot, 'map-route picked');
 
@@ -162,13 +164,21 @@ export class WorldMapView {
         this.svg.append(line);
       }
       const at = { x: m.from.x + (m.to.x - m.from.x) * m.t, y: m.from.y + (m.to.y - m.from.y) * m.t };
-      const tok = el('div', `map-march ${m.kind}`, m.kind === 'trade' ? '🐫' : m.kind === 'wagon' ? '🛒' : m.kind === 'envoy' ? '✉' : String(m.size));
+      const tok = el('div', `map-march ${m.kind}`, m.kind === 'trade' ? '🐫' : m.kind === 'wagon' ? '🛒' : m.kind === 'caravan' ? '🐪' : m.kind === 'ship' ? '⛵' : m.kind === 'envoy' ? '✉' : String(m.size));
       tok.title = m.label;
       tok.setAttribute('aria-label', m.label);
       place(tok, at);
       this.marks.append(tok);
     }
 
+    // the trade empire's posts, with their names faintly
+    for (const p of world?.posts ?? []) {
+      const mark = el('div', `map-post lv${p.level}`, p.sea ? '⚓' : '⌂');
+      mark.title = `${p.name}: our trading post`;
+      mark.setAttribute('aria-label', mark.title);
+      place(mark, p);
+      this.marks.append(mark, label(p.name, { x: p.x, y: p.y + 12 }, 'post'));
+    }
     // the Great Enemy's seat (once found: tap to strike it, when a party may) and its lieutenants' outposts
     if (enemy?.seatKnown) {
       const seatId = enemy.dests.find((d) => d.id.endsWith(':seat'))?.id;
