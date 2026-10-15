@@ -19,7 +19,7 @@
 // Only with the autopilot on; every roll is its own side stream (`enemy`).
 
 import {
-  AGENT_CAUGHT, AGENT_CAUGHT_PER_GUARD, AGENT_DAILY, COUNTER_TOPICS, CREEP_MOST, CREEP_PER_DAY, CREEP_START, ENEMY_CHOSEN_DAY, ENEMY_HOUR, ENEMY_KINDS,
+  AGENT_CAUGHT, AGENT_CAUGHT_PER_GUARD, CALAMITY_OMEN_SHARE, AGENT_DAILY, COUNTER_TOPICS, CREEP_MOST, CREEP_PER_DAY, CREEP_START, ENEMY_CHOSEN_DAY, ENEMY_HOUR, ENEMY_KINDS,
   FAITH_FAVOUR, FAITH_SLOW, FALL_EVERY_DAYS, GREAT_ENEMIES, GUILD_PURSE, HOST_EVERY_DAYS, HOST_MOST, HOST_SHARE, LIEUTENANT_SETBACK, MARK_CHANCE, MARK_SHARE,
   MISSING_DAILY, MONUMENT, OMEN_HOUR, OMEN_NIGHTLY, OUTPOST_DEST, OUTPOST_HASTE, PACE_LEAST, PACE_MOST, PEACE_DAYS, PEACE_MORALE, PLAN_AT, POWERS_FALL_MOST,
   PULL_OUTPOST, REFUSED_HASTE, SACK_SLAIN, HOST_CAP, HOST_PER_GROWN, SIEGE_CAP, SIEGE_PER_GROWN, HOST_HOURS, SIEGE_HOURS, SEAT_DEST, SEAT_FOUND_DAILY, SEAT_FOUND_PER_REGION, SEAT_FOUND_SCOUTING, SEAT_QUIET_DAYS, SEAT_SETBACK, SEAT_SPOTS,
@@ -28,6 +28,7 @@ import {
   type EnemyStage,
 } from '../data/greatEnemy';
 import { MAP_HOME } from '../data/worldMap';
+import { CALAMITIES, ENEMY_CALAMITY, type CalamityKind } from '../data/calamity';
 import { BUILDING_BY_ID } from '../data/buildings';
 import { ENEMIES } from '../data/enemies';
 import { RAID_KIND_BY_ID } from '../data/raids';
@@ -36,6 +37,7 @@ import type { Destination } from '../data/expeditions';
 import { DANGER_PACE } from '../data/pace';
 import { hashSeed, Rng } from '../rng';
 import { connectRoad, placeBlueprint } from './buildings';
+import { calamityDaily, calamityLifts, calamityOmens, calamityPace, calamitySync, stageOfEnemy } from './calamity';
 import { queueScene } from './cutscenes';
 import { declareWar, defOf, realm } from './factions';
 import { setFire } from './fire';
@@ -94,6 +96,8 @@ export interface GreatEnemyState {
   log: { day: number; text: string }[];
 }
 
+const LEGACY_AVATARS = Object.values(CALAMITIES).map((c) => c.avatar);
+
 /** What a fallen town's legend keeps of its Enemy (simHost.ts puts it on the legend; a descendant meets it again). */
 export interface EnemyLegend {
   kind: EnemyKind;
@@ -118,10 +122,12 @@ function log(s: GameState, e: GreatEnemyState, text: string): void {
 
 /* ------------------------------------------------------------ the choosing */
 
-/** Which Enemy fits this town: weighted by the land, the people and its Calamity, drawn from its own stream. */
-export function enemyKindFor(s: GameState): EnemyKind {
+/** Which Enemy fits this town: weighted by the land and the people, drawn from its own stream (`only`: an old save's
+ *  Calamity, whose Enemy it must be: `bindCalamity`). */
+export function enemyKindFor(s: GameState, only?: CalamityKind): EnemyKind {
   const shore = seaTown(s) || s.biome === 'coast';
-  const weights = Object.fromEntries(ENEMY_KINDS.map((k) => [k, enemyFit(k, s.biome ?? 'forest', s.origin ?? 'settlers', shore, s.calamity?.kind)])) as Record<EnemyKind, number>;
+  const weights = Object.fromEntries(ENEMY_KINDS.map((k) => [k, only && ENEMY_CALAMITY[k] !== only ? 0 : enemyFit(k, s.biome ?? 'forest', s.origin ?? 'settlers', shore)])) as Record<EnemyKind, number>;
+  if (only && !Object.values(weights).some((w) => w > 0)) for (const k of ENEMY_KINDS) if (ENEMY_CALAMITY[k] === only) weights[k] = 1;
   return roll(s, 'kind').weighted(weights);
 }
 
@@ -159,6 +165,7 @@ export function greatEnemyHourly(s: GameState): void {
     return;
   }
   const e = s.greatEnemy;
+  if (s.calamity && !s.calamity.driven) bindCalamity(s, e);
   if (ended(e)) return;
   if (e.siegeAt !== undefined && s.tick >= e.siegeAt && !s.raid) startSiege(s, e);
   if (cal.hour === OMEN_HOUR && past(e, 'omens') && roll(s, 'omen', cal.day).chance(OMEN_NIGHTLY)) omen(s, e);
@@ -172,6 +179,7 @@ export function paceToday(s: GameState, e = s.greatEnemy): number {
   let pace = 1 + OUTPOST_HASTE * standing;
   for (const [topic, slow] of Object.entries(COUNTER_TOPICS)) if (s.research.done.includes(topic)) pace -= slow;
   if (faithHolds(s)) pace -= FAITH_SLOW;
+  pace += calamityPace(s); // (its nests and the wards against them: sim/calamity.ts)
   return Math.max(PACE_LEAST, Math.min(PACE_MOST, pace));
 }
 
@@ -193,6 +201,7 @@ function enemyDaily(s: GameState, e: GreatEnemyState, g: Rng): void {
   if (e.stage === 'march' && e.plan >= PLAN_AT.siege && e.siegeAt === undefined) warnSiege(s, e);
   if (!past(e, 'omens')) return;
   if (g.chance(MISSING_DAILY)) missing(s, e, g);
+  calamityDaily(s, e); // (its Calamity wakes and spreads with the plan: sim/calamity.ts)
   if (e.stage === 'omens') {
     if (!e.warned && g.chance(WARNING_DAILY)) warning(s, e);
     if (e.seatFound === undefined && g.chance(SEAT_FOUND_DAILY + (s.research.done.includes('scouting') ? SEAT_FOUND_SCOUTING : 0) + SEAT_FOUND_PER_REGION * (s.regions?.length ?? 0))) findSeat(s, e, 'The scouts');
@@ -222,7 +231,7 @@ function setStage(s: GameState, e: GreatEnemyState, stage: EnemyStage): void {
   }
   const more: Partial<Record<EnemyStage, string>> = {
     omens: `${e.vengeance ? `It is the same enemy that broke ${e.vengeance}'s town. ` : ''}Its goal: ${d.goal.charAt(0).toLowerCase()}${d.goal.slice(1)}`,
-    stirring: `Its lieutenants hold ${d.lieutenants.map((l) => l.outpost).join(', ')}. Every one slain sets it back; every outpost left standing hastens it.`,
+    stirring: `${CALAMITIES[ENEMY_CALAMITY[e.kind]].name.replace(/^the /, 'The ')} that woke ahead of it is its doing, and it will spread. Its lieutenants hold ${d.lieutenants.map((l) => l.outpost).join(', ')}. Every one slain sets it back; every outpost left standing hastens it.`,
     march: 'Its lieutenants will lead its hosts against the walls now, and it will want tribute.',
   };
   tell(s, e, `${capital(d.name)}: ${STAGE_LABEL[stage].toLowerCase()}`, `${d.stages[stage] ?? ''} ${more[stage] ?? ''}`.trim(), `enemy_${stage}`);
@@ -235,8 +244,12 @@ function setStage(s: GameState, e: GreatEnemyState, stage: EnemyStage): void {
 function omen(s: GameState, e: GreatEnemyState): void {
   const d = enemyDef(e);
   const g = roll(s, 'omen-line', s.tick);
-  const line = d.omens[g.int(0, d.omens.length - 1)];
+  const own = d.omens[g.int(0, d.omens.length - 1)];
+  // (some nights the sign is its Calamity's, foretold: the grey mould, the red light; a side stream, so its own omens stay as they were)
+  const cg = roll(s, 'omen-calamity', s.tick);
+  const line = cg.chance(CALAMITY_OMEN_SHARE) ? cg.pick(calamityOmens(e.kind)) : own;
   e.omen = line;
+  if (s.calamity) s.calamity.omen = line;
   e.dream = { text: d.dreams[g.int(0, d.dreams.length - 1)], tick: s.tick };
   notify(s, `An omen of ${d.short}: ${line}`, true);
   (s.marks ??= []).push({ lever: 'morale', value: -2, until: s.tick + 12 * TICKS_PER_HOUR, text: 'A bad omen' });
@@ -571,7 +584,7 @@ export function greatEnemyRaidOver(s: GameState, r: Raid): void {
     if (e.slain[i] == null && r.raiders.some((rd) => rd.kind === l.id && !rd.ally && rd.down)) slayLieutenant(s, i, r.enemy === 'siege' ? 'in the last siege' : 'before the walls');
   });
   if (r.enemy !== 'siege') return;
-  const boss = r.raiders.find((rd) => rd.kind === d.boss && !rd.ally);
+  const boss = r.raiders.find((rd) => (rd.kind === d.boss || LEGACY_AVATARS.includes(rd.kind)) && !rd.ally); // (an old save's siege was led by its Calamity's avatar)
   if (boss?.down) return victory(s, e, r, 'before the walls');
   e.lost++;
   const g = roll(s, 'sack', e.lost);
@@ -605,6 +618,7 @@ function victory(s: GameState, e: GreatEnemyState, r: Raid | null, where: string
   e.beaten = s.tick;
   e.began.peace = s.tick;
   e.siegeAt = undefined;
+  calamityLifts(s);
   e.creep = undefined;
   // who struck hardest (the siege's tally) or the party's best, else the town's best fighter
   const tally = r?.tally ? Object.entries(r.tally).filter(([id]) => Number(id) >= 0).sort((a, b) => b[1].dealt - a[1].dealt)[0] : undefined;
@@ -764,5 +778,47 @@ export function forceEnemy(s: GameState, to: Exclude<EnemyStage, 'dormant' | 'pe
     warnSiege(s, e);
     e.siegeAt = s.tick;
   }
+  calamitySync(s, e);
   return e;
+}
+
+/* ------------------------------------------------------------ an old save's Calamity */
+
+/** A save from when the Calamity ran its own clock and siege (it has no `driven`): its dread becomes the Enemy's plan,
+ *  its stage the Enemy's stage (passed quietly, nothing told twice), its sieges lost the Enemy's, and a siege or an army
+ *  already on the land is the Enemy's. Once only; the Enemy is chosen first if the save is from before there was one
+ *  (of the kind that brings that Calamity). */
+export function bindCalamity(s: GameState, e0?: GreatEnemyState): void {
+  const c = s.calamity;
+  if (!c || c.driven) return;
+  c.driven = true;
+  let e = e0;
+  if (!e) e = s.greatEnemy && s.greatEnemy.chosen >= 0 ? s.greatEnemy : chooseEnemy(s, enemyKindFor(s, c.kind));
+  if (c.beaten !== undefined || ended(e)) return; // (the game is already won, or lost)
+  c.kind = ENEMY_CALAMITY[e.kind]; // (the Enemy's, if it was drawn first and brings another)
+  const lost = Math.min(SIEGES_TO_FALL - 1, c.lost ?? 0);
+  e.lost = Math.max(e.lost, lost);
+  const sieging = c.siegeAt !== undefined || s.raid?.calamity === 'siege';
+  e.plan = Math.max(e.plan, sieging ? PLAN_AT.siege : (c.dread * PLAN_AT.siege) / 100);
+  if (sieging && e.siegeAt === undefined) e.siegeAt = c.siegeAt ?? s.tick;
+  // (the stages it has reached, quietly)
+  const to = e.siegeAt !== undefined || sieging ? 'siege' : e.plan >= PLAN_AT.march ? 'march' : e.plan >= PLAN_AT.stirring ? 'stirring' : e.plan >= PLAN_AT.omens ? 'omens' : 'dormant';
+  for (const stage of STAGE_ORDER) {
+    if (at(stage) > at(to) || at(stage) <= at(e.stage) || at(stage) > at('siege')) continue;
+    e.stage = stage;
+    e.began[stage] = s.tick;
+    if (stage === 'stirring') {
+      e.outposts = true;
+      e.creep ??= creepSpot(s, e);
+      if (e.seatFound === undefined) e.seatFound = s.tick;
+    }
+  }
+  if (s.raid?.calamity) {
+    s.raid.enemy = s.raid.calamity === 'siege' ? 'siege' : 'mark';
+    s.raid.calamity = undefined;
+  }
+  c.siegeAt = undefined;
+  c.dread = Math.min(100, Math.round(((e.plan * 100) / PLAN_AT.siege) * 10) / 10);
+  c.stage = Math.max(c.stage, stageOfEnemy(e)) as typeof c.stage;
+  log(s, e, `${capital(CALAMITIES[c.kind].name)} is ${enemyDef(e).short}'s doing: the two are one story now`);
 }

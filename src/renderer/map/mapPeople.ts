@@ -14,6 +14,7 @@ import { hkTexture } from '../art/hkTexture';
 import { CREATURE_FRAME, creatureFrame, creatureSize, type CreatureSheet } from '../art/creatures';
 import { EMOTE_SIZE, emoteFrame, levelUpFrame, HOLY_SIZE, holyFrame, REVIVE_SIZE, reviveFrame, SPELL_SIZE, spellFrame, spellFrames, SPLAT_SIZE, splatFrame, pixelFxFrame, type Emote } from '../art/effects';
 import { COUGH_FOR, coughing } from './moodRules';
+import { motionOf } from '../fight/fightMotion';
 import { fightAnim, fightPose, founderSheet, heroFrame, heroScale, heroSheet, SHOOT_TICKS, skeletonSheet, WOLF_FORMS, WOLF_SCALE } from '../art/combatPoses';
 import { creatureFlip } from '../art/creatures';
 import { loadImage } from '../art/loadImage';
@@ -826,6 +827,12 @@ export class MapPeople {
       }
       // (a lean on the walk home, lying on the grass to watch the clouds)
       s.rotation = !swimming && hkTex ? (moment?.rot ?? 0) : 0;
+      // (a blow in a fight: a step back, a lunge and a recoil, the struck one knocked back a little: fight/fightMotion.ts)
+      if (fighting && !swimming && !mounted && !hidden && v.downed === null && (v.sinceBlow < 9 || v.sinceHit < 7)) {
+        const m = motionOf({ toward: v.dir < 0 ? -1 : 1, sinceAction: v.sinceBlow, sinceHit: v.sinceHit, down: false, ranged: v.battle.ranged, hard: 0, friendDown: 999, wide: false, cheering: false, now, ref: v.id });
+        s.x += Math.round(m.dx * 0.6);
+        s.y -= Math.round(m.dy * 0.6);
+      }
       this.drawProps(d, moment?.prop ?? null, now, x, y, z, k, step?.facing === 'left' ? -1 : step?.facing === 'right' ? 1 : d.view.dir);
       // cavalry: the rider sits on a horse
       const coat = d.view.mounted;

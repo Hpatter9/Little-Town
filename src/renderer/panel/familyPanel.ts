@@ -4,6 +4,7 @@
 // small, a black sheep marked), lines drawn from parents to children. Tapping a living member opens them.
 
 import type { DynastyView } from '../../shared/sim/dynasty';
+import type { IntrigueView } from '../../shared/sim/intrigue';
 import type { FamilyLine, KinNode } from '../../shared/sim/lineage';
 import type { Snapshot } from '../../shared/sim/snapshot';
 import { el } from './dom';
@@ -100,10 +101,33 @@ function dynastyBlocks(d: DynastyView): HTMLElement[] {
   return out;
 }
 
+/** The houses' holdings and wealth, what is known of their crimes, and what the town whispers (sim/intrigue.ts). */
+function intrigueBlocks(v: IntrigueView): HTMLElement[] {
+  const out: HTMLElement[] = [];
+  for (const x of v.houses) {
+    const c = el('div', `card house${x.ring || x.crimes.length ? ' guilty' : ''}`);
+    const top = el('div', 'card-top');
+    top.append(el('span', 'card-name', `${x.ruling ? '♛ ' : ''}${x.name}`), el('span', 'card-size', `${x.wealth} coins`));
+    const own = [['home', x.holdings.homes], ['shop', x.holdings.shops], ['workshop', x.holdings.works], ['field', x.holdings.fields]].filter(([, n]) => (n as number) > 0).map(([k, n]) => `${n} ${k}${n === 1 ? '' : 's'}`);
+    c.append(top, el('div', 'hint', `${own.length ? `Owns ${own.join(', ')}` : 'Owns no land'} · chest ${x.purse}${x.seats ? ` · ${x.seats} seat${x.seats === 1 ? '' : 's'} on the council` : ''}`));
+    if (x.ring) c.append(el('div', 'hint warn', `Known for ${x.ring}.`));
+    if (x.rumour) c.append(el('div', 'hint', `Whispered: ${x.rumour}`));
+    out.push(x.crimes.length ? expandable(c, `house:${x.root}`, () => x.crimes) : c);
+  }
+  if (v.whispers.length) {
+    const c = el('div', 'card whispers');
+    c.append(el('div', 'card-name', 'Whispers'));
+    for (const w of v.whispers) c.append(el('div', 'hint', `Day ${w.day}: ${w.text}`));
+    out.push(c);
+  }
+  return out;
+}
+
 export function familiesSection(s: Snapshot, open: (id: number) => void): HTMLElement[] {
   const out: HTMLElement[] = [el('h2', '', 'Families')];
   out.push(el('div', 'hint', 'The town\'s families and how they branch. Children go to lessons of a morning and learn a trade at a master\'s side of an afternoon; they take after their parents, and carry their grudges. When someone dies their home and purse go to their heir. A line grows famous by its deeds, and every family has its black sheep.'));
   if (s.dynasty) out.push(...dynastyBlocks(s.dynasty));
+  if (s.intrigue) out.push(...intrigueBlocks(s.intrigue));
   if (!s.families.length) {
     out.push(el('p', 'empty', 'No families yet: the first child born in town begins one.'));
     return out;

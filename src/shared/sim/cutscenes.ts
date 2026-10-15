@@ -10,6 +10,7 @@
 // `SCENE_WAIT_HOURS` lapses (its telling still comes).
 
 import { CALAMITIES } from '../data/calamity';
+import { GREAT_ENEMIES } from '../data/greatEnemy';
 import { CUTSCENES } from '../data/cutscenes';
 import { levelOf } from '../data/levels';
 import { natureOf } from '../data/natures';
@@ -80,6 +81,7 @@ export function queueScene(s: GameState, id: string, opts: { vars?: Record<strin
     if (opts.fallback) s.prompts.push(opts.fallback);
     return null;
   }
+  const enemy = s.greatEnemy && s.greatEnemy.chosen >= 0 ? GREAT_ENEMIES[s.greatEnemy.kind] : null;
   const calamity = s.calamity ? CALAMITIES[s.calamity.kind] : null;
   const vars: Record<string, string> = {
     town: 'the town',
@@ -89,6 +91,7 @@ export function queueScene(s: GameState, id: string, opts: { vars?: Record<strin
     worrier: town.worrier?.name ?? town.founder.name,
     elder: town.elder?.name ?? town.founder.name,
     ...(calamity ? { calamity: calamity.name, heart: calamity.heart, cult: calamity.cult } : {}),
+    ...(enemy ? { enemy: enemy.name, short: enemy.short, seat: enemy.seat } : {}), // (the Calamity is the Enemy's: its scenes name it)
     ...opts.vars,
   };
   const cast: Record<string, SceneActor> = {};

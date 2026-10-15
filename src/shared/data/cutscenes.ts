@@ -143,7 +143,7 @@ const SCENES: Cutscene[] = [
       { look: 'town', cam: wide(100, 1.4), fx: ['fadeIn'], lines: [say('worrier', 'Did anyone else feel the ground do a sort of... shiver?'), say('wit', 'Duchess did. She ate her rope.')] },
       { cam: two('founder', 'hero'), lines: [say('hero', 'Smoke on the eastern sky. Red light, like a forge.'), say('founder', 'Probably nothing.')] },
       { cam: close('worrier', 2.8, 0.05), lines: [say('worrier', 'I am adding it to the list.'), say('wit', 'Which list?'), say('worrier', 'The list.')] },
-      { cam: sky(110), fx: ['fadeOut'], hold: 2, lines: [tell('It was not probably nothing.')] },
+      { cam: sky(110), fx: ['fadeOut'], hold: 2, lines: [tell('It was not probably nothing. It was {enemy}, sending its first servant ahead.')] },
     ],
   },
   {
@@ -158,7 +158,7 @@ const SCENES: Cutscene[] = [
       { cam: close('worrier', 2.8), lines: [say('worrier', 'Bread should not have a texture you could brush.')] },
       { cam: two('founder', 'hero'), lines: [say('hero', 'The wind is coming from the east. It smells like a cellar.'), say('founder', 'Then we keep the stores dry and our eyes open.')] },
       { cam: close('wit', 3, -0.06), lines: [say('wit', 'Duchess ate the fuzzy bread.'), say('worrier', 'Is she alright?'), say('wit', 'She seems smug.')] },
-      { cam: sky(110), fx: ['fadeOut'], hold: 2, lines: [tell('Duchess was fine. Duchess was always fine. The rest of the land would not be so lucky.')] },
+      { cam: sky(110), fx: ['fadeOut'], hold: 2, lines: [tell('Duchess was fine. Duchess was always fine. The rest of the land would not be so lucky: {enemy} had let it loose.')] },
     ],
   },
   {
@@ -173,7 +173,7 @@ const SCENES: Cutscene[] = [
       { cam: close('worrier', 3, 0.07), lines: [say('worrier', 'Why, did you have a pit?'), say('wit', 'A big one. With an eye in it. It winked at me.')] },
       { cam: two('founder', 'hero'), lines: [say('founder', 'We all had it.'), say('hero', 'Then it is not a dream. It is a warning.'), say('wit', 'Or the cheese.')] },
       { cam: close('founder', 2.6), lines: [say('founder', 'Nobody is blaming the cheese.')] },
-      { cam: sky(110), fx: ['fadeOut'], hold: 2, lines: [tell('It was not the cheese.')] },
+      { cam: sky(110), fx: ['fadeOut'], hold: 2, lines: [tell('It was not the cheese. It was {enemy}, dreaming aloud.')] },
     ],
   },
 

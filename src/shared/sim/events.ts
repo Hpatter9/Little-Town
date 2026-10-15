@@ -41,6 +41,7 @@ import { assignBeds, campEdge, joinOrigin, secretStranger } from './townsfolk';
 import { isChild } from './social';
 import { topicName } from '../data/originResearch';
 import { alignAnswered, recommend } from './alignment';
+import { shiftDread } from './calamity';
 
 /** Game hours an event waits for an answer before the default is taken (in play; it waits while you're away). */
 export const EVENT_HOURS = 3;
@@ -323,8 +324,7 @@ export function apply(s: GameState, effects: readonly EventEffect[], rng: Rng, w
     } else if ('dread' in e) {
       // (the Calamity's dread, up or down: sim/calamity.ts)
       const c = s.calamity;
-      if (c && c.beaten === undefined) {
-        c.dread = Math.max(0, Math.min(99, c.dread + e.dread));
+      if (c && c.beaten === undefined && shiftDread(s, e.dread)) {
         say(`the Calamity's dread ${signed(e.dread)}`);
       }
     }

@@ -104,7 +104,6 @@ import { lurkersBeaten } from './lurkers';
 import { caveBearBeaten } from './caveBear';
 import { packRaidBeaten } from './pack';
 import { sagaRaidOver } from './sagas';
-import { calamityRaidOver } from './calamity';
 import { greatEnemyRaidOver } from './greatEnemy';
 import { groveAllies, groveRaidOver } from './grove';
 import { mountFight, ranchAllies, ranchRaidOver } from './ranch';
@@ -875,7 +874,6 @@ function endRaid(s: GameState, rng: Rng): void {
   packRaidBeaten(s, r, rng);
   sagaRaidOver(s, r);
   hostOver(s, r);
-  calamityRaidOver(s, r);
   greatEnemyRaidOver(s, r);
   groveRaidOver(s, r);
   ranchRaidOver(s, r); // (tamed beasts home to the ranch: sim/ranch.ts)
