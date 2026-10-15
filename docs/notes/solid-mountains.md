@@ -30,3 +30,28 @@ changes the "The dwarves' hold" and "Walls that hold" sections of HISTORY.md (a 
   rock, edge spots, a courier from the walled-in north, dig order from the doorway, a 5-day hold run with nobody on
   rock); `test/castle.test.ts` (room ground cut as it is built, not when laid). `tools/probe-mountain.mjs` scans a
   dwarves town for anything standing on rock.
+
+### Hallways (the dwarves' hold as a dug network)
+
+The owner's ask: hallways for the rooms to sprout off, like a real mountain town. A change to "The dwarves' hold" /
+"The castle as one body of rooms" in HISTORY.md: a hold's rooms used to join any cell of the castle (the hall, a room,
+a gallery dug for ore).
+
+- **`hold_hallway`** (`data/buildings.ts` `HOLD_HALLWAY`, dwarves only, 2 wide and 4 deep, 3 stone, 30 s): a castle
+  room that is only a passage. It is cut like any room (the dig above) and drawn as bare floor: the dungeon pack's
+  flagstones under every room (`castleArt.ts`), no furniture (`mapView.ts` `hallBare`; `test/packCoverage` skips it).
+- **The rule (`sim/castle.ts` `hallCells`, used by `canPlace` and the planner's `roomSpot`):** a hold's new room, hallway
+  or not, must share a wall with the entrance hall or a hallway, never with another room or a gallery. New rooms carry
+  `halled`; `offHall` in `castleLayout` drops the doorway between a `halled` room and any room that isn't the hall, a
+  hallway or the seat (the seat's hall lies over the entrance hall's cells), so a room opens only onto a hall.
+- **Older saves:** rooms already built stay as they are (no `halled` flag, their doorways kept). A hold with no hallway
+  that `hallSpot` can't cut one for (its hall walled in on every side) still grows rooms the old way.
+- **The planner (`sim/planner.ts`):** `hallSpot(s)` (cached by building count, land version and open radius): the main
+  hallway runs north into the rock from the middle of the entrance hall's top wall (`trunkSite`, kept clear of rooms
+  till it's cut), up to three lengths deep; then side halls branch off it and off one another, nearest the camp first.
+  `tryHall` cuts the main one once three rooms stand, and another whenever a room finds no hallway frontage; one at a
+  time. Hallways sit within the known land, so a long trunk waits for the land to open.
+- Test: `test/solidMountain.test.ts` ("every new room of a hold opens off the entrance hall or a hallway, and the
+  hallways join the entrance"). `tools/hold-map.mjs [days]` prints a hold as a map.
+- Soak (dwarves, 20 days, 6 seeds): people 4.2 before, 4.0 with solid rock and hallways (3.8 with solid rock alone),
+  one town of six lost its last founder to lightning on day 20. Settlers, orcs and knights (2 seeds) unchanged.
