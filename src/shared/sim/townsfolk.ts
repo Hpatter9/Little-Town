@@ -46,7 +46,10 @@ import { ORIGIN_DEFS, rulesOf } from '../data/origins';
 import { natureOf } from '../data/natures';
 import { makeStranger, oneOf, orcLook, strangerOrigin, welcomes } from './strangers';
 import { originWork, moraleMarks } from './origin';
-import { onRoster } from './nightWatch';
+import { onRoster, watchHour } from './nightWatch';
+
+/** The least rest a watchman needs to be got up for the watch. */
+const WATCH_WAKE_REST = 0.3;
 
 /** Need drain per game hour. Food lasts about a day; rest about 18 waking hours. */
 export const FOOD_PER_HOUR = 1 / 24;
@@ -99,16 +102,18 @@ export function wantsSleep(s: GameState, p: Person): boolean {
 export function wantsToWake(s: GameState, p: Person): boolean {
   if (p.downed) return false; // stays in bed until back on their feet
   const h = calendar(s.tick).hour;
+  // (the night watch is up for its watch if rested at all: the hours of the watch, sim/nightWatch.ts)
+  if (nightWatch(s, p) && watchHour(h) && p.needs.rest >= WATCH_WAKE_REST) return true;
   return p.needs.rest >= 1 || ((nightWatch(s, p) ? !bedtime(s, p, h) : h >= 6 && h < 22) && p.needs.rest >= 0.6);
 }
 
 /** A hired guard on the night watch (people.ts `onShift`: the odd ids keep it) sleeps by day, `DAY_SLEEP_FROM` to
  *  `DAY_SLEEP_UNTIL`, so they're up for their watch (they went to bed at ten with everyone else, and the wall and its
- *  gates stood unwatched). Only once the ring wall stands, with its gates to keep, and never the founder: a lone
+ *  gates stood unwatched). Never the founder: a lone
  *  founder taken on as the guard slept the working day away and the town never grew. */
 const DAY_SLEEP_FROM = 8;
 const DAY_SLEEP_UNTIL = 16;
-const nightWatch = (s: GameState, p: Person) => (!!p.guard && p.id % 2 !== 0 && p.id !== s.mainId && !!s.ring?.done) || onRoster(s, p);
+const nightWatch = (s: GameState, p: Person) => (!!p.guard && p.id % 2 !== 0 && p.id !== s.mainId) || onRoster(s, p);
 function bedtime(s: GameState, p: Person, h: number): boolean {
   return nightWatch(s, p) ? h >= DAY_SLEEP_FROM && h < DAY_SLEEP_UNTIL : isNight(h);
 }

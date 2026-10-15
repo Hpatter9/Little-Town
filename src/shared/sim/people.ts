@@ -30,7 +30,7 @@ import { nextPave, pave, paveReady, paveSeconds } from './streets';
 import { SHAFT } from '../data/deep';
 import { shaftHasWork } from './deep';
 import { guardEngages, roamerToHunt } from './roamers';
-import { onNightWatch } from './nightWatch';
+import { onNightWatch, watchHour } from './nightWatch';
 import { buildingCentre, buildingDoor, defOf, distToBuilding, footprint, stillNeeded, storageFree, storages, townRadius, inWork, overgrownCells, cellCleared, buildableNow, deliveredShare, layoutOf, sameLayout, type BuildingsLayout } from './buildings';
 import { FEED_SECONDS } from '../data/lighting';
 import { feedLight, lightToFeed } from './lighting';
@@ -1233,8 +1233,8 @@ function chooseTask(s: GameState, p: Person): Task | null {
     }
   }
   if (p.morale < SULK_MORALE || p.breakdown) return null; // sulking (or in the middle of a break)
-  // The night watch (sim/nightWatch.ts): a townsperson on its roster walks the beat or stands a post before their own work.
-  if (onNightWatch(s, p) && !s.raid) return p.task?.type === 'patrol' && p.task.band === undefined ? p.task : patrolTask(s, p);
+  // The night watch (sim/nightWatch.ts): a hired guard on the night shift and a townsperson on its roster walk the beat or stands a post before their own work.
+  if (!s.raid && (onNightWatch(s, p) || (p.guard && watchHour(calendar(s.tick).hour) && onShift(s, p)))) return p.task?.type === 'patrol' && p.task.band === undefined ? p.task : patrolTask(s, p);
   // (hands already full, whatever they're doing: no more gathering or fetching on top)
   if (poolSize(p.carrying) >= carryCapacity(s, p)) handsFull = true;
   // The lamplighter's round (sim/lighting.ts): a light running low and the dark coming, one or two of the town go
