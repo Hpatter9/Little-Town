@@ -418,7 +418,7 @@ export interface Raid {
   id: number;
   /** A saga's raid: the run it belongs to (sim/sagas.ts). */
   saga?: number;
-  /** One of the Calamity's raids: its army, or the last siege (sim/calamity.ts). */
+  /** (Old saves: one of the Calamity's own raids, from before it was the Great Enemy's stage: sim/greatEnemy.ts `bindCalamity` hands them over.) */
   calamity?: 'army' | 'siege';
   /** One of the Great Enemy's raids (sim/greatEnemy.ts): bearing its mark, a host led by a lieutenant (which), or the
    *  last siege. */
@@ -1295,7 +1295,7 @@ export interface GameState {
   wild?: import('./wild').Wild;
   roamers?: Roamer[];
   skirmishes?: Skirmish[];
-  /** The Calamity (sim/calamity.ts): what it is, how far its dread has risen, its heart and sieges. */
+  /** The Calamity (sim/calamity.ts): the Great Enemy's stirring made manifest: what it is, its dread, its heart. */
   calamity?: CalamityState;
   /** The Great Enemy: one villain a town and the long arc of the game (sim/greatEnemy.ts). */
   greatEnemy?: import('./greatEnemy').GreatEnemyState;
