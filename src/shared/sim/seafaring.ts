@@ -13,9 +13,10 @@ import { eraReached } from '../data/eras';
 import {
   AGE_FROM_DAYS, AGE_WEAR, CLAIM_DAYS, COLONISTS, COLONY_BREAK_AT, COLONY_FROM_DAY, COLONY_FROM_DAY_MERFOLK, COLONY_GAP_DAYS, COLONY_GROWTH, COLONY_ISLES, COLONY_LOYALTY_START, COLONY_MAKES_PER_HEAD, COLONY_MOST, COLONY_MOST_FOLK, COLONY_MOST_MERFOLK, COLONY_PEOPLE, COLONY_PEOPLE_MERFOLK,
   COLONY_PIRATES_DAILY, COLONY_RUN_DAYS, COLONY_RUN_STORM, DRIFT_DAILY, FISHER_DROWN, FISHER_DROWN_SWIMMER, FISHERS_PER_BOAT, HARBOUR_BERTHS, HARBOUR_CATCH, HARBOUR_SHELTER, MONSTER_FROM_DAY, MONSTER_HARBOUR, MONSTER_HULL, MONSTER_NAMES, MONSTER_NIGHTLY, MONSTER_PARLEY,
-  PARLEY_CATCH, PARLEY_DAILY, PIRATE_BUDGET, PIRATE_FROM_DAY, PIRATE_GAP, ROT_AT, SEA_RAID_KIND, SHOALS, SINK_CHANCE, SINK_HULL, WASH_LOOT, WRECK_CASTAWAY, WRECK_WASH_CHANCE, WRONG_GROUND,
+  PARLEY_CATCH, PARLEY_DAILY, PIRATE_BUDGET, PIRATE_FROM_DAY, PIRATE_GAP, KING_BUDGET_MORE, KING_EASE_DAYS, KING_EASED, KING_GAP_CUT, KING_REFUSED, ROT_AT, SEA_RAID_KIND, SHOALS, SINK_CHANCE, SINK_HULL, WASH_LOOT, WRECK_CASTAWAY, WRECK_WASH_CHANCE, WRONG_GROUND,
 } from '../data/seafaring';
 import { FLEET_MOST } from '../data/boats';
+import { PLAN_AT } from '../data/greatEnemy';
 import { hashSeed, Rng } from '../rng';
 import { spawnBand } from './bands';
 import { buildingCentre, depositNear, footprint, depthOf, footprints, placeBlueprint, totalStock } from './buildings';
@@ -25,7 +26,7 @@ import { raidBudget, startRaid } from './raids';
 import { seaTown } from './sea';
 import { isChild } from './social';
 import { peopleOf } from './strangers';
-import { campCell, campXY, notify, type Boat, type GameState, type Person } from './state';
+import { campCell, campXY, notify, type Boat, type GameState, type Person, type Raid } from './state';
 import { calendar, TICKS_PER_DAY, TICKS_PER_HOUR } from './time';
 import { assignBeds } from './townsfolk';
 import { boatDef, boatyardOf, fleet, freeBoat, mooring } from './boats';
@@ -198,6 +199,31 @@ function monsterHunt(s: GameState, rng: Rng): void {
   }
 }
 
+/** How angry the Drowned King is, 0 to 1: how far his plan has come, more for tributes refused, less for those paid (and
+ *  eased for a few days after one). 0 when he isn't the town's Great Enemy, or has been beaten. */
+export function kingAnger(s: GameState): number {
+  const e = s.greatEnemy;
+  if (!e || e.kind !== 'drowned' || e.beaten !== undefined || e.fell !== undefined) return 0;
+  let a = Math.min(1, e.plan / PLAN_AT.siege) + KING_REFUSED * ((e.refused ?? 0) - (e.tributes ?? 0));
+  if (e.lastTribute !== undefined && (e.tributes ?? 0) > 0 && s.tick - e.lastTribute < KING_EASE_DAYS * TICKS_PER_DAY) a -= KING_EASED;
+  return Math.max(0, Math.min(1, a));
+}
+
+/** The King's anger swells a crew past the size cap of an ordinary raid: tougher and more of them (as a gathered band, see
+ *  raidOdds `gatherRaid`), with no number drawn. */
+function swellCrew(s: GameState, r: Raid, g: number): void {
+  const crew = r.raiders.filter((rd) => !rd.ally);
+  for (const rd of crew) {
+    rd.might = (rd.might ?? 1) * g;
+    rd.hp = rd.maxHp = Math.round(rd.maxHp * g);
+  }
+  const more = Math.round(crew.length * (g - 1));
+  for (let i = 0; i < more; i++) {
+    const m = crew[i % crew.length];
+    r.raiders.push({ ...m, id: s.nextId++, x: m.x + r.side * 14 * (1 + Math.floor(i / crew.length)), carrying: {} });
+  }
+}
+
 /** A pirate crew lands on the beach: a raid of sea raiders, set down at the water's edge nearest the camp. */
 function pirates(s: GameState, rng: Rng): void {
   const book = seaBook(s);
@@ -206,8 +232,10 @@ function pirates(s: GameState, rng: Rng): void {
     return;
   }
   if (s.tick < book.nextPirate || s.raid || !coastal(s) || !eraReached(s.era, 'medieval') || dayOf(s) < PIRATE_FROM_DAY) return;
-  book.nextPirate = s.tick + rng.int(PIRATE_GAP[0], PIRATE_GAP[1]) * TICKS_PER_DAY;
+  const anger = kingAnger(s);
+  book.nextPirate = s.tick + Math.round(rng.int(PIRATE_GAP[0], PIRATE_GAP[1]) * (1 - KING_GAP_CUT * anger) * TICKS_PER_DAY);
   const raid = startRaid(s, SEA_RAID_KIND, Math.round(raidBudget(s) * PIRATE_BUDGET), rng);
+  if (anger > 0) swellCrew(s, raid, 1 + KING_BUDGET_MORE * anger);
   raid.landing = true;
   const beach = beachNear(s);
   if (beach) {

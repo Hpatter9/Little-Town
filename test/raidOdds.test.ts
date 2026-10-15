@@ -4,12 +4,15 @@ import '../src/shared/data/events'; // (first: the event kit's own import order)
 import { RAID_KIND_BY_ID } from '../src/shared/data/raids';
 import { Rng } from '../src/shared/rng';
 import { answerPrompt } from '../src/shared/sim/roadEvents';
-import { gatherOf, oddsOf, oddsOver, raidPower, ripeGrudge, townPower } from '../src/shared/sim/raidOdds';
+import { musterHost, launchHost, realm } from '../src/shared/sim/factions';
+import { gatherOf, oddsHourly, oddsOf, outmatchedPlan, weighArrival, oddsOver, raidPower, ripeGrudge, townPower } from '../src/shared/sim/raidOdds';
 import { startGuildRaid, startRaid } from '../src/shared/sim/raids';
 import { skipRaidsTick } from '../src/shared/sim/raidSkip';
 import { Sim } from '../src/shared/sim/sim';
 import { makePerson, type GameState } from '../src/shared/sim/state';
 import { TICKS_PER_HOUR } from '../src/shared/sim/time';
+import { totalStock } from '../src/shared/sim/buildings';
+import { calendar } from '../src/shared/sim/time';
 import { campPx, plainGame } from './helpers';
 
 /** A town of `n` grown-ups with the autopilot on, and a few knights of the Order on their way. */
@@ -192,4 +195,132 @@ test('a hunted band\'s survivor carries a grudge that brings a bigger raid of th
   assert.equal(ripeGrudge(s), 'rival_knights');
   assert.ok(gatherOf(s) >= 1.5, 'and bigger');
   assert.equal(s.raidOdds?.grudge, undefined);
+});
+
+test('a hunted war host leaves a grudge on its power: the next host comes bigger', () => {
+  const s = plainGame('odds-host-grudge');
+  s.autopilot = true;
+  s.era = 'medieval';
+  for (const f of realm(s)) f.known = true;
+  const foe = realm(s)[0];
+  foe.stance = 'war';
+  foe.troops = 40;
+  musterHost(s, foe);
+  const first = foe.host!.size;
+  const r = launchHost(s, foe, new Rng(4))!;
+  r.mercy = 'hunted';
+  r.raiders.find((rd) => !rd.ally)!.gone = true; // (got away)
+  s.raidRecap = { tick: s.tick, name: 'Host', outcome: 'victory', boss: null, waves: 1, came: 4, killed: 3, fled: 1, through: 0, prisoners: 0, stolen: {}, spoils: {}, rows: [], best: null, towers: null, lamed: 0, limped: 0, runDown: 0, takenAlive: 0, story: [] };
+  oddsOver(s, r);
+  assert.equal(foe.grudge, true);
+  assert.equal(s.raidOdds?.grudge, undefined, 'the power bears it, not the town\'s book');
+  assert.match(s.raidRecap.story.join(' '), /next host will come bigger/);
+  musterHost(s, foe);
+  assert.ok(foe.host!.size > first, `bigger: ${foe.host!.size} against ${first}`);
+  assert.equal(foe.grudge, undefined, 'spent');
+  // spared: no grudge
+  r.mercy = 'spared';
+  oddsOver(s, r);
+  assert.equal(foe.grudge, undefined);
+});
+
+/** A town of twenty and four bandits at its edge, the clock wound to a tick where the band's side-stream roll says `plan`. */
+function bandsAtEdge(seed: string, plan: 'toll' | 'probe' | 'turn') {
+  const s = plainGame(seed);
+  s.autopilot = true;
+  s.coins = 400;
+  for (let i = 1; i < 20; i++) s.people.push(makePerson(new Rng(500 + i), s.nextId++, 'hunter', s.people[0], s.people.map((q) => q.name)));
+  startRaid(s, RAID_KIND_BY_ID.bandits, 60, new Rng(5));
+  s.raid!.raiders = s.raid!.raiders.slice(0, 4);
+  s.raid!.arrivesTick = s.tick + 1;
+  s.tick += 100;
+  for (let i = 0; i < 500 && outmatchedPlan(s, s.raid!) !== plan; i++) s.tick++;
+  assert.equal(outmatchedPlan(s, s.raid!), plan, `found a tick that rolls ${plan}`);
+  assert.ok(oddsOf(s, s.raid!) < 0.5, 'outmatched');
+  return s;
+}
+
+test('an outmatched band may demand a toll: paid, they go and the next is no bigger; refused, they turn back', () => {
+  const s = bandsAtEdge('odds-toll', 'toll');
+  const r = s.raid!;
+  assert.equal(weighArrival(s, r), 'wait');
+  assert.ok(r.toll && r.toll.coins > 0, 'a share of the coins');
+  const prompt = s.prompts.find((p) => p.id === r.parley)!;
+  assert.deepEqual(prompt.options, ['Pay the toll', 'Refuse the toll']);
+  assert.equal(s.raid, r, 'they hold at the edge');
+  const coins = s.coins!;
+  const toll = r.toll!.coins;
+  s.raidOdds = { extra: 1, streak: 1 };
+  answerPrompt(s, prompt.id, 0, new Rng(1));
+  assert.equal(s.coins, coins - toll);
+  assert.equal(s.raid, null);
+  assert.equal(s.raidRecap!.mercy, 'toll');
+  assert.match(s.raidRecap!.story.join(' '), /toll/);
+  assert.equal(s.raidOdds!.tolls, 1);
+  assert.equal(gatherOf(s), 1, 'no bigger next time');
+
+  const t = bandsAtEdge('odds-toll2', 'toll');
+  weighArrival(t, t.raid!);
+  const coins2 = t.coins!;
+  answerPrompt(t, t.raid!.parley!, 1, new Rng(1));
+  assert.equal(t.coins, coins2, 'nothing paid');
+  assert.equal(t.raid, null);
+  assert.equal(t.raidRecap!.mercy, 'turned');
+  assert.ok(gatherOf(t) > 1, 'and they come back bigger');
+});
+
+test('the toll question\'s default follows the leader and the treasury', () => {
+  const rich = bandsAtEdge('odds-toll3', 'toll');
+  weighArrival(rich, rich.raid!);
+  const askedRich = rich.prompts.find((p) => p.id === rich.raid!.parley)!;
+  const poor = bandsAtEdge('odds-toll4', 'toll');
+  poor.coins = 0;
+  for (const st of poor.buildings) st.store = {};
+  assert.equal(weighArrival(poor, poor.raid!), 'wait');
+  assert.equal(poor.raid!.toll, undefined, 'nothing to ask of an empty town: they just turn back');
+  assert.ok(askedRich.defaultOption === 0 || askedRich.defaultOption === 1);
+  assert.ok(poor.prompts.some((p) => p.options.includes('Let them go')));
+});
+
+test('an outmatched band may probe instead: it turns back, and a few slip in by night to steal one thing, or are caught', () => {
+  const s = bandsAtEdge('odds-probe', 'probe');
+  const loot = { iron: 40 };
+  const st = s.buildings.find((b) => b.def === 'campfire')!;
+  st.store = { ...loot };
+  assert.equal(weighArrival(s, s.raid!), 'wait');
+  assert.equal(s.raid, null, 'the band turned back');
+  assert.equal(s.raidRecap!.mercy, 'probe');
+  assert.match(s.raidRecap!.story.join(' '), /weak spot/);
+  const probe = s.raidOdds!.probe!;
+  assert.equal(calendar(probe.at).hour, 2, 'by night');
+  // not before its night
+  oddsHourly(s);
+  assert.ok(s.raidOdds!.probe, 'waits');
+  const before = JSON.stringify(s);
+  s.tick = probe.at;
+  // (an unwatched town: the take, unless the roll is the catch)
+  oddsHourly(s);
+  assert.equal(s.raidOdds!.probe, undefined, 'spent');
+  const kept = totalStock(s).iron ?? 0;
+  assert.ok(kept < 40 || (s.raidOdds!.caught ?? 0) === 1, 'something taken, or caught');
+  void before;
+  // many nights: guards catch more of them
+  const rate = (guards: number) => {
+    let caught = 0;
+    for (let i = 0; i < 40; i++) {
+      const g = plainGame(`odds-probe-n${i}`);
+      g.autopilot = true;
+      for (let k = 0; k < guards; k++) {
+        const p = makePerson(new Rng(700 + k), g.nextId++, 'hunter', g.people[0], g.people.map((q) => q.name));
+        p.guard = true;
+        g.people.push(p);
+      }
+      g.tick = 14400 * 3 + 600 * 2;
+      g.raidOdds = { probe: { kind: 'bandits', at: g.tick, goal: 'steal', n: 2 } };
+      oddsHourly(g);
+      caught += g.raidOdds!.caught ?? 0;
+    }
+    return caught;
+  };
+  assert.ok(rate(5) > rate(0), 'a watched town catches more');
 });
