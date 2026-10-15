@@ -185,9 +185,10 @@ export const OMEN_HOURS = 12;
  *  `WARD_MOST`). */
 export const WARD_SAP = 0.15;
 export const WARD_MOST = 0.4;
-/** Firestorm: this many raiders burned for this share of their health (by potency). */
+/** Firestorm: this many raiders burned for this share of their health (by potency); never below 1 health, so the raid
+ *  must still be fought. */
 export const STORM_HITS = 3;
-export const STORM_BURN = 0.45;
+export const STORM_BURN = 0.35;
 /** Mending: the hurt get back this share of their health; a downed is kept from bleeding out. */
 export const MEND_SHARE = 0.4;
 export const MEND_MOST = 6;

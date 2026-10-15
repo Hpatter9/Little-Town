@@ -221,6 +221,8 @@ test('foresight gives the town more time; Firestorm burns raiders on the road', 
   const hp = q.raiders.reduce((n, x) => n + x.hp, 0);
   hour(t);
   assert.ok(q.raiders.reduce((n, x) => n + x.hp, 0) < hp, 'burned');
+  const n = q.raiders.length;
+  assert.ok(q.raiders.every((x) => x.hp >= 1) && q.raiders.length === n, 'scorched, never wiped out on the road: the raid is still fought');
   restore();
 });
 

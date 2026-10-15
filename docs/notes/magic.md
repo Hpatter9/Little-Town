@@ -61,8 +61,8 @@ side stream (`${seed}:magic:${tick}`), never the town's.
     school is favoured.
   - **The Great Ward** (Abjuration, 25 mana): a raid on its way loses `WARD_SAP` (0.15 × potency, at most 0.4) of every
     raider's health.
-  - **Firestorm** (Evocation): `STORM_HITS` (3) raiders burned for `STORM_BURN` (0.45) of their health × potency; the
-    burned are struck from the host.
+  - **Firestorm** (Evocation): `STORM_HITS` (3) raiders burned for `STORM_BURN` (0.35) of their health × potency, never
+    below 1 health (it scorches; the raid must still be fought).
   - **Foresight** (Divination): a raid seen coming arrives `FORESIGHT_HOURS` (2) later. With no raid on, it tells the
     next raid within `OMEN_HOURS` (12).
   - **Rite of Mending** (Restoration): up to `MEND_MOST` (6) of the downed, hurt and sick: the downed stop bleeding, the

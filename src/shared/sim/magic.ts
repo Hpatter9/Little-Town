@@ -533,7 +533,7 @@ function wanted(s: GameState, m: MagicState): Want[] {
         if (raid && raid.phase === 'warning' && m.warded !== raid.id && raid.raiders.some((r) => !r.ally && r.hp > 0)) out.push({ rite: id, cast: (_p, k) => ward(s, m, k) });
         break;
       case 'firestorm':
-        if (raid && raid.phase === 'warning' && m.stormed !== raid.id && raid.raiders.some((r) => !r.ally && r.hp > 0)) out.push({ rite: id, cast: (p, k) => firestorm(s, m, p, k) });
+        if (raid && raid.phase === 'warning' && m.stormed !== raid.id && raid.raiders.some((r) => !r.ally && r.hp > 0)) out.push({ rite: id, cast: (_p, k) => firestorm(s, m, k) });
         break;
       case 'foresight':
         if (raid && raid.phase === 'warning' && m.foreseen !== raid.id) out.push({ rite: id, cast: () => foresee(s, m) });
@@ -671,24 +671,19 @@ function ward(s: GameState, m: MagicState, k: number): string {
   return `the town is warded: the raiders come on weakened (${Math.round(sap * 100)}%).`;
 }
 
-function firestorm(s: GameState, m: MagicState, p: Person, k: number): string {
+function firestorm(s: GameState, m: MagicState, k: number): string {
   const raid = s.raid!;
   m.stormed = raid.id;
   const g = roll(s, 'storm');
   const foes = raid.raiders.filter((r) => !r.ally && r.hp > 0);
-  let killed = 0;
+  let burned = 0;
+  // (it scorches, it doesn't win the fight: whoever it touches still comes on, a raid must still be fought)
   for (let i = 0; i < STORM_HITS && foes.length; i++) {
     const r = foes.splice(g.int(0, foes.length - 1), 1)[0];
-    r.hp = Math.round(r.hp - r.maxHp * STORM_BURN * k);
-    if (r.hp <= 0) {
-      r.hp = 0;
-      killed++;
-    }
+    r.hp = Math.max(1, Math.round(r.hp - r.maxHp * STORM_BURN * k));
+    burned++;
   }
-  // (the burned are struck from the host before it reaches the town)
-  if (killed) raid.raiders = raid.raiders.filter((r) => r.ally || r.hp > 0);
-  void p;
-  return killed ? `fire fell on the raiders on the road: ${killed} burned to ash.` : 'fire fell on the raiders on the road.';
+  return `fire fell on the raiders on the road: ${burned} of them came on burned.`;
 }
 
 function foresee(s: GameState, m: MagicState): string {
