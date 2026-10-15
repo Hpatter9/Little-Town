@@ -109,11 +109,11 @@ export function wantsToWake(s: GameState, p: Person): boolean {
 
 /** A hired guard on the night watch (people.ts `onShift`: the odd ids keep it) sleeps by day, `DAY_SLEEP_FROM` to
  *  `DAY_SLEEP_UNTIL`, so they're up for their watch (they went to bed at ten with everyone else, and the wall and its
- *  gates stood unwatched). Never the founder: a lone
+ *  gates stood unwatched). Only once the ring wall stands, with its gates to keep, and never the founder: a lone
  *  founder taken on as the guard slept the working day away and the town never grew. */
 const DAY_SLEEP_FROM = 8;
 const DAY_SLEEP_UNTIL = 16;
-const nightWatch = (s: GameState, p: Person) => (!!p.guard && p.id % 2 !== 0 && p.id !== s.mainId) || onRoster(s, p);
+const nightWatch = (s: GameState, p: Person) => (!!p.guard && p.id % 2 !== 0 && p.id !== s.mainId && !!s.ring?.done) || onRoster(s, p);
 function bedtime(s: GameState, p: Person, h: number): boolean {
   return nightWatch(s, p) ? h >= DAY_SLEEP_FROM && h < DAY_SLEEP_UNTIL : isNight(h);
 }

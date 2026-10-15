@@ -17,11 +17,11 @@ founder. Candidates are grown-ups at home on their feet, not running a station, 
 they keep the watch `WATCH_STINT` (3) nights running, then the next in turn.
 
 **On the beat.** `onShift` is true for a roster member in the watch hours (`WATCH_FROM` 19 to `WATCH_UNTIL` 6: `onNightWatch`);
-`chooseTask` gives them a `patrol` task before their own work (`patrolTask`, the old defend-job branch pulled out): after a
+`chooseTask` gives them (and a hired guard on the night shift) a `patrol` task before their own work (`patrolTask`, the old defend-job branch pulled out): after a
 band near the town, else up on a gate (`gatePost`), else with no wall standing half of the watch holds the camp's edge, one
 on each side (`edgePost`, a patrol task with `hold: true` so they stand there), else the wall walk or the long way round. They
 are seen with a torch at night as every guard on shift is (`onWatch`, lightMap). Roster members sleep by day, 8 to 16
-(townsfolk.ts `nightWatch`, which the hired guards had), so they are up for it and are off day work meanwhile. The tap card
+(townsfolk.ts `nightWatch`; the hired guards had it already, once the ring stands: `gateSentry.test.ts` holds that, so before a wall the roster, not the hired guards, keeps the night; `wantsToWake` also gets the watch up for its hours once rested to `WATCH_WAKE_REST` 0.3), so they are up for it and are off day work meanwhile. The tap card
 says "On the night watch" (or ", at a gate") by night, "On patrol" otherwise (snapshot.ts).
 
 **The watch bites.** `spotAt(s, at, rng)`: the watchmen on patrol within `WATCH_SPOT_RANGE` (10) cells of the way in each have
