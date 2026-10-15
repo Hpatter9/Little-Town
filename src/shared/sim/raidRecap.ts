@@ -8,6 +8,7 @@ import { ENEMIES } from '../data/enemies';
 import { addDeed } from './deeds';
 import { levelOf, xpToLevel } from '../data/levels';
 import { legWound } from './raiderWounds';
+import { watchWon } from './nightWatch';
 import type { Stock } from '../data/materials';
 import type { GameState, Person, Raid, Raider } from './state';
 
@@ -62,6 +63,8 @@ export interface RaidRecap {
   runDown: number;
   takenAlive: number;
   /** The town's choice (sim/raidOdds.ts): they turned back at the sight of the town, or the survivors were spared or hunted. */
+  /** Spotted by the night watch, and where (sim/nightWatch.ts). */
+  watched?: string;
   mercy?: 'turned' | 'spared' | 'hunted' | 'toll' | 'probe';
   /** What happened, told in a few lines (`tellRaid`). */
   story: string[];
@@ -155,6 +158,12 @@ export function raidRecap(s: GameState, r: Raid, name: string, a: { outcome: Rai
     story: [],
   };
   recap.story = tellRaid(recap, { side: r.side, fromSea: !!a.fromSea, bossDown: !!a.bossDown, sneak: r.kind.startsWith('prowl_') });
+  // (the night watch saw them coming in: sim/nightWatch.ts)
+  if (r.watched) {
+    recap.watched = r.watched;
+    recap.story.splice(1, 0, `The night watch spotted them ${r.watched} and raised the alarm.`);
+    watchWon(s, r, recap);
+  }
   return recap;
 }
 
