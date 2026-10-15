@@ -22,7 +22,7 @@ import {
   AGENT_CAUGHT, AGENT_CAUGHT_PER_GUARD, AGENT_DAILY, COUNTER_TOPICS, CREEP_MOST, CREEP_PER_DAY, CREEP_START, ENEMY_CHOSEN_DAY, ENEMY_HOUR, ENEMY_KINDS,
   FAITH_FAVOUR, FAITH_SLOW, FALL_EVERY_DAYS, GREAT_ENEMIES, GUILD_PURSE, HOST_EVERY_DAYS, HOST_MOST, HOST_SHARE, LIEUTENANT_SETBACK, MARK_CHANCE, MARK_SHARE,
   MISSING_DAILY, MONUMENT, OMEN_HOUR, OMEN_NIGHTLY, OUTPOST_DEST, OUTPOST_HASTE, PACE_LEAST, PACE_MOST, PEACE_DAYS, PEACE_MORALE, PLAN_AT, POWERS_FALL_MOST,
-  PULL_OUTPOST, REFUSED_HASTE, SACK_SLAIN, SEAT_DEST, SEAT_FOUND_DAILY, SEAT_FOUND_PER_REGION, SEAT_FOUND_SCOUTING, SEAT_QUIET_DAYS, SEAT_SETBACK, SEAT_SPOTS,
+  PULL_OUTPOST, REFUSED_HASTE, SACK_SLAIN, HOST_CAP, HOST_PER_GROWN, SIEGE_CAP, SIEGE_PER_GROWN, HOST_HOURS, SIEGE_HOURS, SEAT_DEST, SEAT_FOUND_DAILY, SEAT_FOUND_PER_REGION, SEAT_FOUND_SCOUTING, SEAT_QUIET_DAYS, SEAT_SETBACK, SEAT_SPOTS,
   SIEGE_BURN, SIEGE_LIEUTENANT_SHARE, SIEGE_PER_LIEUTENANT, SIEGE_REGROUP, SIEGE_SHARE, SIEGE_SIZE, SIEGE_WARNING_HOURS, SIEGES_TO_FALL, STAGE_LABEL,
   STAGE_ORDER, TRIBUTE_COINS, TRIBUTE_EVERY_DAYS, TRIBUTE_HOURS, TRIBUTE_SETBACK, WARNING_DAILY, enemyFit, outpostSpot, type EnemyKind, type EnemyKindDef,
   type EnemyStage,
@@ -109,6 +109,7 @@ const ended = (e: GreatEnemyState) => e.stage === 'peace' || e.stage === 'fallen
 const living = (e: GreatEnemyState) => enemyDef(e).lieutenants.map((l, i) => ({ l, i })).filter(({ i }) => e.slain[i] == null);
 const capital = (t: string) => t.charAt(0).toUpperCase() + t.slice(1);
 const LOG_MOST = 24;
+const grownAtHome = (s: GameState) => s.people.filter((p) => p.away === null && !isChild(p)).length;
 
 function log(s: GameState, e: GreatEnemyState, text: string): void {
   e.log.push({ day: calendar(s.tick).day, text });
@@ -365,9 +366,10 @@ function host(s: GameState, e: GreatEnemyState, g: Rng): void {
   const d = enemyDef(e);
   const { l, i } = g.pick(living(e));
   const kind = RAID_KIND_BY_ID[d.army];
-  const r = startRaid(s, kind, raidBudget(s) * HOST_SHARE, g, undefined, { most: HOST_MOST, siege: s.era === 'neolithic' ? 0 : 1, leader: l.id, host: `enemy:${e.kind}` });
+  const r = startRaid(s, kind, raidBudget(s) * HOST_SHARE, g, undefined, { most: Math.min(HOST_CAP, HOST_MOST + Math.floor(grownAtHome(s) / HOST_PER_GROWN)), siege: s.era === 'neolithic' ? 0 : 1, leader: l.id, host: `enemy:${e.kind}` });
   r.enemy = 'host';
   r.enemyLt = i;
+  r.leavesTick = r.arrivesTick + HOST_HOURS * TICKS_PER_HOUR;
   e.lastHost = s.tick;
   scheduleNextRaid(s, g);
   notify(s, `${capital(l.name)} leads a host of ${d.short}'s against the town!`, true);
@@ -541,7 +543,7 @@ export function startSiege(s: GameState, e: GreatEnemyState): Raid {
   const alive = living(e);
   const g = roll(s, 'siege', e.lost);
   const r = startRaid(s, kind, raidBudget(s) * SIEGE_SHARE * (1 + SIEGE_LIEUTENANT_SHARE * alive.length), g, undefined, {
-    most: SIEGE_SIZE + SIEGE_PER_LIEUTENANT * alive.length,
+    most: Math.min(SIEGE_CAP, SIEGE_SIZE + SIEGE_PER_LIEUTENANT * alive.length + Math.floor(grownAtHome(s) / SIEGE_PER_GROWN)),
     siege: s.era === 'neolithic' ? 0 : 2,
     leader: d.boss,
     host: `enemy:${e.kind}`,
@@ -554,6 +556,7 @@ export function startSiege(s: GameState, e: GreatEnemyState): Raid {
       r.raiders.push({ ...lead, id: s.nextId++, kind: l.id, hp, maxHp: hp, x: lead.x + (lead.dir > 0 ? -18 : 18), carrying: {} });
     }
   r.enemy = 'siege';
+  r.leavesTick = r.arrivesTick + SIEGE_HOURS * TICKS_PER_HOUR;
   e.siegeAt = undefined;
   notify(s, `The last siege: ${d.name} has come to the gate with all its host!`, true);
   return r;

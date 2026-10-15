@@ -386,8 +386,18 @@ export const PULL_OUTPOST = 14;
 /** The march: a living lieutenant leads a host every so many days (deadlier than an ordinary raid: a bigger budget
  *  and the lieutenant at its head), and the Enemy demands tribute every so often. */
 export const HOST_EVERY_DAYS = 6;
-export const HOST_SHARE = 1.6;
+export const HOST_SHARE = 2;
 export const HOST_MOST = 22;
+/** Hosts and the siege grow with the town: one more foe for this many grown-ups at home, up to the most (a phone
+ *  can only draw so many on the board). */
+export const HOST_PER_GROWN = 6;
+export const HOST_CAP = 36;
+export const SIEGE_PER_GROWN = 3;
+export const SIEGE_CAP = 56;
+/** How long a host and the siege stay to fight before giving up (game hours from their coming: an ordinary raid's
+ *  three hours run out long before a big board is fought through, and they'd rout on the clock). */
+export const HOST_HOURS = 8;
+export const SIEGE_HOURS = 12;
 export const TRIBUTE_EVERY_DAYS = 15;
 export const TRIBUTE_COINS = 120;
 export const TRIBUTE_HOURS = 12;

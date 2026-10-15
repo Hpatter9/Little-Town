@@ -53,12 +53,14 @@
     razed, any other at war with the town at -100, `e.thralls`; freed at the peace); the Monster Hunters' Guild posts a
     purse on each lieutenant (`GUILD_PURSE`, into `s.bounties`, so the parties are drawn and paid by the usual bounty).
   - **The march**: every `HOST_EVERY_DAYS` a living lieutenant leads a host (`startRaid` with `host`: `HOST_SHARE` of the
-    raid budget, up to `HOST_MOST`, a siege engine from the Medieval age, the lieutenant at its head: `Raid.enemy`
+    raid budget, `HOST_MOST` foes and one more for each `HOST_PER_GROWN` grown-ups at home up to `HOST_CAP`, staying
+    `HOST_HOURS` to fight (an ordinary raid's three hours ran out mid-board and they routed on the clock), a siege engine from the Medieval age, the lieutenant at its head: `Raid.enemy`
     'host', `enemyLt`); every `TRIBUTE_EVERY_DAYS` it demands tribute (a prompt of kind `enemy`, `answerEnemy` from
     roadEvents.ts: `tributeOf`, half as much again each time; paid, the plan slips `TRIBUTE_SETBACK`; refused, it hastens
     `REFUSED_HASTE` and a host comes the next morning; left unanswered, the town pays only if it holds twice the sum).
   - **The last siege**: warned `SIEGE_WARNING_HOURS` (36) ahead, then `startSiege`: its army at `SIEGE_SHARE` of the
-    budget (more for each living lieutenant), up to `SIEGE_SIZE` plus `SIEGE_PER_LIEUTENANT`, two siege engines, the
+    budget (more for each living lieutenant), up to `SIEGE_SIZE` plus `SIEGE_PER_LIEUTENANT` a living lieutenant plus one for each `SIEGE_PER_GROWN` grown-ups (at
+    most `SIEGE_CAP`), staying `SIEGE_HOURS`, two siege engines, the
     Enemy at its head and its living lieutenants beside it (`Raid.enemy` 'siege'). `greatEnemyRaidOver` (from raids.ts
     `endRaid`): any lieutenant down in one of its raids is slain; the Enemy down is the **peace** (`victory`: stage
     `peace`, its relic in the stores, the monument raised at once (or a blueprint over the wild), the town titled "the
@@ -89,3 +91,9 @@
 - Only with the autopilot on; every roll is its own side stream (`${seed}:enemy:...`). Optional state (`s.greatEnemy`,
   `Raid.enemy`, `Raid.enemyLt`); an older save's Enemy is chosen on its next morning and starts from nothing. Tests:
   `test/greatEnemy.test.ts`.
+- **Soaks and probes** (main 0.93, 40 days, 3 towns each, people/deaths/wiped, main's in brackets): settlers 8.0/8.7/1
+  (9.7/6.7/1), knights 14.7/3.7/0 (15.0/4.0/0), orcs 11.3/4.7/0 (10.0/5.3/0). A 160-day settlers town: omens day 16,
+  stirring day 46, the march day 99, its three lieutenants slain (one at its shrine by a party, two leading hosts),
+  tribute refused five times, the plan at 49.3 of 52 on day 161 (the siege about day 168), 171 dead in all. Forced on
+  the late fixture (37 people), a siege of 57 cost 9 and 10 lives (the sack's 7 among them); the town's tactics board
+  kills few of the town in any raid, as before.
