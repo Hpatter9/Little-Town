@@ -12,6 +12,7 @@ import { RAID_KIND_BY_ID, type RaidKind } from '../data/raids';
 import type { Rng } from '../rng';
 import { centreOf, groundAt, wet, type Pt } from './land';
 import { raidBudget, startRaid, townEdgeX } from './raids';
+import { caughtBudget, markWatched, placeName, spotAt, watchRng } from './nightWatch';
 import { isGate, lineOf, missingPieces, ringTown } from './ringWall';
 import { campXY, notify, type GameState } from './state';
 import { calendar, TICKS_PER_DAY, TICKS_PER_HOUR } from './time';
@@ -54,7 +55,7 @@ export function prowlKind(s: GameState, rng: Rng): RaidKind {
 
 /** Where they slip in: a cell of the ring with nothing standing on it yet (picked at random), else the town's edge
  *  on one side of the camp's row; and how the news tells it. */
-export function wayIn(s: GameState, rng: Rng): { at: Pt; where: string } {
+export function wayIn(s: GameState, rng: Rng): { at: Pt; where: string; how: 'gap' | 'edge' } {
   const ring = s.ring;
   if (ring) {
     const gaps: Pt[] = missingPieces(s, ring)
@@ -63,11 +64,11 @@ export function wayIn(s: GameState, rng: Rng): { at: Pt; where: string } {
     for (const b of s.buildings) if (b.ring === ring.gen && b.status !== 'done') gaps.push({ x: b.tile, y: b.row });
     if (gaps.length) {
       const p = rng.pick(gaps);
-      return { at: centreOf(p.x, p.y), where: wet(groundAt(s.land, p.x, p.y)) ? 'where the river runs under the wall' : 'through a gap in the wall' };
+      return { at: centreOf(p.x, p.y), where: wet(groundAt(s.land, p.x, p.y)) ? 'where the river runs under the wall' : 'through a gap in the wall', how: 'gap' };
     }
   }
   const side: -1 | 1 = rng.chance(0.5) ? -1 : 1;
-  return { at: { x: townEdgeX(s, side), y: campXY(s).y }, where: 'with no wall to stop them' };
+  return { at: { x: townEdgeX(s, side), y: campXY(s).y }, where: 'with no wall to stop them', how: 'edge' };
 }
 
 /** Once an hour, at night: something may slip in where the wall has gaps (never during a raid). */
@@ -80,9 +81,16 @@ export function prowlers(s: GameState, rng: Rng): void {
   const gap = ringGap(s);
   if (gap <= 0 || !rng.chance(PROWL_PER_NIGHT_HOUR * gap)) return;
   const kind = prowlKind(s, rng);
-  const { at, where } = wayIn(s, rng);
-  const budget = Math.max(PROWL_BUDGET_LEAST, Math.round(raidBudget(s) * PROWL_BUDGET_SHARE));
-  startRaid(s, kind, budget, rng, at);
+  const { at, where, how } = wayIn(s, rng);
+  let budget = Math.max(PROWL_BUDGET_LEAST, Math.round(raidBudget(s) * PROWL_BUDGET_SHARE));
+  // (a watchman near the way in may spot them: they meet the watch at the wall, fewer of them: sim/nightWatch.ts)
+  const spotted = spotAt(s, at, watchRng(s, 'prowl'));
+  if (spotted.length) budget = caughtBudget(budget);
+  const raid = startRaid(s, kind, budget, rng, at);
   s.lastProwl = s.tick;
-  notify(s, `${kind.name} ${kind.plural ? 'have' : 'has'} slipped into the town in the night, ${where}!`, true);
+  if (spotted.length) {
+    markWatched(raid, spotted, placeName(s, at, how));
+    const first = [...spotted].sort((a, b) => b.skills.melee.level - a.skills.melee.level)[0];
+    notify(s, `${first.name} of the night watch spotted ${kind.name.toLowerCase()} slipping in ${placeName(s, at, how)}: the alarm is raised!`, true);
+  } else notify(s, `${kind.name} ${kind.plural ? 'have' : 'has'} slipped into the town in the night, ${where}!`, true);
 }

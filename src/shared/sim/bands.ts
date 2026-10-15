@@ -22,6 +22,7 @@ import { buildingDoor, totalStock } from './buildings';
 import { takeFromStorage } from './expeditions';
 import { CELL, groundAt, type Pt } from './land';
 import { onShift } from './people';
+import { onRoster, watchSawBandits } from './nightWatch';
 import { raidBudget, startRaid } from './raids';
 import { strangerName } from './shop';
 import { makeStranger, strangerLook, strangerOrigin } from './strangers';
@@ -253,7 +254,7 @@ export function startLeaving(s: GameState, b: Band, side: -1 | 1): void {
 
 /** A guard on watch who sees through the "travellers" this hour, if any (by their best fighting skill). */
 export function seenThrough(s: GameState, rng: Rng): Person | null {
-  const watch = s.people.filter((p) => p.away === null && !p.downed && p.guard && onShift(s, p));
+  const watch = s.people.filter((p) => p.away === null && !p.downed && (p.guard || onRoster(s, p)) && onShift(s, p));
   if (!watch.length) return null;
   const best = [...watch].sort((a, b) => fighting(b) - fighting(a))[0];
   // (a sentry up on a gate sees more: sim/people.ts gatePost)
@@ -270,7 +271,8 @@ export function strike(s: GameState, b: Band, rng: Rng, guard: Person | null): v
   drop(s, b);
   if (s.raid) return;
   const budget = Math.max(14 * n, Math.round(raidBudget(s) * BANDIT_BUDGET_SHARE));
-  startRaid(s, RAID_KIND_BY_ID.band_bandits, budget, rng, b.at);
+  const raid = startRaid(s, RAID_KIND_BY_ID.band_bandits, budget, rng, b.at);
+  if (guard) watchSawBandits(s, raid, guard, b.at); // (the night watch's: sim/nightWatch.ts)
   notify(s, guard ? `${guard.name} saw through the "travellers" in the town: bandits! They draw their blades in the open.` : 'The "travellers" throw off their cloaks in the small hours: bandits, inside the town!', true);
 }
 
