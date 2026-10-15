@@ -38,6 +38,7 @@ import { SKILLS, type Skill } from '../data/skills';
 import { CHILD_HOURS } from '../data/social';
 import { hashSeed, Rng } from '../rng';
 import { buildingDoor } from './buildings';
+import { applyUpbringing, dynastyScandal } from './dynasty';
 import { adjust, enemiesOf, isChild } from './social';
 import type { Pt } from './land';
 import { campXY, notify, type Building, type GameState, type Person } from './state';
@@ -95,6 +96,7 @@ export function recordDeath(s: GameState, p: Person, cause: string): void {
 /** Marked the family's black sheep (a crime caught, an exile). */
 export function blackSheep(s: GameState, p: Person, why: string): void {
   kinOf(s, p).black = why;
+  dynastyScandal(s, p, why);
 }
 
 /** Who inherits from someone: the eldest grown child at home, else their partner, else any child of theirs. */
@@ -253,6 +255,7 @@ export function comeOfAge(s: GameState, p: Person): string[] {
     for (const k of s.people) if (k.parents?.includes(id) && k.id !== p.id) adjust(s, p.id, k.id, INHERITED_GRUDGE / 2);
   }
   if (grudges.size) out.push(`the family's grudge against ${[...grudges].map((id) => s.people.find((q) => q.id === id)?.name).filter(Boolean).join(' and ')}`);
+  out.push(...applyUpbringing(s, p)); // (what the town put them through, and the houses' feuds: sim/dynasty.ts)
   p.master = null; // (the apprenticeship is over: the trade is theirs)
   if (!recs.length && !parents.length) return out;
   kinOf(s, p);
@@ -297,22 +300,21 @@ export interface FamilyLine {
   blackSheep: string[];
 }
 
-/** Every family with children: the descendants of each founding couple, by generation. */
-export function familiesView(s: GameState): FamilyLine[] {
+/** The family lines, as plain generation maps: each founding couple's descendants (`gen`: id to generation). Reads the
+ *  record only (changes nothing), so the sim can ask for it too. */
+export function lineGroups(s: GameState): { root: number; gen: Map<number, number> }[] {
   const kin = s.kin ?? {};
-  for (const p of s.people) if (kin[p.id]) kinOf(s, p);
   const recs = Object.values(kin);
   const byId = new Map(recs.map((r) => [r.id, r]));
   const childrenOf = new Map<number, number[]>();
   for (const r of recs) for (const q of r.parents) childrenOf.set(q, [...(childrenOf.get(q) ?? []), r.id]);
-  const living = new Map(s.people.map((p) => [p.id, p]));
   // the founders: those with no parents in the record who have children; a couple is one line (named for the elder)
   const hasParents = (id: number) => !!byId.get(id)?.parents.some((x) => byId.has(x));
   // (someone who married into a line isn't a line's founder: every child of theirs has a parent of the line)
   const marriedIn = (r: KinRecord) => (childrenOf.get(r.id) ?? []).every((c) => byId.get(c)!.parents.some((q) => q !== r.id && hasParents(q)));
   const roots = recs.filter((r) => !hasParents(r.id) && childrenOf.has(r.id) && !marriedIn(r));
   const seen = new Set<number>();
-  const lines: FamilyLine[] = [];
+  const out: { root: number; gen: Map<number, number> }[] = [];
   for (const root of roots.sort((a, b) => a.id - b.id)) {
     if (seen.has(root.id)) continue;
     const gen = new Map<number, number>();
@@ -333,6 +335,21 @@ export function familiesView(s: GameState): FamilyLine[] {
         for (const q of byId.get(c)?.parents ?? []) if (!gen.has(q)) gen.set(q, gen.get(id) ?? 0);
       }
     }
+    out.push({ root: root.id, gen });
+  }
+  return out;
+}
+
+/** Every family with children: the descendants of each founding couple, by generation. */
+export function familiesView(s: GameState): FamilyLine[] {
+  const kin = s.kin ?? {};
+  for (const p of s.people) if (kin[p.id]) kinOf(s, p);
+  const recs = Object.values(kin);
+  const byId = new Map(recs.map((r) => [r.id, r]));
+  const living = new Map(s.people.map((p) => [p.id, p]));
+  const lines: FamilyLine[] = [];
+  for (const { root: rootId, gen } of lineGroups(s)) {
+    const root = byId.get(rootId)!;
     const members = [...gen.keys()].map((id) => byId.get(id)).filter((r): r is KinRecord => !!r);
     const nodes: KinNode[] = members.map((r) => {
       const p = living.get(r.id);

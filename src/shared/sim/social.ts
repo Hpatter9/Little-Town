@@ -128,7 +128,7 @@ export function updateSocial(s: GameState, rng: Rng): void {
 
 /** Enemies (opinion at ENEMY or below) who cross paths may come to blows: both hurt a little (never to the ground),
  *  both smarting for a day, and it's talked about. Not while either sleeps, fights or lies hurt. */
-function brawl(s: GameState, a: Person, b: Person): void {
+export function brawl(s: GameState, a: Person, b: Person): void {
   const busy = (p: Person) => p.downed || p.activity === 'sleep' || p.activity === 'fight' || !!s.raid;
   if (busy(a) || busy(b)) return;
   for (const p of [a, b]) {
