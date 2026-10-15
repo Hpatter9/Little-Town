@@ -9,7 +9,7 @@ import { boatsHourly, boatyardSpot, fleet, launch } from '../src/shared/sim/boat
 import { totalStock } from '../src/shared/sim/buildings';
 import { sendExpedition } from '../src/shared/sim/expeditions';
 import { groundAt, wet } from '../src/shared/sim/land';
-import { catchFactor, claimDay, claimed, colonies, foundColony, harbourOf, harbourReport, quay, seaBook, seafaringHourly, settleable, squallSinks } from '../src/shared/sim/seafaring';
+import { kingAnger, catchFactor, claimDay, claimed, colonies, foundColony, harbourOf, harbourReport, quay, seaBook, seafaringHourly, settleable, squallSinks } from '../src/shared/sim/seafaring';
 import { newGame, makePerson, type GameState } from '../src/shared/sim/state';
 import { calendar, TICKS_PER_DAY, TICKS_PER_HOUR } from '../src/shared/sim/time';
 import { CELL } from '../src/shared/sim/land';
@@ -238,4 +238,31 @@ test('colonists are founded by hand too, and leave the town', () => {
   assert.equal(s.people.length, n - 3);
   assert.equal(c.pop, 3);
   assert.equal(colonies(s).length, 1);
+});
+
+test('pirates come sooner and bigger while the Drowned King is angry, and ease when he is appeased', () => {
+  const run = (setup: (s: GameState) => void) => {
+    const s = seaTownGame('king-pirates');
+    launch(s, 'longboat');
+    s.era = 'medieval';
+    s.tick = 30 * TICKS_PER_DAY;
+    toHour(s, 8);
+    setup(s);
+    seaBook(s).nextPirate = s.tick - 1;
+    seafaringHourly(s);
+    assert.ok(s.raid, 'a raid');
+    return { n: s.raid!.raiders.length, next: seaBook(s).nextPirate! - s.tick, anger: kingAnger(s) };
+  };
+  const king = (s: GameState, plan: number, extra: Record<string, unknown> = {}) => {
+    s.greatEnemy = { kind: 'drowned', stage: 'march', chosen: 0, began: {}, plan, pace: 1, slain: [], lost: 0, log: [], ...extra };
+  };
+  const calm = run(() => {});
+  const angry = run((s) => king(s, 50, { refused: 2 }));
+  const eased = run((s) => king(s, 50, { refused: 2, tributes: 2, lastTribute: s.tick - TICKS_PER_DAY }));
+  assert.equal(calm.anger, 0);
+  assert.ok(angry.anger > 0.9);
+  assert.ok(eased.anger < angry.anger);
+  assert.ok(angry.n > calm.n, 'a bigger crew');
+  assert.ok(angry.next < calm.next, 'the next crew sooner');
+  assert.ok(eased.n <= angry.n && eased.next >= angry.next);
 });

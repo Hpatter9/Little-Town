@@ -16,7 +16,7 @@ import { ENEMIES } from '../data/enemies';
 import { eventPicture } from '../data/eventScenes';
 import {
   ALLY_TROOPS, ASSAULT_MOST, ASSAULT_WAVES_MOST, ASSAULT_WAVE_TROOPS, ATTITUDE_DRIFT, BETRAY_CHANCE, DEMAND_BASE, DEMAND_PER_TROOPS, ENVOY_GAP_DAYS, ENVOY_HOURS,
-  FACTION_BY_ID, FACTION_COUNT, FIRST_MEET_DAY, pickRivals, GIFT_COINS, GIFT_WARMTH, GREEDY_GIFT, HOST_CHANCE, HOST_GAP_DAYS, HOST_LEAST, HOST_MOST, HOST_SHARE,
+  FACTION_BY_ID, FACTION_COUNT, FIRST_MEET_DAY, pickRivals, GIFT_COINS, GIFT_WARMTH, GREEDY_GIFT, HOST_CHANCE, HOST_GAP_DAYS, HOST_GRUDGE_BIGGER, HOST_LEAST, HOST_MOST, HOST_SHARE,
   HOST_WARNING_HOURS, MARRIAGE_WARMTH, MEET_EVERY_DAYS, OATHBREAKER, PLUNDER_GOODS, PLUNDER_PER_TROOP, REBEL_CHANCE, RECRUITS, SIEGE_EVERY, STANCE_NAME, TEMPER_NAME,
   TEMPER_REST, TRADE_COINS, TREATY_NEEDS, TREATY_WARMTH, TRIBUTE_MOST, TRIBUTE_PER_TROOPS, TROOPS_MOST, TROOPS_PER_DAY, TROOPS_START, WAR_AT, FOLK_GROWTH, FOLK_GROWTH_BY, FOLK_HOST_LOST, FOLK_MOST, FOLK_START, FOLK_STORMED, townTier,
   type RealmStance, type Temper,
@@ -592,9 +592,15 @@ export function realmCommand(s: GameState, id: string, op: RealmOp, rng: Rng): R
 
 /** A host is mustered: it comes in `hours` (the town is warned). */
 export function musterHost(s: GameState, f: Faction, hours = HOST_WARNING_HOURS): void {
-  const size = Math.max(6, Math.min(HOST_MOST, Math.round(f.troops * HOST_SHARE)));
+  let size = Math.max(6, Math.min(HOST_MOST, Math.round(f.troops * HOST_SHARE)));
+  // (a grudge for a host the town hunted down: the next comes bigger, and may pass the usual most)
+  const grudge = f.grudge;
+  if (grudge) {
+    size = Math.min(Math.round(HOST_MOST * HOST_GRUDGE_BIGGER), Math.max(size + 1, Math.round(size * HOST_GRUDGE_BIGGER)));
+    f.grudge = undefined;
+  }
   f.host = { at: s.tick + Math.round(hours * TICKS_PER_HOUR), size };
-  notify(s, `${defOf(f).name} have mustered a war host of ${size}, ${lordName(f)} at its head! It will reach the town in ${Math.round(hours)} hours.`, true);
+  notify(s, `${defOf(f).name} have mustered a war host of ${size}${grudge ? ', come to settle a grudge' : ''}, ${lordName(f)} at its head! It will reach the town in ${Math.round(hours)} hours.`, true);
 }
 
 /** The host reaches the town: a raid of up to HOST_MOST, siege engines among them from the Medieval age, its lord at

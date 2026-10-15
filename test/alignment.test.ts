@@ -115,6 +115,23 @@ test('with nothing pushing, the bar drifts back toward home', () => {
   assert.ok(alignScore(s) < 20);
 });
 
+test('the slow drift pulls toward neutral, whatever the people\'s home', () => {
+  const drift = (origin: 'knights' | 'vampire' | 'settlers', from: number) => {
+    const s = newGame(`align-neutral-${origin}`, { origin });
+    s.autopilot = true;
+    s.align = { score: from, log: [] };
+    s.tick = 600;
+    for (let i = 0; i < 20; i++) {
+      s.tick += 600;
+      alignmentHourly(s);
+    }
+    return alignScore(s);
+  };
+  assert.ok(drift('knights', 40) < 40 && drift('knights', 40) > 0, 'a knightly town is not pulled back up to its home');
+  assert.ok(drift('vampire', -45) > -45 && drift('vampire', -45) < 0, 'nor a vampire one down');
+  assert.ok(drift('settlers', -20) > -20 && drift('settlers', 20) < 20);
+});
+
 void killPerson;
 
 test('every answer of every event also has an order weight', () => {

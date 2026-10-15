@@ -25,6 +25,12 @@ export const STRENGTH_PER_LEVEL = 0.08;
 export const PULL_BOUNTY = 0.5;
 export const PULL_NEW = 6;
 export const PULL_FIGHT = 4;
+/** Under the Trade direction the trade empire's posts want mapped regions (data/tradeEmpire.ts `REGION_SITES`): a party
+ *  is drawn to a scouting trip this much more, sets out for it after `TRADE_SCOUT_GAP_HOURS` (not `PARTY_GAP_HOURS`),
+ *  and its leader dares a scouting trip's danger at this share of the usual bar (`TRADE_SCOUT_DARE`: further afield). */
+export const PULL_TRADE_SCOUT = 5;
+export const TRADE_SCOUT_GAP_HOURS = 5;
+export const TRADE_SCOUT_DARE = 0.85;
 /** A monster nest the town knows of (sim/nests.ts) draws an adventurer more, the more it has grown; the Calamity's
  *  heart most of all (sim/calamity.ts). */
 export const PULL_NEST = 6;

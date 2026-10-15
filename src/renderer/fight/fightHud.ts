@@ -2,13 +2,14 @@
 // of what was just done (or where the party is going); along the bottom, the foes' names on the left, and the party on
 // the right, each with health and the time gauge till their next turn. "Back to town" stops watching.
 
-import type { ExpeditionView, MineView } from '../../shared/sim/snapshot';
+import type { ExpeditionView, MineView, Snapshot } from '../../shared/sim/snapshot';
+import { guildMark } from '../art/guildMarks';
 import { MATERIAL_NAMES, type Material } from '../../shared/data/materials';
 import { fightShare, tripLabel, tripShare } from './progress';
 
 export interface FightHud {
   /** The watched fight (or trip), and how fast the fight plays (the speed button beside ✕). */
-  update(v: ExpeditionView | null, speed?: number): void;
+  update(v: ExpeditionView | null, speed?: number, guilds?: Snapshot['guilds']): void;
   /** Inside a mine (fight/mineView.ts): the top window names it and what its walls hold; the back button leaves. */
   mine(v: MineView | null): void;
   /** How much of the screen's top and bottom the windows cover (px). */
@@ -104,6 +105,9 @@ export function createFightHud(on: { back(): void; speed(n: number): void }): Fi
     }
   };
 
+  /** The town's guilds (the snapshot's), for the badge beside a party member's name. */
+  let guildList: Snapshot['guilds'] = [];
+  const badge = (id: number) => guildMark({ guilds: guildList }, id);
   let resultKey = '';
   /** The victory screen, built once per fight and shown while the result is fresh. */
   const showResult = (r: ExpeditionView['result']) => {
@@ -129,6 +133,8 @@ export function createFightHud(on: { back(): void; speed(n: number): void }): Fi
       const name = document.createElement('span');
       name.className = 'ff-name';
       name.textContent = m.name;
+      const gm = badge(m.id);
+      if (gm) name.append(' ', gm);
       const xp = document.createElement('span');
       xp.className = 'ff-xp';
       xp.textContent = m.down ? 'fallen' : `+${m.xp} EXP`;
@@ -211,7 +217,8 @@ export function createFightHud(on: { back(): void; speed(n: number): void }): Fi
       const b = bottom.hidden ? 0 : Math.round(window.innerHeight - bottom.getBoundingClientRect().top);
       return [t, b];
     },
-    update(v, speed = 1) {
+    update(v, speed = 1, guilds = []) {
+      guildList = guilds;
       document.body.classList.toggle('in-fight', !!v);
       top.hidden = bottom.hidden = !v;
       if (!v) {
@@ -275,7 +282,14 @@ export function createFightHud(on: { back(): void; speed(n: number): void }): Fi
             ? [line('', d.room ? `Room ${d.room} of ${d.rooms}` : 'At the door'), line(d.torches <= 2 ? 'ff-dim' : '', `${d.torches} torch${d.torches === 1 ? '' : 'es'} left`), ...(d.twist ? [line('ff-dim', d.twist)] : [])]
             : [line('ff-dim', 'No foes in sight')]),
         );
-        party.replaceChildren(...v.members.map((m) => line('', m.name)));
+        party.replaceChildren(
+          ...v.members.map((m) => {
+            const row = line('', m.name);
+            const gm = badge(m.id);
+            if (gm) row.append(' ', gm);
+            return row;
+          }),
+        );
         return;
       }
       // foes: a row for each one still standing, in the order the battle has them; a kind with more than one is numbered
@@ -321,6 +335,8 @@ export function createFightHud(on: { back(): void; speed(n: number): void }): Fi
             const name = document.createElement('span');
             name.className = 'ff-name';
             name.textContent = f.name;
+            const gm = badge(f.ref);
+            if (gm) name.append(' ', gm);
             if (f.clsName) name.title = `${f.clsName} · Lv ${f.level ?? 1}`;
             head.append(name, turnGauge(f.down ? 0 : f.atb, !f.down, 'Their next turn'));
             row.append(head, meter('hp', f.down ? 0 : f.hp / Math.max(1, f.maxHp), 'HP', `${Math.max(0, Math.round(f.hp))}/${Math.round(f.maxHp)}`, 'Health'));

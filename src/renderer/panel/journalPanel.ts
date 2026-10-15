@@ -31,7 +31,7 @@ let filter: Filter = 'all';
 
 const isDeath = (e: JournalEntryView) => / has died /.test(e.text);
 
-export function renderJournal(entries: JournalEntryView[], met: readonly string[] = [], annals?: AnnalsView, scenes: { key: number; title: string; tick: number }[] = [], watch?: (key: number) => void, ancestry?: AncestryView | null, festivals?: FestivalsView, culture?: CultureView): HTMLElement[] {
+export function renderJournal(entries: JournalEntryView[], met: readonly string[] = [], annals?: AnnalsView, scenes: { key: number; title: string; tick: number }[] = [], watch?: (key: number) => void, ancestry?: AncestryView | null, festivals?: FestivalsView, culture?: CultureView, guildMark?: (personId: number) => HTMLElement | null): HTMLElement[] {
   const list = el('div');
   const row = el('div', 'row inv-tabs menu-tabs');
   const draw = () => {
@@ -43,7 +43,7 @@ export function renderJournal(entries: JournalEntryView[], met: readonly string[
       }),
     );
     if (filter === 'heroes') {
-      list.replaceChildren(...renderHeroes(annals ?? { fallen: [], chronicles: [], famous: [] }));
+      list.replaceChildren(...renderHeroes(annals ?? { fallen: [], chronicles: [], famous: [] }, guildMark));
       return;
     }
     if (filter === 'festivals') {

@@ -194,7 +194,9 @@ export class TacticsScene {
       const dir: 1 | -1 = u.facing === 0 || u.facing === 3 ? 1 : -1;
       if (u.key[0] === 'p') {
         const p = next.people.find((q) => q.id === u.ref);
-        if (p) people.push({ ...p, x, y, dir, indoors: false, defending: true, swimming: false });
+        // (a merrow standing in the water on the board shows their tail, as on the map; on land, legs)
+        const g = t.tiles[u.v * t.w + u.u]?.g;
+        if (p) people.push({ ...p, x, y, dir, indoors: false, defending: true, swimming: p.mer && (g === 'water' || g === 'shallows') });
       } else {
         const r = next.raid?.raiders.find((q) => q.id === u.ref);
         if (r) raiders.push({ ...r, x, y, dir, swimming: false, floor: null });

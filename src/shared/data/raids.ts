@@ -234,6 +234,25 @@ export const ODDS_WALL_SHARE = 0.5;
 export const ODDS_WALL_RATE = 0.25;
 /** How long a parley/mercy question waits for an answer (hours). */
 export const ODDS_ASK_HOURS = 2;
+/** An outmatched band of people may do more than turn back (sim/raidOdds.ts): demand a toll, or probe a weak spot by night.
+ *  The base chances of each (more for a kind that can be bribed or that steals or burns, less for a lord's army). */
+export const ODDS_TOLL_CHANCE = 0.3;
+export const ODDS_PROBE_CHANCE = 0.25;
+/** The toll: a share of the treasury (at least `TOLL_MIN_COINS`, asked only of a purse twice that), else a share of the food
+ *  (at least `TOLL_MIN_FOOD`). The default answer pays only if the purse is `TOLL_AFFORD` times the toll. */
+export const TOLL_COINS_SHARE = 0.12;
+export const TOLL_MIN_COINS = 10;
+export const TOLL_FOOD_SHARE = 0.15;
+export const TOLL_MIN_FOOD = 8;
+export const TOLL_AFFORD = 3;
+/** The probe: a small party (min, max) slips in at this hour of the night; the watch catches it at a base chance, more for
+ *  each guard and each watchtower; otherwise it takes `PROBE_TAKE` a head of the best thing in the stores, or sets a fire. */
+export const PROBE_PARTY: [number, number] = [2, 3];
+export const PROBE_HOUR = 2;
+export const PROBE_CATCH = 0.3;
+export const PROBE_CATCH_GUARD = 0.1;
+export const PROBE_CATCH_TOWER = 0.1;
+export const PROBE_TAKE = 6;
 /** A broken band is worth asking about only from this many raiders. */
 export const MERCY_MIN_RAIDERS = 3;
 /** Hunted raiders are run down at this chance a tick, and the experience each hunter gets for one (a swing's worth). */
