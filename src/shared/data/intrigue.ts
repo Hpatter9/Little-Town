@@ -97,7 +97,7 @@ export const FEAR_BOWS: readonly NatureId[] = ['shy', 'gloomy', 'kind', 'dreamy'
 export const FEAR_BEAT = 0.3;
 /** The weight of each method by what the house has: bribes, blackmail, fear, and murder (only for hard houses, a
  *  hot feud or the ring). */
-export const METHOD_WEIGHT = { bribe: 4, blackmail: 3, fear: 2, murder: 1.2 } as const;
+export const METHOD_WEIGHT = { bribe: 4, blackmail: 3, fear: 2, murder: 2.5 } as const;
 export type Method = keyof typeof METHOD_WEIGHT;
 /** The laws the ring wants gone (and none passed that bind it). */
 export const RING_HATES: readonly string[] = ['harsh_law', 'curfew'];
