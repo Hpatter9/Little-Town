@@ -48,7 +48,7 @@ export class SideRing {
     const a = Math.min(1, SIDE_RING_ALPHA * fade * (s.active ? 1.5 : 1));
     g.clear();
     // (a soft dark edge outside, a faint fill, then the colour)
-    g.ellipse(0, 0, rx + 1, ry + 0.5).stroke({ color: 0x000000, width: 3, alpha: 0.35 * fade });
+    g.ellipse(0, 0, rx + 1, ry + 0.5).stroke({ color: 0x000000, width: 3, alpha: 0.5 * fade });
     g.ellipse(0, 0, rx, ry).fill({ color: SIDE_RING[s.side], alpha: 0.12 * fade });
     g.ellipse(0, 0, rx, ry).stroke({ color: SIDE_RING[s.side], width: s.active ? 2 : 1.5, alpha: a });
     if (s.active) g.ellipse(0, 0, rx + 2.5, ry + 1.2).stroke({ color: 0xffffff, width: 1, alpha: 0.8 });
