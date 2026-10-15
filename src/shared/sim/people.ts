@@ -4,6 +4,7 @@
 
 import { addDeed } from './deeds';
 import { protestSpot, striking } from './politics';
+import { altarSpot, officiating, priestDuty } from './religion';
 import { isGate, lineOf, RING_CLEAR_PULL } from './ringWall';
 import { drinkAt, drinking } from './nightOut';
 import { finishRelax, relaxSpot, relaxTicks, wantsRelax } from './leisure';
@@ -439,6 +440,17 @@ export function updatePerson(s: GameState, p: Person, rng: Rng, ctx: TickContext
       }
       if (!goTo(s, p, protestSpot(s, p))) break;
       p.activity = 'protest';
+      break;
+    }
+    case 'officiate': {
+      // (a priest at their altar for the dawn rite: sim/religion.ts)
+      const b = byId(s, task.building);
+      if (!b || !officiating(s, p, b.id)) {
+        p.task = null;
+        break;
+      }
+      if (!goTo(s, p, altarSpot(b, p))) break;
+      p.activity = 'pray';
       break;
     }
     case 'toil': {
@@ -1025,6 +1037,8 @@ function rank(t: Task, p?: Person): number {
     case 'toil':
     case 'protest':
       return -2.4;
+    case 'officiate':
+      return -1.6; // (the dawn rite: after a meal or sleep, before any work)
     case 'lesson':
     case 'apprentice':
       return -1.5;
@@ -1064,6 +1078,7 @@ function jobOf(t: Task): Job {
     case 'toil':
     case 'protest':
     case 'attend':
+    case 'officiate':
       return 'construct';
     case 'lesson':
     case 'apprentice':
@@ -1119,6 +1134,11 @@ function chooseTask(s: GameState, p: Person): Task | null {
   if (busyNow(s, p) && p.needs.food >= HUNGRY) return p.task?.type === 'toil' ? p.task : { type: 'toil' };
   // On strike with their bloc (sim/politics.ts): gathered before the seat, and no work done (they still eat).
   if (striking(s, p) && p.needs.food >= HUNGRY) return p.task?.type === 'protest' ? p.task : { type: 'protest' };
+  // A priest at dawn: the rite at their altar (sim/religion.ts; they eat first if they must).
+  if (p.needs.food >= HUNGRY && p.task?.type !== 'officiate') {
+    const rite = priestDuty(s, p);
+    if (rite) return rite;
+  }
   // Of an evening, those out for a drink go to the tavern and stay (sim/nightOut.ts; they eat first if they must).
   if (drinking(s, p) && p.needs.food >= HUNGRY) return p.task?.type === 'drink' ? p.task : { type: 'drink' };
   // A child: lessons of a morning, at their master's side of an afternoon (sim/lineage.ts; they eat first if they must).
@@ -1551,6 +1571,8 @@ function stillValid(s: GameState, p: Person, t: Task): boolean {
       return busyNow(s, p) && !alarmRaised(s);
     case 'protest':
       return striking(s, p) && !alarmRaised(s);
+    case 'officiate':
+      return officiating(s, p, t.building) && !alarmRaised(s);
     case 'lesson':
     case 'apprentice':
       return childTask(s, p)?.type === t.type && !alarmRaised(s);

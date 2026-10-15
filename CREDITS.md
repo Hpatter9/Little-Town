@@ -382,3 +382,11 @@ are the ladder of **Craftpix.net**'s free Green Zone Tileset (`gate_ladder.png`)
 The cannon on the town map (`src/renderer/art/packs/dp_cannon.png`) is the cannon from Craftpix's free Pixel Dungeon
 Props and Objects pack (craftpix.net, free licence). The machines' sentry bot (`src/renderer/art/packs/rw_scarab.png`)
 is the Scarab from the Robot Warfare Asset Pack (CC0, public domain).
+
+## The gods made real (idols and the cult's altar)
+
+The idol the town raises to a god after a miracle, and the druids' and the fae's wayside shrine
+(`src/renderer/art/packs/tree_idol.png`), is the carved idol tree (`Tree_idol_human.png`) of **Craftpix.net**'s free
+Forest Objects Top-Down pack; the rival cult's black altar (`src/renderer/art/packs/cult_totem.png`) is the horned
+totem (`Dark_totem_dark_shadow2.png`) of its free Top-Down Pixel Art Cave Objects pack. Both cropped to the sprite.
+Craftpix free licence: https://craftpix.net/file-licenses/

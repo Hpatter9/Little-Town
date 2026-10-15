@@ -8,6 +8,7 @@ import { streetsHourly } from './streets';
 import { roamersTick, skirmishTrip } from './roamers';
 import { skiesHourly, skiesTick } from './skies';
 import { faithHourly } from './faith';
+import { religionHourly, religionTick } from './religion';
 import { disastersTick } from './disasters';
 import { worldHourly } from './worldLife';
 import { marketsHourly, setRoute } from './markets';
@@ -249,6 +250,8 @@ export class Sim {
     regrowHourly(s); // (and the woods grow back: sim/regrow.ts)
     streetsHourly(s); // (streets planned where folk walk, and to the gates: sim/streets.ts)
     faithHourly(s); // (the gods: sim/faith.ts)
+    religionHourly(s); // (the townsfolk's faith, the priests, omens and miracles, the cult: sim/religion.ts)
+    religionTick(s); // (the priest's blessings on the defenders and on parties setting out)
     worldHourly(s); // (the realm beyond the town: sim/worldLife.ts)
     marketsHourly(s); // (prices, the trade house and its wagons: sim/markets.ts)
     empireHourly(s); // (trading posts, far caravans, the guilds' deals: sim/tradeEmpire.ts)

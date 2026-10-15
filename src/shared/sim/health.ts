@@ -1,5 +1,6 @@
 // Health: injury, being downed, bleeding out, death, and healing in town (DESIGN §3).
 
+import { deathSeen } from './religion';
 import { mournFor } from './ceremonies';
 import { guildCare } from './guildPerks';
 import { recordFallen } from './annals';
@@ -120,6 +121,8 @@ export function killPerson(s: GameState, p: Person, cause: string): void {
     notify(s, `${p.name} fell, and the Phoenix Feather burst into flame: ${p.name} rises from the ashes!`, true);
     return;
   }
+  // a god well pleased may spare them (a miracle), and the rope angers the hearth god (sim/religion.ts)
+  if (deathSeen(s, p, cause)) return;
   recordFallen(s, p, cause); // (the hall of heroes and the year's chronicle: sim/annals.ts)
   recordDeath(s, p, cause); // (the family's record, and their land and purse to their heir: sim/lineage.ts)
   dynastyDeath(s, p, cause); // (an heirloom passes on, an heir's fall is felt: sim/dynasty.ts)
