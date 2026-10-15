@@ -27,7 +27,7 @@ import { buildOrigin } from './nomads';
 import { LEISURE, LEISURE_PEOPLE, LOW_SPIRITS } from '../data/recreation';
 import { TRAINING_BUILDINGS } from '../data/training';
 const TRAINING_IDS = new Set(TRAINING_BUILDINGS.map((d) => d.id));
-import { isGrate, isRingPiece, planRing, ringWants, RING_PEOPLE } from './ringWall';
+import { isGrate, isRingPiece, planRing, ringSite, ringWants, RING_PEOPLE } from './ringWall';
 import { inSea, seaBuild, seaTown } from './sea';
 import { castleCells, castleOn, coreRect, hallCells, HALLWAY, holdOf, isHallway, joinsCastle, nearCastle, roomKind, sharedEdges, solidCells } from './castle';
 import { BUILDINGS, BUILDING_BY_ID, UPGRADES, type BuildingDef } from '../data/buildings';
@@ -1037,7 +1037,7 @@ function shelveStalled(s: GameState, n: Needs, plan: TownPlan): void {
   for (const id of Object.keys(moved)) if (!s.buildings.some((b) => b.id === Number(id) && b.status === 'blueprint')) delete moved[Number(id)];
   for (const k of Object.keys(shelved)) if (s.tick - shelved[k] > SHELF_HOURS * TICKS_PER_HOUR) delete shelved[k];
   for (const b of [...s.buildings]) {
-    if (!inWork(b)) continue; // (a planned piece of the wall waits its turn: that's not a stall)
+    if (!inWork(b) || ringSite(s, b)) continue; // (a planned piece of the wall waits its turn: that's not a stall; the wall going up is one construction)
     const sig = `${Math.round(b.progress * 100)}|${poolSize(b.delivered)}`;
     const m = moved[b.id];
     if (!m || m.sig !== sig) {

@@ -5,7 +5,7 @@
 import { addDeed } from './deeds';
 import { protestSpot, striking } from './politics';
 import { altarSpot, officiating, priestDuty } from './religion';
-import { isGate, lineOf, ringTown, RING_CLEAR_PULL } from './ringWall';
+import { finishRing, isGate, lineOf, ringBuildable, ringBuilderOrder, ringCap, ringDeliver, ringHaulTarget, ringSite, ringStillNeeded, ringTotals, ringTown, ringWork, ringWorkShare, RING_CLEAR_PULL, type Ring } from './ringWall';
 import { drinkAt, drinking } from './nightOut';
 import { finishRelax, relaxSpot, relaxTicks, wantsRelax } from './leisure';
 import { LEISURE } from '../data/recreation';
@@ -229,6 +229,13 @@ export function updatePerson(s: GameState, p: Person, rng: Rng, ctx: TickContext
     case 'deliver': {
       const site = byId(s, task.building)!;
       if (!goToB(s, p, site)) break;
+      // (the wall going up is one site: what's brought goes to its one pool)
+      const ringS = ringSite(s, site);
+      if (ringS) {
+        ringDeliver(s, ringS, p.carrying);
+        p.task = null;
+        break;
+      }
       const need = stillNeeded(site);
       for (const m of MATERIALS) {
         const n = Math.min(p.carrying[m] ?? 0, need[m] ?? 0);
@@ -250,10 +257,20 @@ export function updatePerson(s: GameState, p: Person, rng: Rng, ctx: TickContext
       p.activity = 'build';
       // (a steep curve by skill, and slower than it was: data/economy.ts)
       const speed = buildPower(p.skills.construction.level) * skillPace(s, p, site) * toolSpeed(p, 'construct') * workFactor(s, p) * stackFactor(ctx, `b${site.id}`);
-      site.progress += (speed * buildSpeed(s)) / (defOf(site).buildSeconds * BUILD_PACE * BUILD_MULTIPLIER[earlier(s.era, eraOfResearch(defOf(site).research))] * TICK_HZ);
+      // (the wall going up is one construction: the work goes to its one count, wherever along it they stand, and it is
+      // finished all at once: sim/ringWall.ts)
+      const ringS = ringSite(s, site);
+      let wallDone = false;
+      if (ringS) {
+        wallDone = ringWork(s, ringS, (speed * buildSpeed(s)) / (BUILD_PACE * BUILD_MULTIPLIER[earlier(s.era, eraOfResearch(defOf(site).research))] * TICK_HZ));
+        if (!wallDone && ringWorkShare(s, ringS) >= ringCap(s, ringS) - 1e-9) {
+          p.task = null;
+          break;
+        }
+      } else site.progress += (speed * buildSpeed(s)) / (defOf(site).buildSeconds * BUILD_PACE * BUILD_MULTIPLIER[earlier(s.era, eraOfResearch(defOf(site).research))] * TICK_HZ);
       // (no further than the makings brought: caught up, they put it down until more comes)
       const share = deliveredShare(site);
-      if (share < 1 && site.progress >= share) {
+      if (!ringS && share < 1 && site.progress >= share) {
         site.progress = share;
         if (site.room && holdOf(s) === 'mountain') digRoom(s, site, site.progress);
         p.task = null;
@@ -268,7 +285,13 @@ export function updatePerson(s: GameState, p: Person, rng: Rng, ctx: TickContext
         const owner = s.people.find((q) => q.id === site.owner);
         if (owner) accruePayFrom(s, owner, p, HIRE_PER_HOUR, `building for ${owner.name}`, TICKS_PER_HOUR);
       }
-      if (site.progress >= 1) {
+      if (ringS && wallDone) {
+        const crew = s.people.filter((q) => q === p || (q.task?.type === 'build' && ringSite(s, byId(s, q.task.building) ?? { status: 'done' } as never) === ringS));
+        const n = finishRing(s, ringS);
+        p.task = null;
+        notify(s, `The town's wall is raised, all ${n} pieces of it together`, true);
+        for (const q of crew) addDeed(q, 'built');
+      } else if (!ringS && site.progress >= 1) {
         site.progress = 1;
         site.status = 'done';
         site.builtAt = s.tick;
@@ -1291,7 +1314,7 @@ export function researchCanWait(s: GameState, p: Person): boolean {
   // (a handful of people lay the streets planned before they study: else nobody idles and they're never laid)
   if (grown <= SMALL_TOWN && !s.raid && paveReady(s)) return true;
   if (!sites.length) return false;
-  const ready = sites.some((b) => buildableNow(b) || b.progress > 0);
+  const ready = sites.some((b) => siteReady(s, b) || b.progress > 0);
   // (a handful of people: anything they could build or gather for comes first; a site waiting on what the land can't
   // give (a desert's fiber) doesn't keep them from their books)
   if (grown <= SMALL_TOWN) return ready || s.land.marked.length > 0;
@@ -1395,7 +1418,40 @@ function buildsFirst(s: GameState, p: Person): boolean {
   const cover = () => (c ??= coverOf(s));
   let at: Builders | null = null;
   const builders = () => (at ??= buildersAt(s));
-  return blueprintsNow(s).some((b) => inWork(b) && buildableNow(b) && canWork(s, p, b) && skillPace(s, p, b) >= 1 && buildSpot(s, p, b, cover, builders));
+  let ringTried = false;
+  return blueprintsNow(s).some((b) => {
+    if (!inWork(b)) return false;
+    const ring = ringSite(s, b);
+    if (ring) {
+      if (ringTried) return false;
+      ringTried = true;
+      return skillPace(s, p, b) >= 1 && !!ringPick(s, p, ring, cover, builders);
+    }
+    return buildableNow(b) && canWork(s, p, b) && skillPace(s, p, b) >= 1 && buildSpot(s, p, b, cover, builders);
+  });
+}
+
+/** Whether a site has work for a builder now (the wall going up is one site: its own makings and work). */
+function siteReady(s: GameState, b: Building): boolean {
+  const ring = ringSite(s, b);
+  return ring ? ringBuildable(s, ring) : buildableNow(b);
+}
+
+/** Where a builder takes up the wall going up: the open spot along its line nearest to them, the crew spread out
+ *  (`ringBuilderOrder`); none when it has no work for them now. */
+function ringPick(s: GameState, p: Person, ring: Ring, cover?: () => Cover, builders?: () => Builders): { site: Building; spot: Pt } | undefined {
+  if (!ringBuildable(s, ring)) return undefined;
+  const live = ringTotals(s, ring).live;
+  if (!live.length || !canWork(s, p, live[0])) return undefined;
+  const ids = new Set(live.map((b) => b.id));
+  const at = (builders ?? (() => buildersAt(s)))();
+  const taken: Pt[] = [];
+  for (const [id, l] of at) if (ids.has(id)) for (const q of l) if (q.id !== p.id) taken.push({ x: q.x, y: q.y });
+  for (const site of ringBuilderOrder(s, ring, { x: p.x, y: p.y }, taken)) {
+    const spot = buildSpot(s, p, site, cover, builders);
+    if (spot) return { site, spot };
+  }
+  return undefined;
 }
 
 /** Up to this many grown-ups, building and gathering come before study. */
@@ -1405,9 +1461,12 @@ function findJob(s: GameState, p: Person, job: Job): Task | null {
   switch (job) {
     case 'haul':
       // (a site with a builder at it, or walls going up, is carried to first, so the builder never stops for want)
-      for (const b of haulOrder(s)) {
-        const need = unreserved(s, p, b);
+      for (const b0 of haulOrder(s)) {
+        const need = unreserved(s, p, b0);
         if (!poolSize(need)) continue;
+        // (the wall going up is one site: carried to the part of it nearest the hauler)
+        const ringS = ringSite(s, b0);
+        const b = (ringS && ringHaulTarget(s, ringS, { x: p.x, y: p.y })) || b0;
         const from = nearestStorage(s, p, (st) => (Object.keys(need) as Material[]).some((m) => (st.store[m] ?? 0) > 0));
         if (!from) continue;
         const amounts: Stock = {};
@@ -1427,8 +1486,21 @@ function findJob(s: GameState, p: Person, job: Job): Task | null {
       const cover = () => (c ??= coverOf(s));
       let at: Builders | null = null;
       const builders = () => (at ??= buildersAt(s));
-      const b = blueprintsNow(s).find((q) => inWork(q) && buildableNow(q) && canWork(s, p, q) && buildSpot(s, p, q, cover, builders));
-      if (b) return { type: 'build', building: b.id, spot: buildSpot(s, p, b, cover, builders) };
+      let ringTried = false;
+      let wall: { site: Building; spot: Pt } | undefined;
+      const b = blueprintsNow(s).find((q) => {
+        if (!inWork(q)) return false;
+        const ring = ringSite(s, q);
+        if (ring) {
+          // (the wall is one site: the nearest open spot along it, spread out)
+          if (ringTried) return false;
+          ringTried = true;
+          wall = ringPick(s, p, ring, cover, builders);
+          return !!wall;
+        }
+        return buildableNow(q) && canWork(s, p, q) && buildSpot(s, p, q, cover, builders);
+      });
+      if (b) return wall ? { type: 'build', building: wall.site.id, spot: wall.spot } : { type: 'build', building: b.id, spot: buildSpot(s, p, b, cover, builders) };
       const hurt = s.raid ? undefined : s.buildings.find((q) => q.status === 'done' && q.hp !== undefined && q.hp < (defOf(q).hp ?? 0));
       return hurt ? { type: 'repair', building: hurt.id } : null;
     }
@@ -1500,7 +1572,15 @@ function findCraft(s: GameState, p: Person, station?: string): Task | null {
 
 /** Sites in work, those being built (someone at it, or begun) before the rest. */
 export function haulOrder(s: GameState): Building[] {
-  const sites = s.buildings.filter(inWork);
+  // (the wall going up is one site, listed once)
+  let wallListed = false;
+  const sites = s.buildings.filter((b) => {
+    if (!inWork(b)) return false;
+    if (!ringSite(s, b)) return true;
+    if (wallListed) return false;
+    wallListed = true;
+    return true;
+  });
   const busy = new Set<number>();
   for (const o of s.people) if (o.task?.type === 'build') busy.add(o.task.building);
   const first = sites.filter((b) => busy.has(b.id) || b.progress > 0);
@@ -1514,9 +1594,12 @@ export function haulOrder(s: GameState): Building[] {
 
 /** What a blueprint still needs that nobody else is already fetching or carrying to it. */
 function unreserved(s: GameState, p: Person, b: Building): Stock {
-  const need = stillNeeded(b);
+  const ringS = ringSite(s, b);
+  const need = ringS ? ringStillNeeded(s, ringS) : stillNeeded(b);
   for (const o of s.people) {
-    if (o === p || !o.task || !('building' in o.task) || o.task.building !== b.id) continue;
+    if (o === p || !o.task || !('building' in o.task)) continue;
+    // (carrying to any part of the wall is carrying to the wall)
+    if (ringS ? ringSite(s, (o.task.building === null ? undefined : buildingById(s, o.task.building)) ?? { status: 'done' } as never) !== ringS : o.task.building !== b.id) continue;
     const coming = o.task.type === 'fetch' ? o.task.amounts : o.task.type === 'deliver' ? o.carrying : {};
     for (const m of MATERIALS) if (coming[m]) addStock(need, m, -Math.min(need[m] ?? 0, coming[m]!));
   }
@@ -1562,7 +1645,7 @@ function stillValid(s: GameState, p: Person, t: Task): boolean {
     case 'deliver':
       return !!site && inWork(site);
     case 'build':
-      return !!site && inWork(site) && site.progress < deliveredShare(site) && p.priorities.construct !== 0 && canWork(s, p, site);
+      return !!site && inWork(site) && (ringSite(s, site) ? ringWorkShare(s, ringSite(s, site)!) < ringCap(s, ringSite(s, site)!) : site.progress < deliveredShare(site)) && p.priorities.construct !== 0 && canWork(s, p, site);
     case 'research':
       // (still their station: built, standing, and nobody else's)
       return (

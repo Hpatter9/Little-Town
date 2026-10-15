@@ -22,6 +22,9 @@ import type { PlaceView } from '../../shared/sim/snapshot';
 import type { CropLook } from '../art/buildings';
 import { topDownArt } from '../art/topDown';
 import { drawSite } from '../art/constructionSite';
+import { drawWallWorks, stagingAt } from '../art/wallWorks';
+import { choresTex } from '../art/choresArt';
+import { isGate, isRingPiece } from '../../shared/sim/ringWall';
 import { snowCapped } from '../art/snowCap';
 import { weathered } from '../art/weathered';
 import { sunAt, type Sun } from '../art/sun';
@@ -1128,7 +1131,8 @@ export class MapView {
         d = this.draw(b, sig);
         this.buildings.set(b.id, d);
       }
-      if (b.status === 'blueprint' && d.progress !== b.progress) this.updateBlueprint(b, d);
+      // (every piece of the wall going up shows the one progress and moves together: redrawn a hundredth at a time, not every tick)
+      if (b.status === 'blueprint' && (b.ring !== undefined ? Math.abs(d.progress - b.progress) >= 0.01 : d.progress !== b.progress)) this.updateBlueprint(b, d);
       if (b.fire !== undefined) d.sprite.tint = 0xff9060;
       const shown = b.status !== 'done' || !this.artHidden.has(b.id);
       if (d.sprite.visible !== shown) d.sprite.visible = shown;
@@ -1547,6 +1551,20 @@ export class MapView {
       d.faint = faint;
       d.mask = mask;
       d.site = site;
+      // (a pile of timber or stone every few cells along the wall going up: where the haulers set their loads down)
+      if (b.ring !== undefined && !b.planned && isRingPiece(b.def) && !isGate(b.def) && stagingAt(b.tile, b.row)) {
+        const tex = choresTex();
+        const stone = !b.def.startsWith('palisade');
+        const pick = stone ? tex.rubble3 : [tex.logs, tex.logpile, tex.barrel, tex.crate][(b.tile + b.row) % 4] ?? tex.logs;
+        if (pick) {
+          const sp = this.things.addChild(new Sprite(pick));
+          sp.anchor.set(0.5, 1);
+          sp.scale.set(stone ? 1 : 0.6);
+          sp.position.set(Math.round(left + d.rect.w / 2), Math.round(bottom + 2));
+          sp.zIndex = bottom + 0.3;
+          (d.extras ??= []).push(sp);
+        }
+      }
       this.updateBlueprint(b, d);
     }
     return d;
@@ -1566,6 +1584,11 @@ export class MapView {
     const built = Math.round(h * b.progress);
     d.mask!.clear().rect(0, h - built, w, built).fill(0xffffff);
     const def = BUILDING_BY_ID[b.def];
+    // (a piece of the wall is one cell of one long work, not a site of its own: art/wallWorks.ts)
+    if (b.ring !== undefined && isRingPiece(b.def)) {
+      drawWallWorks(d.site!.clear(), { w, h, progress: b.progress, tile: b.tile, row: b.row, era: eraOfResearch(def.research), gate: isGate(b.def), masonry: !b.def.startsWith('palisade') }, this.tone);
+      return;
+    }
     const left = stillNeeded(b);
     const delivered = Object.fromEntries(Object.entries(def.cost).map(([m, n]) => [m, Math.max(0, (n ?? 0) - ((left as Record<string, number>)[m] ?? 0))]));
     drawSite(d.site!.clear(), { x: 0, y: 0, w, h, progress: b.progress, delivered, cost: def.cost, era: eraOfResearch(def.research), seed: b.id, now: performance.now() }, this.tone);

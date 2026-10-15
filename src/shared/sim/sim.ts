@@ -100,6 +100,7 @@ import { autoPriorities, campCell, notify, type GameState } from './state';
 import { TICK_MS, TICKS_PER_HOUR } from './time';
 import { acceptVisitor, assignBeds, drillGuards, driftMorale, keepKin, maybeArrive, rejectVisitor, updateVisitor } from './townsfolk';
 import { forSale, runPlanner, shoppingList } from './planner';
+import { syncRing } from './ringWall';
 import { chooseLich, watchLich } from './occult';
 import { castHeld, castPowers, holdPower } from './powers';
 import { lurkers } from './lurkers';
@@ -194,6 +195,7 @@ export class Sim {
       checkBleeding(s, p);
       if (s.gameOver) break;
     }
+    syncRing(s); // (every piece of the wall going up shows its one progress: sim/ringWall.ts)
     updateExpeditions(s, this.rng);
     roamersTick(s); // (bands roaming the land, and the fights they start: sim/roamers.ts)
     skiesTick(s); // (sky pirates dropping in, and the town shooting at what hunts from the sky: sim/skies.ts)

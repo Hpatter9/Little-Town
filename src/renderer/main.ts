@@ -865,7 +865,7 @@ async function start(): Promise<void> {
           else lines.push('Stage 5 of 5: every age\'s studies are open');
         }
         if (b.status === 'blueprint') {
-          const parts = (Object.entries(def.cost) as [Material, number][]).map(([m, n]) => `${MATERIAL_NAMES[m]} ${b.delivered[m] ?? 0}/${n}`);
+          const parts = (Object.entries(def.cost) as [Material, number][]).map(([m, n]) => `${MATERIAL_NAMES[m]} ${Math.floor(b.delivered[m] ?? 0)}/${n}`);
           lines.push(b.progress > 0 ? `Under construction: ${Math.floor(b.progress * 100)}%` : `Materials delivered: ${parts.join(' · ')}`);
           if (b.overgrown) lines.push('Clearing the ground first: the trees and rocks on it are being cut and dug out');
         } else {
