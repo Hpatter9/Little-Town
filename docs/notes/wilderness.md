@@ -35,7 +35,7 @@ woodcutters' clearings let it spread again.
 summer, with no disaster on, `wildfireStart` lights a woodland wildfire at `DRY_FIRE_HOURLY` an hour through the
 existing disaster (`disasters.ts`). The day's wind (`Wild.wind`, turned a little each day by `WIND_TURN`) rides on the
 fire (`Disaster.wind`): a fire spreads `1 + 0.9 cos(angle to the wind)` times as readily downwind (floor 0.1), and
-likewise setting buildings alight (`fire.ts` `setFire`). A dry fire (`Disaster.dry`) also crosses grass (0.8) and
+likewise for buildings the fire catches (`fireSpread` in `disasters.ts`, then `fire.ts` `setFire`). A dry fire (`Disaster.dry`) also crosses grass (0.8) and
 fields' soil (0.5). Burnt woods are marked `LandMap.rich` and come back after `RICH_DAYS` with `RICH_POOL` times the
 pool (`regrow.ts`). The old (wind-less, forest-only) fires of `disasters.ts` behave as before.
 
