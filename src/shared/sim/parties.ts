@@ -58,6 +58,7 @@ import { dragonDestinations } from './dragon';
 import { villageDestinations } from './villages';
 import { portalDestinations } from './portals';
 import { heartDestinations, isHeartDest } from './calamity';
+import { enemyDestinations, enemyPull, isEnemySeat } from './greatEnemy';
 import { PULL_HUNT_STAR } from '../data/hunts';
 import { PULL_SAGA } from '../data/sagas';
 import { isChild, opinion } from './social';
@@ -66,7 +67,7 @@ import { earn, maxHp, notify, type Expedition, type GameState, type Person } fro
 import { calendar, TICKS_PER_HOUR } from './time';
 
 /** Every destination on the board now (the world's, the places on the land, the rival packs' lairs). */
-export const boardDestinations = (s: GameState): Destination[] => [...DESTINATIONS, ...placeDestinations(s), ...packDestinations(s), ...sagaDestinations(s), ...huntDestinations(s), ...dragonDestinations(s), ...heartDestinations(s), ...villageDestinations(s), ...portalDestinations(s)];
+export const boardDestinations = (s: GameState): Destination[] => [...DESTINATIONS, ...placeDestinations(s), ...packDestinations(s), ...sagaDestinations(s), ...huntDestinations(s), ...dragonDestinations(s), ...heartDestinations(s), ...enemyDestinations(s), ...villageDestinations(s), ...portalDestinations(s)];
 
 /** The player's veto: destinations no party may choose. */
 export const vetoed = (s: GameState, id: string) => (s.vetoed ?? []).includes(id);
@@ -240,6 +241,7 @@ function pull(s: GameState, leader: Person, d: Destination): number {
   const nest = isPlaceDest(d.id) ? placeOfDest(s, d.id)?.nest : undefined;
   if (nest) n += PULL_NEST + PULL_NEST_LEVEL * nest.level; // (a nest festering on the land: sim/nests.ts)
   if (isHeartDest(d.id)) n += PULL_HEART; // (the Calamity's heart)
+  n += enemyPull(d.id); // (the Great Enemy's outposts)
   return n;
 }
 
@@ -247,7 +249,7 @@ function pull(s: GameState, leader: Person, d: Destination): number {
 function choosable(s: GameState): Destination[] {
   const going = new Set(s.expeditions.map((e) => e.dest));
   return boardDestinations(s).filter(
-    (d) => d.id !== HUNT_DEST && !vetoed(s, d.id) && !going.has(d.id) && destinationUnlocked(s, d) && (!d.coins || (s.coins ?? 0) >= d.coins * 2) && (!d.byBoat || !!freeBoat(s) || !!freeAirship(s)) && (!d.bySky || !!freeAirship(s)),
+    (d) => d.id !== HUNT_DEST && !isEnemySeat(d.id) && !vetoed(s, d.id) && !going.has(d.id) && destinationUnlocked(s, d) && (!d.coins || (s.coins ?? 0) >= d.coins * 2) && (!d.byBoat || !!freeBoat(s) || !!freeAirship(s)) && (!d.bySky || !!freeAirship(s)),
   );
 }
 
