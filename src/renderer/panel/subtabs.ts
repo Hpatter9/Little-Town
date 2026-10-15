@@ -32,7 +32,7 @@ const GROUPS: Record<string, MenuTabs> = {
   // the Quests tab (the panel's id is still 'expeditions'): what's out now, the quests, the places, the companies
   expeditions: {
     groups: [
-      ['Out now', /^(Out now|Boats|The Calamity)/],
+      ['Out now', /^(Out now|Boats|The Calamity|The Great Enemy)/],
       ['Quests', /^(Accepted quests|Quest board|Sagas|Quest log)/],
       ['Places', /^(Places|On the town's land|The pack|Destinations|Not yet reachable)/],
       ['Companies', /^Companies/],

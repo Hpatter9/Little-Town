@@ -99,6 +99,7 @@ export function glance(s: Snapshot, bridge: Bridge | undefined, rerender: () => 
     if (worst) tile('Gods', worst.mood === 'wrathful' ? 'Wrathful' : worst.favour < 0 ? 'Uneasy' : 'At peace', worst.favour < 0 ? `${worst.name} is ${worst.mood}` : 'all four content', ['build', 'Faith'], worst.mood === 'wrathful');
   }
   if (s.calamity) tile('The Calamity', s.calamity.beaten ? 'Beaten' : s.calamity.stageName, s.calamity.beaten ? s.calamity.name : `${s.calamity.name} · dread ${Math.round(s.calamity.dread)}`, ['expeditions', 'Places'], !s.calamity.beaten && s.calamity.stage >= 4);
+  if (s.greatEnemy && s.greatEnemy.stage !== 'dormant') tile('The Enemy', s.greatEnemy.stageName, s.greatEnemy.stage === 'peace' ? `${s.greatEnemy.short} is dead` : s.greatEnemy.name, ['expeditions', 'Out now'], s.greatEnemy.stage === 'march' || s.greatEnemy.stage === 'siege');
   // (the Deep under the town: a tap goes down into its deepest level, sim/deep.ts)
   if (s.deep) {
     const d = s.deep;

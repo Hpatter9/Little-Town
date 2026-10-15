@@ -77,6 +77,7 @@ export const expeditionsKey = (s: Snapshot) =>
     s.muster,
     s.realm,
     s.companies.map((c) => [c.id, c.trips, c.ended, c.out, c.members.length, c.members.filter((m) => m.alive).length]),
+    s.greatEnemy && [s.greatEnemy.stage, Math.floor(s.greatEnemy.plan), s.greatEnemy.siegeIn, s.greatEnemy.omen, s.greatEnemy.log.length, s.greatEnemy.lieutenants.map((l) => l.slain), s.greatEnemy.seatOpen],
   ]);
 
 const listStock = (st: Stock) =>
@@ -107,6 +108,8 @@ export function renderExpeditions(s: Snapshot, bridge: Bridge | undefined, reren
   }
   // the Calamity (sim/calamity.ts): how near it is, its stage, and its heart to strike at
   if (s.calamity) out.push(...calamitySection(s, bridge));
+  // the Great Enemy (sim/greatEnemy.ts): its stage, its plan's progress, its lieutenants, its seat
+  if (s.greatEnemy && s.greatEnemy.stage !== 'dormant') out.push(...greatEnemySection(s, bridge));
 
   /* ---- Quests: those accepted first, then the offers, the sagas, the log (questBoardPanel.ts) */
   out.push(...acceptedQuests(s, bridge));
@@ -127,6 +130,7 @@ export function renderExpeditions(s: Snapshot, bridge: Bridge | undefined, reren
     s.realm.factions.filter((f) => f.known).map((f) => ({ id: f.id, name: f.name, stronghold: f.stronghold, stance: f.stance, stanceName: f.stanceName, assault: f.assault, folk: f.folk, size: f.size, tier: f.tier })),
     s.world,
     { colonies: s.seafaring.colonies.map((c) => ({ isle: c.isle, name: c.name, pop: c.pop })), claimed: s.seafaring.claimed },
+    s.greatEnemy && s.greatEnemy.stage !== 'dormant' ? s.greatEnemy : null,
   );
   out.push(worldMap.el, el('div', 'hint map-hint', 'Tap a place on the map to find its card. Tap a card for more: the foes, the loot, a bounty, or forbidding it.'));
   // the realm on the move (sim/worldLife.ts): hosts, caravans and envoys on the roads, and the powers' feuds
@@ -526,6 +530,56 @@ function treasures(s: Snapshot): HTMLElement[] {
   out.push(grid);
   const left = UNIQUES.length - s.uniques.length;
   if (left) out.push(el('div', 'hint', `${left} more are still out there, carried by bosses, or waiting at the end of a quest.`));
+  return out;
+}
+
+/** The Great Enemy's card: its name and stage, its plan's progress toward the last siege, what comes next, its
+ *  lieutenants and the powers fallen to it, the story so far, and its places to strike at (sim/greatEnemy.ts). */
+function greatEnemySection(s: Snapshot, bridge?: Bridge): HTMLElement[] {
+  const g = s.greatEnemy!;
+  const out: HTMLElement[] = [el('h2', '', 'The Great Enemy')];
+  const card = el('div', `card enemy-card ${g.stage}`);
+  const top = el('div', 'card-top');
+  top.append(el('span', 'card-name', g.name), el('span', 'card-size', g.stageName));
+  card.append(top);
+  const done = g.stage === 'peace' || g.stage === 'fallen';
+  if (!done) {
+    const bar = el('div', 'dread');
+    const fill = el('div', 'dread-fill');
+    fill.style.width = `${Math.min(100, (g.plan / 52) * 100)}%`;
+    bar.append(fill);
+    card.append(bar);
+  }
+  card.append(el('div', 'purpose', done ? g.next : `${g.seatKnown ? `In ${g.seat}. ` : ''}${g.next}${g.pace > 1.05 ? ' Its outposts left standing hasten it.' : g.pace < 0.95 ? ' The town\'s learning and faith slow it.' : ''}`));
+  if (g.siegeIn !== null) card.append(el('div', 'purpose dread-warn', `The last siege comes in ${g.siegeIn} hour${g.siegeIn === 1 ? '' : 's'}.`));
+  if (g.omen && !done) card.append(el('div', 'hint', `The latest omen: ${g.omen}`));
+  if (g.stage !== 'omens' && g.stage !== 'dormant') card.append(el('div', 'hint', `Its lieutenants: ${g.lieutenants.map((l) => (l.slain ? `${l.name} (slain)` : `${l.name} at ${l.outpost.replace(/^The /, 'the ')}`)).join('; ')}.`));
+  if (g.thralls.length) card.append(el('div', 'hint', `Fallen to it: ${g.thralls.join(', ')}.`));
+  out.push(
+    expandable(card, 'enemy', () => [
+      facts([
+        ['Its goal', g.goal],
+        ['How it fights', g.way],
+        ['Its seat', g.seatKnown ? `${g.seat}${g.seatOpen ? ': open to an expedition' : ''}` : 'Not yet found'],
+        ['Pace', `${g.pace}× ${g.pace === 1 ? '' : g.pace > 1 ? '(hastened)' : '(slowed)'}`],
+        ['Sieges lost', g.lost ? `${g.lost} of 2` : null],
+        ['The town\'s title', g.title],
+        ['Slain by', g.slayer],
+        ['Old enemy', g.vengeance ? `It broke ${g.vengeance}'s town` : null],
+      ]),
+      list('The story so far', g.log.map((l) => `Day ${l.day}: ${l.text}.`)),
+      list('The arc', ['Omens: signs, dreams, travellers lost, a stranger\'s warning.', 'Stirring: its blight creeps in, its agents, marked raids, powers fall, its lieutenants take outposts.', 'The march: its lieutenants lead hosts; it demands tribute.', 'The last siege: it comes itself. Strike it down for a lasting peace; lose twice and the town falls.']),
+    ]),
+  );
+  const cards = el('div', 'cards wide');
+  for (const d of g.dests) {
+    const v = s.destinations.find((x) => x.id === d.id);
+    if (!v) continue;
+    const dc = destinationCard(d, v, s, bridge);
+    dc.dataset.dest = d.id;
+    cards.append(dc);
+  }
+  if (cards.childElementCount) out.push(cards);
   return out;
 }
 
