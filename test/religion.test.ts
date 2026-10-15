@@ -5,7 +5,7 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import '../src/shared/data/events'; // (first: the event kit's own import order)
 import { FAITH_HOUR } from '../src/shared/data/gods';
-import { CULT_ALTAR, FEAST_DAYS, GOD_IDOL, MIRACLE_AT, OMEN_AT } from '../src/shared/data/religion';
+import { CULT_ALTAR, FEAST_DAYS, GOD_IDOL, MIRACLE_AT, OMEN_AT, WRATH_GAP_DAYS } from '../src/shared/data/religion';
 import { RAID_KIND_BY_ID } from '../src/shared/data/raids';
 import { Rng } from '../src/shared/rng';
 import { faithOf } from '../src/shared/sim/faith';
@@ -137,6 +137,24 @@ test('a wrathful god sends an omen first, and only then its greater wrath', () =
   }
   assert.ok(rel.log.some((e) => e.kind === 'wrath'), 'the storm came');
   assert.ok(OMEN_AT > -90);
+});
+
+test('greater wraths never chain: all gods furious, no two wraths within WRATH_GAP_DAYS', () => {
+  const s = town('rel-gap', 12);
+  temple(s);
+  const f = faithOf(s);
+  const rel = religionOf(s);
+  const falls: number[] = [];
+  for (let day = 2; day < 80; day++) {
+    f.favour = { harvest: -90, hearth: -90, war: -90, sky: -90 };
+    const before = rel.log.filter((e) => e.kind === 'wrath').length;
+    dawn(s, day);
+    for (const p of s.people) { p.hp = 1000; p.sick = null; }
+    s.raid = null;
+    if (rel.log.filter((e) => e.kind === 'wrath').length > before || rel.lastWrath === s.tick) falls.push(day);
+  }
+  assert.ok(falls.length >= 3, `wraths fell ${falls.length} times`);
+  for (let i = 1; i < falls.length; i++) assert.ok(falls[i] - falls[i - 1] >= WRATH_GAP_DAYS, `days ${falls[i - 1]} and ${falls[i]} too close`);
 });
 
 test('the greater wraths bite: a cursed harvest rots the stores, a plague kills, the war god sends wolves', () => {
