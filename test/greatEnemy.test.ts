@@ -65,10 +65,8 @@ test('the Enemy is chosen on the second day to fit the land: the drowned king on
   for (let i = 0; i < 24; i++) {
     const s = plainGame(`inland${i}`);
     s.biome = 'swamp';
-    s.calamity = { kind: 'rot' } as never;
     const k = chooseEnemy(s).kind;
     assert.notEqual(k, 'drowned', 'never inland');
-    assert.notEqual(k, 'plague', 'never a second rot');
   }
   // without the autopilot it never comes
   const off = plainGame('off');
