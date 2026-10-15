@@ -56,6 +56,14 @@ const READS: [RegExp, (m: RegExpMatchArray) => Omit<Gossip, 'id'> | null][] = [
   [/bury (?:its|their) dead: (.+?)\.?$/, (m) => ({ kind: 'funeral', what: m[1] })],
   [/blessed the (.+?)\.?$/, (m) => ({ kind: 'blessing', what: m[1] })],
   [/^An omen:/, () => ({ kind: 'omen' })],
+  [/^A miracle: (\S+(?: \S+)?) lay dying/, (m) => ({ kind: 'miracle', who: m[1] })],
+  [/^A miracle:/, () => ({ kind: 'miracle' })],
+  [/^(.+?) (?:was denounced .+?|leads the cult .+?)\. A heresy trial/, (m) => ({ kind: 'heresy', who: m[1] })],
+  [/^(.+?) has founded the cult of (.+?)\.?$/, (m) => ({ kind: 'cult', who: m[1], what: m[2] })],
+  [/^Horror: the cult of (.+?) has sacrificed (.+?) on/, (m) => ({ kind: 'cult', who: m[2], what: m[1] })],
+  [/^(.+?) has (?:found faith in|lost faith in) (.+?)\.?$/, (m) => ({ kind: 'convert', who: m[1], what: m[2] })],
+  [/^(\S+), .+?, (?:curses the harvest|sends a plague|sends the wolves|looses a great storm)/, (m) => ({ kind: 'wrath', what: m[1] })],
+  [/^The pilgrims are home from (.+?), /, (m) => ({ kind: 'pilgrims', what: m[1] })],
 ];
 
 /** What a milestone is, as news: null when it's nothing anyone would talk of. */

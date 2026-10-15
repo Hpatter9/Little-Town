@@ -403,6 +403,7 @@ function backgroundTab(p: PersonView, s: Snapshot, out: HTMLElement): void {
   if (p.secret) who.append(el('div', 'story secret', `${p.secret.name}.`));
   if (p.ageText) who.append(el('div', 'lock', p.ageText));
   who.append(el('div', 'purpose', `${p.natureName}: ${p.natureLine}`));
+  if (p.creed) who.append(el('div', 'purpose', `${p.creed}.`));
   if (p.ambition) who.append(el('div', 'purpose', `Wants to be ${p.ambition.name.toLowerCase()}: ${p.ambition.line}`));
   if (p.trips) who.append(el('div', 'hint', `Trips made: ${p.trips}`));
   for (const d of p.detail) who.append(el('div', 'hint', d));
