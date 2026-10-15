@@ -1188,10 +1188,12 @@
       }
       /* a sea lane: the boat trips from the home port, dotted and thin so the map stays readable */
       .map-route.sea-lane {
-        stroke: #7fd0e8;
-        stroke-width: 2;
-        stroke-dasharray: 2 7;
-        opacity: 0.8;
+        stroke: #a8e8f8;
+        stroke-width: 3;
+        stroke-dasharray: 3 7;
+        opacity: 0.95;
+        /* (a dark halo, or the dots are lost on the sea's own blue) */
+        filter: drop-shadow(0 0 1.5px #06213a) drop-shadow(0 0 1px #06213a);
       }
       .map-route.sea-lane.faint {
         opacity: 0.35;
