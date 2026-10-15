@@ -43,7 +43,7 @@ import { levelOf, xpToLevel } from '../data/levels';
 import { CIRCLE_PACE, FLY_HIGH, SKY_RANGE_CELLS, SKY_SEE_CELLS, SWOOP_PACE } from '../data/skies';
 import { hashSeed, Rng } from '../rng';
 import { builtOnNow, depositNear, townRadius } from './buildings';
-import { battleLoot, startBattle, stepBattle } from './combat';
+import { battleLoot, keepBag, startBattle, stepBattle } from './combat';
 import { killPerson, knockDown } from './health';
 import { woundFor, woundPerson } from './injuries';
 import { groundAt, inMap, wet } from './land';
@@ -409,6 +409,7 @@ function endSkirmish(s: GameState, k: Skirmish, members: Person[], outcome: 'won
     if (f.side !== 'party' || f.kind !== 'person') continue;
     const p = members.find((q) => q.id === f.ref);
     if (!p) continue;
+    keepBag(p, f);
     const was = p.hp;
     if (f.down && !p.downed) knockDown(s, p);
     else if (!f.down) p.hp = Math.max(1, Math.min(maxHp(p), Math.round((f.hp * maxHp(p)) / Math.max(1, f.maxHp))));

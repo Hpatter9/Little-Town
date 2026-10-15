@@ -39,6 +39,8 @@ import { HERDS } from '../data/livestock';
 import { growPen, herdOf, stockPen } from './livestock';
 import { WORTH } from '../data/trade';
 import { ITEMS, ITEM_BY_ID, MAX_POTS, type ItemDef } from '../data/items';
+import { KIT_BY_ID } from '../data/kitItems';
+import { kitNeed } from './kit';
 import { MATERIAL_NAMES, MATERIALS, type Material, type Stock , SEA_MATERIALS } from '../data/materials';
 import { FOOD_VALUE } from '../data/people';
 import { RESEARCH_STATIONS, TOPICS, type Topic } from '../data/research';
@@ -471,6 +473,15 @@ function planCrafting(s: GameState, n: Needs): Stock {
   // 4. a few bandages or poultices, and pots when the stores are filling up
   const isMedicine = (i: ItemDef) => i.id === 'poultice' || i.id === 'bandage';
   if (room() && !ordered(s, isMedicine) && kept(s, isMedicine) < 3) tryMake(bestMakeable(s, isMedicine, (i) => (i.id === 'bandage' ? 2 : 1)));
+  // 4a. battle items for the fighters' pouches, one order at a time, and only while the town is fed (sim/kit.ts)
+  const isKit = (i: ItemDef) => !!KIT_BY_ID[i.id];
+  if (room() && n.foodDays >= 2 && !ordered(s, isKit)) {
+    // (the most wanted the town has the makings for now; else gather for the most wanted)
+    const wanted = ITEMS.filter((i) => isKit(i) && kitNeed(s, i.id) > 0 && itemUnlocked(s, i) && stationFor(s, i)).sort((x, y) => kitNeed(s, y.id) - kitNeed(s, x.id));
+    const ready = wanted.find((i) => inputsReady(s, i, n.stock));
+    if (ready) queueCraft(s, ready.id);
+    else if (wanted[0]) lack(wanted[0]);
+  }
   // 4b. a prosthetic for each lost part waiting on one: the best the town can make (the healer fits it: sim/injuries.ts)
   for (const fits of new Set(prostheticsWanted(s))) {
     if (!room()) break;
