@@ -301,6 +301,8 @@ function inspectView(p: PersonView, s: Snapshot, bridge: Bridge | undefined, rer
     }, { cls: 'place small folk-badge evo' }));
     card.append(badges);
   }
+  // (the battle items in their pouch: sim/kit.ts)
+  if (p.cls && !p.growsUpIn) card.append(el('div', 'hint', `Pouch (${p.pouch.length}/${p.pouchCap}): ${p.pouch.length ? p.pouch.map((id) => ITEM_BY_ID[id]?.name ?? id).join(', ') : 'empty'}`));
   // (on the phone, the map beside the menu: go and look at them there)
   if (p.away === null && mapBeside()) card.append(button('Show on the map', () => showOnMap(bridge, { person: p.id }), { cls: 'place small quiet' }));
 
@@ -498,7 +500,6 @@ function paperDoll(p: PersonView, s: Snapshot, rerender: () => void): HTMLElemen
   if (p.job) fig.append(el('div', 'hint doll-age', `${p.job.title} at the ${p.job.at}`));
   fig.append(el('div', 'hint doll-age', `${p.natureName}: ${p.natureLine}`));
   if (p.ambition) fig.append(el('div', 'hint doll-age', `Dreams of ${p.ambition.name.charAt(0).toLowerCase()}${p.ambition.name.slice(1)}: ${p.ambition.line}${p.trips ? ` ${p.trips} trip${p.trips > 1 ? 's' : ''} made.` : ''}`));
-  if (p.cls && !p.growsUpIn) fig.append(el('div', 'hint doll-age', `Pouch (${p.pouch.length}/${p.pouchCap}): ${p.pouch.length ? p.pouch.map((id) => ITEM_BY_ID[id]?.name ?? id).join(', ') : 'empty'}`));
   doll.append(fig);
   const shown = chosenSlot ?? firstWorn(p);
   for (const slot of SLOTS) {
