@@ -1,17 +1,17 @@
-// The Calamity (the owner's pick: a world-ending threat that builds over generations, a story for the long game).
-// Every town has one, chosen from its seed: a dark lord in a far fortress, a grey rot spreading through the land, or a
-// god asleep under the mountains. It wakes some days after the founding, and its **dread** (0 to 100) rises a little
-// every day and faster for every monster nest left to grow on the land (data/nests.ts). As the dread climbs it passes
-// through stages: omens; the spreading (its scar on the land widens and nests come thicker); cults (townsfolk lured to
-// it, sabotage); armies (its raids); and at 100 the final siege, led by its avatar. Win the siege (the avatar falls)
-// and the town is saved for good; lose it and the town is ravaged and the dread climbs back, and three sieges lost is
-// the end. The town pushes back: clearing nests and the Calamity's heart (a place on the board) lowers the dread, ward
-// stones slow it. The rules are in sim/calamity.ts.
+// The Calamity: the Great Enemy's stirring made manifest (data/greatEnemy.ts): a dark lord's tower, a grey rot spreading
+// through the land, or a god asleep under the mountains, according to which Enemy the town drew (`ENEMY_CALAMITY`).
+// It is not a second villain with a clock of its own: the Enemy's **plan** drives it. The Calamity wakes far off in
+// the omens, its heart opens on the Expedition Board and its scar spreads after the stirring, its cult takes root
+// after that, and from the march the Enemy's hosts are its armies; the last siege is the Enemy's. The **dread**
+// (0 to 100) the menus show is the plan's share of the way to the siege. The town pushes back: clearing nests lowers
+// it, clearing the heart sets the plan back (a mid-arc setback, not the end of the story), ward stones slow it. The
+// rules are in sim/calamity.ts.
 
 import type { EnemyDef } from './enemies';
 import type { ItemDef } from './items';
 import type { BuildingDef } from './buildings';
 import type { RaidKind } from './raids';
+import type { EnemyKind } from './greatEnemy';
 import { PACK_SHEETS } from './packSheets';
 
 export type CalamityKind = 'tyrant' | 'rot' | 'sleeper';
@@ -123,24 +123,26 @@ export const CALAMITIES: Record<CalamityKind, CalamityDef> = {
 
 export const CALAMITY_KINDS = Object.keys(CALAMITIES) as CalamityKind[];
 
-/** The stages by the dread they begin at (0: asleep, 1 omens ... 5 the siege). */
-export const STAGE_AT = [0, 0, 20, 45, 70, 100] as const;
-export const STAGE_NAMES = ['Asleep', 'Omens', 'The spreading', 'The cults', 'The armies', 'The last siege'] as const;
+/** The stages (0: asleep, 1 omens ... 5 the siege). They are the Great Enemy's plan made manifest (sim/calamity.ts): the
+ *  Calamity wakes, spreads and breeds its cult at the plan days in `CALAMITY_AT`; the march and the last siege are
+ *  the Enemy's own stages. */
+export const STAGE_NAMES = ['Asleep', 'Omens', 'The spreading', 'The cults', 'The march', 'The last siege'] as const;
 export type CalamityStage = 0 | 1 | 2 | 3 | 4 | 5;
-export const stageOfDread = (dread: number): CalamityStage => (dread >= 100 ? 5 : dread >= STAGE_AT[4] ? 4 : dread >= STAGE_AT[3] ? 3 : dread >= STAGE_AT[2] ? 2 : 1);
-
-/** It wakes on this day (0-based) at `CALAMITY_HOUR`, and is reckoned each morning at that hour. */
-export const CALAMITY_WAKES = 6;
-export const CALAMITY_HOUR = 8;
-/** The dread rises this much a day on its own, and this much more for each level of each nest on the land; each ward
- *  stone standing takes `WARD_DREAD` a day off it (never below nothing gained). */
-export const DREAD_PER_DAY = 0.75;
-export const DREAD_PER_NEST_LEVEL = 0.06;
-export const WARD_DREAD = 0.3;
-/** Clearing a nest takes this much off (and this much more a level); clearing the heart, `HEART_DREAD`. */
+/** The plan day (data/greatEnemy.ts `PLAN_AT`) each of the Calamity's first stages begins at: it wakes far off in the
+ *  omens, its heart opens and its scar spreads a little after the Enemy's stirring, and its cult takes root after that.
+ *  The march (stage 4) and the siege (stage 5) are the Enemy's. */
+export const CALAMITY_AT = { wakes: 10, spreading: 20, cults: 26 } as const;
+/** Which Calamity each Great Enemy brings: its manifestation on the land. */
+export const ENEMY_CALAMITY: Record<EnemyKind, CalamityKind> = { tower: 'tyrant', undying: 'tyrant', plague: 'rot', drowned: 'rot', brood: 'sleeper', engine: 'sleeper' };
+/** The Enemy's plan runs this much faster for every level of every nest left on the land, and slower for each ward
+ *  stone standing (per day of pace). */
+export const NEST_HASTE = 0.012;
+export const WARD_SLOW = 0.04;
+/** Clearing a nest takes this many dread off (and this much more a level), as the share of the plan it sets back. */
 export const NEST_CLEARED_DREAD = 2;
 export const NEST_CLEARED_PER_LEVEL = 1;
-export const HEART_DREAD = 12;
+/** Clearing the heart (a setback to the plan, in plan days: a little less than a slain lieutenant's). */
+export const HEART_SETBACK = 5;
 /** After the heart is cleared it reforms in so many days. */
 export const HEART_QUIET_DAYS = 8;
 /** The heart lies this far off (cells from the camp), and its scar (its blight) is this wide at the spreading,
@@ -149,9 +151,6 @@ export const HEART_FAR = 70;
 export const SCAR_START = 3;
 export const SCAR_PER_DAY = 0.35;
 export const SCAR_MOST = 22;
-/** An omen comes on this chance each night of the omens stage and after. */
-export const OMEN_NIGHTLY = 0.35;
-export const OMEN_HOUR = 22;
 /** From the cults on: each morning on this chance the cult does something (a deed), and it lures a townsperson whose
  *  spirits are under `LURE_BELOW` on `LURE_CHANCE` (a cultist, found out on `FOUND_CHANCE` a day by the town's best
  *  at Social or a guard). */
@@ -159,19 +158,8 @@ export const CULT_DAILY = 0.3;
 export const LURE_BELOW = 45;
 export const LURE_CHANCE = 0.35;
 export const FOUND_CHANCE = 0.2;
-/** From the armies on: each morning a raid is due within a day, on this chance it is the Calamity's (with this share
- *  of the budget, more as the dread climbs). */
-export const ARMY_DAILY = 0.5;
-export const ARMY_SHARE = 0.8;
-/** The last siege: warned this many hours ahead, a host of `SIEGE_SIZE` (and so many more a lost siege) led by the
- *  avatar. Lost, the dread falls back to `SIEGE_LOST_DREAD`, `SIEGE_RUIN` of the buildings burn, and `SIEGES_TO_FALL`
- *  lost is the end of the town. */
-export const SIEGE_WARNING_HOURS = 24;
-export const SIEGE_SIZE = 28;
-export const SIEGE_SIZE_PER_LOSS = 10;
-export const SIEGE_LOST_DREAD = 82;
-export const SIEGE_RUIN = 3;
-export const SIEGES_TO_FALL = 3;
+/** The share of a day's plan an omen's or a cult rite's work adds ("dread +1"/"+3" in the old reckoning). */
+export const RITE_PLAN = 0.5;
 /** Ward stones: one wanted for each stage from the spreading on, up to `WARDS_MOST`. */
 export const WARDS_MOST = 3;
 export const WARD = 'ward_stone';
