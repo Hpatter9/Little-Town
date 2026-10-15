@@ -180,3 +180,32 @@ test('the year\'s chronicle tells the empire\'s doings once', async () => {
   assert.ok(lines.some((l) => l.includes('trading post')) && lines.some((l) => l.includes('caravans made 3 runs')), lines.join(' | '));
   assert.deepEqual(empireYearLines(s), [], 'and not again the next year if nothing happened');
 });
+
+test('those sent to staff a post or drive a caravan are the ones with no partner at home: a couple split by the road has no children', () => {
+  const s = trader('te-couples');
+  const home = s.people.filter((p) => p.id !== s.mainId && p.type !== 'child');
+  // (the best talkers, and the lowest ids, are all in couples: the first picks before the fix)
+  for (let i = 0; i + 1 < 8; i += 2) {
+    home[i].partner = home[i + 1].id;
+    home[i + 1].partner = home[i].id;
+    home[i].skills.social.level = home[i + 1].skills.social.level = 20;
+  }
+  empireHourly(s);
+  const staff = s.people.filter((p) => p.away === EMPIRE_AWAY);
+  assert.equal(staff.length, POST_FOLK);
+  assert.ok(staff.every((p) => p.partner == null), 'the post is staffed by those with nobody waiting at home');
+});
+
+test('when everyone is in a couple, a post is staffed by a couple together, not half of two', () => {
+  const s = trader('te-pairs');
+  const home = s.people.filter((p) => p.id !== s.mainId && p.type !== 'child');
+  if (home.length % 2) home.pop()!.partner = null;
+  for (let i = 0; i + 1 < home.length; i += 2) {
+    home[i].partner = home[i + 1].id;
+    home[i + 1].partner = home[i].id;
+  }
+  empireHourly(s);
+  const staff = s.people.filter((p) => p.away === EMPIRE_AWAY);
+  assert.equal(staff.length, POST_FOLK);
+  assert.equal(staff[0].partner, staff[1].id, 'the two who went are partners');
+});

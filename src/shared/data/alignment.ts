@@ -14,6 +14,10 @@ export const DEEP_EVIL_AT = -60;
 export const POINTS_PER_WEIGHT = 4;
 /** The share of the way back toward the people's home each hour. */
 export const DRIFT_PER_HOUR = 0.002;
+/** A people whose home point is this dark or darker (vampires, liches, orcs) drifts back toward its own home; every
+ *  other people drifts toward neutral, so the town's choices and deeds decide where its bar stands. */
+export const DARK_HOME = -15;
+export const driftTargetOf = (origin: OriginId | undefined): number => (homeOf(origin) <= DARK_HOME ? homeOf(origin) : 0);
 
 export interface AlignBand {
   from: number;

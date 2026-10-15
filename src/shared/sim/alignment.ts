@@ -10,7 +10,7 @@ import { Rng, hashSeed } from '../rng';
 import {
   ALIGN_EVENT_WEIGHTS, ALIGN_MAX, DEED_ALIGN, DEEP_EVIL_AT, DEEP_GOOD_AT, DRIFT_PER_HOUR, EVIL_AT, GOOD_AT, LAW_ALIGN, NATURE_LEAN, PILGRIM_CHANCE_PER_DAY, POINTS_PER_WEIGHT, SENTENCE_ALIGN, THIEVES_TAKE_PER_DAY,
   ALIGN_EVENT_ORDER, ARC_DAYS, ARC_FROM, CHAOS_AT, LAW_ORDER, LIEUTENANT_DAYS, LIEUTENANT_LEVY, LIEUTENANT_RAID_MULT, LIEUTENANT_TAKES_EVERY, ORDER_AT, ORDER_LEAN, PACT_DAYS, PACT_LEVY, SENTENCE_ORDER,
-  bandOf, enemyHaste, homeOf, orderBandName, orderHomeOf, raidAlignMult, titleOf,
+  bandOf, driftTargetOf, enemyHaste, homeOf, orderBandName, orderHomeOf, raidAlignMult, titleOf,
 } from '../data/alignment';
 import { EVENT_ALIGN } from '../data/eventAlign';
 import { EVENT_ORDER } from '../data/eventOrder';
@@ -223,8 +223,8 @@ export function alignmentYearLines(s: GameState, sinceTick: number): string[] {
 export function alignmentHourly(s: GameState): void {
   if (s.autopilot === false || s.gameOver || s.tick % TICKS_PER_HOUR !== 0) return;
   const a = alignState(s);
-  // (the slow drift pulls toward neutral, not toward the people's home, so choices and deeds decide the bar)
-  a.score = r2(clamp(a.score + (0 - a.score) * DRIFT_PER_HOUR));
+  // (the slow drift pulls toward neutral, so choices and deeds decide the bar; a dark people's, toward its own dark home)
+  a.score = r2(clamp(a.score + (driftTargetOf(s.origin) - a.score) * DRIFT_PER_HOUR));
   a.order = r2(clamp((a.order ?? orderHomeOf(s.origin)) + (orderHomeOf(s.origin) - (a.order ?? orderHomeOf(s.origin))) * DRIFT_PER_HOUR));
   watch(s, a);
   // (who runs it: once a day the leader's and the folk's natures pull the bar)
