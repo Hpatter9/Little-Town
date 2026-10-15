@@ -1,5 +1,6 @@
 import type { NightOut } from './nightOut';
 import type { FestivalLogEntry, FestivalRun } from './festivals';
+import type { CultureState } from './culture';
 import type { CalamityState } from './calamity';
 import type { DeepState } from './deep';
 import type { Portal } from './portals';
@@ -1200,6 +1201,8 @@ export interface GameState {
   /** The season's festival under way or being made ready, and those of the years before (sim/festivals.ts). */
   festival?: FestivalRun;
   festivalLog?: FestivalLogEntry[];
+  /** The town's own customs, earned from its history (sim/culture.ts). */
+  culture?: CultureState;
   /** The evening at the tavern under way (sim/nightOut.ts). */
   nightOut?: NightOut;
   lastFeast?: number;

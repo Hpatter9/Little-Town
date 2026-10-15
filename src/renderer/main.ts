@@ -1,6 +1,7 @@
 // Strip renderer: draws the town and HUD, turns clicks into sim commands, and decides when the strip
 // should capture the mouse.
 
+import { guildsOf } from './art/guildMarks';
 import { withDeltas } from './deltaBridge';
 import { biomeById } from '../shared/data/biomes';
 import { hkCell, hkDraw, hkKnow, hkLayers, hkWhoOf, onHkLoad } from './art/hkFolk';
@@ -182,6 +183,9 @@ import { noTone, textureCanvas } from './art/pixelArt';
 import { MapCamera } from './map/mapCamera';
 import { MapView } from './map/mapView';
 import { MapPeople } from './map/mapPeople';
+import { setTownSayings } from './map/speech';
+import { setCultureColour } from './map/mapFestival';
+import { setCultureMotif } from './musicScore';
 import { MapTownLife } from './map/mapTownLife';
 import { darkHomes, LOOKOUT_TOWERS, snowballPairs, snowmanHomes, snowmanLeft } from './map/townLife';
 import { MapRaiders } from './map/mapRaiders';
@@ -1219,7 +1223,7 @@ async function start(): Promise<void> {
       if (selectedPerson !== null && !p) selectedPerson = null;
       return personCard.hide();
     }
-    personCard.show(p, p.id === snap.mainId, map.screenOf(at.x, at.y).x);
+    personCard.show(p, p.id === snap.mainId, map.screenOf(at.x, at.y).x, guildsOf(snap, p.id));
   };
 
   const selectPerson = (id: number | null) => {
@@ -1620,7 +1624,7 @@ async function start(): Promise<void> {
     // (a raid's battle comes first: watching waits behind it)
     const watched = next.battle ? null : next.watch;
     // (the sea's looks for a shore town's trips, and for any party out in a boat)
-    fight.update(watched, next.biome, next.calendar.season, next.origin.id === 'merfolk' || (!!watched?.boat && watched.phase !== 'work'));
+    fight.update(watched, next.biome, next.calendar.season, next.origin.id === 'merfolk' || (!!watched?.boat && watched.phase !== 'work'), new Set(next.people.filter((p) => p.mer).map((p) => p.id)));
     fightHud.update(watched, next.fightSpeed);
     // (a mine gone into: the same screen, unless a fight or battle has it)
     const inMine = watched || next.battle ? null : next.mine;
@@ -1901,6 +1905,10 @@ async function start(): Promise<void> {
       document.body.append(skipNote);
     }
     if (skipNote) skipNote.style.display = next.raidSkipping ? '' : 'none';
+    setTownSayings(next.culture?.sayings);
+    setCultureColour(next.culture?.colour ?? null);
+    setCultureMotif(next.culture?.song ?? null);
+    map.festival.syncProp(next.culture?.kit ?? null, next.culture?.at ?? null);
     map.festival.sync(next.gathering, next.festivals?.on && next.festivals.on.phase !== 'held' ? next.festivals.on : null);
     map.syncCastle(next.castle ?? null, next.buildings);
     map.syncPlaces(next.places);

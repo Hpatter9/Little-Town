@@ -5,6 +5,7 @@
 import type { Snapshot } from '../../shared/sim/snapshot';
 import { el } from './dom';
 import { expandable, facts } from './details';
+import { guildBadge } from '../art/guildMarks';
 
 export function guildsSection(s: Snapshot, open: (id: number) => void): HTMLElement[] {
   const out: HTMLElement[] = [el('h2', '', 'Guilds')];
@@ -16,11 +17,13 @@ export function guildsSection(s: Snapshot, open: (id: number) => void): HTMLElem
   for (const g of s.guilds) {
     const c = el('div', `card guild${g.role === 'elite' ? ' elite' : ''}`);
     const top = el('div', 'card-top');
-    top.append(el('span', 'card-name', `${g.role === 'elite' ? '⚔ ' : ''}${g.name}`), el('span', 'card-size', `${g.members.length} member${g.members.length === 1 ? '' : 's'}`));
+    const nm = el('span', 'card-name');
+    nm.append(guildBadge(g.role, 20), ` ${g.name}`);
+    top.append(nm, el('span', 'card-size', `${g.members.length} member${g.members.length === 1 ? '' : 's'}`));
     const chips = el('div', 'kin-row guild-chips');
     for (const m of g.members) {
       const b = el('button', 'kin');
-      b.append(el('span', 'kin-name', `${m.lead ? '★ ' : ''}${m.name}`), el('span', 'kin-sub', m.lead ? `leader · lv ${m.level}` : `lv ${m.level}`));
+      b.append(guildBadge(g.role, 14), el('span', 'kin-name', `${m.lead ? '★ ' : ''}${m.name}`), el('span', 'kin-sub', m.lead ? `leader · lv ${m.level}` : `lv ${m.level}`));
       b.addEventListener('click', (e) => (e.stopPropagation(), open(m.id)));
       chips.append(b);
     }

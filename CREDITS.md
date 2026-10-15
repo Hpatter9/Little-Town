@@ -174,7 +174,7 @@ throne rooms.
 
 The broken wreck a sea beast lairs on, off a shore town (`src/renderer/art/packs/sb_wreck.png`), is from
 **Craftpix.net**'s free Top-Down Seabed Objects pack. The town's boats are painted in code (`art/boatArt.ts`): no pack
-has a whole working boat.
+has a whole working boat (checked again across every pack; the Seabed ships are wrecks).
 
 ## Craftpix parallax backgrounds (the fights' backdrops)
 

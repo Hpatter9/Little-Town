@@ -64,6 +64,11 @@ export const PIECE_BY_ID: Readonly<Record<string, Piece>> = Object.fromEntries(P
  *  chord plans picked by its name, so no two sound alike. Its id is `fest:<festival id>`. */
 const MODES: Record<FestivalSong['mode'], number[]> = { ionian: IONIAN, dorian: DORIAN, phrygian: PHRYGIAN, lydian: LYDIAN, mixolydian: MIXOLYDIAN, aeolian: AEOLIAN, harmonic: HARMONIC };
 const PLANS = [[0, 4, 5, 0], [0, 3, 4, 0], [0, 5, 3, 4], [0, 6, 3, 0], [0, 3, 0, 4], [0, 1, 4, 0], [0, 4, 6, 0], [0, 2, 5, 4]];
+/** The town's culture song (sim/culture.ts): the mode and lead its festival music is woven with. */
+let cultureMotif: { mode: FestivalSong['mode']; lead: FestivalSong['lead'] } | null = null;
+export function setCultureMotif(m: { mode: FestivalSong['mode']; lead: FestivalSong['lead'] } | null): void {
+  cultureMotif = m;
+}
 export function festivalPiece(id: string): Piece | null {
   const f = FESTIVAL_BY_ID[id.replace(/^fest:/, '')];
   if (!f) return null;
@@ -71,19 +76,21 @@ export function festivalPiece(id: string): Piece | null {
   for (const ch of f.id) h = Math.imul(h ^ ch.charCodeAt(0), 16777619);
   h >>>= 0;
   const g = f.song;
-  const comp: Piece['comp'] = g.lead === 'pad' || g.lead === 'organ' ? 'chords' : g.drums === 'none' ? 'arp' : 'strum';
-  const compInst: Instrument = comp === 'chords' ? 'pad' : g.lead === 'harp' || g.lead === 'bell' ? 'harp' : 'pluck';
+  // (the town's own culture sets the lead and, in the B part, the mode: the festival's tune with the town's accent)
+  const lead = cultureMotif?.lead ?? g.lead;
+  const comp: Piece['comp'] = lead === 'pad' || lead === 'organ' ? 'chords' : g.drums === 'none' ? 'arp' : 'strum';
+  const compInst: Instrument = comp === 'chords' ? 'pad' : lead === 'harp' || lead === 'bell' ? 'harp' : 'pluck';
   return {
     id: `fest:${f.id}`,
     name: g.name,
     moods: ['festival'],
     root: 55 + (h % 12),
-    mode: MODES[g.mode],
+    mode: MODES[cultureMotif?.mode ?? g.mode],
     bpm: g.bpm,
     meter: g.meter,
     a: PLANS[h % PLANS.length],
     b: PLANS[(h >>> 4) % PLANS.length].map((d, i) => (i === 3 ? 4 : (d + 3) % 7)),
-    lead: g.lead,
+    lead,
     comp,
     compInst,
     drums: g.drums,

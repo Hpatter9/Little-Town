@@ -5344,3 +5344,72 @@ were already there). Autopilot only, on a side stream (`hashSeed(`${seed}:sea:${
 - **Seen:** snapshot `seafaring` (`harbourReport`); Harbour tab in the Market menu, sailing boats and wakes
   (`map/mapBoats.ts`), sea lanes/colony flags/claim rings on the world map.
 - Tests: `test/seafaring.test.ts`.
+
+## Town personality and culture
+
+Over months the town grows its own customs, drawn from what happened to it, and it shows. Autopilot only; own side
+stream ('culture'); nothing drawn from the town's stream; no manual controls.
+
+- **Files:** `src/shared/data/culture.ts` (20 traits, `CULTURE_TRAITS`, dishes merged into `ITEMS` as `CULTURE_ITEMS`),
+  `src/shared/sim/culture.ts` (`cultureHourly`, `cultureDaily`, `readSignals`, `fashionName`, `cultureView`),
+  `src/renderer/panel/culturePanel.ts` (the Chronicle's **Culture** tab), `test/culture.test.ts`.
+- **Earning:** once a day (hour 5) the town's history is read as 16 signals (hunger, plague, raidWon, raidLost, peace,
+  sea, trade, deaths, disaster, plenty, learning, festive, elders, justice, war, births). A trait's strength is
+  `strength * DECAY (0.96) + weight * signal`, capped at `STRENGTH_MOST` 40. It is taken up at `WIN` 12, let go below
+  `LOSE` 5; the town holds `HELD_MOST` 5, and a newcomer must beat the weakest by `DISPLACE` 4. Old fallen are read from
+  `s.fallen` by the last key seen (`CultureState.seen`), raids from `s.yearRaids` deltas.
+- **Showing:** a custom on day `CUSTOM_DAY` 2 of the trait's season at `CUSTOM_HOUR` 18 (the dish `cult_<id>_dish` is
+  ordered at the fire on the season's first days; eaten at the custom; morale mark `CUSTOM_MARK` + `DISH_MARK` with the
+  dish made); sayings (`CultureView.sayings`, read by `speech.ts` `setTownSayings`, `SAYING_SHARE` 0.35 of lines);
+  a pennant colour at every gathering (`setCultureColour` in `mapFestival.ts`); three props of a festival kit by the camp
+  (`MapFestival.syncProp`); the festival song takes the strongest trait's mode and lead (`setCultureMotif` in
+  `musicScore.ts`); visitors' remarks as journal lines every `REMARK_DAYS` 6 while a band is by.
+- **Names:** `fashionName` (called by `social.ts` `welcomeChild`) gives `FASHION_SHARE` 0.6 of children a name from the
+  fallen, from heroes, or from the pantheon, by the strongest held trait with a fashion. The base name still comes from
+  the town's stream, so nothing else shifts. The tavern's sign (the strongest trait's `sign`) shows only on the card.
+- **State:** optional `GameState.culture` (`CultureState`). Absent in old saves; created on first use.
+
+## Sea art from the packs and phone checks of the sea (claude/sea-art; changes "Seafaring and islands")
+
+Renderer only; the sim is untouched (`tools/sim-hash.mjs` matches main).
+
+- **Searched** every pack in `../chronos-assets` for ships, boats, sails, docks, piers, anchors and wrecks. No pack has a
+  working boat: the Seabed pack's `Ship1`/`Ship2` are wrecks (already used: `packs/sb_wreck.png`) and its anchor is a
+  seabed prop; the underwater and ocean packs are backgrounds; the pirate pack is characters; the tropical city pack is
+  vector only. So `art/boatArt.ts` (the seven boats, their wakes in `map/mapBoats.ts`) and the boat icons in
+  `art/customIcons.ts` stay painted.
+- **Already pack art:** the harbour building (`packBuildings.ts` `harbour`: the Bridges pack's pier planks, crates, barrels
+  and a lantern).
+- **Swapped:** the war map's Harbour landmark (`panel/warMap.ts` `drawLandmark`) was a jetty of code-drawn rects; it is now
+  three of the Bridges pack's pier planks (`SPRITES.pier` in `art/warSprites.ts`, `roads/pier_v.png`, credited already).
+- **World map sea lanes** (`panel/panel.html` `.map-route.sea-lane`): the dotted line was lost on the map's own blue; now
+  brighter, 3px, with a dark halo.
+- **Phone checks** (393x852 and 852x393, Chromium): the map with a harbour, moored and sailing boats; the Harbour tab;
+  the world map (lanes, colony flag); the Great Enemy card and its stage sheets for all six kinds. Nothing clipped or
+  overlapping in the Harbour tab, the card or the sheets. Left alone: the world map's "The Far Isles" label (in the map
+  picture) sits under the Far Isles scouting dot, and sideways the map is small (height-capped) so labels there crowd.
+
+## Merfolk tails, the right way round (renderer only; changes "The merfolk's shore" and "Watching a party's fights")
+
+- **Map bug:** `art/merTail.ts` draws the tail pointing right. `map/mapPeople.ts` flipped it when the swimmer faced
+  *left*, so the tail pointed the way they were going, ahead of the body. It now points right when they face left and
+  is flipped when they face right: it trails behind in both directions.
+- **Side-view fight:** `FightScene.update(..., sea, mers)` (fight/fightView.ts) sets `wet` when the trip's look is an
+  underwater or ocean backdrop and the party is not aboard a boat or aloft; `mers` is the set of person ids that are
+  merfolk (`PersonView.mer`, built in main.ts from the snapshot, so no snapshot or sim change). In `pose()`, a merfolk
+  party member in a wet fight is cut at the waist (`HK_WAIST` .67 for the Himeko doll, `WAIST` for the old LPC figure)
+  and given a tail (`finTail`): the tail is a child of the figure's sprite, so the lunge, recoil, squash, hurt and
+  fall in `moveSprite` carry it along. The tail trails away from the foes (right for the party). A downed merfolk
+  uses the standing frame and the motion's topple, as a lying frame can't be cut at the waist. Dry fights keep legs.
+- Not changed: the march between fights, and raid battles (tactics board), still draw legs. Preview: `window.__look`
+  = `underwater_1` forces a wet fight.
+
+## Guild icons
+
+Each guild has a small round badge (DawnLike item glyph on a coloured token) shown by its members' names, so you can see who has joined which guild. Renderer only: the sim and snapshot are unchanged (a person's guilds are found from `snapshot.guilds`).
+
+- `src/shared/data/guildEmblems.ts` (`GUILD_EMBLEMS`): one glyph and two colours per `GuildRole`. wardens Shield 4, menders Potion 0, rangers Ammo 8 (a bow), crafters Tool 9, merchants Money 0 (coins), scholars Book 40, elite ShortWep 1 (a dark blade).
+- `src/renderer/art/guildMarks.ts`: `guildsOf(s, personId)`, `guildBadge(role, size, title)` (canvas), `guildMark(s, personId)` (the first guild's badge; its tooltip names all of them).
+- Shown in: the People list rows (after the people mark), the inspect card (a line naming every guild, leader starred), the map tap card (`overlayUi.ts`, `createPersonCard.show(..., guilds)`), and the Guilds tab (`panel/guildPanel.ts`: badge on each guild card and on each member chip; leader starred). Membership was already in the People panel key.
+- Not done: the fight HUD and Chronicle show names without a person id, so they cannot map to a guild without a sim change.
+- Art is from DawnLike sheets already in `src/renderer/art/items` and credited.

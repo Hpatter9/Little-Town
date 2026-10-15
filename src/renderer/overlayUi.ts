@@ -6,6 +6,8 @@ import { ITEM_BY_ID, SLOT_NAMES, SLOTS } from '../shared/data/items';
 import type { ExpeditionView, PersonView, PromptView } from '../shared/sim/snapshot';
 import { bleedLeft, tripProgress } from '../shared/format';
 import { itemIcon } from './art/icons';
+import { guildBadge } from './art/guildMarks';
+import type { GuildRole } from '../shared/data/guilds';
 
 export interface Banner {
   show(text: string, detail: string): void;
@@ -64,7 +66,7 @@ export function createToasts(): Toasts {
 
 /** The mini card for a clicked person: mood, job, needs, best skills. Sits beside them (the strip is short). */
 export interface PersonCard {
-  show(p: PersonView, isMain: boolean, personX: number): void;
+  show(p: PersonView, isMain: boolean, personX: number, guilds?: { name: string; role: GuildRole; lead: boolean }[]): void;
   hide(): void;
   readonly visible: boolean;
 }
@@ -77,15 +79,26 @@ export function createPersonCard(onDetails: () => void, onClose: () => void): Pe
   document.body.append(el);
   let key = '';
   return {
-    show(p, isMain, personX) {
+    show(p, isMain, personX, guilds = []) {
       const top = SKILLS.map((k) => [k, p.skills[k]] as const)
         .sort((a, b) => b[1].level - a[1].level)
         .slice(0, 3);
-      const k = JSON.stringify([p.id, p.doing, Math.round(p.morale), Math.round(p.needs.food * 20), Math.round(p.needs.rest * 20), top.map(([s, v]) => s + v.level), p.bed, Math.round(p.hp), p.downed, p.bleedMinutes, p.gear]);
+      const k = JSON.stringify([p.id, p.doing, Math.round(p.morale), Math.round(p.needs.food * 20), Math.round(p.needs.rest * 20), top.map(([s, v]) => s + v.level), p.bed, Math.round(p.hp), p.downed, p.bleedMinutes, p.gear, guilds.map((g) => [g.name, g.lead])]);
       if (k !== key) {
         key = k;
         const reasons = [...p.moodReasons].sort((a, b) => Math.abs(b.value) - Math.abs(a.value)).slice(0, 2);
         const title = row('card-title', `${p.name}${isMain ? ' (you)' : ''}`, `${p.typeName}`);
+        let gl: HTMLElement | null = null;
+        if (guilds.length) {
+          gl = document.createElement('div');
+          gl.className = 'card-guilds';
+          for (const g of guilds) {
+            const chip = document.createElement('span');
+            chip.className = 'guild-chip';
+            chip.append(guildBadge(g.role, 14), `${g.lead ? '★ ' : ''}${g.name}`);
+            gl.append(chip);
+          }
+        }
         const gear = SLOTS.filter((s) => p.gear[s]).map((s) => {
           const def = ITEM_BY_ID[p.gear[s]!];
           const icon = itemIcon(def, 1);
@@ -112,6 +125,7 @@ export function createPersonCard(onDetails: () => void, onClose: () => void): Pe
             ['✕', onClose],
           ]),
         );
+        if (gl) title.after(gl);
       }
       el.hidden = false;
       const w = el.offsetWidth;
