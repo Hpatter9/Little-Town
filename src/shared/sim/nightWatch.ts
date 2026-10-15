@@ -114,7 +114,7 @@ export function nightWatchHourly(s: GameState): void {
     // (the better half of the town's fighters, taking it in turn)
     const better = pool.filter((p) => !ids.includes(p.id)).slice(0, Math.max(want, Math.ceil(pool.length / 2)));
     const turn = Math.floor(night / WATCH_STINT);
-    for (let i = 0; ids.length < want && i < better.length; i++) ids.push(better[(turn * want + i) % better.length].id);
+    for (let i = 0; better.length && ids.length < want && i < better.length; i++) ids.push(better[(((turn * want + i) % better.length) + better.length) % better.length].id);
     ids = [...new Set(ids)];
   }
   w.night = night;
