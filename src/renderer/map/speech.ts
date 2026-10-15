@@ -62,11 +62,21 @@ export function topicFor(v: PersonView, c: SpeechContext, roll: number): Topic {
   return 'work';
 }
 
+/** The town's own sayings by topic (sim/culture.ts), and how often one stands in for the nature's usual line. */
+let townSayings: Partial<Record<Topic, string[]>> = {};
+export const SAYING_SHARE = 0.35;
+export function setTownSayings(s: Partial<Record<Topic, string[]>> | undefined): void {
+  townSayings = s ?? {};
+}
+
 /** The line someone says in a slot. */
 export function lineNow(v: PersonView, c: SpeechContext, slot: number): string {
   const n = NATURE_BY_ID[v.nature];
   const roll = hash01(v.id, slot, 3);
-  return lineFor(n, topicFor(v, c, roll), hash01(v.id, slot, 7) * 1000);
+  const topic = topicFor(v, c, roll);
+  const own = townSayings[topic];
+  if (own?.length && hash01(v.id, slot, 29) < SAYING_SHARE) return own[Math.floor(hash01(v.id, slot, 31) * own.length)];
+  return lineFor(n, topic, hash01(v.id, slot, 7) * 1000);
 }
 
 /** The share of slots in which someone with company, and news to hand, tells it rather than their usual line. */
