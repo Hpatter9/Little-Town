@@ -56,6 +56,7 @@ for (const o of names) {
     if (process.env.EMPIRE) console.log(`  ${o} seed ${k}: coins ${s.coins ?? 0} posts ${s.empire?.posts.length ?? 0} founded ${s.empire?.founded ?? 0} lost ${s.empire?.lostPosts ?? 0} caravans ${s.empire?.sent ?? 0} lost ${s.empire?.lostCaravans ?? 0} tributes ${s.empire?.tributes ?? 0}/${s.empire?.tributePaid ?? 0} made ${s.empire?.made ?? 0} deals ${s.empire?.standing ?? 0} house ${s.market?.standing ?? 0} era ${s.era}`);
     if (process.env.EMPIRE === '2') console.log((s.empire?.log ?? []).slice().reverse().map((l) => `    ${l}`).join('\n'));
     if (process.env.EMPIRE) console.log(`  ${o} seed ${k}: people ${r.people} deaths ${r.deaths}`);
+    if (process.env.PERSEED) console.log(`  ${o} seed ${k}: people ${r.people} low ${r.low} deaths ${r.deaths}`);
     pop += r.people; deaths += r.deaths; dead += r.dead ? 1 : 0; low += r.low;
   }
   rows.push(`${o.padEnd(11)} people ${(pop / SEEDS).toFixed(1).padStart(5)}  low ${(low / SEEDS).toFixed(1).padStart(5)}  deaths ${(deaths / SEEDS).toFixed(1).padStart(5)}  wiped ${dead}/${SEEDS}`);

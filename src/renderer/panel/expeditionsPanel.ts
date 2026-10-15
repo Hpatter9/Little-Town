@@ -560,7 +560,7 @@ function greatEnemySection(s: Snapshot, bridge?: Bridge): HTMLElement[] {
     card.append(bar);
   }
   card.append(el('div', 'purpose', done ? g.next : `${g.seatKnown ? `In ${g.seat}. ` : ''}${g.next}${g.pace > 1.05 ? ' Its outposts left standing hasten it.' : g.pace < 0.95 ? ' The town\'s learning and faith slow it.' : ''}`));
-  if (g.siegeIn !== null) card.append(el('div', 'purpose dread-warn', `The last siege comes in ${g.siegeIn} hour${g.siegeIn === 1 ? '' : 's'}.`));
+  if (g.siegeIn !== null) card.append(el('div', 'purpose dread-warn', g.siegeIn === 0 ? 'The last siege is at the gate now.' : `The last siege comes in ${g.siegeIn} hour${g.siegeIn === 1 ? '' : 's'}.`));
   if (g.omen && !done) card.append(el('div', 'hint', `The latest omen: ${g.omen}`));
   if (g.stage !== 'omens' && g.stage !== 'dormant') card.append(el('div', 'hint', `Its lieutenants: ${g.lieutenants.map((l) => (l.slain ? `${l.name} (slain)` : `${l.name} at ${l.outpost.replace(/^The /, 'the ')}`)).join('; ')}.`));
   if (g.thralls.length) card.append(el('div', 'hint', `Fallen to it: ${g.thralls.join(', ')}.`));

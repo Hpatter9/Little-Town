@@ -116,7 +116,7 @@ export function situationNotices(s: Snapshot): Notice[] {
   // the Great Enemy (sim/greatEnemy.ts): its last siege coming, else the stage it's in (from the stirring)
   const g = s.greatEnemy;
   if (g && g.stage !== 'peace' && g.stage !== 'fallen') {
-    if (g.siegeIn !== null) out.push({ key: `enemy-siege:${g.lost}`, tone: 'red', mark: '☠', title: `${g.name}: the last siege`, text: `Its whole host is at the gate in ${g.siegeIn} hour${g.siegeIn === 1 ? '' : 's'}. Strike it down and the town has peace.`, action: { label: 'Trips', kind: 'panel', panel: 'expeditions' } });
+    if (g.siegeIn !== null) out.push({ key: `enemy-siege:${g.lost}`, tone: 'red', mark: '☠', title: `${g.name}: the last siege`, text: `Its whole host is ${g.siegeIn === 0 ? 'at the gate now' : `at the gate in ${g.siegeIn} hour${g.siegeIn === 1 ? '' : 's'}`}. Strike it down and the town has peace.`, action: { label: 'Trips', kind: 'panel', panel: 'expeditions' } });
     else if (g.stage === 'stirring' || g.stage === 'march') out.push({ key: `enemy:${g.stage}`, tone: g.stage === 'march' ? 'red' : 'gold', mark: '☠', title: `${g.name}: ${g.stageName.toLowerCase()}`, text: `${g.next} ${g.lieutenants.filter((l) => !l.slain).length} of its lieutenants live.${s.calamity?.dest ? ` Its ${s.calamity.name.toLowerCase()} has a heart, ${s.calamity.heart}, that a party can strike.` : ''}`, action: { label: 'Trips', kind: 'panel', panel: 'expeditions' } });
   }
   if (s.doom) out.push({ key: `doom:${s.doom.name}`, tone: 'red', mark: '☁', title: s.doom.name, text: s.doom.phase === 'signs' ? `Signs of it: about ${Math.ceil(s.doom.hoursLeft)} hours off.` : s.doom.hoursLeft < 1 ? 'Under way, and nearly over.' : `Under way: ${Math.ceil(s.doom.hoursLeft)} hours to go.` });
