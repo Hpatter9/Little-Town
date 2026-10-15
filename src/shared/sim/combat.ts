@@ -24,6 +24,8 @@ import { maxHp, type Person } from './state';
 import { TICK_HZ } from './time';
 
 export interface Fighter {
+  /** Battle items in their pouch (sim/kit.ts). */
+  bag?: string[];
   /** A delve's elite (data/dungeons.ts ELITES): its affix, also in its name. */
   elite?: EliteAffix;
   side: 'party' | 'enemy';
@@ -263,6 +265,8 @@ export function personFighter(p: Person, role: Role, row: 'front' | 'back', ammo
     beastDamage: g.beastDamage,
     quirks,
     ...(kit ? { kit } : {}),
+    // (a copy of their pouch: what's left goes back to them when the fight ends: `keepBag`)
+    ...(p.kit?.length && role !== 'porter' ? { bag: [...p.kit] } : {}),
     ammoType: ammoOf(p),
     ammo: ammoOf(p) ? ammo : 0,
     ammoBonus: AMMO_DAMAGE[ammoOf(p) ?? 'wood'] ?? 0,
@@ -598,4 +602,9 @@ export function battleLoot(b: Battle): Record<string, number> {
     for (const [m, n] of Object.entries(ENEMIES[f.kind].loot)) out[m] = (out[m] ?? 0) + (n ?? 0);
   }
   return out;
+}
+
+/** After a fight: what a person's pouch holds now (what they used is gone). */
+export function keepBag(p: Person, f: Pick<Fighter, 'bag'>): void {
+  if (f.bag && p.kit) p.kit = f.bag.length ? [...f.bag] : undefined;
 }

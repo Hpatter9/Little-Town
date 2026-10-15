@@ -41,6 +41,7 @@ import { Rng } from '../rng';
 import { demolish, discardStock, placeBlueprint, townRadius, upgrade } from './buildings';
 import { cellAt, groundAt, isMarked, setGround, setMarked, type Pt, decayWear } from './land';
 import type { Command } from './commands';
+import { restockKits } from './kit';
 import { equip, hourlyItems, queueCraft, reduceCraft } from './crafting';
 import { growCrops, tendFields } from './farming';
 import { tendHerds } from './livestock';
@@ -214,6 +215,7 @@ export class Sim {
     for (const p of s.people) driftMorale(s, p);
     assignBeds(s);
     hourlyItems(s, this.rng);
+    restockKits(s); // (battle items into the pouches: sim/kit.ts)
     growCrops(s);
     tendFields(s, this.rng);
     tendHerds(s);

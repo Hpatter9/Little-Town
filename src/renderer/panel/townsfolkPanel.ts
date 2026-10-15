@@ -42,7 +42,7 @@ export const townsfolkKey = (s: Snapshot) => {
   return JSON.stringify([
     s.people.map((p) => [p.id, p.priorities, p.autoPriorities]),
     who && [
-      who.id, who.job, who.order, who.sick, who.gear, who.gearQ, who.owns, who.debt, who.bedroll, who.carryCapacity, who.partner, who.married, who.friends, who.rivals, who.enemies, who.devoted,
+      who.id, who.job, who.order, who.sick, who.gear, who.gearQ, who.pouch, who.owns, who.debt, who.bedroll, who.carryCapacity, who.partner, who.married, who.friends, who.rivals, who.enemies, who.devoted,
       who.body, who.growsUpIn !== null && Math.ceil(who.growsUpIn / 24), Math.round(who.hp / 5), who.downed, who.bleedMinutes !== null, Math.round(who.morale / 5), Math.round(who.moodTarget / 5),
       Math.round(who.needs.food * 10), Math.round(who.needs.rest * 10), who.bed, SKILLS.map((k) => [who.skills[k].level, Math.floor(who.skills[k].progress * 4)]),
       who.cls, who.monster, who.clsName, who.stage, who.level, Math.floor(who.levelProgress * 4), who.away, who.battle, who.kit.length, who.carrying, who.recent, who.freePts, who.autoStats, who.road, who.coins, who.income, who.traits.length, who.titles, who.deeds.map((d) => d.n),
@@ -303,6 +303,8 @@ function inspectView(p: PersonView, s: Snapshot, bridge: Bridge | undefined, rer
     }, { cls: 'place small folk-badge evo' }));
     card.append(badges);
   }
+  // (the battle items in their pouch: sim/kit.ts)
+  if (p.cls && !p.growsUpIn) card.append(el('div', 'hint', `Pouch (${p.pouch.length}/${p.pouchCap}): ${p.pouch.length ? p.pouch.map((id) => ITEM_BY_ID[id]?.name ?? id).join(', ') : 'empty'}`));
   // (on the phone, the map beside the menu: go and look at them there)
   if (p.away === null && mapBeside()) card.append(button('Show on the map', () => showOnMap(bridge, { person: p.id }), { cls: 'place small quiet' }));
 

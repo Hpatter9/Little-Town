@@ -11,6 +11,7 @@ import { ColorMatrixFilter, Container, Graphics, Rectangle, Sprite, Text, Textur
 import { ABILITY_BY_ID } from '../../shared/data/abilities';
 import type { Element } from '../../shared/data/effects';
 import { actFx, PX_ELEMENT } from '../../shared/data/actFx';
+import { KIT_BY_ID, KIT_FX } from '../../shared/data/kitItems';
 import { castsMagic } from '../../shared/data/classes';
 import { ITEM_BY_ID } from '../../shared/data/items';
 import { shotCode, shotOf } from '../../shared/data/projectiles';
@@ -57,7 +58,7 @@ const STOP = 0.3;
 
 /** The element of a spell or skill (for the effect gathering round its caster), by id. */
 function elementOf(id: string): Element {
-  const effects = SPELL_BY_ID[id]?.effects ?? ABILITY_BY_ID[id]?.active?.effects ?? [];
+  const effects = SPELL_BY_ID[id]?.effects ?? ABILITY_BY_ID[id]?.active?.effects ?? KIT_FX[id] ?? [];
   return effects.find((e) => e.element)?.element ?? (effects.some((e) => e.kind === 'heal' || e.kind === 'revive') ? 'holy' : 'arcane');
 }
 
@@ -75,7 +76,7 @@ const FOE_TARGETS = ['foe', 'foes', 'random_foes'];
  *  up close, and the big sheets of an ultimate. The element is the pixel effect's own (data/actFx.ts: `px:<element>-<family>`). */
 function flyingAct(id: string): string | null {
   const spell = SPELL_BY_ID[id];
-  const effects = spell?.effects ?? ABILITY_BY_ID[id]?.active?.effects ?? [];
+  const effects = spell?.effects ?? ABILITY_BY_ID[id]?.active?.effects ?? KIT_FX[id] ?? [];
   if (!effects.some((e) => FOE_TARGETS.includes(e.target) && e.kind !== 'heal' && e.kind !== 'revive')) return null;
   const fx = actFx(id);
   if (!fx.startsWith('px:')) return null;
@@ -185,6 +186,7 @@ export class FightScene {
     this.root.addChild(this.cover, this.world);
     for (const s of Object.values(SPELL_BY_ID)) this.idByName.set(s.name, s.id);
     for (const a of Object.values(ABILITY_BY_ID)) this.idByName.set(a.name, a.id);
+    for (const k of Object.values(KIT_BY_ID)) this.idByName.set(k.name, k.id);
   }
 
   get shown(): boolean {
