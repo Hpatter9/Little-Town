@@ -56,6 +56,8 @@ export const DESERT_TOWN_LEAST = 5;
 export const CALL_WARMTH = 25;
 /** A power at war with one the town is at war with calls it too, unless it thinks less of the town than this. */
 export const COMMON_FOE_WARMTH = -20;
+/** Any power not at war with the town calls it when the town thinks this much better of it than of its foe. */
+export const CALL_PREFER = 15;
 /** A call no oftener than this many days apart (all the powers together). */
 export const CALL_GAP_DAYS = 6;
 /** How long a campaign waits for the town's party to set out (hours), and the most the town sends; the levy asked
