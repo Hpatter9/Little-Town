@@ -417,6 +417,8 @@ export interface SagaRun {
 
 export interface Raid {
   id: number;
+  /** A pirate crew landed on the beach from the sea (sim/seafaring.ts). */
+  landing?: boolean;
   /** A saga's raid: the run it belongs to (sim/sagas.ts). */
   saga?: number;
   /** (Old saves: one of the Calamity's own raids, from before it was the Great Enemy's stage: sim/greatEnemy.ts `bindCalamity` hands them over.) */
@@ -841,6 +843,8 @@ export interface Boat {
   hull: number;
   /** The expedition she's away with, or null at home. */
   away: number | null;
+  /** The tick she was launched (sim/seafaring.ts: ships wear with age). */
+  built?: number;
 }
 
 /** An airship of the town's fleet (data/skies.ts, sim/skies.ts). */
@@ -1140,6 +1144,9 @@ export interface GameState {
   boats?: Boat[];
   /** Boats built so far (for their names, in turn). */
   boatsBuilt?: number;
+  /** Island colonies and the sea book (sim/seafaring.ts). */
+  colonies?: import('./seafaring').Colony[];
+  sea?: import('./seafaring').SeaBook;
   /** The town's airships (data/skies.ts, sim/skies.ts): built at the airship mast, moored there or away with a party. */
   airships?: Airship[];
   /** Airships built so far (for their names, in turn). */

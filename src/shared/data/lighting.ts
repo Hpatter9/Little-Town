@@ -47,7 +47,7 @@ export const FIRE_LIGHTS: Record<string, { radius: number; color: number; power:
 };
 /** Buildings that lie flat on the ground (fields, pens, yards, a heap of stores, the fire itself): light passes over
  *  them. Fields, pens and traps besides are known by what they are (sim/lightField.ts `flat`). */
-export const LOW_BUILDINGS = new Set(['campfire', 'stockpile', 'village_green', 'quoits_pitch', 'sparring_yard', 'graveyard', 'fishing_jetty', 'herb_garden', 'pleasure_garden']);
+export const LOW_BUILDINGS = new Set(['campfire', 'stockpile', 'village_green', 'quoits_pitch', 'sparring_yard', 'graveyard', 'fishing_jetty', 'harbour', 'herb_garden', 'pleasure_garden']);
 /** A tree's or a rock's shadow is round: how far from its cell's middle it stops light (cells). */
 export const ROUND_BLOCK = 0.38;
 
