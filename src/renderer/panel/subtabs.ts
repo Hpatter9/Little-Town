@@ -42,13 +42,13 @@ const GROUPS: Record<string, MenuTabs> = {
     intro: 'Out now',
   },
   townsfolk: { groups: [['People', /^People/], ['Jobs', /^Jobs/], ['Families', /^Families/], ['Guilds', /^Guilds/], ['Prisoners', /^Prisoners/], ['Arena', /^(The arena|Standings|Bouts|Champions)/]] },
-  // the War (the conquest): the map of provinces, the armies, the barracks and squads, the realms
+  // the War (the seasons of war): the map of provinces, the realm's wars and campaigns, the home front, the news
   war: {
     groups: [
       ['Map', /^War map/],
-      ['Armies', /^Armies/],
-      ['Barracks', /^(Barracks|Squads)/],
-      ['Realms', /^Realms/],
+      ['Wars', /^(Wars of the realm|Campaigns|The council of war)/],
+      ['Home front', /^(The home front|The war dead)/],
+      ['News', /^War news/],
     ],
     intro: 'Map',
   },

@@ -56,6 +56,9 @@ for (const o of names) {
     if (process.env.EMPIRE) console.log(`  ${o} seed ${k}: coins ${s.coins ?? 0} posts ${s.empire?.posts.length ?? 0} founded ${s.empire?.founded ?? 0} lost ${s.empire?.lostPosts ?? 0} caravans ${s.empire?.sent ?? 0} lost ${s.empire?.lostCaravans ?? 0} tributes ${s.empire?.tributes ?? 0}/${s.empire?.tributePaid ?? 0} made ${s.empire?.made ?? 0} deals ${s.empire?.standing ?? 0} house ${s.market?.standing ?? 0} era ${s.era}`);
     if (process.env.EMPIRE === '2') console.log((s.empire?.log ?? []).slice().reverse().map((l) => `    ${l}`).join('\n'));
     if (process.env.EMPIRE) console.log(`  ${o} seed ${k}: people ${r.people} deaths ${r.deaths}`);
+    // (WAR=1: the seasons of war's tallies, sim/war/; WAR=2 adds its news)
+    if (process.env.WAR) { const w = s.war; console.log(`  ${o} seed ${k}: joined ${w?.joined ?? 0} won ${w?.won ?? 0} lost ${w?.lost ?? 0} spoils ${w?.spoils ?? 0} war dead ${w?.dead.length ?? 0} sieges ${w?.sieges?.held ?? 0}/${w?.sieges?.lost ?? 0} occupied ${w?.occupation ? 'yes' : 'no'} fallen ${(w?.fallen ?? []).map((f) => f.id).join(',') || '-'} wars ${(s.feuds ?? []).length} town provinces ${s.conquest?.holder.filter((h) => h === 'town').length ?? 0}`); }
+    if (process.env.WAR === '2') console.log((s.war?.news ?? []).map((n) => `    d${Math.floor(n.tick / TICKS_PER_DAY) + 1} ${n.text}`).join('\n'));
     pop += r.people; deaths += r.deaths; dead += r.dead ? 1 : 0; low += r.low;
   }
   rows.push(`${o.padEnd(11)} people ${(pop / SEEDS).toFixed(1).padStart(5)}  low ${(low / SEEDS).toFixed(1).padStart(5)}  deaths ${(deaths / SEEDS).toFixed(1).padStart(5)}  wiped ${dead}/${SEEDS}`);

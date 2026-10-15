@@ -154,7 +154,7 @@ export class WorldMapView {
       this.marks.append(m);
     }
     for (const m of world?.marches ?? []) {
-      if (m.kind === 'host' || m.kind === 'feud') {
+      if (m.kind === 'host' || m.kind === 'feud' || m.kind === 'campaign') {
         const line = document.createElementNS(SVG, 'line');
         line.setAttribute('x1', String(m.from.x));
         line.setAttribute('y1', String(m.from.y));

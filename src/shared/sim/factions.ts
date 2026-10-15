@@ -38,6 +38,11 @@ import { seaTown } from './sea';
 import { isChild } from './social';
 import { makeStranger, strangerLook } from './strangers';
 import { walk } from './walk';
+import { answerWarEnvoy, warAdvice, warDemand, warEnvoyText } from './war/war';
+import { campaignDestination, campaignLevies, campaignOver, campaignWaves, isCampaignTarget, openCampaigns } from './war/campaigns';
+import { hostEngines, hostMustered, hostOdds, siegeOver } from './war/siege';
+import { councilLine } from './war/council';
+import { warSeason } from './war/state';
 import { addStock, campXY, earn, edgeXY, makePerson, notify, setOutcome, townFull, type Faction, type GameState, type Prompt, type Raid, type Raider } from './state';
 import { calendar, paceDay, TICKS_PER_DAY, TICKS_PER_HOUR } from './time';
 import { weatherAt } from './weather';
@@ -209,7 +214,7 @@ export function factionsDaily(s: GameState, rng: Rng): void {
       continue;
     }
     // at war: a host is mustered now and then
-    if (f.stance === 'war' && !f.host && f.troops >= HOST_LEAST && s.tick - (f.lastHost ?? -1e12) >= HOST_GAP_DAYS * TICKS_PER_DAY && day >= FIRST_MEET_DAY + 2 && rng.chance(HOST_CHANCE * (f.temper === 'warlike' ? 1.4 : 1) * ((s.feuds ?? []).some((x) => x.a === f.id || x.b === f.id) ? 0.5 : 1))) musterHost(s, f);
+    if (f.stance === 'war' && !f.host && f.troops >= HOST_LEAST && s.tick - (f.lastHost ?? -1e12) >= HOST_GAP_DAYS * TICKS_PER_DAY && day >= FIRST_MEET_DAY + 2 && rng.chance(HOST_CHANCE * (f.temper === 'warlike' ? 1.4 : 1) * ((s.feuds ?? []).some((x) => x.a === f.id || x.b === f.id) ? 0.5 : 1) * hostOdds(s, f))) musterHost(s, f); // (by the season of war: sim/war/siege.ts)
   }
   // one envoy a day at most, from a power with something to say
   if (envoyWaiting(s)) return;
@@ -274,6 +279,8 @@ function envoyText(s: GameState, f: Faction, about: string, coins: number): { ti
   const d = defOf(f);
   const theirs = risingEnvoyText(s, f, about);
   if (theirs) return theirs;
+  const war = warEnvoyText(s, f, about); // (a call to arms, a demand to yield: sim/war/war.ts)
+  if (war) return war;
   const lord = lordName(f);
   switch (about) {
     case 'greet':
@@ -331,8 +338,10 @@ function envoyText(s: GameState, f: Faction, about: string, coins: number): { ti
 export function envoy(s: GameState, f: Faction, about: string): Prompt | null {
   if (envoyWaiting(s)) return null;
   const d = defOf(f);
-  const coins = about === 'demand' ? Math.round(DEMAND_BASE + f.troops * DEMAND_PER_TROOPS) : 0;
+  const coins = about === 'demand' ? warDemand(s, Math.round(DEMAND_BASE + f.troops * DEMAND_PER_TROOPS)) : 0;
   const t = envoyText(s, f, about, coins);
+  // (the town's council has its answer ready: the recommended one, taken if nobody answers: sim/war/council.ts)
+  const advice = warAdvice(s, f, about, coins);
   const cal = calendar(s.tick);
   const now = { hour: cal.hour, season: cal.season, weather: weatherAt(s.seed, s.tick, null).kind, biome: s.biome ?? 'forest', era: s.era, sea: seaTown(s) } as const;
   const prompt: Prompt = {
@@ -343,10 +352,12 @@ export function envoy(s: GameState, f: Faction, about: string): Prompt | null {
     title: t.title,
     text: t.text,
     story: `${t.text} (${d.name}: ${STANCE_NAME[f.stance].toLowerCase()}, ${moodWord(f.attitude)}.)`,
-    picture: eventPicture(`envoy:${f.id}:${about}`, `${d.stronghold} ${d.name} envoy ${about === 'demand' || about === 'conquered' ? 'war' : 'court'}`, now),
+    picture: eventPicture(`envoy:${f.id}:${about}`, `${d.stronghold} ${d.name} envoy ${['demand', 'conquered', 'campaign', 'yield'].includes(about) ? 'war' : 'court'}`, now),
     options: t.options,
-    // (left unanswered, a demand the treasury can easily meet is paid: refusing invites war)
-    defaultOption: about === 'demand' && (s.coins ?? 0) >= coins * DEMAND_EASY ? 0 : t.def,
+    // (left unanswered, a demand the treasury can easily meet is paid: refusing invites war; with the town running
+    // itself, the council's answer)
+    defaultOption: advice ? advice.option : about === 'demand' && (s.coins ?? 0) >= coins * DEMAND_EASY ? 0 : t.def,
+    ...(advice ? { recommended: advice.option, why: advice.why } : {}),
     expiresTick: s.tick + ENVOY_HOURS * TICKS_PER_HOUR,
   };
   s.prompts.push(prompt);
@@ -392,6 +403,7 @@ export function answerEnvoy(s: GameState, prompt: Prompt, option: number, rng: R
   if (!e || !f) return;
   const d = defOf(f);
   if (answerRisingEnvoy(s, prompt, option) !== null) return;
+  if (answerWarEnvoy(s, prompt, option)) return; // (sim/war/war.ts)
   let said = '';
   switch (e.about) {
     case 'greet':
@@ -600,7 +612,10 @@ export function musterHost(s: GameState, f: Faction, hours = HOST_WARNING_HOURS)
     f.grudge = undefined;
   }
   f.host = { at: s.tick + Math.round(hours * TICKS_PER_HOUR), size };
-  notify(s, `${defOf(f).name} have mustered a war host of ${size}${grudge ? ', come to settle a grudge' : ''}, ${lordName(f)} at its head! It will reach the town in ${Math.round(hours)} hours.`, true);
+  // (an autumn host rides out for the harvest; a far stronger power's may come as a siege: sim/war/siege.ts)
+  const kind = hostMustered(s, f);
+  const what = kind === 'siege' ? 'a siege host' : kind === 'harvest' ? 'a host to raid the harvest' : 'a war host';
+  notify(s, `${defOf(f).name} have mustered ${what} of ${f.host.size}${grudge ? ', come to settle a grudge' : ''}, ${lordName(f)} at its head! It will reach the town in ${Math.round(hours)} hours.`, true);
 }
 
 /** The host reaches the town: a raid of up to HOST_MOST, siege engines among them from the Medieval age, its lord at
@@ -613,20 +628,21 @@ export function launchHost(s: GameState, f: Faction, rng: Rng): Raid | null {
   const d = defOf(f);
   const kind = RAID_KIND_BY_ID[raidOf(s, f)];
   if (!kind) return null;
-  const r = startRaid(s, kind, h.size * 20, rng, undefined, { ...hostMakeup(s, f, h.size), host: f.id });
+  const r = startRaid(s, kind, h.size * 20, rng, undefined, { ...hostMakeup(s, f, h.size, h), host: f.id });
   notify(s, `The war host of ${d.name} is here: ${r.raiders.filter((rd) => !rd.ally).length} strong!`, true);
   return r;
 }
 
 /** What a host's raid is: its raiders (`most`), siege engines and its lord (raids.ts reads these). */
-export function hostMakeup(s: GameState, f: Faction, size: number): { most: number; siege: number; leader: string } {
-  const siege = s.era === 'neolithic' ? 0 : Math.floor(size / SIEGE_EVERY);
+export function hostMakeup(s: GameState, f: Faction, size: number, host = f.host): { most: number; siege: number; leader: string } {
+  const siege = s.era === 'neolithic' ? 0 : hostEngines(host, Math.floor(size / SIEGE_EVERY));
   return { most: size, siege, leader: defOf(f).lord };
 }
 
 /** The levies that march with the town's assault: its allies send `ALLY_TROOPS` of theirs, its vassals a share of
  *  theirs (`LEVY_SHARE`, up to `LEVY_MOST`), never the power being stormed. Returns the troop kinds and who sent them. */
 export function leviesFor(s: GameState, target: string, rng: Rng): { kind: string; from: string }[] {
+  if (isCampaignTarget(target)) return campaignLevies(s, target, rng); // (the ally's own host beside the town's party)
   const out: { kind: string; from: string }[] = [];
   for (const f of realm(s)) {
     if (f.id === target || !f.known || (f.stance !== 'alliance' && f.stance !== 'vassal')) continue;
@@ -677,6 +693,7 @@ export function hostOver(s: GameState, r: Raid): void {
     warm(f, -5);
     notify(s, `The war host of ${defOf(f).name} pulls back, ${fell} fewer. They will come again.`, true);
   }
+  siegeOver(s, r, f, !!broken, fell, foes.length); // (a siege held or lost, a rising won or crushed: sim/war/siege.ts)
 }
 
 /** The power a raid was sent by, if any: the host's own, or the one whose raid kind it is. */
@@ -701,7 +718,10 @@ export function rivalRaidOdds(s: GameState, kindId: string): number {
   if (rising && (!f || !f.known || f.stance === 'destroyed')) return 0;
   if (!f) return 1;
   if (!f.known) return 0.5;
-  return f.stance === 'war' ? 2 : f.stance === 'neutral' ? 1 : 0;
+  // (by the season of war, with the town running itself: the autumn raids for the harvest, winter's quiet)
+  const season = s.autopilot === false ? null : warSeason(s);
+  const by = season === 'harvest' ? 1.4 : season === 'hold' ? 0.6 : 1;
+  return (f.stance === 'war' ? 2 : f.stance === 'neutral' ? 1 : 0) * by;
 }
 
 /* ------------------------------------------------------------ assaults */
@@ -714,12 +734,14 @@ const targetOf = (id: string) => id.slice(ASSAULT_PREFIX.length);
 export function assaultTargets(s: GameState, dungeonOpen: (id: string) => boolean): string[] {
   const out: string[] = [];
   for (const f of realm(s)) if (f.known && f.stance === 'war') out.push(ASSAULT_PREFIX + f.id);
+  out.push(...openCampaigns(s)); // (a campaign the town is called to, or its own war party: sim/war/campaigns.ts)
   for (const d of DUNGEONS) if (dungeonOpen(d.id)) out.push(`${ASSAULT_PREFIX}dungeon:${d.id}`);
   return out;
 }
 
 /** The waves an assault meets, the lord's (or the dungeon's boss's) last. */
 export function assaultWaves(s: GameState, target: string, rng: Rng): Record<string, number>[] {
+  if (isCampaignTarget(target)) return campaignWaves(s, target, rng);
   if (target.startsWith('dungeon:')) {
     const dg = DUNGEON_BY_ID[target.slice(8)];
     if (!dg) return [];
@@ -761,6 +783,7 @@ export function assaultWaves(s: GameState, target: string, rng: Rng): Record<str
 export function assaultDestination(s: GameState, id: string): Destination | undefined {
   if (!isAssaultDest(id)) return undefined;
   const target = targetOf(id);
+  if (isCampaignTarget(target)) return campaignDestination(s, target);
   if (target.startsWith('dungeon:')) {
     const dg = DUNGEON_BY_ID[target.slice(8)];
     const base = dg && DESTINATION_BY_ID[dg.id];
@@ -807,6 +830,7 @@ export function planAssault(s: GameState, dest: string, rng: Rng): { target: str
 /** The assault's end. Won: plunder (coins to the treasury, goods to the party's packs), recruits, and for a power a
  *  question (vassal or razed); lost or pulled back: the power is emboldened and its next host comes sooner. */
 export function assaultOver(s: GameState, target: string, won: boolean, loot: Record<string, number>, rng: Rng): string {
+  if (isCampaignTarget(target)) return campaignOver(s, target, won, loot);
   if (target.startsWith('dungeon:')) {
     const dg = DUNGEON_BY_ID[target.slice(8)];
     if (!dg) return '';
@@ -880,6 +904,8 @@ export interface FactionView {
   assault: string | null;
   /** A rising power (data/risingPowers.ts): what it has grown into, what it is, what it has done. */
   rising: { stage: string; line: string; deeds: string[] } | null;
+  /** What the town's council of war would do about it (sim/war/council.ts). */
+  council: string | null;
 }
 
 export function moodWord(a: number): string {
@@ -931,6 +957,7 @@ export function realmView(s: GameState, dungeonOpen: (id: string) => boolean): R
       can,
       assault: f.known && f.stance === 'war' ? ASSAULT_PREFIX + f.id : null,
       rising: f.known ? riseLine(s, f) : null,
+      council: f.known ? councilLine(s, f) : null,
     };
   });
   const dungeons = assaultTargets(s, dungeonOpen)

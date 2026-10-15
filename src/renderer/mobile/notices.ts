@@ -10,7 +10,6 @@
 // The pure part (above `startNotices`) has no DOM, so the tests read it.
 
 import { BUILDING_BY_ID } from '../../shared/data/buildings';
-import { marchSummary } from '../../shared/sim/conquest/marches';
 import { CHATTER } from '../chatter';
 import type { JournalEntryView, Snapshot } from '../../shared/sim/snapshot';
 import { loadMet, meet, saveMet, tipsDue, tipsOn, type Tip } from './tips';
@@ -101,17 +100,16 @@ export function situationNotices(s: Snapshot): Notice[] {
   for (const f of s.realm.factions)
     if (f.host)
       out.push({ key: `host:${f.name}`, tone: 'red', mark: '⚔', title: `${f.name}'s war host`, text: `${f.host.size} strong, ${f.lord} at its head: here in ${f.host.hours} hour${f.host.hours === 1 ? '' : 's'}. Make ready, sue for peace, or call on allies.`, action: { label: 'The Realm', kind: 'panel', panel: 'expeditions' } });
-  // the conquest (the War tab): a battle for a province, a rival marching on the town's land, captives, bare provinces
+  // the seasons of war (the War tab): a siege coming, the town occupied, a campaign called or marching, the recap
   const war = s.war;
   if (war) {
-    if (war.battle && !war.battle.done) out.push({ key: `pbattle:${war.battle.id}`, tone: 'red', mark: '⚔', title: `The battle for ${war.battle.province}`, text: `Turn ${war.battle.turn}: ${war.battle.squads.filter((q) => q.side === 'town' && !q.out).length} of the town's squads against ${war.battle.squads.filter((q) => q.side === 'foe' && !q.out).length}.`, action: { label: 'War', kind: 'panel', panel: 'war' } });
-    for (const a of war.rivalArmies) if (war.provinces[a.to]?.holder === 'town') out.push({ key: `rmarch:${a.realm}:${a.to}`, tone: 'red', mark: '⚔', title: `${war.realms.find((r) => r.id === a.realm)?.name ?? 'A power'} march on ${war.provinces[a.to].name}`, text: `An army of strength ${a.strength}, there in ${a.hours} h. A garrison or an army of the town's holds it.`, action: { label: 'War', kind: 'panel', panel: 'war' } });
-    for (const x of war.captives) out.push({ key: `captive:${x.hero}`, tone: 'gold', mark: '⛓', title: `${x.name} held captive`, text: `At ${x.province}, by ${x.by}: ${x.ransom} coins ransom, or take the province.`, action: { label: 'War', kind: 'panel', panel: 'war' } });
-    const bare = war.provinces.filter((p) => p.bare);
-    if (bare.length) out.push({ key: `bare:${bare.map((p) => p.id).join('.')}`, tone: 'gold', mark: '⚑', title: `${bare.length} province${bare.length === 1 ? '' : 's'} without a garrison`, text: `${bare.map((p) => p.name).join(', ')} may rise against the town.`, action: { label: 'War', kind: 'panel', panel: 'war' } });
-    const m = war.marches[0];
-    if (m && s.tick - m.tick < 8 * 600) out.push({ key: `march:${m.tick}`, tone: m.outcome === 'beaten' || m.outcome === 'broken' ? 'red' : 'gold', mark: '⚑', title: `The march of ${m.army}`, text: `${m.from} → ${m.to}: ${marchSummary(m)}`, action: { label: 'War', kind: 'panel', panel: 'war' } });
-    if (war.recap && s.tick - war.recap.tick < 6 * 600) out.push({ key: `precap:${war.recap.tick}`, tone: war.recap.won ? 'gold' : 'red', mark: '⚔', title: `${war.recap.won ? 'Victory' : 'Defeat'} at ${war.recap.province}`, text: war.recap.lines.join(' '), action: { label: 'War', kind: 'panel', panel: 'war' } });
+    if (war.siege) out.push({ key: `siege:${war.siege.by}`, tone: 'red', mark: '⚔', title: `The siege of ${war.siege.by}`, text: `A siege host of ${war.siege.size}, at the walls in ${war.siege.hours} hour${war.siege.hours === 1 ? '' : 's'}.${war.sieges.lost ? ' Another siege lost is the end of the town.' : ''}`, action: { label: 'War', kind: 'panel', panel: 'war' } });
+    if (war.occupation) out.push({ key: `occupied:${war.occupation.by}:${Math.floor(war.occupation.resistance / 25)}`, tone: 'red', mark: '⛓', title: `Occupied by ${war.occupation.by}`, text: `A garrison of ${war.occupation.garrison} in the streets, ${war.occupation.taxed} coins taken in tax. The resistance stands at ${war.occupation.resistance}%.`, action: { label: 'War', kind: 'panel', panel: 'war' } });
+    for (const c of war.campaigns) {
+      if (c.state === 'marching') out.push({ key: `campaign:${c.id}`, tone: 'blue', mark: '⚑', title: c.title, text: `${c.party.join(', ')} on the march${c.harvest ? ' to raid the fields' : ''}.`, action: { label: 'War', kind: 'panel', panel: 'war' } });
+      else if (c.dest && c.state !== 'refused') out.push({ key: `campaign:${c.id}:open`, tone: 'gold', mark: '⚑', title: c.title, text: c.state === 'called' ? `The town is called to arms against ${c.against}.` : `The town will march against ${c.against}: the party is gathering.`, action: { label: 'War', kind: 'panel', panel: 'war' } });
+    }
+    if (war.recap && s.tick - war.recap.tick < 8 * 600) out.push({ key: `wrecap:${war.recap.tick}`, tone: war.recap.won ? 'gold' : 'red', mark: '⚔', title: war.recap.title, text: war.recap.lines.join(' '), action: { label: 'War', kind: 'panel', panel: 'war' } });
   }
   // the Great Enemy (sim/greatEnemy.ts): its last siege coming, else the stage it's in (from the stirring)
   const g = s.greatEnemy;

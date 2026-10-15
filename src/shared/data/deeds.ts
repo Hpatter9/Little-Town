@@ -12,7 +12,8 @@ export type DeedKind =
   | 'delves' // dungeons cleared
   | 'sagas' // sagas ended as their hero
   | 'beasts' // beasts bred and trained at the ranch, as its Beastmaster
-  | 'bouts'; // bouts won in the arena
+  | 'bouts' // bouts won in the arena
+  | 'campaigns'; // campaigns of the realm's wars fought and won (sim/war/campaigns.ts)
 
 export interface DeedLadder {
   /** What the deed is called on the People page ("Raids defended"). */
@@ -32,6 +33,7 @@ export const DEED_TITLES: Record<DeedKind, DeedLadder> = {
   sagas: { label: 'Sagas ended', steps: [[1, 'the Storied'], [3, 'Hero of Tales']] },
   beasts: { label: 'Beasts raised', steps: [[3, 'Friend of Beasts'], [10, 'Beastmaster'], [25, 'Lord of the Menagerie']] },
   bouts: { label: 'Arena bouts won', steps: [[1, 'the Brawler'], [4, 'Gladiator'], [10, 'Champion of the Sand']] },
+  campaigns: { label: 'Campaigns won', steps: [[1, 'the Veteran'], [3, 'Warhorse'], [6, 'Marshal of the Realm']] },
 };
 
 export const DEED_KINDS = Object.keys(DEED_TITLES) as DeedKind[];

@@ -60,9 +60,7 @@ import { RAID_KIND_BY_ID } from '../data/raids';
 import { checkBleeding, heal } from './health';
 import { updateAdvice } from './advice';
 import { classesHourly } from './classes';
-import { conquestHourly, disbandSquad, fillSquad, formSquad, setSlot, train } from './conquest/squads';
-import { ransom } from './conquest/battles';
-import { addToArmy, dismissArmy, dropFromArmy, garrison, loadTrain, marchArmy, pickUp, raiseArmy, recallArmy } from './conquest/armies';
+import { warHourly } from './war/war';
 import { spendByClass, spendPoint } from './attributes';
 import { questsHourly } from './quests';
 import { acceptQuest, declineQuest, questBoardHourly } from './questBoard';
@@ -295,7 +293,7 @@ export class Sim {
     dragonTick(s); // (the dragon in the hills: sim/dragon.ts)
     factionsHourly(s, this.rng);
     risingHourly(s); // (the rising powers' own moves: sim/risingPowers.ts)
-    if (CONQUEST.on) conquestHourly(s); // (the conquest's provinces, troops and squads: sim/conquest/squads.ts)
+    if (CONQUEST.on) warHourly(s); // (the seasons of war: the realm's wars, the town drawn in, its borders on the War tab: sim/war/)
     if (s.tick % TICKS_PER_HOUR === 0) keepKin(s);
     packHourly(
       s,
@@ -496,25 +494,6 @@ export class Sim {
         if (c.evolve !== undefined) s.evolveAsk = c.evolve;
         if (c.stats !== undefined) s.statsAsk = c.stats;
         break;
-      case 'conquest': {
-        const say = (r: { ok: boolean; reason?: string }) => r.ok || notify(s, `${r.reason}.`);
-        if (c.op === 'train') say(train(s, c.troop, c.n));
-        else if (c.op === 'form') say(formSquad(s, c.hero));
-        else if (c.op === 'slot') say(setSlot(s, c.squad, c.slot, c.troop));
-        else if (c.op === 'disband') disbandSquad(s, c.squad);
-        else if (c.op === 'fill') say(fillSquad(s, c.squad));
-        else if (c.op === 'raise') say(raiseArmy(s, c.squad));
-        else if (c.op === 'add') say(addToArmy(s, c.army, c.squad));
-        else if (c.op === 'drop') say(dropFromArmy(s, c.army, c.squad));
-        else if (c.op === 'load') say(loadTrain(s, c.army, c.troop, c.n));
-        else if (c.op === 'march') say(marchArmy(s, c.army, c.province));
-        else if (c.op === 'garrison') say(garrison(s, c.army, c.n));
-        else if (c.op === 'pickup') say(pickUp(s, c.army));
-        else if (c.op === 'recall') say(recallArmy(s, c.army));
-        else if (c.op === 'dismiss') say(dismissArmy(s, c.army));
-        else if (c.op === 'ransom') say(ransom(s, c.hero));
-        break;
-      }
       case 'gameSpeed':
         setGameSpeed(s, c.speed);
         break;

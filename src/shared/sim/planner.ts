@@ -3,7 +3,6 @@
 // buildings or pick research any more; they set the town's direction and send out expeditions. What it decided,
 // and why, is kept in `s.plan` for the panels to show.
 
-import { CONQUEST } from '../data/conquest';
 import { PRISON_BUILDINGS, SICKBEDS } from '../data/prisons';
 import { needsSickbed, sickbedsOf } from './sickbeds';
 import { cellsOf } from './prisoners';
@@ -25,7 +24,7 @@ import { armedForSkills } from '../data/armed';
 import { isChild } from './social';
 import { buildOrigin } from './nomads';
 import { LEISURE, LEISURE_PEOPLE, LOW_SPIRITS } from '../data/recreation';
-import { TRAINING_BUILDINGS, WAR_PEOPLE } from '../data/training';
+import { TRAINING_BUILDINGS } from '../data/training';
 const TRAINING_IDS = new Set(TRAINING_BUILDINGS.map((d) => d.id));
 import { isGrate, isRingPiece, planRing, ringWants, RING_PEOPLE } from './ringWall';
 import { inSea, seaBuild, seaTown } from './sea';
@@ -893,7 +892,7 @@ function wishes(s: GameState, n: Needs): { def: string; why: string }[] {
     if (CROPS[d.id] && FOOD_VALUE[CROPS[d.id].material]) continue; // (food fields come of wanting food, above)
     if (d.id === 'graveyard' && !(s.graves?.length)) continue; // (only once someone has died)
     if (LEISURE[d.id] && grown < LEISURE_PEOPLE) continue; // (a hamlet has a roof to raise before a green to play on)
-    if (TRAINING_IDS.has(d.id) && (!CONQUEST.on || grown < WAR_PEOPLE)) continue; // (training grounds for the war, once there are hands to spare)
+    if (TRAINING_IDS.has(d.id)) continue; // (the old conquest's training grounds: no troops are trained by hand any more)
     if (d.id === 'trophy_hall' && treasuresHeld(s) < 2) continue; // (only once there's something to show)
     // (a specialty shop once the general store stands and the town is big enough to keep one)
     if (lineOfDef(d.id)) {

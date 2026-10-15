@@ -39,9 +39,8 @@ import { festivalsView, type FestivalsView } from './festivals';
 import { cultureView, type CultureView } from './culture';
 import { walkingHome } from './nightOut';
 import { realmView, type RealmView } from './factions';
-import { warView, type WarView } from './conquest/warView';
-import { armyOfPerson } from './conquest/armies';
-import { worldOf } from './conquest/conquest';
+import { warView, type WarView } from './war/view';
+import { warLossLine } from './war/memory';
 import { DESTINATION_BY_ID as DEST_BY_ID } from '../data/expeditions';
 import { musterView, type MusterView } from './muster';
 import { secretView, specialStory } from './specials';
@@ -919,7 +918,8 @@ export interface Snapshot {
   muster: MusterView | null;
   /** The powers of the realm (sim/factions.ts), and the town's might they weigh against. */
   realm: RealmView;
-  /** The conquest: provinces, recruits, troops and squads (sim/conquest/warView.ts); null for a town without one. */
+  /** The seasons of war: the War tab's map of provinces, the realm's wars, campaigns, the siege and occupation, the
+   *  war dead (sim/war/view.ts); null with the War tab off. */
   war: WarView | null;
   /** An envoy's rider in town (sim/factions.ts): drawn mounted, riding in, waiting at the fire, riding out. */
   envoyRider: { id: number; name: string; look: Look; x: number; y: number; dir: 1 | -1; leaving: boolean } | null;
@@ -1164,12 +1164,11 @@ export interface JournalEntryView {
   highlights?: { text: string; building?: string; person?: number }[];
 }
 
-/** Where a hero marching with an army is (sim/conquest/armies.ts). */
+/** Where someone away on a people's own errand is (the warband's war party: sim/warpath.ts). */
 function awayWithArmy(s: GameState, p: Person): string {
-  const c = s.conquest;
-  const w = worldOf(s);
-  const a = c && w ? armyOfPerson(c, p) : null;
-  return a && w ? `${a.name}, ${a.going === null ? 'at' : 'marching on'} ${w.provinces[a.going ?? a.at].name}` : 'the war';
+  void s;
+  void p;
+  return 'the war';
 }
 
 export function journalView(s: GameState): JournalEntryView[] {
@@ -2081,8 +2080,14 @@ function taskDone(s: GameState, p: Person): number | null {
   }
 }
 
-/** Someone's story: a ready-made founder's own, else put together for them (data/backstories.ts). */
+/** Someone's story: a ready-made founder's own, else put together for them (data/backstories.ts); and what the
+ *  realm's wars took from them (sim/war/memory.ts). */
 function storyOf(s: GameState, p: Person): string {
+  const told = toldStory(s, p);
+  const loss = warLossLine(p);
+  return loss ? `${told} ${loss}` : told;
+}
+function toldStory(s: GameState, p: Person): string {
   const special = specialStory(p);
   if (special) return special;
   const own = p.fcls ? FOUNDER_BY_ID[p.fcls]?.story : undefined;
