@@ -198,6 +198,17 @@ const pal2 = (top: string, foot: string): Pick => ({ parts: [[top, 0, 0], [foot,
 const pal1 = (tile: string): Pick => ({ parts: [[tile, 0, 0]], size: [32, 32], overhang: 0 });
 /** The palisade's runs of stakes, one of three by the piece's id. */
 const PAL_RUN: Pick[] = [pal2(palisade02, palisade10), pal2(palisade03, palisade11), pal2(palisade04, palisade12)];
+/** The dungeon pack's stone wall, stood taller than a person (the tile is a person's height: 48): its cap and face on top,
+ *  two plain courses of face between, and the tile's own foot (the courses repeat every 16 px, so the joins don't show). */
+const STONE_WALL: Part[] = [
+  [dwalls, 0, 0, 32, 240, 32, 16],
+  [dwalls, 0, 16, 32, 256, 32, 16],
+  [dwalls, 0, 32, 32, 256, 32, 16],
+  [dwalls, 0, 48, 32, 256, 32, 32],
+];
+/** The stone gate drawn bigger than its cell by this much each side (the pack's arch is 28 px, under a person's height):
+ *  1.9 times as big, so a person walks in under the arch, and about as tall as the wall beside it. */
+const GATE_OVER = 14;
 /** A water grate's bars (`dl_fence.png`: a 16px cell, drawn across the whole cell), turned to stand down a column. */
 const grate = (col: number, grade?: string): Pick => {
   const bars: Pick = { parts: [[dlFence, 0, 0, col * 16, 0, 16, 16]], size: [16, 16], overhang: 0, ...(grade ? { grade } : {}) };
@@ -394,14 +405,14 @@ const PICKS: Record<string, Pick> = {
     joins: { gn: gateFront(true, true), gnx: gateFront(false, true), gs: gateFront(true, false), gsx: gateFront(false, false), v: gateSide(true, false), vx: gateSide(false, false), ve: gateSide(true, true), vex: gateSide(false, true) },
   },
   // the dungeon pack's stonework: a stretch of wall, an arched gate with its door
-  stone_wall: { own: true, parts: [[dwalls, 0, 0, 32, 240, 32, 48]], size: [32, 48], overhang: 0 },
-  brick_wall: { own: true, parts: [[dwalls, 0, 0, 32, 240, 32, 48]], size: [32, 48], overhang: 0, grade: 'brick' },
-  concrete_wall: { own: true, parts: [[dwalls, 0, 0, 32, 240, 32, 48]], size: [32, 48], overhang: 0, grade: 'concrete' },
-  force_wall: { own: true, parts: [[dwalls, 0, 0, 32, 240, 32, 48]], size: [32, 48], overhang: 0, grade: 'force' },
-  stone_gate: { own: true, parts: [[dwalls, 0, 0, 80, 288, 48, 48]], size: [48, 48], overhang: 0, joins: { v: { parts: [[dwalls, 0, 0, 80, 288, 48, 48]], size: [48, 48], overhang: 0, rotate: 90 } } },
-  brick_gate: { own: true, grade: 'brick', parts: [[dwalls, 0, 0, 80, 288, 48, 48]], size: [48, 48], overhang: 0, joins: { v: { parts: [[dwalls, 0, 0, 80, 288, 48, 48]], size: [48, 48], overhang: 0, rotate: 90 } } },
-  concrete_gate: { own: true, grade: 'concrete', parts: [[dwalls, 0, 0, 80, 288, 48, 48]], size: [48, 48], overhang: 0, joins: { v: { parts: [[dwalls, 0, 0, 80, 288, 48, 48]], size: [48, 48], overhang: 0, rotate: 90 } } },
-  force_gate: { own: true, grade: 'force', parts: [[dwalls, 0, 0, 80, 288, 48, 48]], size: [48, 48], overhang: 0, joins: { v: { parts: [[dwalls, 0, 0, 80, 288, 48, 48]], size: [48, 48], overhang: 0, rotate: 90 } } },
+  stone_wall: { own: true, parts: STONE_WALL, size: [32, 80], overhang: 0 },
+  brick_wall: { own: true, parts: STONE_WALL, size: [32, 80], overhang: 0, grade: 'brick' },
+  concrete_wall: { own: true, parts: STONE_WALL, size: [32, 80], overhang: 0, grade: 'concrete' },
+  force_wall: { own: true, parts: STONE_WALL, size: [32, 80], overhang: 0, grade: 'force' },
+  stone_gate: { own: true, parts: [[dwalls, 0, 0, 80, 288, 48, 48]], size: [48, 48], overhang: GATE_OVER, joins: { v: { parts: [[dwalls, 0, 0, 80, 288, 48, 48]], size: [48, 48], overhang: GATE_OVER, rotate: 90 } } },
+  brick_gate: { own: true, grade: 'brick', parts: [[dwalls, 0, 0, 80, 288, 48, 48]], size: [48, 48], overhang: GATE_OVER, joins: { v: { parts: [[dwalls, 0, 0, 80, 288, 48, 48]], size: [48, 48], overhang: GATE_OVER, rotate: 90 } } },
+  concrete_gate: { own: true, grade: 'concrete', parts: [[dwalls, 0, 0, 80, 288, 48, 48]], size: [48, 48], overhang: GATE_OVER, joins: { v: { parts: [[dwalls, 0, 0, 80, 288, 48, 48]], size: [48, 48], overhang: GATE_OVER, rotate: 90 } } },
+  force_gate: { own: true, grade: 'force', parts: [[dwalls, 0, 0, 80, 288, 48, 48]], size: [48, 48], overhang: GATE_OVER, joins: { v: { parts: [[dwalls, 0, 0, 80, 288, 48, 48]], size: [48, 48], overhang: GATE_OVER, rotate: 90 } } },
   // the grates where the ring wall crosses a river (sim/ringWall.ts): DawnLike's fence runs, wooden bars for the
   // palisade, iron for the stone wall, pale steel for the concrete one, the water showing between the bars
   palisade_grate: grate(0),

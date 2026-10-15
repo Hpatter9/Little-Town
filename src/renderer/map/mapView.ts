@@ -101,6 +101,8 @@ const UNDERGROWTH: [PropKind, number][] = [['bush', 0.55], ['plant', 0.45]];
 const UNDERGROWTH_SHARE = 0.6;
 /** A tree with someone (or a building's front) behind it is drawn see-through, this much. */
 const SEE_THROUGH = 0.42;
+/** How much of a castle wall shows over someone standing behind it. */
+const WALL_SEE_THROUGH = 0.3;
 /** How hard the wind blows in each weather (the trees' sway, the clouds' and leaves' drift). */
 const WIND: Record<string, number> = { clear: 0.45, cloudy: 0.7, rain: 1, storm: 2.2, snow: 0.6, fog: 0.15 };
 /** How far a tree's crown leans at a wind of 1 (radians of skew), and a bush's. */
@@ -320,7 +322,7 @@ export class MapView {
   private leafDue = 0;
   /** A castle town's keep (map/keepArt.ts): its floor and side walks under everything, its walls and towers among the
    *  things; `wide` sprites span the view and are never culled. */
-  private castle: { key: string; under: Container; things: Container[]; flames: Flame[] } | null = null;
+  private castle: { key: string; under: Container; things: Container[]; walls: Sprite[]; flames: Flame[] } | null = null;
   /** Seconds the lights have flickered (castleClutter's `flickerCastle`). */
   private flick = 0;
   private readonly wide = new Set<Container>();
@@ -699,6 +701,13 @@ export class MapView {
   seeThrough(points: { x: number; y: number }[]): void {
     const land = this.land;
     if (!land) return;
+    // (a castle's tall walls: see-through where someone stands behind them, so the rooms stay in view)
+    for (const sp of this.castle?.walls ?? []) {
+      const foot = sp.zIndex;
+      const hidden = points.some((pt) => pt.y < foot - 3 && pt.y > sp.y + 8 && pt.x > sp.x - 8 && pt.x < sp.x + sp.texture.width + 8);
+      const target = hidden ? WALL_SEE_THROUGH : 1;
+      sp.alpha = Math.abs(target - sp.alpha) < 0.03 ? target : sp.alpha + (target - sp.alpha) * 0.45;
+    }
     const pts = points.slice();
     for (const d of this.buildings.values()) {
       const r = d.rect;
@@ -1024,7 +1033,7 @@ export class MapView {
       g.tint = 0xffb060;
       f.glow = g;
     }
-    this.castle = { key, under: drawing.under, things: [...drawing.things, ...clutter.things], flames: clutter.flames };
+    this.castle = { key, under: drawing.under, things: [...drawing.things, ...clutter.things], walls: drawing.walls, flames: clutter.flames };
   }
 
   /** The town's buildings as last synced (a wall piece's picture depends on its neighbours: `wallJoin`). */
