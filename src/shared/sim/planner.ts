@@ -761,7 +761,7 @@ function findHallSpot(s: GameState): { x: number; y: number; turned: boolean } |
 /** A mountain hold cuts a hallway: the main one once it has a couple of rooms, and another whenever a room finds no hallway
  *  frontage (`wanted`). One at a time. */
 function tryHall(s: GameState, n: Needs, wanted: boolean): void {
-  if (holdOf(s) !== 'mountain' || !s.autopilot) return;
+  if (holdOf(s) !== 'mountain') return;
   const def = BUILDING_BY_ID[HALLWAY];
   if (!def || s.buildings.some((b) => isHallway(b) && b.status === 'blueprint')) return;
   const built = s.buildings.some((b) => isHallway(b));
