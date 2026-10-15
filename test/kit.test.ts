@@ -35,7 +35,7 @@ test('the items are well formed: a station that exists, research that exists, an
 test('a potion is drunk under half health, and used up', () => {
   const me = fighter({ hp: 40, bag: ['healing_potion', 'antidote'] });
   const log: string[] = [];
-  assert.ok(takeTurn(arena([me, wolf()], 100, log), me));
+  assert.equal(takeTurn(arena([me, wolf()], 100, log), me), false, 'a drink or a buff is quick: no turn lost');
   assert.equal(me.hp, 80, '40% of 100 back');
   assert.deepEqual(me.bag, ['antidote'], 'one potion gone');
   assert.deepEqual(log, ['Healing Potion']);
@@ -54,7 +54,7 @@ test('the smallest potion that mends what is missing, the strongest when it is d
 test('a dry caster drinks a mana draught; one with mana does not', () => {
   const spell = { id: 'bolt', name: 'Bolt', spell: true, level: 1, cooldown: 10, ready: 0, effects: [], use: 'attack' as const, cost: 10, pool: 'mp' as const };
   const dry = fighter({ mp: 3, maxMp: 50, kit: { actions: [spell], passive: kitOf({ cls: 'warrior', level: 1, road: undefined })!.passive }, bag: ['mana_draught'] });
-  assert.ok(takeTurn(arena([dry, wolf()]), dry));
+  assert.equal(takeTurn(arena([dry, wolf()]), dry), false, 'a drink or a buff is quick: no turn lost');
   assert.equal(dry.mp, 33, '60% of 50 back');
   assert.deepEqual(dry.bag, []);
   const fresh = fighter({ mp: 45, maxMp: 50, kit: dry.kit, bag: ['mana_draught'] });
@@ -64,17 +64,41 @@ test('a dry caster drinks a mana draught; one with mana does not', () => {
 test('an antidote when poisoned, smoke when badly hurt, a charm at the start of a fight', () => {
   const sick = fighter({ bag: ['antidote'], st: { poison: { until: 999, power: 3 } } });
   assert.equal(pickKitItem(arena([sick, wolf()]), sick)?.id, 'antidote');
-  assert.ok(takeTurn(arena([sick, wolf()]), sick));
+  assert.equal(takeTurn(arena([sick, wolf()]), sick), false, 'a drink or a buff is quick: no turn lost');
   assert.equal(sick.st!.poison, undefined, 'the poison is cleared');
   const hurt = fighter({ hp: 20, bag: ['smoke_bomb'] });
-  assert.ok(takeTurn(arena([hurt, wolf()]), hurt));
+  assert.equal(takeTurn(arena([hurt, wolf()]), hurt), false, 'a drink or a buff is quick: no turn lost');
   assert.ok((hurt.st!.invisible?.until ?? 0) > 100, 'unseen in the smoke');
   const ready = fighter({ bag: ['ward_charm'] });
-  assert.ok(takeTurn(arena([ready, wolf()]), ready));
+  assert.equal(takeTurn(arena([ready, wolf()]), ready), false, 'a drink or a buff is quick: no turn lost');
   assert.ok(ready.st!.protect);
   assert.equal(pickKitItem(arena([ready, wolf()]), ready), null, 'not twice');
   const idle = fighter({ bag: ['ward_charm'] });
   assert.equal(pickKitItem(arena([idle]), idle), null, 'nothing to fight: nothing used');
+});
+
+test('a drink does not cost the turn, and none is drunk when one blow would end the fight', () => {
+  const near = { ...wolf(), hp: 4 };
+  const me = fighter({ hp: 30, bag: ['healing_potion'] });
+  assert.equal(pickKitItem(arena([me, near]), me), null, 'they strike instead');
+  assert.equal(pickKitItem(arena([me, wolf()]), me)?.id, 'healing_potion');
+  const log: string[] = [];
+  const spell = { id: 'bolt', name: 'Bolt', spell: true, level: 1, cooldown: 10, ready: 0, effects: [{ kind: 'damage' as const, target: 'foe' as const, power: 1 }], use: 'attack' as const, cost: 1, pool: 'mp' as const };
+  const caster = fighter({ hp: 30, mp: 20, maxMp: 20, bag: ['healing_potion'], kit: { actions: [spell], passive: kitOf({ cls: 'warrior', level: 1, road: undefined })!.passive } });
+  assert.ok(takeTurn(arena([caster, wolf()], 100, log), caster), 'drank, then cast');
+  assert.deepEqual(log, ['Healing Potion', 'Bolt']);
+});
+
+test('a thrown item is used only when it hits harder than the weapon', () => {
+  for (let t = 0; t < 40; t++) {
+    const m = fighter({ bag: ['oil_flask', 'throwing_knife'] });
+    const pick = pickKitItem(arena([m, wolf()], t), m);
+    assert.ok(!pick || pick.use === 'throw');
+  }
+  // (a weak one is never picked: a flask with no fire in it)
+  const weak = fighter({ bag: ['throwing_knife'] });
+  assert.ok(KIT_BY_ID.throwing_knife.effects.every((e) => (e.power ?? 1) >= 1.2), 'the knife beats a blow');
+  void weak;
 });
 
 test('a thrown flask burns a foe, sometimes (its own stream: the same each time)', () => {

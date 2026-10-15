@@ -273,7 +273,8 @@ export function takeTurn(a: Arena, f: Combatant): boolean {
   const kit = f.kit;
   if (held(f, a.tick)) return false;
   // a potion, a draught or a thrown flask from their pouch, when it helps (sim/kitFight.ts)
-  if (f.bag?.length && useKitItem(a, f)) return true;
+  // (a drink or a buff is quick: they still act; a thrown flask takes the turn)
+  if (f.bag?.length && useKitItem(a, f) === 'turn') return true;
   if (!kit) return false;
   const silenced = has(f, 'silence', a.tick);
   let best: KitAction | null = null;
