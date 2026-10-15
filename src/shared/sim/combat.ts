@@ -9,8 +9,9 @@ import type { EliteAffix } from '../data/dungeons';
 import { BLOOD_FURY, BLOOD_LIFESTEAL, castsMagic, CLASS_DEFS, NECRO_RAISES, type ClassId } from '../data/classes';
 import { BEAST_ARMOR, BEAST_DAMAGE, BEAST_HP, classStat, levelPower, shapeshifts } from '../data/levels';
 import { afraid, held, kitOf, pace, passiveStats, strike, takeTurn, tickStatuses, type ActMeta, type Arena, type Kit, type Statuses } from './actions';
-import { ATTR_BASE, DEX_AIM, DEX_DODGE, INT_POWER, manaRegenOf, maxManaOf, maxStaminaOf, speedOfDex, STAMINA_PER_BLOW, staminaRegenOf, STR_DAMAGE, VIT_HP, type Attrs, CHA_STATUS, CHA_SUMMON } from '../data/attributes';
+import { ATTR_BASE, DEX_AIM, DEX_DODGE, INT_POWER, manaRegenOf, maxStaminaOf, speedOfDex, STAMINA_PER_BLOW, staminaRegenOf, STR_DAMAGE, VIT_HP, type Attrs, CHA_STATUS, CHA_SUMMON } from '../data/attributes';
 import { attributesOf } from './attributes';
+import { manaMax, manaNow } from './mana';
 import { ENEMIES, enemyArmor, natureOf, type EnemyGroup } from '../data/enemies';
 import { WEREWOLF_DAMAGE } from '../data/monsters';
 import type { Role } from '../data/expeditions';
@@ -270,8 +271,8 @@ export function personFighter(p: Person, role: Role, row: 'front' | 'back', ammo
     power: levelPower(p) * (1 + over('cha') * CHA_SUMMON),
     charm: over('cha') * CHA_STATUS,
     attrs: at,
-    mp: maxManaOf(at),
-    maxMp: maxManaOf(at),
+    mp: manaNow(p), // (what's left of their mana from the last fight: sim/mana.ts)
+    maxMp: manaMax(p),
     sp: maxStaminaOf(at),
     maxSp: maxStaminaOf(at),
     limit: 0,

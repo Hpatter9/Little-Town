@@ -27,6 +27,7 @@ import { footprint } from './buildings';
 import { CELL, findPath, groundAt, inMap, SWIM_COST, wet, type Pt } from './land';
 import { blockedBy } from './walk';
 import { personFighter, weaponOf, weaponRange } from './combat';
+import { hasMana, manaMax, manaNow, manaTurn, setMana } from './mana';
 import { held, kitOf, takeTurn, tickStatuses, type Arena, type Combatant, type Kit, type Statuses } from './actions';
 import { ally } from './classes';
 import { castsFire, castsMagic } from '../data/classes';
@@ -1012,6 +1013,7 @@ export function stepBattle(s: GameState, r: Raid, rng: Rng): boolean {
       const tallied = before(wave);
       if ((near.length || u.kit.actions.some((x) => x.use === 'heal' || x.use === 'support')) && takeTurn(arena, arena.me)) {
         credit(s, p.id, tallied);
+        manaTurn(p); // (a little mana back each time they act: sim/mana.ts)
         u.cooldown = rallied(s, p) ? Math.round(every / RALLY_SPEED) : every;
         u.lastAt = s.tick;
         p.lastBlow = s.tick; // (a spell or a skill plays the striking pose, as a blow does)
@@ -1023,6 +1025,7 @@ export function stepBattle(s: GameState, r: Raid, rng: Rng): boolean {
     const target = inReach.sort((a, c) => (c.bt!.held === u.spot ? 1 : 0) - (a.bt!.held === u.spot ? 1 : 0) || c.bt!.d - a.bt!.d)[0];
     u.lastAt = s.tick;
     if (p) {
+      manaTurn(p);
       u.cooldown = rallied(s, p) ? Math.round(every / RALLY_SPEED) : every;
       // (a mage's fire bursts over those round the one it's aimed at; a cleaving blow carries into one beside it)
       const at = foeAt(map, target);
@@ -1108,6 +1111,10 @@ function mapArena(s: GameState, b: Battle, r: Raid, u: BattleUnit, p: Person, ne
       ranged: f.ranged,
       st: (unit.st ??= {}),
       kit: unit.kit,
+      // (a caster's spells draw on their own mana, as in every fight: sim/mana.ts)
+      get mp() { return hasMana(q) ? manaNow(q) : undefined; },
+      set mp(v) { if (v !== undefined && hasMana(q)) setMana(q, v); },
+      maxMp: hasMana(q) ? manaMax(q) : undefined,
     };
   };
   const asRaider = (rd: Raider): Combatant => {

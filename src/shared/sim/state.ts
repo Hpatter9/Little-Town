@@ -601,6 +601,8 @@ export interface Person {
   autoStats?: boolean;
   /** A caster's magic (sim/magic.ts): spells learned by study, the one being studied, practice, madness. */
   arcana?: import('./magic').Arcana;
+  /** A caster's mana now (sim/mana.ts), left out while full. */
+  mana?: number;
   /** In a fight on the land with a roaming band (a skirmish's id: sim/roamers.ts): they stand and fight. */
   skirmish?: number;
   /** Lured into the Calamity's cult (sim/calamity.ts), and whether the town knows it. */

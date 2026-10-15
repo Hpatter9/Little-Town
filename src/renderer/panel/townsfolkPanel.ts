@@ -47,6 +47,7 @@ export const townsfolkKey = (s: Snapshot) => {
       Math.round(who.needs.food * 10), Math.round(who.needs.rest * 10), who.bed, SKILLS.map((k) => [who.skills[k].level, Math.floor(who.skills[k].progress * 4)]),
       who.cls, who.monster, who.clsName, who.stage, who.level, Math.floor(who.levelProgress * 4), who.away, who.battle, who.kit.length, who.carrying, who.recent, who.freePts, who.autoStats, who.road, who.coins, who.income, who.traits.length, who.titles, who.deeds.map((d) => d.n),
       who.arcana,
+      who.mana,
     ],
     s.visitor && [s.visitor.id, s.visitor.leaving],
     s.housing.beds <= s.housing.people,
@@ -348,6 +349,8 @@ function characterTab(p: PersonView, bridge: Bridge | undefined, rerender: () =>
   const bars = el('div', 'bars');
   bars.append(
     bar('Health', p.hp / p.maxHp, p.downed ? (p.downed === 'bleeding' ? `bleeding out: ${bleedLeft(p.bleedMinutes)} left!` : 'down, recovering') : `${Math.round(Math.min(p.hp, p.maxHp))}/${p.maxHp}`),
+    // (a caster's mana, under their health: sim/mana.ts)
+    ...(p.mana ? [manaBar(p.mana)] : []),
     bar('Morale', p.morale / 100, `${Math.round(p.morale)} → ${Math.round(p.moodTarget)}`),
     // (the dead and machines have no hunger or weariness to show)
     ...(p.tireless ? [] : [bar('Food', p.needs.food, ''), bar('Rest', p.needs.rest, '')]),
@@ -988,6 +991,13 @@ function traitsList(p: Pick<PersonView, 'traits'>, rerender: () => void = () => 
     d.append(s);
   }
   return d;
+}
+
+/** A caster's mana, in blue. */
+function manaBar([now, most]: [number, number]): HTMLElement {
+  const r = bar('Mana', now / Math.max(1, most), `${now}/${most}`);
+  (r.querySelector('.bar-fill') as HTMLElement).style.background = '#5a8cff';
+  return r;
 }
 
 function bar(label: string, value: number, text: string): HTMLElement {

@@ -162,6 +162,7 @@ import { ARENA_AWAY } from '../data/arena';
 import { EMPIRE_AWAY } from '../data/tradeEmpire';
 import { portalDestinations, portalSummaries, portalView, type PortalSummary, type PortalView } from './portals';
 import { arcanaView, magicView, type MagicView } from './magic';
+import { hasMana, manaMax, manaNow } from './mana';
 import { MAGIC_FX_NAMES, RITES, type RiteId } from '../data/magic';
 import { politicsView, type PoliticsView } from './politics';
 import { calamityView, heartDestinations, type CalamityView } from './calamity';
@@ -370,6 +371,8 @@ export interface PersonView {
   /** A caster's magic (sim/magic.ts): every spell they know (those learned by study marked), what they study, their
    *  practice and madness; null for anyone who doesn't cast. */
   arcana?: ReturnType<typeof arcanaView>;
+  /** A caster's mana now and its most (sim/mana.ts), for the bar under their health; null without a pool. */
+  mana?: [number, number] | null;
 }
 
 export interface CraftOrderView {
@@ -1885,7 +1888,7 @@ function personView(s: GameState, p: Person, _stock?: Stock): PersonView {
 }
 
 /** What changes tick by tick: where they are and what they're at. */
-type FastPart = 'id' | 'name' | 'look' | 'x' | 'y' | 'dir' | 'activity' | 'taskDone' | 'sinceHit' | 'hitFrom' | 'sinceBlow' | 'sinceBlock' | 'defending' | 'beast' | 'mounted' | 'doing' | 'work' | 'carrying' | 'needs' | 'morale' | 'rally' | 'bucket' | 'indoors' | 'away' | 'hp' | 'downed' | 'bleedMinutes' | 'floor' | 'pastime' | 'swimming' | 'tipsy' | 'bedward' | 'onWatch' | 'rounds' | 'grieving' | 'onGate';
+type FastPart = 'id' | 'name' | 'look' | 'x' | 'y' | 'dir' | 'activity' | 'taskDone' | 'sinceHit' | 'hitFrom' | 'sinceBlow' | 'sinceBlock' | 'defending' | 'beast' | 'mounted' | 'doing' | 'work' | 'carrying' | 'needs' | 'morale' | 'rally' | 'bucket' | 'indoors' | 'away' | 'hp' | 'downed' | 'bleedMinutes' | 'floor' | 'pastime' | 'swimming' | 'tipsy' | 'bedward' | 'onWatch' | 'rounds' | 'grieving' | 'onGate' | 'mana';
 function personFast(s: GameState, p: Person): Pick<PersonView, FastPart> {
   return {
     id: p.id,
@@ -1915,6 +1918,7 @@ function personFast(s: GameState, p: Person): Pick<PersonView, FastPart> {
     indoors: (p.activity === 'mine' && p.task?.type === 'mine' && p.task.depth !== undefined) || (p.activity === 'sleep' && ((p.task?.type === 'sleep' && p.task.building !== null) || (p.task?.type === 'shelter' && p.bed !== null))) || (p.activity === 'drink' && p.task?.type === 'drink') || (p.activity === 'watch' && p.task?.type === 'relax'),
     away: p.away === null ? null : p.away === ARENA_AWAY ? 'the arena' : p.away === EMPIRE_AWAY ? 'on the trade roads' : p.away < 0 ? awayWithArmy(s, p) : (destinationOf(s, s.expeditions.find((e) => e.id === p.away)?.dest ?? '')?.name ?? 'expedition'),
     hp: p.hp,
+    mana: hasMana(p) ? [Math.floor(manaNow(p)), manaMax(p)] : null,
     downed: !p.downed ? null : p.downed.bleedUntil === null ? 'recovering' : 'bleeding',
     bleedMinutes: p.downed?.bleedUntil != null ? Math.max(0, Math.ceil(((p.downed.bleedUntil - s.tick) / TICKS_PER_HOUR) * 60)) : null,
     pastime: pastimeView(s, p),

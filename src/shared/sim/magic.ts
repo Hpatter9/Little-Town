@@ -39,6 +39,7 @@ import { assignBeds } from './townsfolk';
 import { campCell, castSpellFx, maxHp, notify, tireless, type Building, type GameState, type Person, type Prompt } from './state';
 import { calendar, TICKS_PER_DAY, TICKS_PER_HOUR } from './time';
 import { CELL } from './land';
+import { manaRest } from './mana';
 
 /** A caster's own magic. */
 export interface Arcana {
@@ -167,6 +168,14 @@ const leyOfBuilding = (s: GameState, b: Building) => {
   return leyAt(s, Math.floor(c.x / CELL), Math.floor(c.y / CELL));
 };
 
+/** An hour's mana back for everyone short of it who isn't in a fight: more on a leyline (sim/mana.ts). */
+export function manaHourly(s: GameState): void {
+  for (const p of s.people) {
+    if (p.mana === undefined || p.away !== null || (s.raid?.phase === 'active' && !p.downed)) continue;
+    manaRest(p, leyAt(s, Math.floor(p.x / CELL), Math.floor(p.y / CELL)));
+  }
+}
+
 /* ------------------------------------------------------------ casters */
 
 /** Whether a calling casts spells (data/spells.ts SPELLCASTERS). */
@@ -271,6 +280,8 @@ export function manaPerHour(s: GameState): number {
 /** Each hour: mana gathered, study, the wild magic settling or surging, servants fed, curses and madness, one rite;
  *  and every tick of a raid's warning, the rites against it. */
 export function magicHourly(s: GameState): void {
+  // (spent mana comes back out of a fight, the autopilot or no: sim/mana.ts)
+  if (s.tick % TICKS_PER_HOUR === 0) manaHourly(s);
   if (s.autopilot === false) return;
   // (a raid's warning is minutes long: the rites against it are looked to every tick while it lasts)
   if (s.raid?.phase === 'warning' && s.magic && magicOpen(s)) raidRites(s, s.magic);

@@ -27,6 +27,7 @@ import { aimOf, canPay, held, kitOf, takeTurn, tickStatuses, useAction, type Are
 import { boardOk, canStep, coverChance, easeRelief, layTerrain, sightClear } from './tacticsTerrain';
 import { aimTiles, areaLabel, areaOf, areaTiles, spreads, SPREAD_POWER, type TacArea, type Tile } from './tacticsArea';
 import { attributesOf } from './attributes';
+import { hasMana, manaMax, manaNow, manaTurn, setMana } from './mana';
 import { fighters, gateCell, ranged } from './battle';
 import { footprint } from './buildings';
 import { ally } from './classes';
@@ -713,6 +714,10 @@ function asPerson(u: TacUnit, q: Person): Combatant {
     ranged: f.ranged,
     st: (u.st ??= {}),
     kit: u.kit,
+    // (a caster's spells draw on their own mana, as in every fight: sim/mana.ts)
+    get mp() { return hasMana(q) ? manaNow(q) : undefined; },
+    set mp(v) { if (v !== undefined && hasMana(q)) setMana(q, v); },
+    maxMp: hasMana(q) ? manaMax(q) : undefined,
   };
 }
 
@@ -838,6 +843,8 @@ export function stepTactics(s: GameState, r: Raid, rng: Rng): boolean {
   const me = next.sort((a, b) => b.ct - a.ct || (a.key < b.key ? -1 : 1))[0];
   me.ct = Math.max(0, me.ct - 100);
   t.turns++;
+  const caster = personOf(s, me.key);
+  if (caster) manaTurn(caster); // (a little mana back each turn)
   beginTurn(s, r, t, me, stats.get(me.key)!, rng);
   syncPlaces(s, r, t);
   return true;
@@ -1520,6 +1527,9 @@ export function tacticsOrder(s: GameState, o: TacticsOrder): boolean {
     case 'skill': {
       const act = me.kit?.actions.find((x) => x.id === o.skill);
       if (t.await.acted || !act || act.ready > s.tick) return false;
+      // (only what they can pay for: a caster's mana, sim/mana.ts)
+      const who = personOf(s, me.key);
+      if (who && !canPay(asPerson(me, who), act)) return false;
       const target = o.target ? t.units.find((u) => u.key === o.target) : undefined;
       const area = areaOf(act, st.reach);
       const at: Tile = o.at ?? (target ? [target.u, target.v] : [me.u, me.v]);
@@ -1564,6 +1574,9 @@ export interface TacUnitView {
   level: number;
   hp: number;
   max: number;
+  /** A caster's mana and its most (sim/mana.ts); null for anyone without a pool. */
+  mp: number | null;
+  mpMax: number | null;
   /** Struck down: turns left. */
   count: number | null;
   leader: boolean;
@@ -1650,6 +1663,8 @@ export function tacticsView(s: GameState): TacticsView | null {
       level: p ? levelOf(p) : 0,
       hp: Math.round(p ? p.hp : (rd?.hp ?? 0)),
       max: Math.round(p ? maxHp(p) : (rd?.maxHp ?? 1)),
+      mp: p && hasMana(p) ? Math.floor(manaNow(p)) : null,
+      mpMax: p && hasMana(p) ? manaMax(p) : null,
       count: u.count ?? null,
       leader: t.leader === u.key,
       st: Object.entries(sts ?? {})
@@ -1682,6 +1697,7 @@ export function tacticsView(s: GameState): TacticsView | null {
       const reach = t.await.moved ? [] : [...reachable(s, t, me, st).keys()].map((j) => [j % t.w, Math.floor(j / t.w)] as [number, number]);
       const foes = t.units.filter((u) => u.foe !== me.foe && u.key[0] !== 't' && u.count === undefined);
       const friends = t.units.filter((u) => u.foe === me.foe && u.key[0] !== 't' && u.count === undefined);
+      const who = personOf(s, me.key);
       orders = {
         key: me.key,
         moved: t.await.moved,
@@ -1703,7 +1719,7 @@ export function tacticsView(s: GameState): TacticsView | null {
             id: a.id,
             name: a.name,
             aim,
-            ready: a.ready <= s.tick && !t.await!.acted,
+            ready: a.ready <= s.tick && !t.await!.acted && (!who || canPay(asPerson(me, who), a)), // (and paid for: sim/mana.ts)
             cost: a.cost,
             pool: a.pool,
             area,
