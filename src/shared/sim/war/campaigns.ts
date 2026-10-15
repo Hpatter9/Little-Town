@@ -14,7 +14,7 @@ import { RAID_KIND_BY_ID } from '../../data/raids';
 import type { Destination } from '../../data/expeditions';
 import type { Material } from '../../data/materials';
 import {
-  ALLY_HOST, CALL_GAP_DAYS, CALL_WARMTH, CAMPAIGN_COIN, CAMPAIGN_KEEP_HOME, CAMPAIGN_OPEN_HOURS, CAMPAIGN_WAVE_TROOPS, CAMPAIGN_WAVES_MOST, COIN_WARMTH, GRIEF_MORALE,
+  ALLY_HOST, CALL_GAP_DAYS, CALL_WARMTH, COMMON_FOE_WARMTH, CAMPAIGN_COIN, CAMPAIGN_KEEP_HOME, CAMPAIGN_OPEN_HOURS, CAMPAIGN_WAVE_TROOPS, CAMPAIGN_WAVES_MOST, COIN_WARMTH, GRIEF_MORALE,
   LEVY_LEAST, LEVY_MOST, LEVY_PER, MARCHED_AGAINST, MARCHED_WARMTH, MORALE_HOURS, REFUSED_ALLY_COLD, REFUSED_COLD, SPOILS_FOOD, SPOILS_GOODS, SPOILS_LEAST, SPOILS_PER_TROOP, VICTORY_MORALE,
 } from '../../data/war';
 import { WAR_AT, ENVOY_HOURS } from '../../data/factions';
@@ -52,7 +52,9 @@ export function callTown(s: GameState, camp: Campaign): boolean {
   const ally = factionOf(s, camp.by);
   const foe = factionOf(s, camp.against);
   if (!ally || !foe || !ally.known || !foe.known || s.gameOver || w.occupation || w.siege) return false;
-  if (!(ally.stance === 'alliance' || (['peace', 'trade'].includes(ally.stance) && ally.attitude >= CALL_WARMTH))) return false;
+  // (a sworn ally, a warm friend, or a power that shares a foe with the town: the enemy of its enemy)
+  const common = foe.stance === 'war' && ally.stance !== 'war' && ally.attitude >= COMMON_FOE_WARMTH;
+  if (!(ally.stance === 'alliance' || (['peace', 'trade'].includes(ally.stance) && ally.attitude >= CALL_WARMTH) || common)) return false;
   if (foe.stance === 'alliance' || foe.stance === 'vassal') return false;
   if (s.tick - (w.lastCall ?? -1e12) < CALL_GAP_DAYS * TICKS_PER_DAY) return false;
   if (fighters(s) < 1 || s.prompts.some((p) => p.kind === 'envoy')) return false;

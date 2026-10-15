@@ -54,6 +54,8 @@ export const DESERT_TOWN_LEAST = 5;
 
 /** An ally (or a friend warm enough) calls the town to march with its host: the warmth it needs without an alliance. */
 export const CALL_WARMTH = 25;
+/** A power at war with one the town is at war with calls it too, unless it thinks less of the town than this. */
+export const COMMON_FOE_WARMTH = -20;
 /** A call no oftener than this many days apart (all the powers together). */
 export const CALL_GAP_DAYS = 6;
 /** How long a campaign waits for the town's party to set out (hours), and the most the town sends; the levy asked
