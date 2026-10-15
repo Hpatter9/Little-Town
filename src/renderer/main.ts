@@ -68,6 +68,7 @@ import { FightScene } from './fight/fightView';
 import { TacticsScene } from './tactics/tacticsView';
 import { MineScene } from './fight/mineView';
 import { DeepScene } from './deep/deepView';
+import { UnderScene } from './underdark/underdarkView';
 import { PortalScene } from './portal/portalView';
 import { InteriorScene } from './interior/interiorView';
 import { hasInside } from '../shared/sim/interiors';
@@ -545,6 +546,9 @@ async function start(): Promise<void> {
   // inside a building (interior/interiorView.ts): a cutaway of the room, whoever is in it
   const interior = new InteriorScene((c) => bridge.command(c));
   app.stage.addChild(deep.root);
+  // the Underdark under the land (underdark/underdarkView.ts): the caves seen from above, lit by what glows
+  const under = new UnderScene((c) => bridge.command(c));
+  app.stage.addChild(under.root);
   // a cutscene (cutscene/cutsceneView.ts): over everything, offered first, then played full screen
   const cutscene = new CutsceneScene((c) => bridge.command(c), document.body);
   app.stage.addChild(cutscene.root);
@@ -1030,6 +1034,15 @@ async function start(): Promise<void> {
           done();
         },
       });
+    // (a way down into the Underdark: the shaft, a mine, a hold's hallway, sim/underdark.ts)
+    if (snap.underdark && ['deep_shaft', 'mine', 'coal_mine', 'deep_mine', 'hold_hallway'].includes(b.def))
+      list.push({
+        label: 'Into the Underdark',
+        onClick: () => {
+          bridge.command({ type: 'watchUnder', on: true });
+          done();
+        },
+      });
     // (inside: a cutaway of the room and whoever is in it, sim/interiors.ts)
     // (not a castle's or a hold's own room: those are seen into already, on the map)
     const castleRoom = !!snap.castle && snap.castle.cells.includes(idx(snap.land, b.tile, b.row));
@@ -1439,7 +1452,7 @@ async function start(): Promise<void> {
   // (a tactics battle has the screen: a tap is its, a drag looks about the board)
   let boardPress: { x: number; y: number; lx: number; ly: number; moved: boolean; id: number } | null = null;
   canvas.addEventListener('pointerdown', (e) => {
-    if (tactics.shown || deep.shown) {
+    if (tactics.shown || deep.shown || under.shown) {
       boardPress = { x: e.clientX, y: e.clientY, lx: e.clientX, ly: e.clientY, moved: false, id: e.pointerId };
       return;
     }
@@ -1466,9 +1479,9 @@ async function start(): Promise<void> {
     canvas.setPointerCapture(e.pointerId);
   });
   canvas.addEventListener('pointermove', (e) => {
-    if ((tactics.shown || deep.shown) && boardPress && e.pointerId === boardPress.id) {
+    if ((tactics.shown || deep.shown || under.shown) && boardPress && e.pointerId === boardPress.id) {
       if (Math.hypot(e.clientX - boardPress.x, e.clientY - boardPress.y) >= DRAG_THRESHOLD) boardPress.moved = true;
-      if (boardPress.moved) (deep.shown ? deep : tactics).pan(e.clientX - boardPress.lx, e.clientY - boardPress.ly);
+      if (boardPress.moved) (under.shown ? under : deep.shown ? deep : tactics).pan(e.clientX - boardPress.lx, e.clientY - boardPress.ly);
       boardPress.lx = e.clientX;
       boardPress.ly = e.clientY;
       return;
@@ -1633,16 +1646,19 @@ async function start(): Promise<void> {
     // (the Deep looked into: the same, unless a fight, battle or mine has the screen)
     const below = watched || next.battle || inMine || next.tactics ? null : next.deepView;
     deep.update(below);
+    // (the Underdark looked into: the same, unless the Deep has it)
+    const caves = watched || next.battle || inMine || below || next.tactics ? null : next.underView;
+    under.update(caves, next);
     // (a portal looked through: the same again)
-    const beyond = watched || next.battle || inMine || below || next.tactics ? null : next.portalView;
+    const beyond = watched || next.battle || inMine || below || caves || next.tactics ? null : next.portalView;
     portal.update(beyond);
     // (inside a building: the same again)
-    const within = watched || next.battle || inMine || below || beyond || next.tactics ? null : next.interior;
+    const within = watched || next.battle || inMine || below || caves || beyond || next.tactics ? null : next.interior;
     interior.update(within, next.people);
     tactics.update(next);
     // (a scene is offered only while nothing else has the screen: a battle, a watched fight, a question)
-    cutscene.update(next.scene, next.era, awayCard.open || !!(next.battle || next.raid || watched || inMine || below || beyond || within || next.tactics || next.prompts.length));
-    map.root.visible = !watched && !inMine && !below && !beyond && !within && !next.tactics && !cutscene.shown;
+    cutscene.update(next.scene, next.era, awayCard.open || !!(next.battle || next.raid || watched || inMine || below || caves || beyond || within || next.tactics || next.prompts.length));
+    map.root.visible = !watched && !inMine && !below && !caves && !beyond && !within && !next.tactics && !cutscene.shown;
     showNotices(next);
     // (the town's sounds: blows, spells, coins, bells... when the sound is on and the town is on screen)
     if (view.music && !view.hidden) {
@@ -2179,6 +2195,11 @@ async function start(): Promise<void> {
       deep.resize(app.screen.width, app.screen.height, DEEP_TOP, sideways ? 0 : DEEP_BOTTOM, sideways ? DEEP_SIDE : 0);
       deep.render(performance.now(), ticker.deltaMS / 1000);
     }
+    if (under.shown) {
+      const sideways = app.screen.width > app.screen.height;
+      under.resize(app.screen.width, app.screen.height, DEEP_TOP, sideways ? 0 : DEEP_BOTTOM, sideways ? DEEP_SIDE : 0);
+      under.render(performance.now(), ticker.deltaMS / 1000);
+    }
     if (cutscene.shown) {
       cutscene.resize(app.screen.width, app.screen.height);
       cutscene.render(performance.now(), ticker.deltaMS / 1000);
@@ -2189,7 +2210,7 @@ async function start(): Promise<void> {
       if (selected) showActions();
     }
     if (selectedPerson !== null) showPersonCard(); // follow them as they walk
-    app.ticker.maxFPS = interactive || moving || battle.shown || fight.shown || mine.shown || deep.shown || tactics.shown ? FPS_ACTIVE : FPS_IDLE;
+    app.ticker.maxFPS = interactive || moving || battle.shown || fight.shown || mine.shown || deep.shown || under.shown || tactics.shown ? FPS_ACTIVE : FPS_IDLE;
   });
 }
 

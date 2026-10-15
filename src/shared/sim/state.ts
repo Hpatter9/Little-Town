@@ -3,6 +3,7 @@ import type { FestivalLogEntry, FestivalRun } from './festivals';
 import type { CultureState } from './culture';
 import type { CalamityState } from './calamity';
 import type { DeepState } from './deep';
+import type { Underdark } from './underdark';
 import type { Portal } from './portals';
 import type { RealmId } from '../data/portals';
 import type { SceneRun } from './cutscenes';
@@ -1329,6 +1330,9 @@ export interface GameState {
   /** The Deep under the town (sim/deep.ts), once a shaft is sunk; and the level the player is looking at, if any. */
   deep?: DeepState;
   watchingDeep?: number;
+  /** The Underdark under the town's land (sim/underdark.ts), and whether its view is open. */
+  underdark?: Underdark;
+  watchingUnder?: boolean;
   /** The building the player is looking into (sim/interiors.ts). */
   lookingInside?: number;
   /** Everyone with kin, living and dead (sim/lineage.ts): the family trees. */

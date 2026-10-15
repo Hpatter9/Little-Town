@@ -174,6 +174,7 @@ import type { Destination } from '../data/expeditions';
 import { ALL_LORD_SPELLS } from '../data/rivals';
 import { DEEP_H, DEEP_LEVELS, DEEP_W, OPEN_AFTER, RISE_AT, SHAFT } from '../data/deep';
 import { deepFarms, shaftOf } from './deep';
+import { underDestinations, underSummary, underView, type UnderSummary, type UnderView } from './underdark';
 
 const spellName = (spell: string): string => {
   const [side, id] = spell.split(':');
@@ -621,6 +622,8 @@ export interface DeepView {
   finds: string[];
   /** The miners on this level: at their cell (digging) or on their way down the shaft. */
   miners: { id: number; name: string; look: Look; gear: Partial<Record<Slot, string>>; cell: number | null; digging: boolean; work: number }[];
+  /** Whether the Underdark lies below (its view a tap away: sim/underdark.ts). */
+  under?: boolean;
 }
 
 function deepMiners(s: GameState): Person[] {
@@ -665,6 +668,7 @@ function deepView(s: GameState): DeepView | null {
     levels: d.levels.map((q) => ({ depth: q.depth, name: DEEP_LEVELS[q.depth - 1].name })),
     stir: Math.min(1, d.stir / RISE_AT),
     finds: d.finds.slice(-4),
+    under: !!s.underdark,
     miners: deepMiners(s)
       .filter((q) => q.task?.type === 'mine' && (q.task.depth ?? 1) === l.depth)
       .map((q) => {
@@ -970,6 +974,9 @@ export interface Snapshot {
   deep: DeepSummary | null;
   /** The level of the Deep the player is looking at (`watchDeep`), drawn by renderer/deep/deepView.ts. */
   deepView: DeepView | null;
+  /** The Underdark (sim/underdark.ts): what the menus show, and its view while it's watched. */
+  underdark: UnderSummary | null;
+  underView: UnderView | null;
   /** Other worlds opened (sim/portals.ts), and the one looked into (`watchPortal`, renderer/portal/portalView.ts). */
   portals: PortalSummary[];
   portalView: PortalView | null;
@@ -1261,7 +1268,7 @@ export function snapshot(s: GameState): Snapshot {
       : null,
     housing: { beds: housingCapacity(s), people: s.people.length },
     expeditions: s.expeditions.map((e) => expeditionView(s, e)),
-    destinations: [...DESTINATIONS, ...placeDestinations(s), ...packDestinations(s), ...sagaDestinations(s), ...huntDestinations(s), ...dragonDestinations(s), ...heartDestinations(s), ...enemyDestinations(s), ...villageDestinations(s), ...portalDestinations(s)].map((d) => ({
+    destinations: [...DESTINATIONS, ...placeDestinations(s), ...packDestinations(s), ...sagaDestinations(s), ...huntDestinations(s), ...dragonDestinations(s), ...heartDestinations(s), ...enemyDestinations(s), ...villageDestinations(s), ...portalDestinations(s), ...underDestinations(s)].map((d) => ({
       id: d.id,
       unlocked: destinationUnlocked(s, d),
       scouted: s.scouted.includes(d.id),
@@ -1364,6 +1371,8 @@ export function snapshot(s: GameState): Snapshot {
     mine: mineView(s),
     deep: deepSummary(s),
     deepView: deepView(s),
+    underdark: underSummary(s),
+    underView: underView(s),
     portals: portalSummaries(s),
     portalView: portalView(s),
     interior: interiorView(s, (p) => describe(s, p)),

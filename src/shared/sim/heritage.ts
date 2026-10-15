@@ -11,6 +11,7 @@ import { answerFoundry, foundryView, type FoundryView } from './foundry';
 import { frontierView, type FrontierView } from './frontier';
 import { bloodView, type BloodView } from './vampires';
 import { answerHorde, hordeView, type HordeView } from './warpath';
+import { answerUnder } from './underdark';
 import type { GameState, Prompt } from './state';
 
 export interface HeritageView {
@@ -40,6 +41,8 @@ export function answerWays(s: GameState, prompt: Prompt, option: number, rng: Rn
       return answerFoundry(s, prompt, option, rng);
     case 'horde':
       return answerHorde(s, prompt, option);
+    case 'underdark':
+      return answerUnder(s, prompt, option); // (a cave town's envoy: sim/underdark.ts)
     case 'legacy':
       return answerLegacy(s, prompt, option); // (a spirit of the line: sim/ancestors.ts)
   }

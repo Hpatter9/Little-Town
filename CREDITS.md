@@ -102,6 +102,16 @@ are from **Craftpix.net**'s free Top-Down Pixel Art Cave Objects pack; the shaft
 Village Tileset's rack and barrel, and the tunnels' torches the 2D Top-Down Pixel Dungeon pack's fire animation
 (`art/delve/fires.png`). https://craftpix.net, free licence.
 
+## The Underdark (the caves under the land)
+
+The Underdark's view (`src/renderer/art/under/`): its solid rock is cut from the **[FREE] Mine Tileset** (Mine
+Tileset +PLUS Pack, 32px starter pack) by **P.A.R-T** (Atomic Realm, itch.io; use in projects allowed, no
+redistribution); the floor tile, the water (burning orange for the magma) and the ladder down at the town's ways down
+from **Craftpix.net**'s free 2D Top-Down Pixel Dungeon pack (`walls_floor.png`, `Water_coasts_animation.png`,
+`Objects.png`); the cave towns' dwellings are the free Top-Down Pixel Art Cave Objects pack's buildings (dark shadow),
+and its mushrooms, crystals, ruins, boulders and bonfire are the Deep's (above). Behind it all, the free Crystal Cave
+Pixel Art Backgrounds (`backdrops/crystal_2.webp`). https://craftpix.net, free licence.
+
 ## Craftpix top-down objects (the raid map's scenery)
 
 The trees, bushes, rocks, mushrooms, crystals, bones, idols, corals and shells scattered over the raid's battle map

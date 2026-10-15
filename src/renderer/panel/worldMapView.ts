@@ -54,9 +54,9 @@ export class WorldMapView {
     this.el.append(this.svg, this.marks);
   }
 
-  update(dests: MapDestination[], picked: string | null, parties: ExpeditionView[], known: string[], holds: MapHold[] = [], world?: Snapshot['world'], sea?: MapSea, enemy: GreatEnemyView | null = null): void {
+  update(dests: MapDestination[], picked: string | null, parties: ExpeditionView[], known: string[], holds: MapHold[] = [], world?: Snapshot['world'], sea?: MapSea, enemy: GreatEnemyView | null = null, caves: { name: string; kind: string; stance: string }[] = []): void {
     const foe = enemy && [enemy.stage, enemy.seatKnown, enemy.seatOpen, enemy.spread, enemy.lieutenants.map((l) => [l.slain, l.dest])];
-    const key = JSON.stringify([dests, picked, parties.map((e) => [e.id, e.dest, Math.round(tripProgress(e) * 200), e.phase]), known, holds, world?.feuds, world?.routes, world?.posts, world?.marches.map((m) => [m.kind, m.label, Math.round(m.t * 100)]), sea, foe]);
+    const key = JSON.stringify([dests, picked, parties.map((e) => [e.id, e.dest, Math.round(tripProgress(e) * 200), e.phase]), known, holds, world?.feuds, world?.routes, world?.posts, world?.marches.map((m) => [m.kind, m.label, Math.round(m.t * 100)]), sea, foe, caves]);
     if (key === this.key) return;
     this.key = key;
     this.svg.replaceChildren();
@@ -201,6 +201,17 @@ export class WorldMapView {
       if (l.dest) m.addEventListener('click', () => this.onPick(l.dest!));
       this.marks.append(m);
     }
+
+    // the cave towns of the Underdark (sim/underdark.ts), under the town's own land: marked round home, below it
+    caves.forEach((c, i) => {
+      const at = { x: MAP_HOME.x + (i - (caves.length - 1) / 2) * 46, y: MAP_HOME.y + 40 };
+      const stance = c.stance === 'war' ? 'war' : c.stance === 'friend' ? 'trade' : c.stance === 'fallen' ? 'destroyed' : 'neutral';
+      const m = el('button', `map-hold cave ${stance}`, c.stance === 'fallen' ? '✕' : '◓');
+      m.title = `${c.name}, ${c.kind}, in the Underdark below the town: ${c.stance === 'friend' ? 'friends' : c.stance === 'war' ? 'at war' : c.stance === 'fallen' ? 'fallen' : 'at peace'}`;
+      m.setAttribute('aria-label', m.title);
+      place(m, at);
+      this.marks.append(m, label(c.name.replace(/^the /, ''), { x: at.x, y: at.y + 14 }, 'cave'));
+    });
 
     const home = el('div', 'map-home');
     place(home, MAP_HOME);
