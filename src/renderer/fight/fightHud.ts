@@ -267,19 +267,26 @@ export function createFightHud(on: { back(): void }): FightHud {
       // foes: each kind once, how many are left, and how near the next of them is to acting
       const foeRows: HTMLElement[] = [];
       for (const [n, k] of left) {
-        const row = line('', k > 1 ? `${n} ×${k}` : n);
-        const soon = Math.max(...fight.filter((f) => f.side === 'enemy' && !f.down && f.name === n).map((f) => f.atb));
-        const gauge = document.createElement('span');
-        gauge.className = 'ff-turn foe';
-        const fill = document.createElement('i');
-        fill.style.width = `${Math.round(soon * 100)}%`;
-        if (soon >= 0.99) fill.className = 'full';
-        gauge.append(fill);
-        row.append(gauge);
+        const kin = fight.filter((f) => f.side === 'enemy' && !f.down && f.name === n);
+        const row = document.createElement('div');
+        row.className = 'ff-row ff-foe';
+        const head = document.createElement('div');
+        head.className = 'ff-head';
+        const name = document.createElement('span');
+        name.className = 'ff-name';
+        name.textContent = k > 1 ? `${n} ×${k}` : n;
+        // how near the next of them is to acting
+        const soon = Math.max(...kin.map((f) => f.atb));
+        head.append(name, turnGauge(soon, true, 'Next turn'));
+        // their life: what's left of the kind's health, over what it began with (all of a band's together)
+        const hp = kin.reduce((a, f) => a + Math.max(0, f.hp), 0);
+        const max = kin.reduce((a, f) => a + f.maxHp, 0);
+        row.append(head, meter('hp foe', hp / Math.max(1, max), '', `${Math.round(hp)}/${Math.round(max)}`, k > 1 ? `Life left, all ${k} together` : 'Life left'));
         foeRows.push(row);
       }
       // (an assault: which wave this is)
       if (v.assault && v.assault.wave > 0) foeRows.unshift(line('ff-wave', `Wave ${v.assault.wave} of ${v.assault.total}`));
+      foes.classList.toggle('crowd', left.size > 3);
       foes.replaceChildren(...(foeRows.length ? foeRows : [line('ff-dim', 'Beaten!')]));
       party.classList.toggle('many', fight.filter((f) => f.side === 'party').length > 6);
       party.replaceChildren(
@@ -294,44 +301,70 @@ export function createFightHud(on: { back(): void }): FightHud {
             name.className = 'ff-name';
             name.textContent = f.name;
             if (f.clsName) name.title = `${f.clsName} · Lv ${f.level ?? 1}`;
-            const hp = document.createElement('span');
-            hp.className = 'ff-hp';
-            hp.textContent = `${Math.max(0, Math.round(f.hp))}/${Math.round(f.maxHp)}`;
-            head.append(name, hp);
-            // the turn gauge: fills as their turn comes round (the quick fill faster), lit when it's full
-            const under = document.createElement('div');
-            under.className = 'ff-under';
-            const gauge = document.createElement('span');
-            gauge.className = 'ff-turn';
-            gauge.title = 'Their next turn';
-            const fill = document.createElement('i');
-            fill.style.width = `${Math.round((f.down ? 0 : f.atb) * 100)}%`;
-            if (f.atb >= 0.99 && !f.down) fill.className = 'full';
-            gauge.append(fill);
-            under.append(gauge);
-            row.append(head, under);
-            // mana, stamina and the limit gauge (a person's)
+            head.append(name, turnGauge(f.down ? 0 : f.atb, !f.down, 'Their next turn'));
+            row.append(head, meter('hp', f.down ? 0 : f.hp / Math.max(1, f.maxHp), 'HP', `${Math.max(0, Math.round(f.hp))}/${Math.round(f.maxHp)}`, 'Health'));
+            // mana, stamina and the limit gauge (a person's), each named
             if (f.maxMp !== null && f.maxSp !== null) {
-              const pools = document.createElement('span');
+              const pools = document.createElement('div');
               pools.className = 'ff-pools';
-              const bar = (cls: string, share: number, title: string) => {
-                const b = document.createElement('span');
-                b.className = `ff-bar ${cls}`;
-                b.title = title;
-                const i = document.createElement('i');
-                i.style.width = `${Math.round(Math.max(0, Math.min(1, share)) * 100)}%`;
-                if (cls === 'limit' && share >= 1) i.className = 'full';
-                b.append(i);
-                return b;
-              };
-              pools.append(bar('mp', (f.mp ?? 0) / Math.max(1, f.maxMp), `MP ${Math.round(f.mp ?? 0)}/${f.maxMp}`), bar('sp', (f.sp ?? 0) / Math.max(1, f.maxSp), `SP ${Math.round(f.sp ?? 0)}/${f.maxSp}`), bar('limit', f.limit ?? 0, `Limit ${Math.round((f.limit ?? 0) * 100)}%`));
-              under.append(pools);
+              pools.append(
+                meter('mp', (f.mp ?? 0) / Math.max(1, f.maxMp), 'MP', '', `Mana ${Math.round(f.mp ?? 0)}/${f.maxMp}`),
+                meter('sp', (f.sp ?? 0) / Math.max(1, f.maxSp), 'SP', '', `Stamina ${Math.round(f.sp ?? 0)}/${f.maxSp}`),
+                meter('limit', f.limit ?? 0, 'Limit', '', `Limit ${Math.round((f.limit ?? 0) * 100)}%`),
+              );
+              row.append(pools);
             }
             return row;
           }),
       );
     },
   };
+}
+
+/** A short turn gauge, named "Turn" (it fills as their next turn comes round; lit when full). */
+function turnGauge(share: number, live: boolean, title: string): HTMLElement {
+  const g = document.createElement('span');
+  g.className = 'ff-turnwrap';
+  g.title = title;
+  const lab = document.createElement('span');
+  lab.className = 'ff-lab';
+  lab.textContent = 'Turn';
+  const bar = document.createElement('span');
+  bar.className = 'ff-turn';
+  const fill = document.createElement('i');
+  fill.style.width = `${Math.round(Math.max(0, Math.min(1, share)) * 100)}%`;
+  if (live && share >= 0.99) fill.className = 'full';
+  bar.append(fill);
+  g.append(lab, bar);
+  return g;
+}
+
+/** A labelled meter: a name on the left (when given), the bar, and its numbers over it (when given). */
+function meter(cls: string, share: number, label: string, nums: string, title: string): HTMLElement {
+  const m = document.createElement('div');
+  m.className = `ff-meter ${cls}`;
+  m.title = title;
+  if (label) {
+    const lab = document.createElement('span');
+    lab.className = 'ff-lab';
+    lab.textContent = label;
+    m.append(lab);
+  }
+  const bar = document.createElement('span');
+  bar.className = 'ff-gauge';
+  const fill = document.createElement('i');
+  const s = Math.max(0, Math.min(1, share));
+  fill.style.width = `${Math.round(s * 100)}%`;
+  if (cls === 'limit' && s >= 1) fill.className = 'full';
+  if (cls.startsWith('hp') && s < 0.25) fill.classList.add('low');
+  bar.append(fill);
+  if (nums) {
+    const n = document.createElement('b');
+    n.textContent = nums;
+    bar.append(n);
+  }
+  m.append(bar);
+  return m;
 }
 
 function line(cls: string, text: string): HTMLElement {

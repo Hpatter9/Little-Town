@@ -21,6 +21,7 @@ import { postHunt } from '../../shared/sim/hunts';
 import { startRaid } from '../../shared/sim/raids';
 import { RAID_KIND_BY_ID } from '../../shared/data/raids';
 import { Rng } from '../../shared/rng';
+import { spawnRoamerAt, startSkirmish } from '../../shared/sim/roamers';
 
 const SAVE_KEY = 'littletown.save';
 const BACKUP_KEY = 'littletown.backup';
@@ -134,7 +135,7 @@ export function mobileBridge(): Bridge {
   });
   window.addEventListener('pagehide', saveNow);
   // (for poking at it from a desktop browser's console; `__saga(id)` begins a saga, `__hunt(id)` posts a hunt and `__raid(kind)` starts a raid, for previews)
-  Object.assign(window, { __game: game, __saga: (id: string) => beginSaga(stateOf(), id), __hunt: (id: string) => postHunt(stateOf(), new Rng(1), id), __raid: (kind: string, budget = 60) => startRaid(stateOf(), RAID_KIND_BY_ID[kind], budget, new Rng(2)), __disaster: (kind: DisasterKind) => startDisaster(stateOf(), kind), __dragon: (kind?: string) => summonDragon(stateOf(), kind), __band: (kind: BandKind) => spawnBand(stateOf(), new Rng(4), kind), __cutscene: (id: string, vars: Record<string, string> = {}, foes: Record<string, string> = {}) => queueScene(stateOf(), id, { vars, foes }) });
+  Object.assign(window, { __game: game, __saga: (id: string) => beginSaga(stateOf(), id), __hunt: (id: string) => postHunt(stateOf(), new Rng(1), id), __raid: (kind: string, budget = 60) => startRaid(stateOf(), RAID_KIND_BY_ID[kind], budget, new Rng(2)), __skirmish: (group: Record<string, number> = { wolf: 3, wolf_alpha: 1 }) => { const s = stateOf(); const p = s.people[0]; for (let d = 3; d < 40; d++) { const at = { x: p.x + d * 16, y: p.y + (d % 5) * 16 }; const r = spawnRoamerAt(s, group, at, at, {}, 4); if (r) { const k = startSkirmish(s, r, p); s.watching = k.id; return k.id; } } return null; }, __disaster: (kind: DisasterKind) => startDisaster(stateOf(), kind), __dragon: (kind?: string) => summonDragon(stateOf(), kind), __band: (kind: BandKind) => spawnBand(stateOf(), new Rng(4), kind), __cutscene: (id: string, vars: Record<string, string> = {}, foes: Record<string, string> = {}) => queueScene(stateOf(), id, { vars, foes }) });
   function stateOf(): GameState {
     return (game as unknown as { sim: { state: GameState } }).sim.state;
   }
