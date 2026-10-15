@@ -25,6 +25,10 @@ type CastleState = Pick<GameState, 'land' | 'nomad' | 'buildings' | 'origin'>;
  *  dwarves), or none. */
 export type Hold = 'castle' | 'mountain';
 export const holdOf = (s: Pick<GameState, 'origin'>): Hold | null => (rulesOf(s).castle ? 'castle' : rulesOf(s).hold === 'mountain' ? 'mountain' : null);
+/** A mountain hold's hallway (data/buildings.ts `HOLD_HALLWAY`): a room that is only a passage. */
+export const HALLWAY = 'hold_hallway';
+export const isHallway = (b: Pick<{ def: string }, 'def'>) => b.def === HALLWAY;
+
 export const castleOn = (s: Pick<GameState, 'origin'>) => holdOf(s) !== null;
 
 /** Whether a kind of building goes into the castle, as a room. */
@@ -281,7 +285,7 @@ function sideGates(s: CastleState, region: Map<number, number>, main: CastleGate
 
 /** The doorway between each pair of regions: one in the middle of the longest straight run of wall they share. The map
  *  draws the same ones (map/castleArt.ts), so the doorways people walk through are the ones they see. */
-export function doorsOf(region: Map<number, number>, w: number): Set<string> {
+export function doorsOf(region: Map<number, number>, w: number, skip?: (a: number, b: number) => boolean): Set<string> {
   const at = (x: number, y: number) => (x < 0 || y < 0 || x >= w ? undefined : region.get(y * w + x));
   const shared = new Map<string, { h: boolean; cells: { x: number; y: number }[] }>();
   for (const [i, id] of region) {
@@ -291,7 +295,7 @@ export function doorsOf(region: Map<number, number>, w: number): Set<string> {
       [at(x, y - 1), true],
       [at(x - 1, y), false],
     ] as const) {
-      if (n === undefined || n === id) continue;
+      if (n === undefined || n === id || skip?.(id, n)) continue;
       const key = `${Math.min(id, n)}|${Math.max(id, n)}|${h ? 'h' : 'v'}`;
       let s = shared.get(key);
       if (!s) shared.set(key, (s = { h, cells: [] }));
@@ -324,6 +328,29 @@ export function galleryCells(s: CastleState): number[] {
   const out: number[] = [];
   for (let i = 0; i < s.land.cells.length; i++) if (s.land.cells[i] === 'H' && !solid.has(i)) out.push(i);
   return out;
+}
+
+/** The hold's passages: the entrance hall's cells and every hallway's (built or being cut), which its newer rooms open off. */
+export function hallCells(s: CastleState): Set<number> {
+  const m = s.land;
+  const out = new Set<number>();
+  const add = (r: Rect) => {
+    for (let y = r.y; y < r.y + r.h; y++) for (let x = r.x; x < r.x + r.w; x++) if (inMap(m, x, y)) out.add(idx(m, x, y));
+  };
+  add(coreRect(s));
+  for (const b of s.buildings) if (b.room && isHallway(b)) add(footprint(b));
+  return out;
+}
+
+/** In a hold, no doorway between two rooms when one is laid under the hallway rule: it opens onto a hallway (or the
+ *  hall, or a gallery), never into another room's interior. */
+function offHall(s: CastleState, rs: CastleState['buildings']): ((a: number, b: number) => boolean) | undefined {
+  if (holdOf(s) !== 'mountain') return undefined;
+  const halls = new Set(rs.filter(isHallway).map((b) => b.id));
+  const halled = new Set(rs.filter((b) => b.halled).map((b) => b.id));
+  if (!halled.size) return undefined;
+  const hallLike = (id: number) => id < 0 || halls.has(id);
+  return (a, b) => (halled.has(a) || halled.has(b)) && !hallLike(a) && !hallLike(b);
 }
 
 const layouts = new WeakMap<object, { key: string; tick: number; layout: CastleLayout }>();
@@ -372,7 +399,7 @@ export function castleLayout(s: CastleState): CastleLayout | null {
   }
   const g = castleGate(s);
   const main: CastleGate = { inside: { x: g.x, y: g.y - 1 }, outside: g, side: 's' };
-  const layout: CastleLayout = { region, doors: doorsOf(region, m.w), gateOut: idx(m, g.x, g.y), gateIn: idx(m, g.x, g.y - 1), gates: [main, ...sideGates(s, region, main)] };
+  const layout: CastleLayout = { region, doors: doorsOf(region, m.w, offHall(s, rs)), gateOut: idx(m, g.x, g.y), gateIn: idx(m, g.x, g.y - 1), gates: [main, ...sideGates(s, region, main)] };
   layouts.set(s, { key, tick, layout });
   return layout;
 }

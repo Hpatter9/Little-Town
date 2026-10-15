@@ -90,6 +90,8 @@ export interface Building {
   row: number;
   /** A room of a castle (sim/castle.ts: inside the keep). */
   room?: boolean;
+  /** A hold's room laid under the hallway rule (opens off a hallway only: sim/castle.ts `hallCells`). Older rooms lack it. */
+  halled?: boolean;
   /** A blueprint is waiting for materials or being built; progress > 0 once work has started. */
   status: 'blueprint' | 'done';
   /** Materials hauled to the site so far. */

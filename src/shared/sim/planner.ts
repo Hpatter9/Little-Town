@@ -29,7 +29,7 @@ import { TRAINING_BUILDINGS, WAR_PEOPLE } from '../data/training';
 const TRAINING_IDS = new Set(TRAINING_BUILDINGS.map((d) => d.id));
 import { isGrate, isRingPiece, planRing, ringWants, RING_PEOPLE } from './ringWall';
 import { inSea, seaBuild, seaTown } from './sea';
-import { castleCells, castleOn, holdOf, joinsCastle, nearCastle, roomKind, sharedEdges, solidCells } from './castle';
+import { castleCells, castleOn, coreRect, hallCells, HALLWAY, holdOf, isHallway, joinsCastle, nearCastle, roomKind, sharedEdges, solidCells } from './castle';
 import { BUILDINGS, BUILDING_BY_ID, UPGRADES, type BuildingDef } from '../data/buildings';
 import { isSeat, seatId, seatOf } from '../data/seats';
 import { pinned, tendPins } from './pins';
@@ -44,7 +44,7 @@ import { MATERIAL_NAMES, MATERIALS, type Material, type Stock , SEA_MATERIALS } 
 import { FOOD_VALUE } from '../data/people';
 import { RESEARCH_STATIONS, TOPICS, type Topic } from '../data/research';
 import { TERRAIN } from '../data/terrain';
-import { blueprintCount, buildSlots, canPlace, canUpgrade, demolish, depthOf, footprints, isUnlocked, placeBlueprint, stillNeeded, storages, totalCapacity, totalStock, townRadius, unlockInfo, upgrade, inWork, overgrownCells, refreshOvergrown } from './buildings';
+import { blueprintCount, buildSlots, canPlace, canUpgrade, demolish, depthOf, footprint, footprints, isUnlocked, placeBlueprint, stillNeeded, storages, totalCapacity, totalStock, townRadius, unlockInfo, upgrade, inWork, overgrownCells, refreshOvergrown } from './buildings';
 import { buildable, wet, setGround, type Rect, touchesWater, type Pt, delveDepth, delvePool, doorOf, groundAt, idx, inMap, isMarked, isOpen, roadDistance, setMarked, spiralSpot } from './land';
 import { openGround } from '../data/biomes';
 import { craftNeeded, craftSlots, itemUnlocked, queueCraft, reduceCraft, stationFor } from './crafting';
@@ -697,7 +697,9 @@ export function findSpot(s: GameState, def: BuildingDef): (Pt & { wild?: true })
 /** Where a castle's next room goes: built on to the castle, as near the hall as may be, the snuggest spot of a ring
  *  first (the more of its walls it shares, the more compact the castle stays). */
 function roomSpot(s: GameState, def: BuildingDef): Pt | null {
-  const cells = castleCells(s);
+  // (a mountain hold's rooms open off its hallways and the entrance hall, never off one another)
+  // (an older hold walled in on every side, with no hallway to be cut, still grows off any of its rooms)
+  const cells = holdOf(s) === 'mountain' && (s.buildings.some(isHallway) || hallSpot(s)) ? hallCells(s) : castleCells(s);
   const solid = solidCells(s);
   const r = spiralSpot(s.land, def.width, depthOf(def), footprints(s), campCell(s), {
     maxR: 40,
@@ -709,6 +711,64 @@ function roomSpot(s: GameState, def: BuildingDef): Pt | null {
   });
   if (!r) return null;
   return canPlace(s, def, r.x, r.y).ok ? { x: r.x, y: r.y } : null;
+}
+
+/** Where a mountain hold's next hallway is cut: the main hallway runs north into the rock from the entrance hall, a few
+ *  lengths deep; then side halls branch off it east and west, and off one another when the trunk is full. A hallway
+ *  shares at least two cell edges with the hall or an earlier hallway. */
+export function hallSpot(s: GameState): { x: number; y: number; turned: boolean } | null {
+  const key = `${s.buildings.length}|${s.land.version}|${s.land.open}`;
+  const hit = hallSpots.get(s);
+  if (hit && hit.key === key) return hit.at;
+  const at = findHallSpot(s);
+  hallSpots.set(s, { key, at });
+  return at;
+}
+const hallSpots = new WeakMap<object, { key: string; at: { x: number; y: number; turned: boolean } | null }>();
+function findHallSpot(s: GameState): { x: number; y: number; turned: boolean } | null {
+  const def = BUILDING_BY_ID[HALLWAY];
+  const core = coreRect(s);
+  const cells = hallCells(s);
+  const solid = solidCells(s);
+  const halls = s.buildings.filter((b) => isHallway(b) && b.room);
+  const trunk = halls.filter((b) => !b.turned && footprint(b).x === core.x + Math.floor(core.w / 2) - 1);
+  const tipY = trunk.length ? Math.min(...trunk.map((b) => footprint(b).y)) : core.y;
+  const mid = core.x + Math.floor(core.w / 2) - 1;
+  const camp = campCell(s);
+  let best: { x: number; y: number; turned: boolean; score: number } | null = null;
+  // (a hold whose north side is taken already, an older save's, branches off the hall wherever it can)
+  const trunkOpen = halls.length > 0 || canPlace(s, def, mid, core.y - depthOf(def)).ok;
+  for (const turned of [false, true]) {
+    const w = turned ? depthOf(def) : def.width;
+    const h = turned ? def.width : depthOf(def);
+    for (let y = core.y - 40; y <= core.y + core.h; y++)
+      for (let x = core.x - 30; x <= core.x + core.w + 30; x++) {
+        const r = { x, y, w, h };
+        if (sharedEdges(cells, s.land, r, solid) < 2) continue;
+        let cat = 3;
+        if (!turned && !trunk.length && x === mid && y + h === core.y) cat = 0;
+        else if (!turned && trunk.length && core.y - tipY < 18 && x === mid && y + h === tipY) cat = 1;
+        else if (turned && trunk.length) cat = 2;
+        if (!halls.length && cat !== 0 && trunkOpen) continue;
+        const score = cat * 10000 + Math.hypot(x + w / 2 - camp.x, y + h / 2 - camp.y) * 10 + (x + y) * 0.001;
+        if (best && score >= best.score) continue;
+        if (canPlace(s, def, x, y, undefined, turned).ok) best = { x, y, turned, score };
+      }
+  }
+  return best ? { x: best.x, y: best.y, turned: best.turned } : null;
+}
+
+/** A mountain hold cuts a hallway: the main one once it has a couple of rooms, and another whenever a room finds no hallway
+ *  frontage (`wanted`). One at a time. */
+function tryHall(s: GameState, n: Needs, wanted: boolean): void {
+  if (holdOf(s) !== 'mountain' || !s.autopilot) return;
+  const def = BUILDING_BY_ID[HALLWAY];
+  if (!def || s.buildings.some((b) => isHallway(b) && b.status === 'blueprint')) return;
+  const built = s.buildings.some((b) => isHallway(b));
+  if (!wanted && built) return;
+  if (blueprintCount(s) >= buildSlots(s) || !affordable(s, def, n.stock)) return;
+  const at = hallSpot(s);
+  if (at) placeBlueprint(s, HALLWAY, at.x, at.y, at.turned);
 }
 
 const isWall = (d: BuildingDef | undefined) => !!d && !!d.hp && d.width === 1 && !d.defense;
@@ -1059,9 +1119,12 @@ function planBuilding(s: GameState, n: Needs, plan: TownPlan): number[] {
     if (!affordable(s, def, n.stock)) continue;
     let at: Pt | null;
     if (roomKind(s, def)) {
-      // (a castle town builds it on to the castle, or clears the land beside the castle for it)
-      at = roomSpot(s, def);
+      // (a castle town builds it on to the castle, or clears the land beside the castle for it; a hold with no hallway
+      // frontage left cuts another hallway first)
+      if (def.id !== HALLWAY) tryHall(s, n, false);
+      at = def.id === HALLWAY ? null : roomSpot(s, def);
       if (!at) {
+        if (def.id !== HALLWAY) tryHall(s, n, true);
         blocked ??= def;
         continue;
       }

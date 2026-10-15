@@ -27,7 +27,8 @@ import { weathered } from '../art/weathered';
 import { sunAt, type Sun } from '../art/sun';
 import { ageStage, damageStage, SCORCH_DAYS, wearKey, type Wear } from '../art/wear';
 import { TICKS_PER_DAY } from '../../shared/sim/time';
-import { mixHex, noTone, type PixelArt, type Tone } from '../art/pixelArt';
+import { mixHex, noTone, paint, type PixelArt, type Tone } from '../art/pixelArt';
+import { HALLWAY } from '../../shared/sim/castle';
 import { PROP_FINE, autumnTextures, propTextures, type PropSet } from '../art/props';
 import propKinds from '../art/propKinds.json';
 import { loadTdTiles, tdTiles } from '../art/tdTiles';
@@ -900,11 +901,13 @@ export class MapView {
 
   /* ------------------------------------------------------------ buildings */
 
+  private hallBare: PixelArt | null = null;
   private art(b: Building): PixelArt {
     if (b.def === 'campfire') return (campfirePack() ?? this.fire)[0];
     const f = footprint(b);
     if (isPlot(b.def)) return fieldArt(b.def, f.w, f.h, cropLook(b), this.tone, this.toneKey, cropDone(b));
     // (a castle's room: its furnishings, on the castle's floor: map/castleArt.ts)
+    if (b.room && b.def === HALLWAY) return (this.hallBare ??= paint(2, 2, noTone, () => {}, 0)); // (a hallway is bare floor: the dungeon pack's flagstones, castleArt.ts)
     if (b.room) return roomFurniture(BUILDING_BY_ID[b.def], f.w, b.id, this.tone, this.toneKey, this.style) ?? topDownArt(b.def, f.w, f.h, this.tone, this.toneKey, this.style);
     // (the seat of the town: laid together from the packs by origin and stage, map/seatPacks.ts; the painted one,
     // art/seatArt.ts, while its sprites load)

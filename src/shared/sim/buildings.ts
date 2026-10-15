@@ -6,7 +6,7 @@
 import { VILLAGE_KEEP } from '../data/villages';
 import { isGate, ringWallCells, riverCell, wallOnly } from './ringWall';
 import { isSeat } from '../data/seats';
-import { castleCells, castleGate, castleOn, holdOf, joinsCastle, nearCastle, roomKind, solidCells } from './castle';
+import { hallCells, HALLWAY, castleCells, castleGate, castleOn, holdOf, joinsCastle, nearCastle, roomKind, solidCells } from './castle';
 import { seaBuild, seaTown } from './sea';
 import { BUILD_QUEUE_SLOTS, BUILDING_BY_ID, DEMOLISH_REFUND, UPGRADES, type BuildingDef } from '../data/buildings';
 import { ERA_NAMES, eraReached, type Era } from '../data/eras';
@@ -275,7 +275,7 @@ export function canPlace(s: Pick<GameState, 'land' | 'buildings' | 'origin' | 'e
   if (def.shore && !touchesWater(m, r)) return { ok: false, reason: `${def.name} stands at the water's edge` };
   if (castleOn(s)) {
     const cells = castleCells(s);
-    if (room && !joinsCastle(cells, m, r, solidCells(s))) return { ok: false, reason: 'A room is built on to the castle' };
+    if (room && !joinsCastle(holdOf(s) === 'mountain' ? hallCells(s) : cells, m, r, solidCells(s))) return { ok: false, reason: 'A room is built on to the castle' };
     // (never over the ground before the gate: a room built there once walled the castle shut)
     const g = castleGate(s);
     if (room && g.x >= r.x && g.x < r.x + r.w && g.y >= r.y && g.y < r.y + r.h + 1) return { ok: false, reason: 'The way to the gate' };
@@ -296,7 +296,7 @@ export function placeBlueprint(s: GameState, defId: string, x: number, y: number
   if (!planned && blueprintCount(s) >= buildSlots(s)) return { ok: false, reason: 'Construction queue is full' };
   const check = canPlace(s, def, x, y, undefined, turned, overWild);
   if (!check.ok) return check;
-  const b: Building = { id: s.nextId++, def: defId, tile: x, row: y, status: 'blueprint', delivered: {}, progress: 0, store: {}, ...(castleOn(s) && roomKind(s, def) ? { room: true } : {}), ...(turned ? { turned: true } : {}), ...(planned ? { planned: true } : {}) };
+  const b: Building = { id: s.nextId++, def: defId, tile: x, row: y, status: 'blueprint', delivered: {}, progress: 0, store: {}, ...(castleOn(s) && roomKind(s, def) ? { room: true, ...(holdOf(s) === 'mountain' && def.id !== HALLWAY ? { halled: true } : {}) } : {}), ...(turned ? { turned: true } : {}), ...(planned ? { planned: true } : {}) };
   s.buildings.push(b);
   if (overWild) {
     // (laid over a wood or rocks: a wild cell with nothing left on it is cleared at once; the rest wait for the axe

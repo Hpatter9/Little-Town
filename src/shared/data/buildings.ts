@@ -198,7 +198,11 @@ const BASE_BUILDINGS: readonly BuildingDef[] = [
   { id: 'town_hall', name: 'Town Hall', layer: 'mid', width: 6, cost: { bricks: 40, lumber: 30, iron: 10, cloth: 10 }, buildSeconds: 3000, purpose: 'Era capstone: the seat of the town opens the Industrial era.', research: 'town_charter', morale: [6, 'A proper town'] },
 ];
 
-export const BUILDINGS: readonly BuildingDef[] = [...BASE_BUILDINGS, ...DEFENSE_BUILDINGS, ...ORIGIN_DEFENSES, ...SEAT_DEFS, BLOOD_FARM, ...WORKSHOP_BUILDINGS, ...MINERAL_BUILDINGS, ...STORE_BUILDINGS, BOATYARD, AIRSHIP_MAST, MONSTER_GUILD, ...PRISON_BUILDINGS, ...FAITH_BUILDINGS, ...RECREATION_BUILDINGS, ...TRAINING_BUILDINGS, WARD_BUILDING, SHAFT_BUILDING, ...PORTAL_BUILDINGS, STATUE_BUILDING, RANCH_BUILDING, ARENA_BUILDING];
+/** A mountain hold's hallway (the dwarves): a passage dug into the rock, off which the rooms open. Bare floor; it houses and
+ *  makes nothing. Placed by the planner (sim/planner.ts `tryHall`), from the entrance hall inward. */
+export const HOLD_HALLWAY: BuildingDef = { id: 'hold_hallway', name: 'Hallway', layer: 'mid', width: 2, depth: 4, cost: { stone: 3 }, buildSeconds: 30, purpose: 'A passage cut into the mountain for the rooms to open off.', origin: 'dwarves' };
+
+export const BUILDINGS: readonly BuildingDef[] = [HOLD_HALLWAY, ...BASE_BUILDINGS, ...DEFENSE_BUILDINGS, ...ORIGIN_DEFENSES, ...SEAT_DEFS, BLOOD_FARM, ...WORKSHOP_BUILDINGS, ...MINERAL_BUILDINGS, ...STORE_BUILDINGS, BOATYARD, AIRSHIP_MAST, MONSTER_GUILD, ...PRISON_BUILDINGS, ...FAITH_BUILDINGS, ...RECREATION_BUILDINGS, ...TRAINING_BUILDINGS, WARD_BUILDING, SHAFT_BUILDING, ...PORTAL_BUILDINGS, STATUE_BUILDING, RANCH_BUILDING, ARENA_BUILDING];
 export const BUILDING_BY_ID: Readonly<Record<string, BuildingDef>> = Object.fromEntries(BUILDINGS.map((b) => [b.id, b]));
 
 export const LAYER_NAMES: Record<BuildLayer, string> = { fore: 'Foreground (walkway)', mid: 'Midground', back: 'Background (fields)' };
