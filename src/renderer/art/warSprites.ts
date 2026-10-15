@@ -40,6 +40,7 @@ import palisade17 from './village/palisade17.png';
 import palisade25 from './village/palisade25.png';
 import dwalls from './village/dwalls.png';
 import campfire from './fields/campfire.png';
+import pierV from './roads/pier_v.png';
 import cobble0 from './td/cobble_0.png';
 import cobble1 from './td/cobble_1.png';
 import cobble2 from './td/cobble_2.png';
@@ -123,7 +124,7 @@ export const propAspect = (set: WarPropSet, i: number) => {
 
 export const SPRITES = {
   house: suHouse, longhouse: ttLong, gable: ttGable, keep: suCastle, castle: suRoundCastle, tent: suTent, yurt: rockyYurt, tipi: rockyTipi,
-  caveGate, watchtower: suWatchtower, mine: rockyMine, altar: caveAltar, sign: villageSign, palisadeA: palisade17, palisadeB: palisade25, campfire,
+  caveGate, watchtower: suWatchtower, mine: rockyMine, altar: caveAltar, sign: villageSign, palisadeA: palisade17, palisadeB: palisade25, campfire, pier: pierV,
 } as const;
 export type SpriteId = keyof typeof SPRITES;
 /** Draw one of the pack pictures with its feet (bottom middle) at (cx, feetY), `height` px tall. False until loaded. */
