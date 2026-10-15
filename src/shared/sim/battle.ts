@@ -36,6 +36,7 @@ import { attackPerson, biteOf, defenderAttack, defenderReach, townEdgeX } from '
 import { turretsDown } from './rivals';
 import { rallied, RALLY_SPEED } from './rally';
 import { isChild } from './social';
+import { skirmishTrip } from './roamers';
 import { maxHp, notify, type Building, type GameState, type Person, type Raid, type Raider } from './state';
 import { TICK_HZ, TICKS_PER_HOUR } from './time';
 
@@ -754,6 +755,18 @@ export function battleSpeedNow(s: GameState): number {
   const b = s.raid?.battle;
   const t = s.raid?.tactics;
   return (b && b.phase !== 'done') || (t && t.phase !== 'done') ? (s.battleSpeed ?? 1) : (s.gameSpeed ?? 1);
+}
+
+/** Whether a fight is on screen: a raid's battle, a watched trip's or skirmish's fight, or the Deep or a portal being
+ *  watched (GameLoop drops the town's speed to 1x while one is open). */
+export function fightScreenOpen(s: GameState): boolean {
+  const b = s.raid?.battle;
+  const t = s.raid?.tactics;
+  if ((b && b.phase !== 'done') || (t && t.phase !== 'done')) return true;
+  if (s.watchingDeep !== undefined || s.watchingPortal !== undefined) return true;
+  if (s.watching === undefined) return false;
+  const e = s.expeditions.find((x) => x.id === s.watching) ?? skirmishTrip(s, s.watching);
+  return !!e?.battle;
 }
 
 /** The player sets auto-watch (kept for later battles): on, the town places and fights by itself. */

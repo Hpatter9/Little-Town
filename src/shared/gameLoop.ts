@@ -2,7 +2,7 @@
 // and on the phone (web) version in the page itself.
 
 import type { Command } from './sim/commands';
-import { battleSpeedNow } from './sim/battle';
+import { battleSpeedNow, fightScreenOpen } from './sim/battle';
 import { startCatchUp, type CatchUpJob, type CatchUpResult } from './sim/offline';
 import { MAX_TICKS_PER_ADVANCE, Sim } from './sim/sim';
 import { journalView, snapshot, type JournalEntryView, type Snapshot } from './sim/snapshot';
@@ -28,6 +28,8 @@ export class GameLoop {
   private timer: ReturnType<typeof setInterval> | null = null;
   /** Time away being simulated, a slice per pump. */
   private job: { job: CatchUpJob; awayMs: number; t0: number; done?: (r: CatchUpResult) => void } | null = null;
+  /** The town's speed from before a fight opened (it goes back to it when the fight ends). */
+  private speedBeforeFight = 0;
   /** Debug time multiplier (1 = real time). */
   speed = 1;
 
@@ -99,7 +101,22 @@ export class GameLoop {
       return;
     }
     // (a raid's battle can be played at 2 or 3 times: the sim simply runs that much more time)
-    const fast = this.speed * battleSpeedNow(this.sim.state);
+    // (fights always open at 1x: the town's speed and the battle's both drop, and the town's comes back after)
+    const st = this.sim.state;
+    const fighting = fightScreenOpen(st);
+    let held = false;
+    if (fighting && !this.speedBeforeFight) {
+      this.speedBeforeFight = st.gameSpeed ?? 1;
+      if ((st.gameSpeed ?? 1) !== 1 || (st.battleSpeed ?? 1) !== 1) {
+        this.sim.command({ type: 'gameSpeed', speed: 1 });
+        this.sim.command({ type: 'battleSpeed', speed: 1 });
+        held = true;
+      }
+    } else if (!fighting && this.speedBeforeFight) {
+      if (st.gameSpeed === 1 && this.speedBeforeFight !== 1) this.sim.command({ type: 'gameSpeed', speed: this.speedBeforeFight });
+      this.speedBeforeFight = 0;
+    }
+    const fast = this.speed * (held ? 1 : battleSpeedNow(st));
     const ms = (now - this.last) * fast;
     this.last = now;
     if (this.sim.advance(ms, MAX_TICKS_PER_ADVANCE * fast, FRAME_BUDGET_MS) > 0) this.onTicks(this.snapshot());
