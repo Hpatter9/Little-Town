@@ -149,7 +149,7 @@ export function easeRelief(g: Grid): void {
 /** Strew the field (columns 2 to `along - 2`, the town's wall and the raiders' edge left alone) with hills, copses,
  *  outcrops, thickets, logs, a pond and a stream, by the land's look. `share` is how much of the board the land
  *  itself makes wooded, hilly and wet (0 to 1). */
-export function layTerrain(g: Grid, along: number, rng: Rng, biome: Biome, share: { wood: number; hill: number; wet: number }): void {
+export function layTerrain(g: Grid, along: number, rng: Rng, biome: Biome, share: { wood: number; hill: number; wet: number }, water?: (g: Ground) => [number, number] | null): void {
   const look = LOOKS[biome] ?? LOOKS.forest;
   const lo = 2;
   const hi = along - 2;
@@ -157,6 +157,11 @@ export function layTerrain(g: Grid, along: number, rng: Rng, biome: Biome, share
   const used = new Set<number>();
   const free = (t: TacTile | null) => !!t && ROLLING.has(t.g) && !t.road && !t.block && t.trap === undefined && !t.hill && !t.log;
   const mark = (u: number, v: number) => used.add(v * g.w + u);
+  // (water laid here is painted from a cell of real water, when the land has any)
+  const wetted = (t: TacTile) => {
+    const cell = water?.(t.g === 'water' ? 'water' : 'shallows') ?? water?.('water');
+    if (cell) t.art = cell;
+  };
   const pickU = () => rng.int(lo, hi);
   const pickV = () => rng.int(0, g.h - 1);
 
@@ -172,6 +177,7 @@ export function layTerrain(g: Grid, along: number, rng: Rng, biome: Biome, share
         const ford = fords.some((f) => v === f || v === f + 1);
         t.g = ford ? 'shallows' : 'water';
         t.h = ford ? Math.max(0, Math.min(t.h, 1) - 1) : 0;
+        wetted(t);
         delete t.tree;
         delete t.bush;
         delete t.trap;
@@ -193,6 +199,7 @@ export function layTerrain(g: Grid, along: number, rng: Rng, biome: Biome, share
         if (d > r || !free(t) || used.has(v * g.w + u)) continue;
         t.g = d < r - 0.9 ? 'water' : 'shallows';
         t.h = 0;
+        wetted(t);
         delete t.tree;
         delete t.bush;
         delete t.trap;

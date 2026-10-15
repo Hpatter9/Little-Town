@@ -14,6 +14,7 @@ import { actIdOf, actSprite } from '../fight/actLooks';
 import { LOOKS } from '../town/spellLooks';
 import { sheetOf } from '../town/spellsView';
 import type { MapView } from './mapView';
+import { ShotPainter, shotTicks } from '../battle/projectiles';
 
 /** Each kind of spot's colour on the ground. */
 const SPOT_COLOUR: Record<BattleSpot['kind'], number> = { block: 0xd8603a, wall: 0xc8c0b0, ground: 0x78c060, tower: 0x70a0e0, trap: 0xe0a030 };
@@ -23,11 +24,18 @@ const LIGHT = 0xffe0a0;
 /** How wide a mage's burst is drawn (cells). */
 const MAGE_BURST_DRAWN = 1.3;
 
+/** What each of the sim's shot kinds flies as (data/projectiles.ts), how big it is drawn on the map, and the longest a
+ *  flight lasts (ticks: a shot is gone from the sim a second after it is loosed). */
+const SHOT_OF = { arrow: 'arrow', bolt: 'bolt', tower: 'bolt', fire: 'orb:fire' } as const;
+const SHOT_SCALE = 0.9;
+const MAX_FLIGHT = 6;
+
 export class MapBattle {
   /** Under the people and buildings: the trail and the spots. Over them: shots, casts and bursts. */
   private readonly under = new Graphics();
   private readonly over = new Graphics();
   private readonly fxSprites = new Container();
+  private readonly shotsPainter = new ShotPainter();
   private snap: BattleView | null = null;
   private raiders = new Map<number, RaiderView>();
   /** The fighter picked up to place, the spell picked to aim, and where it's being aimed (cells). */
@@ -37,7 +45,7 @@ export class MapBattle {
 
   constructor(private readonly map: MapView) {
     map.under.addChild(this.under);
-    map.over.addChild(this.over, this.fxSprites);
+    map.over.addChild(this.over, this.shotsPainter.container, this.fxSprites);
   }
 
   get shown(): boolean {
@@ -127,7 +135,11 @@ export class MapBattle {
     g.clear();
     this.over.clear();
     for (const c of this.fxSprites.removeChildren()) c.destroy();
-    if (!b) return;
+    if (!b) {
+      this.shotsPainter.begin();
+      this.shotsPainter.end();
+      return;
+    }
     const placing = b.phase === 'placing' || b.phase === 'breather';
     const pulse = 0.5 + 0.5 * Math.sin(now / 250);
     // the trails: lit the whole way (the raiders come out of the dark beyond the open land), a worn band along
@@ -181,35 +193,27 @@ export class MapBattle {
       g.circle(ax * CELL, ay * CELL, AIM_RADIUS * CELL).fill({ color: LOOKS[this.aiming]?.color ?? 0xe0b0ff, alpha: 0.1 });
     }
 
-    // over everything: shots in flight, and spells where they were cast
-    const o = this.over;
+    // over everything: shots in flight (the packs' arrows, bolts and orbs: battle/projectiles.ts), and spells where they were cast
+    this.shotsPainter.begin();
     for (const s of b.shots) {
-      const t = Math.min(1, (s.age + (now % 100) / 1000) * 4);
-      if (t >= 1) continue;
-      const ax = s.from[0] * CELL;
-      const ay = (s.from[1] - 0.6) * CELL;
-      const bx = s.to[0] * CELL;
-      const by = (s.to[1] - 0.4) * CELL;
-      const x = ax + (bx - ax) * t;
-      const y = ay + (by - ay) * t - Math.sin(t * Math.PI) * (s.kind === 'arrow' ? 10 : 3);
-      if (s.kind === 'fire') {
-        // a mage's fire: a ball with a tail of sparks, then a burst where it lands
-        o.circle(x, y, 3).fill({ color: 0xffb040 }).circle(x, y, 1.5).fill({ color: 0xfff0a0 });
-        for (let k = 1; k <= 3; k++) o.circle(ax + (bx - ax) * (t - k * 0.06), ay + (by - ay) * (t - k * 0.06), 2.2 - k * 0.5).fill({ color: 0xff7020, alpha: 0.6 - k * 0.15 });
-        continue;
-      }
-      const ang = Math.atan2(by - ay, bx - ax);
-      const len = s.kind === 'arrow' ? 7 : 9;
-      o.moveTo(x - Math.cos(ang) * len, y - Math.sin(ang) * len)
-        .lineTo(x, y)
-        .stroke({ width: s.kind === 'bolt' ? 2 : 1.5, color: s.kind === 'bolt' ? 0x9ae8ff : s.kind === 'tower' ? 0xf0d080 : 0xe8dcc0 });
+      const code = SHOT_OF[s.kind];
+      const from: [number, number] = [s.from[0] * CELL, (s.from[1] - 0.6) * CELL];
+      const to: [number, number] = [s.to[0] * CELL, (s.to[1] - 0.4) * CELL];
+      const dur = Math.min(MAX_FLIGHT, shotTicks(code, from, to, CELL));
+      // (the age in ticks, smoothed between the sim's steps)
+      this.shotsPainter.put(code, from, to, (s.age + (now % 100) / 1000) * 10, dur, SHOT_SCALE);
     }
+    this.shotsPainter.end();
+    // a mage's fire bursts where it lands, as it arrives
     for (const s of b.shots) {
-      if (s.kind !== 'fire' || s.age < 0.25 || s.age > 0.7) continue;
+      if (s.kind !== 'fire') continue;
+      const from: [number, number] = [s.from[0] * CELL, (s.from[1] - 0.6) * CELL];
       const bx = s.to[0] * CELL;
       const by = (s.to[1] - 0.4) * CELL;
-      const k = (s.age - 0.25) / 0.45;
-      o.circle(bx, by, CELL * MAGE_BURST_DRAWN * (0.3 + 0.7 * k)).fill({ color: 0xff8030, alpha: 0.45 * (1 - k) });
+      const landed = Math.min(MAX_FLIGHT, shotTicks('orb:fire', from, [bx, by], CELL)) / 10;
+      if (s.age < landed || s.age > landed + 0.45) continue;
+      const k = (s.age - landed) / 0.45;
+      this.over.circle(bx, by, CELL * MAGE_BURST_DRAWN * (0.3 + 0.7 * k)).fill({ color: 0xff8030, alpha: 0.45 * (1 - k) });
       const tex = blastFrame(k * 12);
       if (tex) this.effect(tex, bx, by, BLAST_SIZE * 0.6);
     }
@@ -221,8 +225,8 @@ export class MapBattle {
       const cy = c.y * CELL;
       const k = Math.min(1, c.age / 0.6);
       const r = AIM_RADIUS * CELL;
-      o.circle(cx, cy, r * (0.4 + 0.6 * k)).fill({ color: colour, alpha: 0.22 * (1 - c.age / 3) });
-      o.circle(cx, cy, r * (0.4 + 0.6 * k)).stroke({ width: 2, color: colour, alpha: 0.7 * (1 - c.age / 3) });
+      this.over.circle(cx, cy, r * (0.4 + 0.6 * k)).fill({ color: colour, alpha: 0.22 * (1 - c.age / 3) });
+      this.over.circle(cx, cy, r * (0.4 + 0.6 * k)).stroke({ width: 2, color: colour, alpha: 0.7 * (1 - c.age / 3) });
       const sheet = look?.sprite ? sheetOf(look.sprite) : null;
       if (sheet) {
         // (played over the ground it struck: in the middle, and either side)

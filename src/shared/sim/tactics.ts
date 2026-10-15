@@ -74,6 +74,8 @@ export interface TacTile {
   hill?: 'top' | 'ramp';
   /** A fallen log: climbed over at a cost, cover for whoever stands behind it. */
   log?: boolean;
+  /** A pond or stream laid on the field: the land cell of real water whose painted ground the top borrows. */
+  art?: [number, number];
   /** One of the town's traps (a building id), sprung by the first raider to step on it. */
   trap?: number;
 }
@@ -316,9 +318,21 @@ export function makeBoard(s: GameState, side: -1 | 1, big = false, salt = 0): Pi
   const wood = field.filter((t) => t.tree).length / field.length;
   const hill = field.filter((t) => t.g === 'hill' || t.g === 'rock').length / field.length;
   const wet = field.filter((t) => t.g === 'water' || t.g === 'shallows' || t.g === 'marsh').length / field.length;
+  // (a pond's tiles are painted from a cell of the land's own water, the nearest to the board)
+  const cx = b.x0 + w / 2;
+  const cy = b.y0 + h / 2;
+  const found = new Map<Ground, [number, number] | null>();
+  const water = (g: Ground): [number, number] | null => {
+    if (found.has(g)) return found.get(g)!;
+    let best: [number, number] | null = null;
+    let near = Infinity;
+    for (let y = 0; y < m.h; y++) for (let x = 0; x < m.w; x++) if (groundAt(m, x, y) === g && (x - cx) ** 2 + (y - cy) ** 2 < near) [best, near] = [[x, y], (x - cx) ** 2 + (y - cy) ** 2];
+    found.set(g, best);
+    return best;
+  };
   for (let attempt = 0; attempt < 3; attempt++) {
     b.tiles = field.map((t) => ({ ...t }));
-    if (attempt < 2) layTerrain(b, along, new Rng(hashSeed(`${s.seed}:board:${salt}:${attempt}`)), s.biome ?? 'forest', { wood, hill, wet });
+    if (attempt < 2) layTerrain(b, along, new Rng(hashSeed(`${s.seed}:board:${salt}:${attempt}`)), s.biome ?? 'forest', { wood, hill, wet }, water);
     dressBoard(s, b, along, traps, seed, salt);
     if (attempt === 2 || boardOk(b, along)) break;
   }
@@ -1592,6 +1606,10 @@ export interface TacticsView {
   /** The weather and the hour, as they bear on the fight. */
   conditions: string;
   night: boolean;
+  /** The season, the weather's kind and the land, for the board's air (renderer only). */
+  season: string;
+  weather: string;
+  biome: string;
   /** The battle's speed (1, 2, 3). */
   speed: number;
 }
@@ -1716,6 +1734,9 @@ export function tacticsView(s: GameState): TacticsView | null {
     objective: leader && !t.broken ? `Defeat ${ENEMIES[leader.kind].name}` : t.broken ? 'Rout the rest' : 'Rout the raiders',
     conditions: [night ? 'Night: shots fall short' : '', w === 'rain' || w === 'storm' || w === 'snow' || w === 'fog' ? `${w[0].toUpperCase()}${w.slice(1)}: archers' aim spoiled` : ''].filter(Boolean).join(' · '),
     night,
+    season: calendar(s.tick).season,
+    weather: w,
+    biome: s.biome ?? 'forest',
     speed: s.battleSpeed ?? 1,
   };
 }
