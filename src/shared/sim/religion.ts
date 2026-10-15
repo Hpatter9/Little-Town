@@ -274,7 +274,8 @@ function dawn(s: GameState): void {
       greatWrath(s, d, rng);
       break;
     }
-    if (last === undefined || s.tick - last >= OMEN_GAP_DAYS * TICKS_PER_DAY) {
+    // (an omen warns of the greater wrath: a camp too small for it gets none)
+    if (home.length >= GREAT_WRATH_PEOPLE && (last === undefined || s.tick - last >= OMEN_GAP_DAYS * TICKS_PER_DAY)) {
       rel.omens[d] = s.tick;
       log(s, 'omen', `An omen: ${rng.pick(OMENS[d])}. ${godOf(s, d)[0]} is angry with the town.`);
       castSpellFx(s, 'god:blight', holyPlace(s), [], 3);

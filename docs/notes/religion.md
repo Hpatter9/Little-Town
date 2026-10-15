@@ -19,8 +19,10 @@ and law" (a heresy trial), "Step 7, life's ceremonies" (the priest at funerals) 
     at, or by chance, or none; a child takes a parent's; `seenCreed` for the menus, which never sets it). Each dawn zeal
     drifts `ZEAL_DRIFT` toward the nature's, a rite day lifts it `ZEAL_RITE`; the doubting low in zeal lapse
     (`LAPSE_CHANCE`), the godless may find the best pleased god (`CONVERT_CHANCE`). `isZealot`: zeal 80+ and a zealous nature.
-  - **Favour at dawn** (`dawn`): followers add `FOLLOWER_FAVOUR` x zeal/50 each, a god nobody at home follows loses
-    `UNFOLLOWED` (5), idols add `IDOL_FAVOUR`, cultists cost every god `CULT_FAVOUR`, and `actsInNature`: the harvest god likes
+  - **Favour at dawn** (`dawn`): every god asks `DEMAND_PER_HEAD` (0.6) a head a day, at most `DEMAND_MOST` (16), so a
+    big town's neglected gods sour; followers add `FOLLOWER_FAVOUR` x zeal/50 each, a god nobody at home follows loses
+    `UNFOLLOWED` (5) (the demand and that start only once there's a place of worship: before it, faith.ts's own `NEGLECT`
+    is enough for a camp), idols add `IDOL_FAVOUR`, cultists cost every god `CULT_FAVOUR`, and `actsInNature`: the harvest god likes
     `harvestFullDays` of food and hates every starving mouth, the hearth god a happy town (and a glum one), the war god a raid
     driven off or pillaged (each `raidRecap` once), the sky god every party out. The rope angers the hearth god at once
     (`hearthHanging`, in `deathSeen`).
@@ -30,12 +32,13 @@ and law" (a heresy trial), "Step 7, life's ceremonies" (the priest at funerals) 
     (`priestRite`). A god's feast day kept with a priest (`feastDay`): `FEAST_KEPT`, food from its offerings laid out, a
     morale mark; the war god's feast in a blood town (`BLOOD_RITES`: vampires, orcs, liches) is a blood offering
     (`alignPush` -2, `orderPush` +1), the hearth god's gives alms to the poor (`alignPush` +1). Without a priest it passes
-    unkept (`FEAST_MISSED`). The priest says the words at a funeral (`funeralRites`: grief x `FUNERAL_RITES_EASE`), blesses
+    unkept (`FEAST_MISSED`; never in a camp with no altar). The priest says the words at a funeral (`funeralRites`: grief x `FUNERAL_RITES_EASE`), blesses
     the defenders when raiders are sighted (`blessRaid`: a `fight` mark `RAID_BLESSING`, more with the war god pleased, to the
     raid's end) and every party setting out (`blessTrips`: a lift `ROAD_BLESSING`).
   - **Omens and the greater wraths**: a god at `OMEN_AT` sends an omen ("An omen: ...", every `OMEN_GAP_DAYS`); only after
-    one, at `GREAT_WRATH_AT`, its greater wrath (`greatWrath`): the harvest god curses the harvest (`CURSED_ROTS` of every
-    food in store, crops x0.5 three days), the hearth god sends a plague (`PLAGUE_SHARE` sicken, the frailest dies), the war
+    one, at `GREAT_WRATH_AT`, its greater wrath (`greatWrath`; neither in a camp under `GREAT_WRATH_PEOPLE` (5), and the
+    harvest god's never on a town already starving): the harvest god curses the harvest (`CURSED_ROTS` of the food in
+    store above `CURSE_SPARES_DAYS` of it, crops x0.5 three days), the hearth god sends a plague (`PLAGUE_SHARE` sicken, the frailest dies), the war
     god sends wolves (a raid, `raidBudget`), the sky god a great storm (`STORM_STRIKES` bolts: roofs fired, people burned or
     killed). It spends `GREAT_WRATH_SPENDS`; the god's followers lose `ZEAL_WRATH` and `SCHISM_SHARE` of them turn to the
     best pleased god (a schism).
