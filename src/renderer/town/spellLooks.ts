@@ -1,6 +1,8 @@
 // How each spell looks (drawn by spellsView.ts): the kind of effect, and its colours. Kept apart from the drawing so
 // the tests can check every power and rival spell has one.
 
+import { RITES, SCHOOLS, type SchoolId } from '../../shared/data/magic';
+
 /** How each spell looks: the kind of effect, and its colours. */
 export type Kind = 'bolt' | 'stream' | 'roots' | 'rain' | 'fog' | 'ring' | 'rise' | 'arrows' | 'lob' | 'rocks' | 'vortex' | 'dome' | 'sparkle' | 'bats' | 'coins' | 'aura' | 'wave';
 /** An animated sprite from the effect sheets (renderer/art/effects.ts), played over each target (or the caster). */
@@ -43,6 +45,11 @@ const ACID = 0x90f040;
 const SAND = 0xd8c890;
 
 export const LOOKS: Record<string, Look> = {
+  // magic's rites and what goes wrong (sim/magic.ts): each school's pixel effect (data/magic.ts SCHOOLS)
+  ...magicLooks(),
+  'magic:surge': { sprite: 'px:star-nova', kind: 'vortex', color: VIOLET, also: 'ring' },
+  'magic:miscast': { sprite: 'px:dark-explosion', kind: 'ring', color: 0x8040a0 },
+  'magic:mad': { sprite: 'px:dark-bolt', kind: 'bolt', color: 0xa03070 },
   // the gods' signs (sim/faith.ts)
   'god:bless': { sprite: 'holy', kind: 'sparkle', color: GOLD },
   'god:lightning': { sprite: 'shock', kind: 'bolt', color: 0xe8f0ff },
@@ -135,3 +142,8 @@ export const LOOKS: Record<string, Look> = {
   'rival:despair': { sprite: 'void', kind: 'stream', color: VIOLET },
 };
 
+/** Each rite in its school's colour and pixel effect, played over the caster. */
+function magicLooks(): Record<string, Look> {
+  const colour: Record<SchoolId, number> = { evocation: EMBER, abjuration: GOLD, restoration: LEAF, divination: SILVER, transmutation: RAIN, conjuration: CYAN, forbidden: BLOOD };
+  return Object.fromEntries(Object.values(RITES).map((r) => [`magic:${r.id}`, { sprite: SCHOOLS[r.school].fx as SpriteFx, kind: 'sparkle' as Kind, onCaster: true, color: colour[r.school] }]));
+}

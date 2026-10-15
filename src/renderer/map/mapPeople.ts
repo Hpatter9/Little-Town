@@ -988,7 +988,9 @@ export class MapPeople {
           gh.g = ghostStep(gh.g, share, gh.held, dt);
           const ghost = Math.round(gh.g * HP_W);
           const flash = gh.held < 0.12;
-          const key = `${fill}:${ghost}:${flash ? 1 : 0}:${v.downed ? 1 : 0}`;
+          // (a caster's mana, a thin blue strip under the health: sim/mana.ts)
+          const mana = v.mana ? Math.round(Math.max(0, Math.min(1, v.mana[0] / Math.max(1, v.mana[1]))) * HP_W) : -1;
+          const key = `${fill}:${ghost}:${flash ? 1 : 0}:${v.downed ? 1 : 0}:${mana}`;
           if (key !== d.hpFill) {
             d.hpFill = key;
             const col = v.downed ? 0x8a8a8a : share > 0.6 ? 0x5ad04a : share > 0.3 ? 0xe0b030 : 0xe04838;
@@ -999,6 +1001,11 @@ export class MapPeople {
             if (fill > 0) d.hpBar.rect(0, 0, fill, 4).fill({ color: col });
             if (fill > 0) d.hpBar.rect(0, 0, fill, 1).fill({ color: 0xffffff, alpha: 0.35 });
             if (flash) d.hpBar.rect(-1, -1, HP_W + 2, 6).fill({ color: 0xffffff, alpha: 0.7 });
+            if (mana >= 0) {
+              d.hpBar.rect(-1, 5, HP_W + 2, 4).fill({ color: 0x14100c, alpha: 0.85 });
+              d.hpBar.rect(0, 5, HP_W, 3).fill({ color: 0x141c3a });
+              if (mana > 0) d.hpBar.rect(0, 5, mana, 3).fill({ color: 0x5a8cff });
+            }
           }
           // (above the work bar when both show; higher over a hero's bigger figure)
           const above = (d.work?.visible ? WORK_ABOVE + 6 : WORK_ABOVE) + (plain ? 0 : 8);

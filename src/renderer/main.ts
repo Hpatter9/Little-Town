@@ -1929,6 +1929,7 @@ async function start(): Promise<void> {
     map.syncCastle(next.castle ?? null, next.buildings);
     map.syncPlaces(next.places);
     map.syncBlight(next.blight ?? [], next.calamity?.heartAt ?? null);
+    map.syncLeylines(next.magic ?? null); // (the leylines glowing after dark: map/mapLeylines.ts)
     // (a tree with someone behind it, or a building's front, is drawn see-through)
     map.seeThrough([
       ...next.people.filter((p) => !p.indoors).map((p) => people.posOf(p.id) ?? p),

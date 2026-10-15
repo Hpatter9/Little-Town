@@ -46,6 +46,8 @@ import type { Era } from '../../shared/data/eras';
 import { buildCastle, castleArtReady, onCastleArt, roomFurniture, type CastleView } from './castleArt';
 import { MapFestival } from './mapFestival';
 import { MapBlight, loadNestArt, nestTexture, type BlightSource } from './mapBlight';
+import { MapLeylines } from './mapLeylines';
+import type { MagicView } from '../../shared/sim/magic';
 import { WorkFx } from './workFx';
 import { NightSky } from './nightSky';
 import { GroundWeather } from './groundWeather';
@@ -248,6 +250,8 @@ export class MapView {
   readonly things = new Container();
   /** The blight round the monster nests and the Calamity's heart (map/mapBlight.ts). */
   readonly blight: MapBlight;
+  /** The leylines glowing after dark (map/mapLeylines.ts), in the lights layer. */
+  private readonly leylines: MapLeylines;
   /** The windows' and fires' glows: beside `world` (so the night's tint doesn't dim them), faded in after dusk. */
   readonly lights = new Container();
   /** Smoke from the chimneys and stacks (town/ambientView.ts), over everything standing. */
@@ -360,6 +364,7 @@ export class MapView {
     this.blight = new MapBlight(this.under, this.things);
     this.workFx = new WorkFx(this.over, this.lights);
     this.nightSky = new NightSky(this.lights);
+    this.leylines = new MapLeylines(this.lights);
     this.groundWeather = new GroundWeather(this.under);
     this.smokeColumns = new SmokeColumns(this.over);
     this.smoke.size = 1.6;
@@ -842,6 +847,11 @@ export class MapView {
     this.blight.sync(this.land, sources, heart);
   }
 
+  /** Per snapshot: the leylines (sim/magic.ts), once the town knows them. */
+  syncLeylines(m: MagicView | null): void {
+    this.leylines.sync(m);
+  }
+
   syncPlaces(list: PlaceView[]): void {
     this.placesSeen = list;
     if (!nestArtAsked && list.some((p) => p.nest)) {
@@ -1188,6 +1198,7 @@ export class MapView {
   /** A frame of the air: smoke from the finished buildings' chimneys and stacks, and the fireflies. */
   renderAir(dt: number): void {
     this.blight.render(dt);
+    this.leylines.render(dt, this.calm);
     this.fadeWindows(dt);
     this.fireflies(dt);
     this.windT += dt;

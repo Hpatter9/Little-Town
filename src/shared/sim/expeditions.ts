@@ -54,6 +54,7 @@ import { hashSeed, Rng } from '../rng';
 import { depositNear, storages, totalStock } from './buildings';
 import { isChild } from './social';
 import { ammoOf, battleLoot, keepBag, startBattle, stepBattle, unitFighter, type Battle } from './combat';
+import { setMana } from './mana';
 import { classAllies } from './classes';
 import { bossSlain } from './bosses';
 import { delveHome, quietHours, startDelve, stepDelve } from './delves';
@@ -604,6 +605,7 @@ function finishBattle(s: GameState, e: Expedition, d: Destination, members: Pers
     if (f.ammoUsed && f.ammoType) addStock(e.supplies, f.ammoType, -f.ammoUsed);
     const p = members.find((q) => q.id === f.ref);
     if (!p) continue;
+    if (f.mp !== undefined) setMana(p, f.mp); // (the mana spent stays spent: sim/mana.ts)
     keepBag(p, f);
     const was = p.hp;
     if (f.down && !p.downed) knockDown(s, p);

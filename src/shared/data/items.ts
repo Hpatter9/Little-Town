@@ -23,6 +23,7 @@ import { KIT_RECIPES } from './kitItems';
 import { BOAT_ITEMS, type BoatKind } from './boats';
 import { AIRSHIP_ITEMS, SKY_TROPHIES, type AirshipKind } from './skies';
 import type { WorkAnim } from './terrain';
+import { MAGIC_ITEMS, MAGIC_UNIQUES } from './magic';
 
 export type Slot = 'tool' | 'weapon' | 'offhand' | 'head' | 'body' | 'charm' | 'pack';
 export const SLOTS: readonly Slot[] = ['weapon', 'offhand', 'head', 'body', 'tool', 'charm', 'pack'];
@@ -69,10 +70,12 @@ export type Station =
   | 'print_shop' | 'clockmaker' | 'cannery' | 'textile_mill' | 'appliance_plant' | 'pharmacy' | 'bio_lab' | 'nanoforge'
   | 'blood_cellar' | 'bone_forge' | 'gem_cutter' | 'herb_press' | 'pearl_works' | 'felt_works' | 'glamour_loom' | 'alembic' | 'assembler' | 'armourer' | 'pelt_house' | 'grog_pit'
   // the Monster Hunters' Guild (data/hunts.ts)
-  | 'monster_guild';
+  | 'monster_guild'
+  // magic (data/magic.ts)
+  | 'mage_tower' | 'arcane_library';
 export const STATIONS: readonly Station[] = ['campfire', 'boatyard', 'airship_mast', 'workbench', 'tanning_rack', 'drying_rack', 'kiln', 'bloomery', 'smithy', 'sawmill', 'tannery', 'loom', 'windmill', 'bakery', 'steelworks', 'glassworks', 'gunsmith', 'refinery', 'cement_works', 'electronics_plant', 'garage', 'alloy_foundry', 'chip_fab', 'battery_plant', 'robot_workshop', 'tavern',
   'smokehouse', 'bone_carver', 'basketry', 'brewery', 'tailor', 'jeweller', 'cooper', 'apothecary', 'chandlery', 'dyeworks', 'print_shop', 'clockmaker', 'cannery', 'textile_mill', 'appliance_plant', 'pharmacy', 'bio_lab', 'nanoforge',
-  'blood_cellar', 'bone_forge', 'gem_cutter', 'herb_press', 'pearl_works', 'felt_works', 'glamour_loom', 'alembic', 'assembler', 'armourer', 'pelt_house', 'grog_pit', 'monster_guild'];
+  'blood_cellar', 'bone_forge', 'gem_cutter', 'herb_press', 'pearl_works', 'felt_works', 'glamour_loom', 'alembic', 'assembler', 'armourer', 'pelt_house', 'grog_pit', 'monster_guild', 'mage_tower', 'arcane_library'];
 
 /** What an item does for whoever wears it (gear) or for the town (the rest). */
 export interface ItemEffects {
@@ -423,7 +426,7 @@ const FIRST: Record<string, Pick<ItemDef, 'family' | 'tier' | 'weight'>> = {
 };
 
 /** Everything that can be made or found: the first items, and the armoury of data/weapons.ts and data/armour.ts. */
-export const ITEMS: readonly ItemDef[] = [...BASE_ITEMS.map((i) => (FIRST[i.id] ? { ...i, ...FIRST[i.id] } : i)), ...WEAPONS, ...ARMOUR, ...BESTIARY_TROPHIES, ...UNIQUES, ...FORGED_ARMOUR, ...WORKSHOP_ITEMS, ...KIT_RECIPES, ...MINERAL_ITEMS, ...BOAT_ITEMS, ...AIRSHIP_ITEMS, ...CALAMITY_TROPHIES, ...GREAT_ENEMY_TROPHIES, ...RISING_TROPHIES, ...SKY_TROPHIES, ...FESTIVAL_ITEMS, ...CULTURE_ITEMS];
+export const ITEMS: readonly ItemDef[] = [...BASE_ITEMS.map((i) => (FIRST[i.id] ? { ...i, ...FIRST[i.id] } : i)), ...WEAPONS, ...ARMOUR, ...BESTIARY_TROPHIES, ...UNIQUES, ...FORGED_ARMOUR, ...WORKSHOP_ITEMS, ...KIT_RECIPES, ...MINERAL_ITEMS, ...BOAT_ITEMS, ...AIRSHIP_ITEMS, ...CALAMITY_TROPHIES, ...GREAT_ENEMY_TROPHIES, ...RISING_TROPHIES, ...SKY_TROPHIES, ...FESTIVAL_ITEMS, ...CULTURE_ITEMS, ...MAGIC_ITEMS, ...MAGIC_UNIQUES];
 
 export const ITEM_BY_ID: Readonly<Record<string, ItemDef>> = Object.fromEntries(ITEMS.map((i) => [i.id, i]));
 

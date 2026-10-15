@@ -10,6 +10,7 @@ import { DELVING } from './deep';
 import { PLANAR_LORE } from './portals';
 import { BOAT_TOPICS } from './boats';
 import { SKY_TOPICS } from './skies';
+import { MAGIC_TOPICS } from './magic';
 
 export type Branch = 'construction' | 'crafting' | 'agriculture' | 'military' | 'medicine' | 'logistics' | 'society' | 'occult' | 'heritage';
 
@@ -367,6 +368,7 @@ export const TOPICS: readonly Topic[] = [
   PLANAR_LORE,
   ...BOAT_TOPICS,
   ...SKY_TOPICS,
+  ...MAGIC_TOPICS,
 ];
 
 /** What a finished topic's lasting effects do, in words. */

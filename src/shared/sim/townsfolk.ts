@@ -13,6 +13,7 @@ import { moneyTown } from './economy';
 import { taxRate } from './treasury';
 import { ageWork } from './ageing';
 import { POP_SOFT_CAP } from '../data/pace';
+import { ENCHANT_WORK } from '../data/magic';
 import { ADJACENT_TILES, BUILDING_BY_ID, TAVERN_MARKET_MORALE } from '../data/buildings';
 import { TRAITS, ARRIVING_TYPES, TRAIT_BY_ID, FOOD_VALUE, personName } from '../data/people';
 import { gainXp, type Skill } from '../data/skills';
@@ -333,6 +334,7 @@ export function workFactor(s: GameState, p: Person): number {
   f *= darkPace(s, p); // (in the dark beyond the lights, or an unlit room: sim/lighting.ts)
   f *= ageWork(s, p); // (elders slow down)
   f *= guildWork(s, p); // (a guild's own at its work: sim/guilds.ts)
+  if (s.magic?.enchanted && s.magic.enchanted > s.tick) f *= ENCHANT_WORK; // (the tools enchanted: sim/magic.ts)
   // vampires come alive at night
   if (p.monster === 'vampire') {
     const h = calendar(s.tick).hour;
