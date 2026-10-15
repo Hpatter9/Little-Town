@@ -33,6 +33,9 @@ import {
   PULL_BOUNTY,
   PULL_FIGHT,
   PULL_NEW,
+  PULL_TRADE_SCOUT,
+  TRADE_SCOUT_DARE,
+  TRADE_SCOUT_GAP_HOURS,
   RECRUIT_ADVENTURER,
   RECRUIT_DEVOTED,
   RECRUIT_OPINION,
@@ -223,17 +226,25 @@ export function recruit(s: GameState, leader: Person, d: Destination, pool: Pers
 }
 
 /** Whether a party dares a place. */
-export function dares(leader: Person, party: Person[], d: Destination): boolean {
+export function dares(leader: Person, party: Person[], d: Destination, ease = 1): boolean {
   const danger = dangerOf(d);
   if (!danger) return true;
   const bold = ['bold', 'restless', 'proud'].includes(natureOf(leader).id);
-  return strengthOf(party) >= danger * (bold ? DARE_BOLD : DARE);
+  return strengthOf(party) >= danger * (bold ? DARE_BOLD : DARE) * ease;
 }
+
+/** Whether the Trade direction wants this trip: a region still to be scouted (the trade empire's posts open in the regions
+ *  the town has mapped). Nothing under any other direction. */
+export const tradeScout = (s: GameState, d: Destination): boolean => s.direction === 'trade' && d.type === 'scout' && !s.scouted.includes(d.id);
+
+/** Hours between parties: shorter while the Trade direction has a region to scout. */
+export const partyGapHours = (s: GameState): number => (s.direction === 'trade' && choosable(s).some((d) => tradeScout(s, d)) ? TRADE_SCOUT_GAP_HOURS : PARTY_GAP_HOURS);
 
 /** How much a place draws a leader: a bounty, a fight for an adventurer, somewhere not yet seen. */
 function pull(s: GameState, leader: Person, d: Destination): number {
   let n = bountyOn(s, d.id) * PULL_BOUNTY;
   if (!s.scouted.includes(d.id)) n += PULL_NEW;
+  if (tradeScout(s, d)) n += PULL_TRADE_SCOUT;
   if (ambitionOf(leader) === 'adventurer' && dangerOf(d) > 0) n += PULL_FIGHT;
   if (d.type === 'gather') n += 1;
   if (d.type === 'hunt' && s.wild) n += (huntFactors(s).yield - 0.6) * 2; // (the hunters go where the herds are, and look elsewhere when the game is thin: sim/wild.ts)
@@ -282,7 +293,7 @@ export function proposeParty(s: GameState): PartyPlan | null {
     for (const d of ranked) {
       const size = Math.max(1, Math.min(room, mostFor(s, d), Math.max(d.recommendedParty, dangerOf(d) ? 3 : 1)));
       const party = recruit(s, leader, d, pool, size);
-      if (!dares(leader, party, d)) continue;
+      if (!dares(leader, party, d, tradeScout(s, d) ? TRADE_SCOUT_DARE : 1)) continue;
       const bold = ['bold', 'restless', 'proud'].includes(natureOf(leader).id);
       return { dest: d.id, leader: leader.id, members: party.map((p) => p.id), stakes: bold ? 'risky' : 'safe' };
     }
@@ -296,7 +307,7 @@ export function partiesHourly(s: GameState): void {
   if (s.tick % TICKS_PER_HOUR !== 0 || s.autopilot === false || s.gameOver || s.muster) return;
   const h = calendar(s.tick).hour;
   if (h < SET_OUT_FROM || h >= SET_OUT_UNTIL) return;
-  if (s.lastParty != null && s.tick - s.lastParty < PARTY_GAP_HOURS * TICKS_PER_HOUR) return;
+  if (s.lastParty != null && s.tick - s.lastParty < partyGapHours(s) * TICKS_PER_HOUR) return;
   const plan = proposeParty(s);
   if (!plan) return;
   const d = destinationOf(s, plan.dest)!;

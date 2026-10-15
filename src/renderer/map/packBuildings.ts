@@ -27,6 +27,7 @@ import apVase from '../art/shops/ap_vase.png';
 import vHelm from '../art/shops/v_helm.png';
 import house2 from '../art/village/house2.png';
 import house4 from '../art/village/house4.png';
+import doorsSheet from '../art/delve/doors.png';
 import tent2 from '../art/village/tent2.png';
 import barrel from '../art/village/barrel.png';
 import cart from '../art/village/cart.png';
@@ -1011,6 +1012,44 @@ function texOf(url: string): Texture | undefined | null {
   return tex;
 }
 
+/* ------------------------------------------------------------ the homes' doors */
+
+/** The homes whose pack picture has no door a person could walk through (the baked doors are 0.25 to 0.6 of a person's
+ *  height): each gets a door hung over its front, as tall as the castle's doorways are for the townsfolk. Where along
+ *  the front they stand, as shares of its width. */
+const HOME_DOORS: Record<string, number[]> = { lean_to: [0.5], hide_tent: [0.5], longhouse: [0.5], cottage: [0.5], rowhouse: [0.3, 0.7], apartments: [0.25, 0.75] };
+/** The door: the dungeon pack's wooden door (its leaf is 17 px wide, its arch the top 7 rows, the planks below) with the
+ *  planks drawn out to this height, and a dark frame round it. A person is 48 px tall. */
+const HOME_DOOR_H = 44;
+const HOME_DOOR_LEAF = { x: 8, y: 34, w: 17, arch: 7, planks: 14 };
+const HOME_DOOR_FRAME = '#3a2a1e';
+const HOME_DOOR_SHADE = '#1e1812';
+let homeDoor: Texture | null = null;
+/** The door's texture, cut from the sheet once it has loaded (null until then, or if it failed). */
+function homeDoorTexture(): Texture | null {
+  if (homeDoor) return homeDoor;
+  const sheet = texOf(doorsSheet);
+  const im = images.get(doorsSheet);
+  if (!sheet || !im) return null;
+  const { x, y, w, arch, planks } = HOME_DOOR_LEAF;
+  const edge = 2;
+  const c = document.createElement('canvas');
+  c.width = w + edge * 2;
+  c.height = HOME_DOOR_H;
+  const g = c.getContext('2d')!;
+  g.imageSmoothingEnabled = false;
+  g.fillStyle = HOME_DOOR_FRAME;
+  g.fillRect(0, 0, c.width, c.height);
+  // (the doorway's dark inside edge, then the leaf: its arch, then its planks stretched down to the sill)
+  g.fillStyle = HOME_DOOR_SHADE;
+  g.fillRect(edge - 1, edge - 1, w + 2, c.height - edge + 1);
+  g.drawImage(im, x, y, w, arch, edge, edge, w, arch);
+  g.drawImage(im, x, y + arch, w, planks, edge, edge + arch, w, c.height - edge - arch);
+  homeDoor = Texture.from(c);
+  homeDoor.source.scaleMode = 'nearest';
+  return homeDoor;
+}
+
 export function packDressing(def: string, id: number, w: number, style: string): Dressing[] {
   const out: Dressing[] = [];
   // (every shop and tavern hangs its banner out front, by the door, whatever the look: the owner's ask)
@@ -1030,6 +1069,12 @@ export function packDressing(def: string, id: number, w: number, style: string):
     }
   }
   const pick = pickFor(def, style);
+  // (a home in the timber look: a door a person fits through, over the front's low one)
+  const doors = HOME_DOORS[def];
+  if (doors && pick && pick.styles === TIMBER) {
+    const tex = homeDoorTexture();
+    if (tex) for (const at of doors) out.push({ texture: tex, dx: Math.round(w * CELL * at - tex.width / 2), dy: 0, w: tex.width, h: tex.height });
+  }
   if (!pick || pick.styles !== TIMBER || front) return out;
   const corners: [number, number][] = [
     [-2, 0],

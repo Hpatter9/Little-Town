@@ -21,14 +21,19 @@ function titles(list: string[]): HTMLElement | null {
   return row;
 }
 
-export function renderHeroes(a: AnnalsView): HTMLElement[] {
+/** `guildMark`: the badge of someone's guild, shown beside the name of the living (the dead leave their guilds, so the fallen
+ *  have none). */
+export function renderHeroes(a: AnnalsView, guildMark?: (personId: number) => HTMLElement | null): HTMLElement[] {
   const out: HTMLElement[] = [];
   out.push(el('h2', '', 'The famous'));
   if (!a.famous.length) out.push(el('p', 'empty', 'Nobody has made a name for themselves yet.'));
   for (const f of a.famous) {
     const c = el('div', 'card hall-card');
     const top = el('div', 'card-top');
-    top.append(el('span', 'card-name', `${f.founder ? '★ ' : ''}${f.name}`), el('span', 'card-size', f.founder ? 'Leader' : ''));
+    const name = el('span', 'card-name', `${f.founder ? '★ ' : ''}${f.name}`);
+    const gm = guildMark?.(f.id);
+    if (gm) name.append(' ', gm);
+    top.append(name, el('span', 'card-size', f.founder ? 'Leader' : ''));
     c.append(top, el('div', 'hint', deeds(f)));
     const t = titles(f.titles);
     if (t) c.append(t);

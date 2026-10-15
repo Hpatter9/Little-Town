@@ -1,8 +1,9 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
+import { PARTY_GAP_HOURS, PULL_TRADE_SCOUT, TRADE_SCOUT_GAP_HOURS } from '../src/shared/data/parties';
 import { DESTINATIONS } from '../src/shared/data/expeditions';
 import { ENEMY } from '../src/shared/data/social';
-import { boardDestinations, bountyOn, bountyStep, dangerOf, fitToGo, partiesHourly, payBounty, postBounty, proposeParty, setVeto, withdrawBounty } from '../src/shared/sim/parties';
+import { boardDestinations, bountyOn, bountyStep, dangerOf, fitToGo, partiesHourly, partyGapHours, payBounty, postBounty, proposeParty, tradeScout, setVeto, withdrawBounty } from '../src/shared/sim/parties';
 import { opinion, relationsChanged, updateSocial } from '../src/shared/sim/social';
 import { maxHp, type GameState, type Person } from '../src/shared/sim/state';
 import { TICKS_PER_HOUR } from '../src/shared/sim/time';
@@ -190,4 +191,30 @@ test('every town has an adventurer early: the first grown-up settled after the f
   assert.notEqual(s.people[0].ambition, 'adventurer', 'never the founder by this rule');
   assert.equal(s.people[1].ambition, 'adventurer', 'the first companion takes to the road');
   assert.equal(s.people.filter((p) => p.ambition === 'adventurer' && p.id !== s.mainId).length >= 1, true);
+});
+
+test('the Trade direction sends scouts sooner and nudges parties toward unmapped regions', () => {
+  const s = town('trade-scout', 6);
+  s.people[1].ambition = 'adventurer';
+  const scout = boardDestinations(s).find((d) => d.type === 'scout');
+  assert.ok(scout, 'a scouting trip is on the board');
+  assert.ok(!tradeScout(s, scout!) && partyGapHours(s) === PARTY_GAP_HOURS, 'nothing under growth');
+  s.direction = 'trade';
+  assert.ok(tradeScout(s, scout!));
+  assert.equal(partyGapHours(s), TRADE_SCOUT_GAP_HOURS);
+  assert.ok(TRADE_SCOUT_GAP_HOURS < PARTY_GAP_HOURS && PULL_TRADE_SCOUT > 0);
+  s.scouted.push(scout!.id);
+  assert.ok(!tradeScout(s, scout!), 'a region already mapped draws no more');
+  // sooner: a party set out 6 hours ago is too soon under growth, not under trade
+  const t2 = town('trade-scout2', 6);
+  t2.people[1].ambition = 'adventurer';
+  for (const d of boardDestinations(t2)) if (d.id !== scout!.id) setVeto(t2, d.id, true);
+  t2.autopilot = undefined;
+  t2.lastParty = t2.tick - 6 * TICKS_PER_HOUR;
+  partiesHourly(t2);
+  assert.equal(t2.expeditions.length, 0, 'growth waits out the gap');
+  t2.direction = 'trade';
+  partiesHourly(t2);
+  assert.equal(t2.expeditions.length, 1, 'trade goes');
+  assert.equal(t2.expeditions[0].dest, scout!.id);
 });

@@ -9,19 +9,23 @@
 // Skipping a battle (sim/raidSkip.ts) needs nothing of its own: the raid prompt's "Skip the battle" sets `Raid.skipIt`.
 
 import { BUILDING_BY_ID } from '../data/buildings';
+import { MATERIALS, type Material } from '../data/materials';
+import { FOOD_VALUE } from '../data/people';
 import { ENEMIES, natureOf as foeNature } from '../data/enemies';
 import { natureOf } from '../data/natures';
-import { RAID_KIND_BY_ID, ODDS_ASK_HOURS, GUILD_MERCY, ODDS_FAIR, ODDS_GATHER_CAP, ODDS_GATHER_MAX, ODDS_GATHER_STEP, ODDS_TOWER_HP, ODDS_TURN, ODDS_WALL_RATE, ODDS_WALL_SHARE, MERCY_MIN_RAIDERS, MERCY_STANDING, SLAUGHTER_STANDING, HUNT_CHANCE, HUNT_XP, GRUDGE_BIGGER, GRUDGE_CHANCE, GRUDGE_DAYS } from '../data/raids';
+import { RAID_KIND_BY_ID, ODDS_ASK_HOURS, GUILD_MERCY, ODDS_FAIR, ODDS_GATHER_CAP, ODDS_GATHER_MAX, ODDS_GATHER_STEP, ODDS_TOWER_HP, ODDS_TURN, ODDS_WALL_RATE, ODDS_WALL_SHARE, MERCY_MIN_RAIDERS, MERCY_STANDING, SLAUGHTER_STANDING, HUNT_CHANCE, HUNT_XP, GRUDGE_BIGGER, GRUDGE_CHANCE, GRUDGE_DAYS, LOOT_VALUE, ODDS_PROBE_CHANCE, ODDS_TOLL_CHANCE, PROBE_CATCH, PROBE_CATCH_GUARD, PROBE_CATCH_TOWER, PROBE_HOUR, PROBE_PARTY, PROBE_TAKE, TOLL_AFFORD, TOLL_COINS_SHARE, TOLL_FOOD_SHARE, TOLL_MIN_COINS, TOLL_MIN_FOOD } from '../data/raids';
 import { Rng, hashSeed } from '../rng';
-import { hostOver, standWith } from './factions';
+import { factionOf, hostOver, standWith } from './factions';
 import { alignPush } from './alignment';
 import { personFighter } from './combat';
-import { dist, maxHp, notify, type GameState, type Raid, type Raider } from './state';
+import { addStock, dist, maxHp, notify, type GameState, type Raid, type Raider } from './state';
 import { credit, raidRecap } from './raidRecap';
 import { raidSkipOver } from './raidSkip';
 import { tallyRaid } from './annals';
 import { gainSkill } from './townsfolk';
-import { TICKS_PER_DAY, TICKS_PER_HOUR, TICK_HZ } from './time';
+import { storages } from './buildings';
+import { flammable, setFire } from './fire';
+import { calendar, TICKS_PER_DAY, TICKS_PER_HOUR, TICK_HZ } from './time';
 
 /** The side stream for this system: nothing here draws from the town's own. */
 const sideRng = (s: GameState, salt: string | number) => new Rng(hashSeed(`${s.seed}:odds:${s.tick}:${salt}`));
@@ -126,6 +130,78 @@ const named = (r: Raid) => {
   return /^the /i.test(n) ? n : `the ${n.toLowerCase()}`;
 };
 
+/** What an outmatched band does besides turning back, by its kind and leader (a side-stream roll): 'toll' demands a share
+ *  of the town's coin or food to leave it be, 'probe' sends a few in at night to steal or burn one thing. Never a host
+ *  (an army), the Guild's hunters, or a band that is not of people. */
+export function outmatchedPlan(s: GameState, r: Raid): 'turn' | 'toll' | 'probe' {
+  const kind = RAID_KIND_BY_ID[r.kind];
+  if (!kind || r.host || r.kind === 'hunters') return 'turn';
+  const raids = !!kind.goals && ('steal' in kind.goals || 'burn' in kind.goals) || kind.goal === 'steal' || kind.goal === 'burn';
+  const toll = ODDS_TOLL_CHANCE * (kind.bribable ? 2 : 0.5) * (kind.leader ? 1.5 : 1);
+  const probe = ODDS_PROBE_CHANCE * (raids ? 2 : 0.4) * (kind.leader ? 0.7 : 1);
+  const u = sideRng(s, 'plan').next();
+  return u < toll ? 'toll' : u < toll + probe ? 'probe' : 'turn';
+}
+
+const foodHeld = (s: GameState) => storages(s).reduce((n, b) => n + (Object.keys(FOOD_VALUE) as Material[]).reduce((k, m) => k + (b.store[m] ?? 0), 0), 0);
+
+/** The toll a band would ask: coins from a purse that can bear it, else food, else none. */
+function tollFor(s: GameState): { coins: number; food: number } | null {
+  const coins = s.coins ?? 0;
+  if (coins >= TOLL_MIN_COINS * 2) return { coins: Math.max(TOLL_MIN_COINS, Math.round(coins * TOLL_COINS_SHARE)), food: 0 };
+  const food = foodHeld(s);
+  const ask = Math.max(TOLL_MIN_FOOD, Math.round(food * TOLL_FOOD_SHARE));
+  return food >= ask * 2 ? { coins: 0, food: ask } : null;
+}
+
+const tollWords = (t: { coins: number; food: number }) => (t.coins ? `${t.coins} coins` : `${t.food} measures of food`);
+
+/** The band demands a toll at the edge of the town: a question, whose default follows the leader's nature and the
+ *  treasury (as the mercy question's does). False if the town has nothing to ask for. */
+function askToll(s: GameState, r: Raid): boolean {
+  const toll = tollFor(s);
+  if (!toll) return false;
+  r.toll = toll;
+  const purse = toll.coins ? (s.coins ?? 0) : foodHeld(s);
+  const worth = toll.coins || toll.food;
+  const pay = lean(s) === 0 && purse >= worth * TOLL_AFFORD ? 0 : 1;
+  const prompt = { id: s.nextId++, kind: 'raid' as const, expedition: null, title: `${cap(named(r))} demand a toll`, text: `${cap(named(r))} see the walls and those behind them, and will not fight. They will leave the town alone, they say, for ${tollWords(toll)}. Pay the toll, or refuse it?`, options: ['Pay the toll', 'Refuse the toll'], defaultOption: pay, expiresTick: s.tick + ODDS_ASK_HOURS * TICKS_PER_HOUR };
+  s.prompts.push(prompt);
+  r.parley = prompt.id;
+  notify(s, `${cap(named(r))} hold at the edge of the town and demand ${tollWords(toll)} to leave it be.`, true);
+  return true;
+}
+
+/** The toll is paid: they take it and go, and the next band is no bigger for it. */
+function payToll(s: GameState, r: Raid): void {
+  const toll = r.toll!;
+  if (toll.coins) s.coins = Math.max(0, (s.coins ?? 0) - toll.coins);
+  else {
+    let left = toll.food;
+    for (const b of storages(s))
+      for (const m of Object.keys(FOOD_VALUE) as Material[]) {
+        const n = Math.min(left, b.store[m] ?? 0);
+        if (n > 0) {
+          addStock(b.store, m, -n);
+          left -= n;
+        }
+      }
+  }
+  const b = bookOf(s);
+  b.tolls = (b.tolls ?? 0) + 1;
+  b.extra = b.streak = 0;
+  s.raid = null;
+  raidSkipOver(s);
+  r.turned = true;
+  const foes = r.raiders.filter((rd) => !rd.ally);
+  const recap = raidRecap(s, r, RAID_KIND_BY_ID[r.kind]?.name ?? 'Raiders', { outcome: 'driven', boss: null, killed: 0, came: foes.length, prisoners: 0, stolen: {}, spoils: {} });
+  recap.mercy = 'toll';
+  recap.story = [`${cap(named(r))} demanded a toll of ${tollWords(toll)} to leave the town alone.`, 'You paid it, and they went.'];
+  s.raidRecap = recap;
+  notify(s, `You paid ${cap(named(r))} ${tollWords(toll)}, and they went.`, true);
+  tallyRaid(s, 'driven');
+}
+
 /** The raid has reached the edge of the town (raids.ts): 'go' on in, or 'wait' for the town's answer (the raiders hold
  *  at the edge). Run every tick from when the warning is up until it says 'go'. */
 export function weighArrival(s: GameState, r: Raid): 'go' | 'wait' {
@@ -135,6 +211,13 @@ export function weighArrival(s: GameState, r: Raid): 'go' | 'wait' {
   if ((s.raidOdds?.streak ?? 0) >= ODDS_GATHER_MAX || oddsOf(s, r) >= ODDS_TURN) {
     if (s.raidOdds) s.raidOdds.extra = s.raidOdds.streak = 0;
     return 'go';
+  }
+  // outmatched: by its kind and leader the band may demand a toll or look for a weak spot instead of only turning back
+  const plan = outmatchedPlan(s, r);
+  if (plan === 'toll' && askToll(s, r)) return 'wait';
+  if (plan === 'probe') {
+    turnBack(s, r, 'probe');
+    return 'wait';
   }
   // outmatched: they hold at the edge, and the town says what becomes of them
   r.parley = ask(s, `${cap(named(r))} falters`, `${cap(named(r))} see the walls and those behind them, and know they are outmatched. They are turning back. Let them go, or hunt them down?`);
@@ -158,6 +241,20 @@ export const heldForMercy = (r: Raid) => r.mercyAsk !== undefined && !r.mercy;
 /** The town's answer ("Let them go" / "Hunt them down"). True if the label was one of these. */
 export function answerOdds(s: GameState, label: string): boolean {
   const r = s.raid;
+  if (r?.toll && r.parley !== undefined && (label === 'Pay the toll' || label === 'Refuse the toll')) {
+    r.parley = undefined;
+    const t = r.toll;
+    r.toll = undefined;
+    const paid = label === 'Pay the toll' && (t.coins ? (s.coins ?? 0) >= t.coins : foodHeld(s) >= t.food);
+    if (paid) {
+      r.toll = t;
+      payToll(s, r);
+    } else {
+      notify(s, `You refuse ${named(r)}'s toll.`, true);
+      turnBack(s, r);
+    }
+    return true;
+  }
   if (!r || (label !== 'Let them go' && label !== 'Hunt them down')) return false;
   const arrival = r.parley !== undefined;
   if (!arrival && r.mercyAsk === undefined) return false;
@@ -199,7 +296,7 @@ function alignHook(s: GameState, side: 'good' | 'evil', n: number): void {
 const ODDS_ALIGN = 3;
 
 /** The raiders turn about and go home: the raid ends with a recap saying so, and the next comes bigger. */
-function turnBack(s: GameState, r: Raid): void {
+function turnBack(s: GameState, r: Raid, how: 'turn' | 'probe' = 'turn'): void {
   // (they gather until they would make a fair fight: the next comes that much bigger and tougher)
   const b = bookOf(s);
   const total = Math.min(ODDS_GATHER_CAP, gatherOf(s) * Math.sqrt(ODDS_FAIR / Math.max(0.05, oddsOf(s, r))));
@@ -212,10 +309,11 @@ function turnBack(s: GameState, r: Raid): void {
   b.turned = (b.turned ?? 0) + 1;
   const foes = r.raiders.filter((rd) => !rd.ally);
   const recap = raidRecap(s, r, RAID_KIND_BY_ID[r.kind]?.name ?? 'Raiders', { outcome: 'driven', boss: null, killed: 0, came: foes.length, prisoners: 0, stolen: {}, spoils: {} });
-  recap.mercy = 'turned';
-  recap.story = [`${cap(named(r))} turned back at the sight of your walls.`, 'You let them go.'];
+  recap.mercy = how === 'probe' ? 'probe' : 'turned';
+  recap.story = [`${cap(named(r))} turned back at the sight of your walls.`, how === 'probe' ? 'A few hung back in the dark, looking for a weak spot.' : 'You let them go.'];
   s.raidRecap = recap;
   notify(s, `${cap(named(r))} turned back at the sight of your walls. They will be back, and more of them.`, true);
+  if (how === 'probe') planProbe(s, r);
   if (r.host) hostOver(s, r);
   tallyRaid(s, 'driven');
 }
@@ -249,7 +347,16 @@ export function oddsOver(s: GameState, r: Raid): void {
   if (r.mercy !== 'hunted') return;
   const fled = r.raiders.some((rd) => !rd.ally && rd.gone && !rd.down);
   const rng = sideRng(s, 'grudge');
-  if ((fled || rng.chance(GRUDGE_CHANCE)) && !r.host) {
+  if (r.host) {
+    // (a war host: the power itself bears the grudge, and its next host comes bigger)
+    const f = factionOf(s, r.host);
+    if (f && (fled || rng.chance(GRUDGE_CHANCE))) {
+      f.grudge = true;
+      recap.story.push('One got away, and will remember: the next host will come bigger.');
+    }
+    return;
+  }
+  if (fled || rng.chance(GRUDGE_CHANCE)) {
     bookOf(s).grudge = { kind: r.kind, at: s.tick + rng.int(GRUDGE_DAYS[0], GRUDGE_DAYS[1]) * TICKS_PER_DAY };
     recap.story.push('One got away, and will remember.');
   }
@@ -264,4 +371,70 @@ export function ripeGrudge(s: GameState): string | null {
   b.extra = (b.extra ?? 0) + (GRUDGE_BIGGER - 1) / ODDS_GATHER_STEP;
   notify(s, 'A survivor of the band you hunted has come back, and not alone!', true);
   return g.kind;
+}
+
+/* ------------------------------------------------------------ the probe */
+
+/** A few of the band stay behind to slip in at the next 2 in the morning: a goal of theirs (burn if their kind burns, else
+ *  steal), and how many. Resolved by `oddsHourly`. */
+function planProbe(s: GameState, r: Raid): void {
+  const kind = RAID_KIND_BY_ID[r.kind];
+  const rng = sideRng(s, 'probe-plan');
+  const burns = kind.goal === 'burn' || (!!kind.goals && 'burn' in kind.goals && (!('steal' in kind.goals) || (kind.goals.burn ?? 0) >= (kind.goals.steal ?? 0)));
+  let at = s.tick - (s.tick % TICKS_PER_HOUR) + TICKS_PER_HOUR;
+  while (calendar(at).hour !== PROBE_HOUR) at += TICKS_PER_HOUR;
+  const b = bookOf(s);
+  b.probes = (b.probes ?? 0) + 1;
+  b.probe = { kind: r.kind, at, goal: burns ? 'burn' : 'steal', n: rng.int(PROBE_PARTY[0], PROBE_PARTY[1]) };
+}
+
+/** Each hour: a probe waiting for its night goes in. The watch (guards and watchtowers) may catch it; if not it steals the
+ *  best of the stores, or sets one fire, and goes. Autopilot only. */
+export function oddsHourly(s: GameState): void {
+  const probe = s.raidOdds?.probe;
+  if (!probe || s.autopilot === false || s.tick % TICKS_PER_HOUR !== 0 || s.tick < probe.at || s.raid) return;
+  const b = bookOf(s);
+  b.probe = undefined;
+  const who = (RAID_KIND_BY_ID[probe.kind]?.name ?? 'raiders').toLowerCase();
+  const guards = s.people.filter((p) => p.guard && !p.downed && p.away === null).length;
+  const towers = s.buildings.filter((q) => q.status === 'done' && (q.def === 'watchtower' || q.def === 'lookout')).length;
+  const catchP = Math.min(0.85, Math.max(0.15, PROBE_CATCH + PROBE_CATCH_GUARD * guards + PROBE_CATCH_TOWER * towers));
+  const rng = sideRng(s, 'probe');
+  if (rng.next() < catchP) {
+    b.caught = (b.caught ?? 0) + 1;
+    notify(s, `In the night the watch caught ${probe.n} of the ${who} creeping in, and drove them off with nothing.`, true);
+    return;
+  }
+  if (probe.goal === 'burn') {
+    const target = s.buildings.filter((q) => q.status === 'done' && q.fire === undefined && !BUILDING_BY_ID[q.def]?.hp && flammable(q)).sort((x, y) => x.id - y.id)[0];
+    if (target && setFire(s, target)) {
+      notify(s, `A few of the ${who} slipped in by night and set the ${BUILDING_BY_ID[target.def].name.toLowerCase()} alight, then were gone.`, true);
+      return;
+    }
+  }
+  // (stealing: the best thing in the stores, as much as they can carry)
+  const worth = (m: Material) => LOOT_VALUE[m] ?? 1;
+  let best: Material | null = null;
+  let held = 0;
+  for (const m of MATERIALS) {
+    const n = storages(s).reduce((k, st) => k + (st.store[m] ?? 0), 0);
+    if (n > 0 && (!best || worth(m) > worth(best))) {
+      best = m;
+      held = n;
+    }
+  }
+  if (!best) {
+    notify(s, `A few of the ${who} slipped in by night, found nothing worth taking, and were gone.`, true);
+    return;
+  }
+  let take = Math.min(held, PROBE_TAKE * probe.n);
+  const got = take;
+  for (const st of storages(s)) {
+    const n = Math.min(take, st.store[best] ?? 0);
+    if (n > 0) {
+      addStock(st.store, best, -n);
+      take -= n;
+    }
+  }
+  notify(s, `A few of the ${who} slipped in by night and made off with ${got} ${best.replace(/_/g, ' ')}.`, true);
 }

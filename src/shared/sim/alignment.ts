@@ -223,7 +223,8 @@ export function alignmentYearLines(s: GameState, sinceTick: number): string[] {
 export function alignmentHourly(s: GameState): void {
   if (s.autopilot === false || s.gameOver || s.tick % TICKS_PER_HOUR !== 0) return;
   const a = alignState(s);
-  a.score = r2(clamp(a.score + (home(s) - a.score) * DRIFT_PER_HOUR));
+  // (the slow drift pulls toward neutral, not toward the people's home, so choices and deeds decide the bar)
+  a.score = r2(clamp(a.score + (0 - a.score) * DRIFT_PER_HOUR));
   a.order = r2(clamp((a.order ?? orderHomeOf(s.origin)) + (orderHomeOf(s.origin) - (a.order ?? orderHomeOf(s.origin))) * DRIFT_PER_HOUR));
   watch(s, a);
   // (who runs it: once a day the leader's and the folk's natures pull the bar)

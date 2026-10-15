@@ -178,6 +178,8 @@ export const DEMAND_PER_TROOPS = 1;
  *  one, the share of its troops it sends, and how long before the next. */
 export const HOST_CHANCE = 0.22;
 export const HOST_WARNING_HOURS = 36;
+/** A war host the town hunted down leaves a grudge: the next one is this much bigger (and may pass `HOST_MOST` by as much). */
+export const HOST_GRUDGE_BIGGER = 1.35;
 export const HOST_MOST = 60;
 export const HOST_SHARE = 0.6;
 export const HOST_GAP_DAYS = 4;
