@@ -45,15 +45,15 @@ export interface CastleView {
 
 /** The walls' measures (px): a partition's walk and face, the curtain wall's battlements, walk and face. These are what
  *  stands on the ground (where a wall's foot is, and so where people can walk); how tall a wall is drawn is `TALL`. */
-const PART_T = 6;
-const PART_FACE = 22;
+const PART_T = 4;
+const PART_FACE = 10;
 const MERLON = 6;
-const WALL_T = 8;
+const WALL_T = 4;
 /** The curtain wall's face seen from inside (its north run), and a hold's hewn rock face. */
-const INNER_FACE = 26;
-const ROCK_FACE = 24;
-const SIDE_T = 10;
-const OUTER_SIDE_T = 10;
+const INNER_FACE = 10;
+const ROCK_FACE = 12;
+const SIDE_T = 6;
+const OUTER_SIDE_T = 6;
 /** How tall a wall face stands (px) above its foot: a person is drawn 48 tall, a doorway about 1.25 times that and a
  *  wall at least as tall as its doorway. Only the picture rises (up over what stands behind it); a wall's foot, and so
  *  the ground it takes, is where it was. */
@@ -167,7 +167,7 @@ function pieces(tone: Tone, toneKey: string, winter: boolean) {
   };
 }
 
-const ROCK_T = 12;
+const ROCK_T = 6;
 /** A wall's run down a column, `h` px from `y`: the walk on top and a shaded strip of its face along the east side. */
 function sideRun(p: Parameters<typeof paint>[3] extends (q: infer Q) => void ? Q : never, y: number, h: number): void {
   walk(p, 0, y, SIDE_T - 3, h, 'y');
