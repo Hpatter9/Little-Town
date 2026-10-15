@@ -20,7 +20,7 @@ const GROUPS: Record<string, MenuTabs> = {
       ['Overview', /^(At a glance|Direction|Town size|Raid battles|Lichcraft|The seasonal round|.*: powers)/],
       ['Buildings', /^(Being built|In town|Building book)/],
       ['Stores', /^Stores/],
-      ['Faith', /^(The gods|Signs from the gods)/],
+      ['Faith', /^(The gods|The faithful|Miracles|Signs from the gods)/],
       ['Villages', /^Daughter villages/],
       ['Council', /^(The council|Laws|Crime and trials)/],
       ['Our ways', /^Our ways/],

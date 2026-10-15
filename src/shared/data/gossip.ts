@@ -9,10 +9,10 @@ import type { NatureId } from './natures';
 export type GossipKind =
   | 'death' | 'maimed' | 'joined' | 'back' | 'lost' | 'setout' | 'dragon' | 'built' | 'learned' | 'slain' | 'raid'
   | 'fire' | 'flood' | 'wedding' | 'couple' | 'birth' | 'grown' | 'brawl' | 'crime' | 'age' | 'guard' | 'beasts'
-  | 'funeral' | 'blessing' | 'trial' | 'omen';
+  | 'funeral' | 'blessing' | 'trial' | 'omen' | 'miracle' | 'heresy' | 'cult' | 'convert' | 'wrath' | 'pilgrims';
 
 /** The news that's bad to hear (the rest is good, or at least something to talk about). */
-export const BAD_NEWS: ReadonlySet<GossipKind> = new Set(['death', 'maimed', 'lost', 'dragon', 'raid', 'fire', 'flood', 'brawl', 'crime', 'funeral', 'omen']);
+export const BAD_NEWS: ReadonlySet<GossipKind> = new Set(['death', 'maimed', 'lost', 'dragon', 'raid', 'fire', 'flood', 'brawl', 'crime', 'funeral', 'omen', 'heresy', 'cult', 'wrath']);
 
 /** How someone of each nature starts on a piece of news. */
 export const OPENERS: Record<NatureId, string[]> = {
@@ -60,6 +60,12 @@ export const SAYINGS: Record<GossipKind, string[]> = {
   blessing: ['The gods blessed the {what}!', 'A blessing on the {what}, they say.'],
   trial: ['{who} was tried today.', 'Did you hear about {who}\'s trial?'],
   omen: ['There was an omen. A bad one.', 'Did you see the sign in the sky?'],
+  miracle: ['A miracle! I saw it myself.', '{who} should be dead. The gods gave them back.', 'Say what you like, the gods are real.'],
+  heresy: ['{who} is up before the council for heresy.', 'They\'re trying {who} as a heretic.'],
+  cult: ['{who} and the cult of {what}... I don\'t like it.', 'There\'s a cult now. {what}, they call it.', 'Lights by that black altar again last night.'],
+  convert: ['{who} has turned to {what}.', 'Heard about {who}? {what}, now.'],
+  wrath: ['{what} is angry with us.', 'That was {what}\'s anger, that was.', 'What did we do to deserve {what}\'s wrath?'],
+  pilgrims: ['The pilgrims are home from {what}!', 'They walked all the way to {what} and back.'],
 };
 
 /** Answers that fit each kind of news. */
@@ -90,6 +96,12 @@ export const REPLIES: Record<GossipKind, string[]> = {
   blessing: ['Give thanks!', 'About time the gods noticed.'],
   trial: ['Justice, I hope.', 'Poor fool.'],
   omen: ['Don\'t say that.', 'I saw it too.'],
+  miracle: ['Give thanks!', 'I still can\'t believe it.'],
+  heresy: ['Serves them right.', 'Heresy? Over prayers?'],
+  cult: ['Keep your voice down.', 'Someone should put a stop to it.'],
+  convert: ['Good for them.', 'Each to their own.'],
+  wrath: ['Pray it passes.', 'We\'ve angered them somehow.'],
+  pilgrims: ['Welcome home to them.', 'I\'d have gone, if they\'d asked.'],
 };
 
 /** How someone of each nature takes good news and bad, when the news's own answers aren't used. */

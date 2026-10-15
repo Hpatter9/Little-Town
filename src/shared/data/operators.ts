@@ -46,6 +46,10 @@ export const OPERATORS: Readonly<Record<string, OperatorRole>> = {
   watchtower: { title: 'Guard Captain', skill: 'melee', effect: 'Defenders hit harder and more often' },
   beast_ranch: { title: 'Beastmaster', skill: 'animals', effect: 'Trains the beasts, tends the sick, and catches beasts left on the field' },
   arena: { title: 'Arena Master', skill: 'social', effect: 'A bigger crowd at the gate for every bout' },
+  // (the priests: sim/religion.ts)
+  wayside_shrine: { title: 'Priest', skill: 'social', effect: 'Keeps the dawn rite and the feast days, says the words at funerals, blesses the defenders and every party' },
+  temple: { title: 'Priest', skill: 'social', effect: 'Keeps the dawn rite and the feast days, says the words at funerals, blesses the defenders and every party; leads the pilgrims' },
+  cathedral: { title: 'High Priest', skill: 'social', effect: 'Keeps the dawn rite and the feast days, says the words at funerals, blesses the defenders and every party; leads the pilgrims' },
 };
 
 /** How much faster a job's holder works at their own station. */
