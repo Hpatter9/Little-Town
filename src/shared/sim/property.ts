@@ -13,6 +13,7 @@ import type { Material } from '../data/materials';
 import { BUILD_SKILL_BY_ERA, BUILD_SKILL_FREE_CELLS, BUILD_SKILL_PER_CELL, LAND_PRICE_PER_CELL, RENT_MORALE, RENT_PER_BED } from '../data/economy';
 import { blueprintCount, buildSlots, defOf, depthOf, isUnlocked, placeBlueprint, unlockInfo, totalStock } from './buildings';
 import { giveCoins, moneyTown } from './economy';
+import { houseCut } from './intrigue';
 import { findSpot } from './planner';
 import { earn, notify, remember, type Building, type GameState, type Person } from './state';
 import { calendar, TICKS_PER_HOUR } from './time';
@@ -104,7 +105,7 @@ export function collectRent(s: GameState): void {
     const landlord = ownerOf(s, home);
     if ((p.coins ?? 0) >= rent) {
       p.coins = (p.coins ?? 0) - rent;
-      if (landlord) giveCoins(s, landlord, rent, `Rent from ${p.name} (${rent} coins)`);
+      if (landlord) giveCoins(s, landlord, rent - houseCut(s, landlord, rent), `Rent from ${p.name} (${rent} coins)`); // (a tithe to the landlord's house: sim/intrigue.ts)
       else {
         s.coins = (s.coins ?? 0) + rent;
         earn(s, 'rent', rent);

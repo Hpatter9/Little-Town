@@ -1308,6 +1308,8 @@ export interface GameState {
   kin?: Record<number, import('./lineage').KinRecord>;
   /** Generations and dynasties (sim/dynasty.ts): upbringing, feuds, bonds, the ruling house, heirlooms. */
   dynasty?: import('./dynasty').DynastyState;
+  /** House intrigue (sim/intrigue.ts): the houses' purses, a ring, holds on the council, killings, whispers. */
+  intrigue?: import('./intrigue').IntrigueState;
   /** The trade economy: prices, booms and shortages, the trade house, its routes and wagons (sim/markets.ts). */
   market?: import('./markets').MarketState;
   /** A druid town's grove (sim/grove.ts). */
