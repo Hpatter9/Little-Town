@@ -366,6 +366,7 @@ class DeepHud {
   private readonly up: HTMLButtonElement;
   private readonly down: HTMLButtonElement;
   private readonly info: HTMLElement;
+  private readonly under: HTMLButtonElement;
   private depth = 0;
   private levels = 0;
   private last = '';
@@ -374,7 +375,7 @@ class DeepHud {
     this.el = document.createElement('div');
     this.el.id = 'deep-hud';
     this.el.innerHTML =
-      '<div class="dh-top"><button class="dh-up" title="Up a level">▲</button><div class="dh-title"></div><button class="dh-down" title="Down a level">▼</button><button class="dh-close" title="Back up to the town">✕</button></div><div class="dh-info"></div>';
+      '<div class="dh-top"><button class="dh-up" title="Up a level">▲</button><div class="dh-title"></div><button class="dh-down" title="Down a level">▼</button><button class="dh-under" title="The Underdark, the caves under the land" hidden>Caves</button><button class="dh-close" title="Back up to the town">✕</button></div><div class="dh-info"></div>';
     this.el.hidden = true;
     document.body.append(this.el);
     this.title = this.el.querySelector('.dh-title')!;
@@ -384,6 +385,9 @@ class DeepHud {
     this.up.addEventListener('click', () => this.depth > 1 && this.send({ type: 'watchDeep', depth: this.depth - 1 }));
     this.down.addEventListener('click', () => this.depth < this.levels && this.send({ type: 'watchDeep', depth: this.depth + 1 }));
     this.el.querySelector('.dh-close')!.addEventListener('click', () => this.send({ type: 'watchDeep', depth: null }));
+    // (across to the Underdark: underdark/underdarkView.ts)
+    this.under = this.el.querySelector('.dh-under')!;
+    this.under.addEventListener('click', () => this.send({ type: 'watchUnder', on: true }));
   }
 
   show(v: DeepView | null): void {
@@ -394,6 +398,7 @@ class DeepHud {
     this.levels = v.levels.length;
     this.up.disabled = v.depth <= 1;
     this.down.disabled = v.depth >= v.levels.length;
+    this.under.hidden = !v.under;
     const key = `${v.depth}|${v.toDown}|${Math.round(v.stir * 20)}|${v.miners.length}|${v.finds.join('|')}`;
     if (key === this.last) return;
     this.last = key;

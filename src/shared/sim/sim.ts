@@ -71,6 +71,7 @@ import { wildHourly } from './wild';
 import { calamityHourly } from './calamity';
 import { greatEnemyHourly } from './greatEnemy';
 import { deepHourly } from './deep';
+import { underdarkHourly } from './underdark';
 import { portalsHourly } from './portals';
 import { ancestorsHourly } from './ancestors';
 import { lookInside } from './interiors';
@@ -260,6 +261,7 @@ export class Sim {
     calamityHourly(s); // (the Calamity: sim/calamity.ts)
     greatEnemyHourly(s); // (the Great Enemy: sim/greatEnemy.ts)
     deepHourly(s); // (the Deep under the town: sim/deep.ts)
+    underdarkHourly(s); // (the Underdark, the caves under the land: sim/underdark.ts)
     portalsHourly(s); // (other worlds through an arch or a rift: sim/portals.ts)
     ancestorsHourly(s); // (a descendant's forebears: spirits, the heirloom, the Old House: sim/ancestors.ts)
     lineageHourly(s); // (children's lessons and apprenticeships: sim/lineage.ts)
@@ -535,6 +537,12 @@ export class Sim {
         break;
       case 'watchDeep':
         s.watchingDeep = c.depth !== null && s.deep && c.depth <= s.deep.levels.length ? c.depth : undefined;
+        if (s.watchingDeep) s.watchingUnder = undefined;
+        break;
+      case 'watchUnder':
+        // (the Underdark's view: sim/underdark.ts; it takes the Deep's place)
+        s.watchingUnder = c.on && s.underdark ? true : undefined;
+        if (s.watchingUnder) s.watchingDeep = undefined;
         break;
       case 'watchMine':
         s.watchingMine = c.place !== null && (s.places ?? []).some((p) => p.id === c.place && p.mine) ? c.place : undefined;

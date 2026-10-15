@@ -64,6 +64,7 @@ export const expeditionsKey = (s: Snapshot) =>
     s.horses,
     s.uniques,
     s.regions,
+    s.underdark?.towns, // (the cave towns' marks on the map: sim/underdark.ts)
     s.quests.map((q) => [q.id, q.accepted, q.hoursLeft]),
     s.hunts.hunts.map((h) => [h.id, h.accepted, h.hoursLeft]),
     s.hunts.forge.map((f) => [f.made, f.ready, f.holder]),
@@ -128,6 +129,7 @@ export function renderExpeditions(s: Snapshot, bridge: Bridge | undefined, reren
     s.realm.factions.filter((f) => f.known).map((f) => ({ id: f.id, name: f.name, stronghold: f.stronghold, stance: f.stance, stanceName: f.stanceName, assault: f.assault, folk: f.folk, size: f.size, tier: f.tier })),
     s.world,
     s.greatEnemy && s.greatEnemy.stage !== 'dormant' ? s.greatEnemy : null,
+    s.underdark?.towns ?? [],
   );
   out.push(worldMap.el, el('div', 'hint map-hint', 'Tap a place on the map to find its card. Tap a card for more: the foes, the loot, a bounty, or forbidding it.'));
   // the realm on the move (sim/worldLife.ts): hosts, caravans and envoys on the roads, and the powers' feuds
@@ -140,6 +142,14 @@ export function renderExpeditions(s: Snapshot, bridge: Bridge | undefined, reren
     const near = el('div', 'cards wide');
     for (const d of nearby) near.append(destinationCard(d, s.destinations.find((v) => v.id === d.id)!, s, bridge));
     out.push(near);
+  }
+  // the places found in the Underdark, under the land (sim/underdark.ts)
+  const deep = (s.underdark?.dests ?? []).filter((d) => s.destinations.some((v) => v.id === d.id));
+  if (deep.length) {
+    out.push(el('h2', '', 'Below the town'));
+    const box = el('div', 'cards wide');
+    for (const d of deep) box.append(destinationCard(d, s.destinations.find((v) => v.id === d.id)!, s, bridge));
+    out.push(box);
   }
   // the Moon Pack: its renown, the moon, the rival packs' lairs a war party can break (sim/pack.ts)
   if (s.pack) out.push(...packSection(s, bridge));

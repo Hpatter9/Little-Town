@@ -34,7 +34,7 @@ const GROUPS: Record<string, MenuTabs> = {
     groups: [
       ['Out now', /^(Out now|Boats|The Calamity|The Great Enemy)/],
       ['Quests', /^(Accepted quests|Quest board|Sagas|Quest log)/],
-      ['Places', /^(Places|On the town's land|The pack|Destinations|Not yet reachable)/],
+      ['Places', /^(Places|On the town's land|Below the town|The pack|Destinations|Not yet reachable)/],
       ['Companies', /^Companies/],
       ['Realm', /^(The realm|Assaults)/],
       ['Treasures', /^(Guild forge|Unique weapons)/],

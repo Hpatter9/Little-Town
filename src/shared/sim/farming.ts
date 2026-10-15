@@ -31,6 +31,7 @@ import { gainSkill, workFactor } from './townsfolk';
 import { cropSpeed } from './origin';
 import { SHAFT } from '../data/deep';
 import { cellAt, deepOf, deepTarget, digDeep, digSeconds, isDiggable, shaftHasWork, workingLevel } from './deep';
+import { underDug } from './underdark';
 
 const FARM_XP_PER_SEC = 2;
 const HARVEST_XP = 20;
@@ -290,7 +291,11 @@ function workDeep(s: GameState, p: Person, b: Building, task: { work: number; ce
 
 /** One tick of digging. Returns true when a load is dug out (it goes into the digger's hands). */
 export function workMine(s: GameState, p: Person, b: Building, progress: { work: number; cell?: number; depth?: number }): boolean {
-  if (b.def === SHAFT) return workDeep(s, p, b, progress);
+  if (b.def === SHAFT) {
+    const done = workDeep(s, p, b, progress);
+    if (done) underDug(s, p, b); // (and the way on into the Underdark: sim/underdark.ts)
+    return done;
+  }
   const w = WORKPLACES[b.def];
   progress.work += (skillSpeed(p.skills.gathering.level) * toolSpeed(p, 'mine') * researchMods(s.research).gather.mine * workFactor(s, p) * (holds(p, b) ? HOLDER_EDGE : 1)) / (w.seconds * ERA_MULTIPLIER[earlier(s.era, eraOfResearch(BUILDING_BY_ID[b.def].research))] * TICK_HZ);
   gainSkill(p, 'gathering', FARM_XP_PER_SEC / TICK_HZ);
@@ -307,5 +312,6 @@ export function workMine(s: GameState, p: Person, b: Building, progress: { work:
   }
   if (poolSize(spill)) depositNear(s, buildingCentreX(b), spill);
   gainSkill(p, 'gathering', HARVEST_XP);
+  underDug(s, p, b); // (a mine's a way down into the Underdark too: sim/underdark.ts)
   return true;
 }

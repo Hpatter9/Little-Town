@@ -70,6 +70,7 @@ import { isSagaDest, sagaDestOf, sagaTripHome } from './sagas';
 import { huntDestOf, huntHome, isHuntDest } from './hunts';
 import { dragonDestination, dragonHome, isDragonDest } from './dragon';
 import { isVillageDest, villageDestination, villageHome } from './villages';
+import { isUnderDest, underDestination } from './underdark';
 import { isPortalDest, portalDestination, portalHome } from './portals';
 import { heartCleared, heartDestination, heartOpen, isHeartDest } from './calamity';
 import { enemyDestination, enemyPlaceCleared, isEnemyDest } from './greatEnemy';
@@ -109,6 +110,7 @@ export function destinationOf(s: GameState, id: string): Destination | undefined
   if (isDragonDest(id)) return dragonDestination(s);
   if (isVillageDest(id)) return villageDestination(s, id);
   if (isPortalDest(id)) return portalDestination(s, id);
+  if (isUnderDest(id)) return underDestination(s, id); // (a place found in the Underdark: sim/underdark.ts)
   if (isHeartDest(id)) return heartDestination(s, true); // (held: a party that cleared it still has to get home)
   if (isEnemyDest(id)) return enemyDestination(s, id, true); // (the Great Enemy's seat and outposts, held the same way)
   if (isAssaultDest(id)) return assaultDestination(s, id);
@@ -129,6 +131,7 @@ export function destinationUnlocked(s: GameState, d: Destination): boolean {
   // (a daughter village broken away)
   if (isVillageDest(d.id)) return !!villageDestination(s, d.id);
   if (isPortalDest(d.id)) return !!portalDestination(s, d.id);
+  if (isUnderDest(d.id)) return !!underDestination(s, d.id);
   // (the Calamity's heart, while it can be struck at)
   if (isHeartDest(d.id)) return heartOpen(s);
   // (the Great Enemy's seat, once found, and its lieutenants' outposts while they live)

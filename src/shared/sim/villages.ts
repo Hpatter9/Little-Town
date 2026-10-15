@@ -20,6 +20,7 @@ import { FOOD_VALUE } from '../data/people';
 import { RAID_KIND_BY_ID } from '../data/raids';
 import { WORTH } from '../data/trade';
 import { eventPicture } from '../data/eventScenes';
+import { UNDER_MAKES } from '../data/underdark';
 import {
   BESET_DAILY, BESET_FOES, BESET_HOURS, BESET_LOSS, BESET_LOSS_PAID, BESET_OPTIONS, BLESSING, BLESSING_FOOD, CART_LOAD, CART_STAY_HOURS, GIFT_COINS, GIFT_LOYALTY, GROUND_MAKES, HEELED_LOYALTY, HELP_AT, HELP_CHANCE, HELP_FOLK, HELP_HOURS, HELP_HURT, HELP_KILLS, HELP_SENT,
   HELPED_LOYALTY, HELPERS, LOYALTY_DRIFT, LOYALTY_REST, LOYALTY_REST_BY_NATURE, LOYALTY_START, MAKES_PER_HEAD, MILITIA_BY_ERA, NAME_ENDS, NAME_ROOTS, PAID_LOYALTY, PARTING_HOURS, PARTING_OPTIONS, REBEL_AT, REBEL_BUDGET_SHARE, REBEL_RAID_DAILY, RECONCILE_AT, REFUSED_LOYALTY,
@@ -76,6 +77,8 @@ export interface Village {
   helpers?: { ids: number[]; until: number };
   /** A cart of its on the road (a band's id). */
   cart?: number;
+  /** Founded in the Underdark (sim/underdark.ts): no plots on the land, and it makes what the caves give. */
+  below?: boolean;
 }
 
 /** The plan of a village waiting on the town's answer. */
@@ -310,6 +313,7 @@ const wantedPlots = (v: Village) => ({ homes: Math.max(1, Math.ceil(v.pop / 3.5)
 
 /** Lay any houses and fields it has grown into, round its fire, on cleared ground. */
 export function layPlots(s: GameState, v: Village): void {
+  if (v.below) return;
   if (!v.plots.length) place(s, v, 'campfire', true);
   const want = wantedPlots(v);
   const homes = () => v.plots.filter((p) => !p.field && p.def !== 'campfire').length;
@@ -387,6 +391,7 @@ export const villageOfBuilding = (s: GameState, id: number) => (id < 0 ? village
 /* ------------------------------------------------------------ each day */
 
 function makesOf(s: GameState, v: Village): Material[] {
+  if (v.below) return [...UNDER_MAKES];
   const counts: Partial<Record<Material, number>> = {};
   for (let dy = -9; dy <= 9; dy++)
     for (let dx = -9; dx <= 9; dx++) {
