@@ -81,6 +81,7 @@ import { seaTown } from './sea';
 import { rallied, RALLY_DAMAGE } from './rally';
 import { afterBlow, ammoOf, hitDamage, personFighter } from './combat';
 import { gearEffects } from './crafting';
+import { raiderPotions } from './kit';
 import { recallExpedition } from './expeditions';
 import { classesInRaid, summonForRaid } from './classes';
 import { bindTheDead, sicken } from './doom';
@@ -908,6 +909,7 @@ function endRaid(s: GameState, rng: Rng): void {
   // were killed first: they count, and leave their loot)
   const foes = r.raiders.filter((rd) => !rd.ally || rd.raiseChecked);
   const enemies = r.raiders.filter((rd) => !rd.ally);
+  raiderPotions(s, enemies.filter((rd) => rd.down)); // (potions in the pouches of the fallen: sim/kit.ts)
   for (const rd of foes) {
     if (rd.down || rd.ally) {
       killed++;

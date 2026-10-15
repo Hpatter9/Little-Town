@@ -42,7 +42,7 @@ export const townsfolkKey = (s: Snapshot) => {
   return JSON.stringify([
     s.people.map((p) => [p.id, p.priorities, p.autoPriorities]),
     who && [
-      who.id, who.job, who.order, who.sick, who.gear, who.gearQ, who.owns, who.debt, who.bedroll, who.carryCapacity, who.partner, who.married, who.friends, who.rivals, who.enemies, who.devoted,
+      who.id, who.job, who.order, who.sick, who.gear, who.gearQ, who.pouch, who.owns, who.debt, who.bedroll, who.carryCapacity, who.partner, who.married, who.friends, who.rivals, who.enemies, who.devoted,
       who.body, who.growsUpIn !== null && Math.ceil(who.growsUpIn / 24), Math.round(who.hp / 5), who.downed, who.bleedMinutes !== null, Math.round(who.morale / 5), Math.round(who.moodTarget / 5),
       Math.round(who.needs.food * 10), Math.round(who.needs.rest * 10), who.bed, SKILLS.map((k) => [who.skills[k].level, Math.floor(who.skills[k].progress * 4)]),
       who.cls, who.monster, who.clsName, who.stage, who.level, Math.floor(who.levelProgress * 4), who.away, who.battle, who.kit.length, who.carrying, who.recent, who.freePts, who.autoStats, who.road, who.coins, who.income, who.traits.length, who.titles, who.deeds.map((d) => d.n),
@@ -497,6 +497,7 @@ function paperDoll(p: PersonView, s: Snapshot, rerender: () => void): HTMLElemen
   if (p.job) fig.append(el('div', 'hint doll-age', `${p.job.title} at the ${p.job.at}`));
   fig.append(el('div', 'hint doll-age', `${p.natureName}: ${p.natureLine}`));
   if (p.ambition) fig.append(el('div', 'hint doll-age', `Dreams of ${p.ambition.name.charAt(0).toLowerCase()}${p.ambition.name.slice(1)}: ${p.ambition.line}${p.trips ? ` ${p.trips} trip${p.trips > 1 ? 's' : ''} made.` : ''}`));
+  if (p.cls && !p.growsUpIn) fig.append(el('div', 'hint doll-age', `Pouch (${p.pouch.length}/${p.pouchCap}): ${p.pouch.length ? p.pouch.map((id) => ITEM_BY_ID[id]?.name ?? id).join(', ') : 'empty'}`));
   doll.append(fig);
   const shown = chosenSlot ?? firstWorn(p);
   for (const slot of SLOTS) {

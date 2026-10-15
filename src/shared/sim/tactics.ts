@@ -699,6 +699,7 @@ function asPerson(u: TacUnit, q: Person): Combatant {
     ref: q.id,
     kind: 'person',
     name: q.name,
+    bag: q.kit,
     get hp() { return q.hp; },
     set hp(v) { q.hp = Math.max(0, Math.round(v)); },
     maxHp: f.maxHp,

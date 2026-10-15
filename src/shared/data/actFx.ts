@@ -10,6 +10,7 @@
 
 import { ABILITY_BY_ID } from './abilities';
 import type { Effect, Element } from './effects';
+import { KIT_BY_ID, KIT_FX } from './kitItems';
 import { SPELL_BY_ID } from './spells';
 
 /** The pack's fifteen elements, for each of the game's. */
@@ -91,8 +92,8 @@ export function actFx(id: string): string {
   if (got) return got;
   const spell = SPELL_BY_ID[id];
   const ability = ABILITY_BY_ID[id];
-  const effects: readonly Effect[] = spell?.effects ?? ability?.active?.effects ?? [];
-  const name = spell?.name ?? ability?.name ?? id;
+  const effects: readonly Effect[] = spell?.effects ?? ability?.active?.effects ?? KIT_FX[id] ?? [];
+  const name = spell?.name ?? ability?.name ?? KIT_BY_ID[id]?.name ?? id;
   const strike = effects.find((e) => e.kind === 'damage' || e.kind === 'drain');
   const element = effects.find((e) => e.element)?.element;
   let fx: string;
