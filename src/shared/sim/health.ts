@@ -11,6 +11,7 @@ import { UNDEAD_HEAL } from '../data/monsters';
 import { operatorSkill } from './operators';
 import { researchMods } from './research';
 import { buildingCentre } from './buildings';
+import { dynastyDeath } from './dynasty';
 import { grieve, isChild } from './social';
 import { revealOccult, tryRevive } from './occult';
 import { tireless, notify, maxHp, markBlood, personFx, type GameState, type Person } from './state';
@@ -121,6 +122,7 @@ export function killPerson(s: GameState, p: Person, cause: string): void {
   }
   recordFallen(s, p, cause); // (the hall of heroes and the year's chronicle: sim/annals.ts)
   recordDeath(s, p, cause); // (the family's record, and their land and purse to their heir: sim/lineage.ts)
+  dynastyDeath(s, p, cause); // (an heirloom passes on, an heir's fall is felt: sim/dynasty.ts)
   s.people = s.people.filter((q) => q !== p);
   // what they wore stays in town if they died there (it's lost with them on the road)
   if (p.away === null) for (const id of Object.values(p.gear)) s.items[id!] = (s.items[id!] ?? 0) + 1;
