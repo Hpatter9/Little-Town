@@ -178,6 +178,7 @@ export class WorldMapView {
       mark.setAttribute('aria-label', mark.title);
       place(mark, p);
       this.marks.append(mark, label(p.name, { x: p.x, y: p.y + 12 }, 'post'));
+    }
     // the Great Enemy's seat (once found: tap to strike it, when a party may) and its lieutenants' outposts
     if (enemy?.seatKnown) {
       const seatId = enemy.dests.find((d) => d.id.endsWith(':seat'))?.id;
