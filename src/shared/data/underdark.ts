@@ -73,7 +73,7 @@ export const NIGHT_TO = 4;
 /** Nothing comes up before this (paced) day, nor into a town of fewer people (a dwarf hold opens on the caves from
  *  its first hallway, and a hamlet of three would be eaten). */
 export const DANGER_DAY = 3;
-export const DANGER_PEOPLE = 8;
+export const DANGER_PEOPLE = 6;
 /** Each night hour, once through: the chance something comes up the shaft (`under_dark`), a share of a raid's
  *  budget; and never two within `RISE_GAP_HOURS`. */
 export const DARK_RISE = 0.012;

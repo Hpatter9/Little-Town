@@ -43,7 +43,7 @@ or a gift for trade. They feud among themselves (`feuds`: `FEUD_CHANCE`, troops 
 each night hour `CAVE_RAID` of a raid up the main way down (startRaid inside the town at the shaft), its budget
 `CAVE_RAID_SHARE` of a raid's plus `CAVE_RAID_PER_TROOP` a troop, led by its lord.
 
-**The night** (`night`, hours `NIGHT_FROM`..`NIGHT_TO`, from paced day `DANGER_DAY` 3 and a town of `DANGER_PEOPLE` 8):
+**The night** (`night`, hours `NIGHT_FROM`..`NIGHT_TO`, from paced day `DANGER_DAY` 3 and a town of `DANGER_PEOPLE` 6):
 things from the dark come up the shaft (`DARK_RISE`, the `under_dark` raid, never two within `RISE_GAP_HOURS`); one at
 work at a way down is taken (`TAKEN`, killed); the river or the lake, once the tunnels touch it, floods them (`FLOOD`:
 up to two at work drowned (`FLOOD_KILLS`) or hurt, the digging stopped `FLOOD_HOURS`).
