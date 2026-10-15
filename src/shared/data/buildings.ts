@@ -19,6 +19,7 @@ import { FAITH_BUILDINGS, FAITH_UPGRADES } from './gods';
 import { WARD_BUILDING } from './calamity';
 import { MONUMENT_BUILDING } from './greatEnemy';
 import { BOATYARD } from './boats';
+import { HARBOUR } from './seafaring';
 import { AIRSHIP_MAST } from './skies';
 import { MINERAL_BUILDINGS } from './minerals';
 import { MONSTER_GUILD } from './hunts';
@@ -203,7 +204,7 @@ const BASE_BUILDINGS: readonly BuildingDef[] = [
  *  makes nothing. Placed by the planner (sim/planner.ts `tryHall`), from the entrance hall inward. */
 export const HOLD_HALLWAY: BuildingDef = { id: 'hold_hallway', name: 'Hallway', layer: 'mid', width: 2, depth: 4, cost: { stone: 3 }, buildSeconds: 30, purpose: 'A passage cut into the mountain for the rooms to open off.', origin: 'dwarves' };
 
-export const BUILDINGS: readonly BuildingDef[] = [HOLD_HALLWAY, ...BASE_BUILDINGS, ...DEFENSE_BUILDINGS, ...ORIGIN_DEFENSES, ...SEAT_DEFS, BLOOD_FARM, ...WORKSHOP_BUILDINGS, ...MINERAL_BUILDINGS, ...STORE_BUILDINGS, BOATYARD, AIRSHIP_MAST, MONSTER_GUILD, ...PRISON_BUILDINGS, ...FAITH_BUILDINGS, ...RECREATION_BUILDINGS, ...TRAINING_BUILDINGS, WARD_BUILDING, MONUMENT_BUILDING, SHAFT_BUILDING, ...PORTAL_BUILDINGS, STATUE_BUILDING, RANCH_BUILDING, ARENA_BUILDING];
+export const BUILDINGS: readonly BuildingDef[] = [HOLD_HALLWAY, ...BASE_BUILDINGS, ...DEFENSE_BUILDINGS, ...ORIGIN_DEFENSES, ...SEAT_DEFS, BLOOD_FARM, ...WORKSHOP_BUILDINGS, ...MINERAL_BUILDINGS, ...STORE_BUILDINGS, BOATYARD, HARBOUR, AIRSHIP_MAST, MONSTER_GUILD, ...PRISON_BUILDINGS, ...FAITH_BUILDINGS, ...RECREATION_BUILDINGS, ...TRAINING_BUILDINGS, WARD_BUILDING, MONUMENT_BUILDING, SHAFT_BUILDING, ...PORTAL_BUILDINGS, STATUE_BUILDING, RANCH_BUILDING, ARENA_BUILDING];
 export const BUILDING_BY_ID: Readonly<Record<string, BuildingDef>> = Object.fromEntries(BUILDINGS.map((b) => [b.id, b]));
 
 export const LAYER_NAMES: Record<BuildLayer, string> = { fore: 'Foreground (walkway)', mid: 'Midground', back: 'Background (fields)' };

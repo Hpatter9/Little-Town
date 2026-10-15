@@ -637,6 +637,13 @@ export const CUSTOM_ICONS: Record<string, (p: Painter) => void> = {
     sail(p, 5, '#ece4cc', '#d8ccb0', 3);
     p.rect(1, 7, 4, 3, '#7a4e2a');
   }),
+  boat_galleon: (p) => boatIcon(p, '#4e3220', '#2a1a10', () => {
+    sail(p, 10, '#ece4cc', '#d8ccb0');
+    sail(p, 7, '#ece4cc', '#d8ccb0', 2);
+    sail(p, 4, '#ece4cc', '#d8ccb0', 3);
+    p.rect(1, 7, 3, 3, '#4e3220');
+    p.rect(1, 7, 3, 1, '#e0b040');
+  }),
   boat_steamer: (p) => boatIcon(p, '#3a3e46', '#22252c', () => {
     p.rect(4, 7, 8, 3, '#e8e0d0');
     p.rect(8, 3, 2, 5, '#222428');
