@@ -22,6 +22,7 @@ import { addStock, dist, maxHp, notify, type GameState, type Raid, type Raider }
 import { credit, raidRecap } from './raidRecap';
 import { raidSkipOver } from './raidSkip';
 import { tallyRaid } from './annals';
+import { watchMeetsProbe } from './nightWatch';
 import { gainSkill } from './townsfolk';
 import { storages } from './buildings';
 import { flammable, setFire } from './fire';
@@ -395,6 +396,8 @@ export function oddsHourly(s: GameState): void {
   if (!probe || s.autopilot === false || s.tick % TICKS_PER_HOUR !== 0 || s.tick < probe.at || s.raid) return;
   const b = bookOf(s);
   b.probe = undefined;
+  // (a watchman at the way in may spot them, and they meet the watch there: sim/nightWatch.ts)
+  if (watchMeetsProbe(s, probe.kind, probe.n)) return;
   const who = (RAID_KIND_BY_ID[probe.kind]?.name ?? 'raiders').toLowerCase();
   const guards = s.people.filter((p) => p.guard && !p.downed && p.away === null).length;
   const towers = s.buildings.filter((q) => q.status === 'done' && (q.def === 'watchtower' || q.def === 'lookout')).length;

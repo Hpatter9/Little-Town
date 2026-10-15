@@ -111,6 +111,7 @@ import { ENEMIES } from '../data/enemies';
 import { atPlace, DESTINATIONS, MAX_EXPEDITIONS, ROLES, the } from '../data/expeditions';
 import { RAID_KIND_BY_ID } from '../data/raids';
 import { alarmRaised, cavalry, gateTop, onShift } from './people';
+import { watchHour, watchLine } from './nightWatch';
 import { isGate, ringProgress, ringShapeOf } from './ringWall';
 import { ERA_NAMES, type Era } from '../data/eras';
 import { seatOf } from '../data/seats';
@@ -1107,7 +1108,7 @@ export interface Snapshot {
   townSize: number | null;
   /** The tax lever, and the treasury's guards (sim/treasury.ts). */
   tax: TaxRate;
-  guards: { n: number; wanted: number; wage: number; names: string[] };
+  guards: { n: number; wanted: number; wage: number; names: string[]; watch: string };
   plan: TownPlan | null;
   /** The tick of the last big boss moment (a roar, a sweeping attack): the strip shakes. */
   bossShake: number;
@@ -1480,7 +1481,7 @@ export function snapshot(s: GameState): Snapshot {
     direction: directionOf(s),
     townSize: s.popTarget ?? null,
     tax: taxRate(s),
-    guards: { n: guardsOf(s).length, wanted: guardsWanted(s), wage: guardWage(s), names: guardsOf(s).map((g) => g.name) },
+    guards: { n: guardsOf(s).length, wanted: guardsWanted(s), wage: guardWage(s), names: guardsOf(s).map((g) => g.name), watch: watchLine(s) },
     plan: s.plan ?? null,
     ironman: !!s.ironman,
     launchHours: s.launchTick != null ? Math.max(0, (s.launchTick - s.tick) / TICKS_PER_HOUR) : null,
@@ -2397,7 +2398,7 @@ function describe(s: GameState, p: Person): string {
     case 'defend':
       return p.activity === 'fight' ? 'Fighting off the raiders!' : 'Defending the town';
     case 'patrol':
-      return 'On patrol';
+      return task.band === undefined && watchHour(calendar(s.tick).hour) ? (task.post !== undefined ? 'On the night watch, at a gate' : 'On the night watch') : 'On patrol';
     case 'shelter':
       return p.bed !== null ? 'Sheltering from the raid' : 'Huddled by the fire (no bed to hide in)';
     case 'repair':
