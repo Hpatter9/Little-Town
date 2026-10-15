@@ -26,6 +26,7 @@ import { faithView, type FaithView } from './faith';
 import { disasterView, type DisasterView } from './disasters';
 import { worldView, type WorldView } from './worldLife';
 import { marketView, type MarketView } from './markets';
+import { empireView, type EmpireView } from './tradeEmpire';
 import { heritageView, type HeritageView } from './heritage';
 import { cellsOf } from './prisoners';
 import { patientsIn, sickbedsIn } from './sickbeds';
@@ -151,12 +152,14 @@ import { dragonDestinations, dragonView, type DragonView } from './dragon';
 import { villageBuildings, villageDestinations, villageViews, type VillageView } from './villages';
 import { interiorView, type InteriorView } from './interiors';
 import { dynastyView, type DynastyView } from './dynasty';
+import { alignView, townTitle } from './alignment';
 import { intrigueView, type IntrigueView } from './intrigue';
 import { familiesView, type FamilyLine } from './lineage';
 import { guildsView, type GuildView } from './guilds';
 import { beastHome, ranchView, type RanchView } from './ranch';
 import { arenaTrip, arenaView, type ArenaView } from './arena';
 import { ARENA_AWAY } from '../data/arena';
+import { EMPIRE_AWAY } from '../data/tradeEmpire';
 import { portalDestinations, portalSummaries, portalView, type PortalSummary, type PortalView } from './portals';
 import { politicsView, type PoliticsView } from './politics';
 import { calamityView, heartDestinations, type CalamityView } from './calamity';
@@ -492,6 +495,9 @@ export interface PromptView {
   text: string;
   options: string[];
   defaultOption: number;
+  /** A choice event's recommended answer and the reason (sim/alignment.ts), or null. */
+  recommended: number | null;
+  why: string | null;
   kind: string;
   /** A choice event's fuller telling, its picture (a backdrop id) and who it's about (the full-screen event box). */
   story: string | null;
@@ -848,6 +854,8 @@ export interface Snapshot {
   seed: string;
   /** The settlement's voted name, or its origin's default until the vote. */
   townName: string;
+  /** The town's alignment title ("the Merciful"), or null (sim/alignment.ts). */
+  townTitle: string | null;
   /** The town's coins (from selling to travellers), its shop (once one's planned), and the travellers in town. */
   coins: number;
   shop: ShopView | null;
@@ -983,6 +991,8 @@ export interface Snapshot {
   arena: ArenaView | null;
   /** The trade economy: prices, booms and shortages, the trade house and its routes (sim/markets.ts). */
   markets: MarketView | null;
+  /** The trade empire: posts, caravans, deals, safety bought (sim/tradeEmpire.ts), for the Market menu's Trade empire tab. */
+  empire: EmpireView | null;
   /** A raid being skipped to its recap, and whether every raid is (sim/raidSkip.ts). */
   raidSkipping: boolean;
   skipRaids: boolean;
@@ -1027,6 +1037,8 @@ export interface Snapshot {
   uniques: { id: string; holder: string | null }[];
   raid: RaidView | null;
   reputation: number;
+  /** The town's alignment: the bar, its label, and the cast the town is tinted by (sim/alignment.ts). */
+  align: ReturnType<typeof alignView>;
   gameOver: { text: string; won: boolean } | null;
   /** An epic boss in a fight right now (in town first, else on an expedition): its health bar. */
   bossBar: { name: string; hp: number; maxHp: number; enraged: boolean; where: string } | null;
@@ -1193,6 +1205,7 @@ export function snapshot(s: GameState): Snapshot {
   return {
     seed: s.seed,
     townName: s.townName ?? (s.lich ? ORIGIN_DEFS.lich.town : originOf(s).town),
+    townTitle: townTitle(s),
     coins: Math.floor(s.coins ?? 0),
     shop: venueView(s, 'shop'),
     tavern: venueView(s, 'tavern'),
@@ -1362,6 +1375,7 @@ export function snapshot(s: GameState): Snapshot {
     ranchPens: slow(s, 'ranchPens', () => (s.ranch?.beasts ?? []).map((b) => ({ id: b.id, kind: b.kind, ...beastHome(s, b) }))),
     arena: slow(s, 'arena', () => arenaView(s)),
     markets: slow(s, 'markets', () => marketView(s)),
+    empire: slow(s, 'empire', () => empireView(s)),
     raidSkipping: !!s.raidSkip && !!s.raid,
     skipRaids: !!s.skipRaids,
     heritage: slow(s, 'heritage', () => heritageView(s)),
@@ -1373,6 +1387,8 @@ export function snapshot(s: GameState): Snapshot {
       text: p.text,
       options: [...p.options],
       defaultOption: p.defaultOption,
+      recommended: p.recommended ?? null,
+      why: p.why ?? null,
       kind: p.kind,
       story: p.story ?? null,
       picture: p.picture ?? null,
@@ -1417,6 +1433,7 @@ export function snapshot(s: GameState): Snapshot {
         }
       : null,
     reputation: s.reputation,
+    align: alignView(s),
     gameOver: s.gameOver ? { text: s.gameOver.text, won: !!s.gameOver.won } : null,
     biome: s.biome ?? 'forest',
     turnable: turnable(s),
@@ -1878,7 +1895,7 @@ function personFast(s: GameState, p: Person): Pick<PersonView, FastPart> {
     rally: rallyState(s, p),
     bucket: p.task?.type === 'wander' && p.task.pastime === 'carry',
     indoors: (p.activity === 'mine' && p.task?.type === 'mine' && p.task.depth !== undefined) || (p.activity === 'sleep' && ((p.task?.type === 'sleep' && p.task.building !== null) || (p.task?.type === 'shelter' && p.bed !== null))) || (p.activity === 'drink' && p.task?.type === 'drink') || (p.activity === 'watch' && p.task?.type === 'relax'),
-    away: p.away === null ? null : p.away === ARENA_AWAY ? 'the arena' : p.away < 0 ? awayWithArmy(s, p) : (destinationOf(s, s.expeditions.find((e) => e.id === p.away)?.dest ?? '')?.name ?? 'expedition'),
+    away: p.away === null ? null : p.away === ARENA_AWAY ? 'the arena' : p.away === EMPIRE_AWAY ? 'on the trade roads' : p.away < 0 ? awayWithArmy(s, p) : (destinationOf(s, s.expeditions.find((e) => e.id === p.away)?.dest ?? '')?.name ?? 'expedition'),
     hp: p.hp,
     downed: !p.downed ? null : p.downed.bleedUntil === null ? 'recovering' : 'bleeding',
     bleedMinutes: p.downed?.bleedUntil != null ? Math.max(0, Math.ceil(((p.downed.bleedUntil - s.tick) / TICKS_PER_HOUR) * 60)) : null,

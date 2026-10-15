@@ -19,6 +19,7 @@ import type { Snapshot } from '../../shared/sim/snapshot';
 import type { Building } from '../../shared/sim/state';
 import { button, el } from './dom';
 import { expandable, facts, type More } from './details';
+import { alignBar } from './alignBar';
 import { selectTab } from './subtabs';
 
 /** Go to a menu's tab: this menu redrawn, or another opened at it. */
@@ -115,7 +116,7 @@ export function glance(s: Snapshot, bridge: Bridge | undefined, rerender: () => 
       bridge?.closePanel();
     }, pt.stir >= 0.75);
   tile('Age', ERA_NAMES[s.era], `Year ${c.year}, ${c.season} day ${c.dayOfSeason}`, ['research', 'Tech tree']);
-  return [el('h2', '', 'At a glance'), grid, el('div', 'hint', 'Tap a tile to go to it.')];
+  return [el('h2', '', 'At a glance'), alignBar(s), grid, el('div', 'hint', 'Tap a tile to go to it.')];
 }
 
 /** What a building is for, to group the town's: in the order they're listed. */

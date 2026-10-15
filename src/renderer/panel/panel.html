@@ -1188,10 +1188,12 @@
       }
       /* a sea lane: the boat trips from the home port, dotted and thin so the map stays readable */
       .map-route.sea-lane {
-        stroke: #7fd0e8;
-        stroke-width: 2;
-        stroke-dasharray: 2 7;
-        opacity: 0.8;
+        stroke: #a8e8f8;
+        stroke-width: 3;
+        stroke-dasharray: 3 7;
+        opacity: 0.95;
+        /* (a dark halo, or the dots are lost on the sea's own blue) */
+        filter: drop-shadow(0 0 1.5px #06213a) drop-shadow(0 0 1px #06213a);
       }
       .map-route.sea-lane.faint {
         opacity: 0.35;
@@ -1478,6 +1480,12 @@
       .map-route.host { stroke: #d04030; stroke-dasharray: 5 4; stroke-width: 2.5; }
       .map-route.feud { stroke: #a070c0; stroke-dasharray: 3 4; stroke-width: 1.5; }
       .map-route.trade-road { stroke: #f0c860; stroke-dasharray: 4 4; stroke-width: 2.5; opacity: 0.85; }
+      .map-march.caravan, .map-march.ship { background: transparent; border: none; font-size: 15px; filter: drop-shadow(0 0 2px #ffe9a0); }
+      .map-post { position: absolute; transform: translate(-50%, -50%); min-width: 18px; height: 18px; border-radius: 4px; background: #4a3a14; border: 1.5px solid #f0c860; color: #ffe9a0; font-size: 11px; line-height: 15px; text-align: center; pointer-events: auto; box-shadow: 0 0 4px #000a; }
+      .map-post.lv1 { border-color: #fff0b0; font-weight: bold; }
+      .map-post.lv2 { background: #6a5018; border-color: #fff8d0; font-weight: bold; }
+      .map-route.post-road { stroke: #f8d878; stroke-dasharray: 6 3; stroke-width: 2; opacity: 0.9; }
+      .empire-card.lost { opacity: 0.7; }
       .map-march.wagon { background: transparent; border: none; font-size: 14px; filter: drop-shadow(0 0 2px #ffd870); }
       .world-news { margin: -4px 0 8px; }
       .map-hint {
@@ -1936,6 +1944,9 @@
         color: #e8c88a;
         font: 700 10px/1 var(--font-body);
       }
+      .guild-badge { flex: none; vertical-align: middle; image-rendering: pixelated; }
+      .inspect-guilds { display: flex; flex-wrap: wrap; gap: 4px 10px; margin: 4px 0; font-size: 12px; }
+      .guild-chip { display: inline-flex; align-items: center; gap: 4px; }
       .folk-class {
         font-size: 11px;
         color: #ffe08a;
@@ -2394,6 +2405,14 @@
       }
       /* the Town's overview: a tile a figure, each a tap through to where it goes on (townOverview.ts) */
       .glance { display: grid; grid-template-columns: repeat(auto-fill, minmax(104px, 1fr)); gap: 6px; margin: 4px 0 6px; }
+      .align-bar { margin: 6px 0 10px; }
+      .align-axis + .align-axis { margin-top: 8px; }
+      .align-track.order { background: linear-gradient(90deg, #7a4a2a, #8a7a6a 50%, #5a7aa8); }
+      .align-track { position: relative; height: 12px; border-radius: 6px; border: 1px solid rgba(255, 255, 255, 0.25); background: linear-gradient(90deg, #5a1e3a, #6a5a6a 35%, #7a7a6a 50%, #b8a860 70%, #f0e0a0); }
+      .align-mark { position: absolute; top: -4px; width: 6px; height: 18px; margin-left: -3px; border-radius: 3px; background: #fff; box-shadow: 0 0 0 2px rgba(0, 0, 0, 0.6); }
+      .align-home { position: absolute; top: 2px; width: 2px; height: 8px; margin-left: -1px; background: rgba(0, 0, 0, 0.55); }
+      .align-ends { display: flex; justify-content: space-between; font-size: 12px; opacity: 0.85; margin-top: 3px; }
+      .align-label { font-weight: bold; opacity: 1; }
       .glance-tile { display: flex; flex-direction: column; align-items: flex-start; gap: 1px; padding: 7px 9px; text-align: left; border-radius: 6px; border: 1px solid rgba(255, 255, 255, 0.12); background: rgba(255, 255, 255, 0.05); color: inherit; font: inherit; cursor: pointer; min-height: 58px; }
       .dread { position: relative; height: 8px; margin: 6px 0 4px; border-radius: 4px; background: rgba(255, 255, 255, 0.1); overflow: hidden; }
       .dread-fill { position: absolute; left: 0; top: 0; bottom: 0; background: linear-gradient(90deg, #6a4a8a, #a03050 70%, #ff3020); }

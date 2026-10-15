@@ -330,6 +330,8 @@ export class MapView {
   private artGen = 0;
   /** The banners stirring on their poles (sprite to its frames), and the clocks of the sails, wheels and banners. */
   private readonly flags = new Map<Sprite, Texture[]>();
+  /** The cast the town's alignment lays on its banners (white when it has none): setCast. */
+  private castTint = 0xffffff;
   private flagT = 0;
   private sailA = 0;
   private wheelA = 0;
@@ -410,6 +412,18 @@ export class MapView {
   }
   screenOf(wx: number, wy: number): { x: number; y: number } {
     return { x: wx + this.world.x + this.root.x, y: wy + this.world.y + this.root.y };
+  }
+
+  /** The town's alignment as a cast on its banners: a warm gold for the light, a dim violet for the dark (the pack's
+   *  sprites, tinted; the land is left as it is). */
+  setCast(cast: number): void {
+    const a = Math.min(1, Math.abs(cast)) * 0.55;
+    const to = cast < 0 ? [0xb0, 0x88, 0xb8] : [0xff, 0xe8, 0xa0];
+    const ch = (c: number) => Math.round(255 + (c - 255) * a);
+    const tint = Math.abs(cast) < 0.15 ? 0xffffff : (ch(to[0]) << 16) | (ch(to[1]) << 8) | ch(to[2]);
+    if (tint === this.castTint) return;
+    this.castTint = tint;
+    for (const sp of this.flags.keys()) if (!sp.destroyed) sp.tint = tint;
   }
 
   setDaylight(daylight: number, frost = false): void {
@@ -1497,7 +1511,10 @@ export class MapView {
         sp.height = e.h;
         sp.position.set(Math.round(x0 + e.dx), Math.round(y0 + e.dy - e.h));
         if (e.tint !== undefined) sp.tint = e.tint;
-        if (e.frames) this.flags.set(sp, e.frames);
+        if (e.frames) {
+          this.flags.set(sp, e.frames);
+          if (e.tint === undefined) sp.tint = this.castTint;
+        }
         sp.zIndex = y0 + e.dy + 0.2;
         (d.extras ??= []).push(sp);
       }

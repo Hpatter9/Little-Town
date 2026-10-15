@@ -811,8 +811,9 @@ export class MapPeople {
         if (!d.tail) d.tail = this.layer.addChild(new Sprite());
         d.tail.texture = tailTexture(v.id);
         d.tail.anchor.set(5 / TAIL_W, 0);
-        d.tail.scale.set(facing === 'left' ? -k : k, k);
-        d.tail.rotation = Math.sin(now / 300 + v.id) * 0.12 * (facing === 'left' ? -1 : 1);
+        // (the tail art points right: it trails behind, so it points right when they face left, and the other way round)
+        d.tail.scale.set(facing === 'left' ? k : -k, k);
+        d.tail.rotation = Math.sin(now / 300 + v.id) * 0.12 * (facing === 'left' ? 1 : -1);
         d.tail.position.set(Math.round(x), Math.round(y - 6 + bob));
         d.tail.zIndex = z - 0.05;
         d.tail.visible = true;

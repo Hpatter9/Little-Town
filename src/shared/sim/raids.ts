@@ -3,6 +3,7 @@
 // the food and run. Walls and gates stop them until broken. Defenders fight; everyone else shelters.
 
 import { addDeed } from './deeds';
+import { alignRaidMult } from './alignment';
 import { alliesFor, hostOver, rivalRaidOdds } from './factions';
 import { SIEGE_WALL } from '../data/factions';
 import { ally } from './classes';
@@ -158,7 +159,7 @@ export function raidBudget(s: GameState): number {
   const people = Math.max(0, s.people.filter((p) => p.away === null && p.type !== 'child').length - RAID_BUDGET_FREE_PEOPLE);
   // (a town kept small by the player's choice draws raids that grow more slowly: they come for what it's worth)
   const small = s.popTarget === undefined ? 1 : Math.min(1, s.popTarget / RAID_SMALL_TOWN);
-  return Math.round((RAID_BUDGET_BASE + day * RAID_BUDGET_PER_DAY * small + Math.floor(wealth(s) * RAID_BUDGET_PER_WEALTH) + people * RAID_BUDGET_PER_PERSON) * war * difficultyOf(s).raidStrength * biteOf(s, RAID_BITE));
+  return Math.round((RAID_BUDGET_BASE + day * RAID_BUDGET_PER_DAY * small + Math.floor(wealth(s) * RAID_BUDGET_PER_WEALTH) + people * RAID_BUDGET_PER_PERSON) * war * difficultyOf(s).raidStrength * biteOf(s, RAID_BITE) * alignRaidMult(s));
 }
 
 /** The building giving the longest raid warning, if any. */

@@ -5368,3 +5368,171 @@ stream ('culture'); nothing drawn from the town's stream; no manual controls.
   fallen, from heroes, or from the pantheon, by the strongest held trait with a fashion. The base name still comes from
   the town's stream, so nothing else shifts. The tavern's sign (the strongest trait's `sign`) shows only on the card.
 - **State:** optional `GameState.culture` (`CultureState`). Absent in old saves; created on first use.
+
+## Sea art from the packs and phone checks of the sea (claude/sea-art; changes "Seafaring and islands")
+
+Renderer only; the sim is untouched (`tools/sim-hash.mjs` matches main).
+
+- **Searched** every pack in `../chronos-assets` for ships, boats, sails, docks, piers, anchors and wrecks. No pack has a
+  working boat: the Seabed pack's `Ship1`/`Ship2` are wrecks (already used: `packs/sb_wreck.png`) and its anchor is a
+  seabed prop; the underwater and ocean packs are backgrounds; the pirate pack is characters; the tropical city pack is
+  vector only. So `art/boatArt.ts` (the seven boats, their wakes in `map/mapBoats.ts`) and the boat icons in
+  `art/customIcons.ts` stay painted.
+- **Already pack art:** the harbour building (`packBuildings.ts` `harbour`: the Bridges pack's pier planks, crates, barrels
+  and a lantern).
+- **Swapped:** the war map's Harbour landmark (`panel/warMap.ts` `drawLandmark`) was a jetty of code-drawn rects; it is now
+  three of the Bridges pack's pier planks (`SPRITES.pier` in `art/warSprites.ts`, `roads/pier_v.png`, credited already).
+- **World map sea lanes** (`panel/panel.html` `.map-route.sea-lane`): the dotted line was lost on the map's own blue; now
+  brighter, 3px, with a dark halo.
+- **Phone checks** (393x852 and 852x393, Chromium): the map with a harbour, moored and sailing boats; the Harbour tab;
+  the world map (lanes, colony flag); the Great Enemy card and its stage sheets for all six kinds. Nothing clipped or
+  overlapping in the Harbour tab, the card or the sheets. Left alone: the world map's "The Far Isles" label (in the map
+  picture) sits under the Far Isles scouting dot, and sideways the map is small (height-capped) so labels there crowd.
+
+## Merfolk tails, the right way round (renderer only; changes "The merfolk's shore" and "Watching a party's fights")
+
+- **Map bug:** `art/merTail.ts` draws the tail pointing right. `map/mapPeople.ts` flipped it when the swimmer faced
+  *left*, so the tail pointed the way they were going, ahead of the body. It now points right when they face left and
+  is flipped when they face right: it trails behind in both directions.
+- **Side-view fight:** `FightScene.update(..., sea, mers)` (fight/fightView.ts) sets `wet` when the trip's look is an
+  underwater or ocean backdrop and the party is not aboard a boat or aloft; `mers` is the set of person ids that are
+  merfolk (`PersonView.mer`, built in main.ts from the snapshot, so no snapshot or sim change). In `pose()`, a merfolk
+  party member in a wet fight is cut at the waist (`HK_WAIST` .67 for the Himeko doll, `WAIST` for the old LPC figure)
+  and given a tail (`finTail`): the tail is a child of the figure's sprite, so the lunge, recoil, squash, hurt and
+  fall in `moveSprite` carry it along. The tail trails away from the foes (right for the party). A downed merfolk
+  uses the standing frame and the motion's topple, as a lying frame can't be cut at the waist. Dry fights keep legs.
+- Not changed: the march between fights, and raid battles (tactics board), still draw legs. Preview: `window.__look`
+  = `underwater_1` forces a wet fight.
+
+## Guild icons
+
+Each guild has a small round badge (DawnLike item glyph on a coloured token) shown by its members' names, so you can see who has joined which guild. Renderer only: the sim and snapshot are unchanged (a person's guilds are found from `snapshot.guilds`).
+
+- `src/shared/data/guildEmblems.ts` (`GUILD_EMBLEMS`): one glyph and two colours per `GuildRole`. wardens Shield 4, menders Potion 0, rangers Ammo 8 (a bow), crafters Tool 9, merchants Money 0 (coins), scholars Book 40, elite ShortWep 1 (a dark blade).
+- `src/renderer/art/guildMarks.ts`: `guildsOf(s, personId)`, `guildBadge(role, size, title)` (canvas), `guildMark(s, personId)` (the first guild's badge; its tooltip names all of them).
+- Shown in: the People list rows (after the people mark), the inspect card (a line naming every guild, leader starred), the map tap card (`overlayUi.ts`, `createPersonCard.show(..., guilds)`), and the Guilds tab (`panel/guildPanel.ts`: badge on each guild card and on each member chip; leader starred). Membership was already in the People panel key.
+- Not done: the fight HUD and Chronicle show names without a person id, so they cannot map to a guild without a sim change.
+- Art is from DawnLike sheets already in `src/renderer/art/items` and credited.
+
+## A skirmish with nobody left (a crash fix)
+
+A land skirmish (`sim/roamers.ts`) whose party was all gone by the end (dead, or gone from the land) crashed the
+closing notice: `names(members)` read the last name of an empty list. The helper is now `skirmishNames`, exported, and
+reads "Nobody" for an empty party. Found by the Underdark chat's 40-day settlers soak (seed 2, day 32). Test in
+`test/roamers.test.ts`.
+
+## Town alignment (good and evil, with a bar)
+
+One score, -100 (wicked) to +100 (radiant), `s.align` (optional; `AlignState`). Files: `sim/alignment.ts`, `data/alignment.ts`
+(constants, bands, `ORIGIN_HOME`, law/sentence weights), `data/eventAlign.ts` (a weight -4..+4 for every answer of every
+choice event, in option order), `data/alignEvents.ts` (five events that only come past a threshold).
+
+- **What moves it:** the answer to a choice event (`alignAnswered`, weight x `POINTS_PER_WEIGHT` 4; called in `answerEvent`);
+  once a day the leader's and the townsfolk's natures (`leaderLean`, `NATURE_LEAN`); laws passed or repealed (`LAW_ALIGN`),
+  sentences told in the trial log (`SENTENCE_ALIGN`: hanged -10, pardoned +3), sacrifices in `s.fallen` (`DEED_ALIGN`), raiders
+  taken alive (+0.8 each), hungry prisoners (-0.4 a day each). The watchers read state (they don't edit politics.ts or
+  prisoners.ts). Other systems call `alignPush(s, delta, why)`; not yet called by the Great Enemy tribute, deals or dynasty
+  conduct (those files belong to other chats).
+- **Drift:** `DRIFT_PER_HOUR` 0.002 of the way back to the people's home (`ORIGIN_HOME`; vampires -45, liches -50, knights +40,
+  druids +35, orcs -15...). Runs hourly from `Sim.step` after `maybeEvent`, autopilot only.
+- **Recommendation:** `recommend(s, def)` scores each answer by weight x the town's lean (alignment + leader/folk nature) plus
+  `worth()` (a rough value of its effects, food counted heavier when stores are thin). `Prompt.recommended` / `why` ->
+  `PromptView`. With the autopilot on the card's `defaultOption` is the recommendation, so a timed-out card takes it
+  (autopilot off keeps the event's own default). Shown as a star on the answer and a line under the answers
+  (`mobile/eventSheet.ts`, `.event-advice` in `mobile/index.html`; the desktop prompt card marks it too).
+- **Shows:** `alignBar` (`panel/alignBar.ts`) in the Town overview and under Direction in the Plan tab; the page sky is tinted
+  and a soft edge vignette laid (`#align-cast`, `mobile.ts`; never over the middle); `moodOf` gets `align` (<= -45 dark music,
+  >= 60 heroic). `snapshot.align` = `alignView`.
+- **Unlocks (daily, side stream `align`):** good (>= 35) pilgrims join, reputation creeps up; evil (<= -35) the Hand pays the
+  treasury, reputation creeps down. `raidAlignMult`: raids 0.9x (<= -35), 0.8x (<= -60) for fear; 1.1x at >= 60 (the dark hunts
+  the light). Events: `pilgrims_come`, `holy_order` (>= 60), `thieves_offer`, `dark_bargain`, `foes_treat` (<= -60).
+- **Cost:** spirits +2 for the good, -3 for an evil town whose people are not dark by nature (`alignMood`, `driftMorale`).
+- **Chronicle:** swings of 2+ points are logged (`a.log`), a band change is a news item, and the year's chronicle gets a line
+  (`alignmentYearLines`, hooked in `annals.ts`).
+- Changes `data/events.ts` (EVENTS now 558) and `raidBudget`.
+
+### The extras (second axis, the Enemy, visitors, titles, arcs)
+
+- **Order to chaos:** `s.align.order` (-100..100), its own home per people (`ORIGIN_ORDER_HOME`), `orderPush`, weights per answer in
+  `data/eventOrder.ts` (and `ALIGN_EVENT_ORDER` for the alignment events). Moved by laws (`LAW_ORDER`), sentences, intrigue crimes,
+  houses at feud, the leader's and folk's natures (`ORDER_LEAN`). It tilts the recommendation too. Orderly (>= 35): work x1.03, watch
+  x1.05; unruly (<= -35): work x0.97, fighting x1.05, travellers x1.1 (daily marks, `marks`). Two bars in the Town overview (`panel/alignBar.ts`);
+  the Direction block no longer repeats it.
+- **Inputs read from state:** intrigue crimes (`CRIME_ALIGN`), Great Enemy tribute paid (-2) or refused (+2), the ruling house's scandal,
+  charity in famine (poor relief while the stores run low +1 a day, else -0.3). For the trade chat: broken deals call
+  `alignPush(s, -3, 'A broken deal')` (and `orderPush(s, -2, ...)`).
+- **The Great Enemy (hooks in `greatEnemy.ts`, each marked "alignment hook"):** `paceToday` adds `alignEnemyPace` (a good town draws its hate:
+  +0.08 at 35, +0.15 at 60); `warnSiege` first calls `alignPact`: a town at -35 or below is offered terms as a prompt (`kind: 'ways'`,
+  `ways.system = 'align'`, answered in `roadEvents.answerPrompt` -> `answerAlignPrompt`): a pact (40 days, 4% of the treasury a day), service as its
+  lieutenant (90 days, 8% a day, a grown-up taken every 12 days, never the founder, raids x0.7), or refuse (the siege goes on). While a pact stands
+  `enemyDaily` sends no host and asks no tribute (`alignPacted`).
+- **Visitors and terms:** `alignArrivalMult` (wanderers x1.2/1.4 for good, x0.85/0.7 for dark), `alignArrival` (kind/pious nature for a good
+  town's wanderers, greedy/stern/proud for a dark one's: `maybeArrive`); daily 'prices' (x1.05 / x0.95) and 'travellers' marks.
+  Refugees and paladins as separate types are not added (no such types exist).
+- **The title:** `titleOf` ("the Merciful", "the Just", "the Cruel", "the Dread", "the Steadfast"...); `snapshot.townTitle` shows on the phone
+  page's header; `titledName` is carried by the legend (`legacy.ts` `town`) and the year's chronicle line.
+- **Falls and redemptions:** the score is sampled every ten days; from >= 20 to <= -35 inside 60 days is `fall_reckoning` (then `fall_exodus`),
+  from <= -20 to >= 35 is `redemption_penance` (then `redemption_shadow`): once each, put as an ordinary event (never by chance, `when: () => false`).
+- **Cast:** `MapView.setCast` tints the venues' banners (gold / dim violet), `StreetLamps.setCast` the lamp glow; both pack sprites tinted, no new art.
+- Preview helpers: `__align(score, order)` and `__event(id)` in the phone page's console (`simHost` DEBUG).
+
+## Trade empire (the owner's ask: growing rich is a way to survive, beside arms)
+
+Under the **Trade** direction a town with a trade house (`marketOf(s)`, sim/markets.ts) grows a merchant empire on the
+world map, and spends its coin on safety. New files: `src/shared/data/tradeEmpire.ts` (all the numbers),
+`src/shared/sim/tradeEmpire.ts` (the rules, `s.empire`), `src/renderer/panel/empirePanel.ts` (the Market menu's **Trade
+empire** tab), `test/tradeEmpire.test.ts`. Only with the autopilot on, and the posts, caravans, deals and tribute start
+only under `s.direction === 'trade'`; a town on any other direction is byte-for-byte unchanged (`tools/sim-hash.mjs` is
+identical). Side stream `new Rng(hashSeed(`${seed}:empire:${tick}:<salt>`))`, never the town's. `s.empire` is optional.
+
+- **Trading posts** (`foundPost`, `Post`): at `EMPIRE_HOUR` a day, if the town has a stall, coin (`POST_COINS` plus the
+  treasury's keep), goods (`POST_GOODS`), and `POST_FOLK` adults to spare (`HOME_FOLK_LEAST` kept at home), it founds a post
+  at the best far market (`sitesOf`): the world map's regions once scouted (`REGION_SITES`; the two island ones need a shore
+  town or a boat, `canSail`) and the strongholds of known powers not at war (`power:<id>`, goods by `makesOf`/`wantsOf`).
+  The folk who go are townspeople with `Person.away = EMPIRE_AWAY` (-4000201; the snapshot says "on the trade roads"). Posts
+  allowed: `POSTS_BASE` + the trade house's tier + a charter. At the turn of each season (`reckon`) a post pays
+  `site.base` x level x called-bonus x monopoly, plus the cuts (`POST_CUT` of each sale at its market) its caravans
+  earned; levels at `POST_LEVELS`. Posts are lost (`losePost`) to bandits (`POST_RAIDED` x danger, halved with 2 guards or
+  hired swords), to the war (`POST_WAR`, or at once at a power gone to war), to a power's decree (`POST_DECREE` when a
+  power's attitude is sour or the town's monopoly sours it; not under its protection); the folk die (`POST_FOLK_DIE`, a third
+  of it for a decree) or walk home hurt; the site is shut to the town for `LOST_SITE_DAYS`.
+- **Caravans and ships** (`dispatch`, `launch`, `onTheRoad`, `EmpireCaravan`): at `CARAVAN_HOUR`, up to 1 + house tier
+  caravans (`caravansAllowed`), the town sets one out on the circuit home - one or two posts - home that earns most an
+  hour (`plan`: carries the stores' spare that fetch `CARGO_MARGIN` more at a stop, sells there, buys the post's cheap
+  goods with 70% of the purse, brings home what did not sell). Sea posts make it a ship. `DRIVERS` townspeople go with it
+  (paid `DRIVER_PAY`). Danger per leg (`legRisk`): `ROAD_LOST` per 100 px x the site's danger, x`WAR_ROADS` in a war,
+  x`SEA_STORM` for a ship, x`SAFE_GUARDS` with 2 guards, hired swords or an ally, x`CHARTER_SAFER`, x`PROTECT_SAFER`. The dice
+  are cast at departure (`fate`): **lost** (the goods and purse are gone for good; each driver dies on `DRIVER_DIE`, the rest
+  walk home hurt; a fortune lost is told in the event box) or **robbed** (`ROBBED_TAKE` of what comes home, from markets.ts).
+  A caravan home deposits at the stores, pays coin to the treasury (ledger line `trade`) and moves prices (`noteFlow`).
+- **Guilds and deals** (`offerDeal`, `dealsDaily`, `Deal`): every `DEAL_EVERY_DAYS`, with a post, standing above
+  `STANDING_FLOOR` and fewer than `DEALS_MOST`, a merchant guild (`GUILDS`) offers one the town takes on its own:
+  a **monopoly** on a good it has plenty of (a boom swing on the price through `s.market.swings`, posts x`MONOPOLY_POSTS`,
+  the town must keep `MONOPOLY_KEEP` in store; the other powers resent it, `MONOPOLY_RESENT` at once and 1 per 3 days); a
+  **charter** for `CHARTER_FEE` (one more post, safer roads); a **loan** (`LOAN_PER_TIER` x tier, `LOAN_INTEREST`, repaid
+  from the treasury a day before it falls due). Kept: standing +`KEPT_STANDING`; broken (short of the monopoly good
+  `MONOPOLY_SHORT_DAYS` running, or a loan unpaid: the richest post is attached): `BROKEN_STANDING`. `richTown`: a rich
+  town (`RICH_COINS`, more for each) draws a merchant to settle now and then (`newcomer`, up to `SETTLERS_MOST`).
+- **Money buys safety** (`empireTick` from sim.ts right after `maybeStartRaid`, `safety`, `wages`): a raid of people (a kind
+  that steals or is bribable, not a host, calamity, saga or hunters) in its warning phase is **bought off** (`payTribute`:
+  `TRIBUTE_BASE` + `TRIBUTE_PER_RAIDER` each, x(1 + `TRIBUTE_RISE` per tribute paid; eases one a season), never over
+  `TRIBUTE_SHARE` of the purse; the council's pride refuses `TRIBUTE_PRIDE` of the time and fights). **Mercenaries**
+  (soldiers and archers as allied raiders, like the grove's guardians) are hired each `MERC_DAYS` for `MERC_FEE` a head and
+  `MERC_WAGE` a day, count 2 + tier + posts/2, and the fallen are not replaced; unpaid they leave. A **power's protection**
+  (`PROTECT_FEE` x tier, `PROTECT_DAYS`): safer roads and posts, cheaper tribute, goodwill. No raids.ts or factions.ts edits.
+- **Seen**: the world map (Trips tab) draws posts (⌂, ⚓ for sea posts, bolder as they grow) with a gold road home and the
+  caravans (🐪) and ships (⛵) moving along the leg they are on (`WorldView.posts`, march kinds `caravan`/`ship`, from
+  `empireOnMap` in worldLife.ts); the Market menu's **Trade empire** tab (`snapshot.empire`, `empireView`): posts, caravans out,
+  deals, safety bought, takings, totals and a ledger; big deals and losses go to the journal (key notices) and the event box.
+- **Also**: the year's chronicle gains the empire's lines (`sim/empireYear.ts`, called from annals.ts `writeChronicle`); `tools/soak.ts` takes
+  `DIRECTION=trade`, `EMPIRE=1` (per-seed people and the empire's totals; `2` adds its ledger) and `SEEDOFF=n`.
+- **Probes**: `tools/sim-hash.mjs` identical to main (the default direction never touches the empire). 40-day soak of settlers, dwarves,
+  knights (2 seeds): identical to main without a direction; with Trade, settlers and knights identical (no region mapped or power met
+  yet, little coin: the empire sleeps), dwarves 3.5 -> 5.5 people, 8 -> 5.5 deaths (hired swords). Late-town fixture, Trade, 20 days,
+  8 seeds: 1-2 posts founded, 2-9 caravans each (200-640 coins made), one caravan lost, deaths 13.3 -> 10.7, people 51.3 -> 46.8.
+
+## A broken deal weighs on the town's alignment
+
+The trade empire's `breach` (`sim/tradeEmpire.ts`, `dealsDaily`) now calls `alignPush(s, -3, 'A broken deal')` and
+`orderPush(s, -2, 'A broken deal')` from `sim/alignment.ts`, the hook the alignment work asked for. Only towns under the
+Trade direction with a deal to break are touched.
