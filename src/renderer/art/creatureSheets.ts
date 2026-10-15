@@ -130,7 +130,8 @@ export const SHEETS: Record<CreatureSheet, SheetDef> = {
   // walk, attack, idle and disguised rows).
   lions: { url: lionsUrl, w: 48, h: 48, blocksAcross: 4 },
   wilddogs: { url: wildDogsUrl, w: 48, h: 48, blocksAcross: 4 },
-  crocodiles: { url: crocodilesUrl, w: 96, h: 96, blocksAcross: 4 },
+  // (the crocodile lies flat in the middle of its tall frame: its belly is at half height, so mark its feet there)
+  crocodiles: { url: crocodilesUrl, w: 96, h: 96, blocksAcross: 4, top: 0.34, feet: 0.5 },
   behemoth: { url: behemothUrl, w: 96, h: 132, blocksAcross: 1, top: 0.1 },
   tomes: { url: tomesUrl, w: 48, h: 48, blocksAcross: 4, feet: 0.8 },
   bats: { url: batsUrl, w: 48, h: 48, blocksAcross: 4 },

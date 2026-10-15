@@ -464,6 +464,8 @@ export interface Raid {
   weighed?: boolean;
   mercyAsk?: number;
   mercy?: 'spared' | 'hunted';
+  /** A toll the band demands to leave the town alone (sim/raidOdds.ts): coins or food. */
+  toll?: { coins: number; food: number };
   skipIt?: boolean;
   /** Fled on arrival, at the sight of the town (and spared, or not). */
   turned?: boolean;
@@ -908,6 +910,8 @@ export interface Faction {
   lastHost?: number;
   /** A host on its way: when it comes, and how many. */
   host?: { at: number; size: number };
+  /** A grudge from a war host the town hunted down: the next host it musters comes bigger (sim/factions.ts `musterHost`). */
+  grudge?: boolean;
   /** Hosts it lost against the town, and assaults the town made on it. */
   beaten?: number;
   stormed?: number;
@@ -1242,7 +1246,9 @@ export interface GameState {
    *  raid is skipped. */
   /** The odds weighed, mercy and grudges (sim/raidOdds.ts). `extra`: bands turned back since one last came (the next is
    *  that much bigger); `grudge`: a hunted band's survivors will be back; the tallies steer the town's answer. */
-  raidOdds?: { extra?: number; streak?: number; turned?: number; spared?: number; hunted?: number; grudge?: { kind: string; at: number }; align?: number };
+  raidOdds?: { extra?: number; streak?: number; turned?: number; spared?: number; hunted?: number; grudge?: { kind: string; at: number }; align?: number;
+    /** An outmatched band's other ways (sim/raidOdds.ts): tolls paid and probes made, and a probe waiting for the night. */
+    tolls?: number; probes?: number; caught?: number; probe?: { kind: string; at: number; goal: 'steal' | 'burn'; n: number } };
   raidSkip?: { auto?: boolean };
   skipRaids?: boolean;
   /** The raid battles fight themselves (`autoBattle` in battle.ts): on unless the player turned it off. */

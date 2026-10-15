@@ -8,7 +8,7 @@ import type { Look } from '../../shared/data/people';
 import { Rng } from '../../shared/rng';
 import { ENEMIES } from '../../shared/data/enemies';
 import type { ExpeditionView, FighterView } from '../../shared/sim/snapshot';
-import { CREATURE_FRAME, creatureFlip, creatureFrame, creatureSize, creatureTop, type CreatureSheet } from '../art/creatures';
+import { CREATURE_FRAME, creatureFeet, creatureFlip, creatureFrame, creatureSize, creatureTop, type CreatureSheet } from '../art/creatures';
 import { attackAnim, enemyLook } from '../art/rivals';
 import { BLOOD_SIZE, bloodFrame, fireHitFrame, FLAME_SIZE, IMPACT_SIZE, impactFrame, lightningHitFrame, placeArea } from '../art/effects';
 import { PAL } from '../art/palette';
@@ -287,7 +287,7 @@ export class ExpeditionPane {
         const flip = creatureFlip(sp.sheet, facing);
         s.scale.set(sp.scale * flip, sp.scale);
         s.x = Math.round(x - ((size.w * sp.scale) / 2) * flip);
-        s.y = Math.round(WALK_Y + 4 - size.h * sp.scale);
+        s.y = Math.round(WALK_Y + 4 - size.h * sp.scale * creatureFeet(sp.sheet));
         top = s.y + 6 + Math.round(size.h * sp.scale * creatureTop(sp.sheet));
       }
       s.alpha = f.down && f.side === 'enemy' ? 0.35 : 1;

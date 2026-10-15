@@ -62,7 +62,7 @@ export interface RaidRecap {
   runDown: number;
   takenAlive: number;
   /** The town's choice (sim/raidOdds.ts): they turned back at the sight of the town, or the survivors were spared or hunted. */
-  mercy?: 'turned' | 'spared' | 'hunted';
+  mercy?: 'turned' | 'spared' | 'hunted' | 'toll' | 'probe';
   /** What happened, told in a few lines (`tellRaid`). */
   story: string[];
 }

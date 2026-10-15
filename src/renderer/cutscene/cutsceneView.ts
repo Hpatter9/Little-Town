@@ -16,7 +16,7 @@ import type { SceneView } from '../../shared/sim/snapshot';
 import type { Command } from '../../shared/sim/commands';
 import { BACKDROP_H, loadBackdrop } from '../art/backdropImages';
 import { GROUND_OF, groundFilter, loadGround } from '../art/fightGround';
-import { creatureFlip, creatureFrame, creatureSize, type CreatureSheet } from '../art/creatures';
+import { creatureFeet, creatureFlip, creatureFrame, creatureSize, type CreatureSheet } from '../art/creatures';
 import { stillTexture } from '../art/stills';
 import { machineFrame, machineSize } from '../art/machines';
 import { hkLayers, hkPose, hkWhoById, hkWhoOfLook } from '../art/hkFolk';
@@ -297,7 +297,7 @@ export class CutsceneScene {
       const flip = creatureFlip(sp.sheet, a.facing);
       const k = sp.scale * FOE_K * scale;
       s.scale.set(k * flip, k);
-      s.position.set(Math.round(x - ((size.w * k) / 2) * flip), Math.round(y - size.h * k));
+      s.position.set(Math.round(x - ((size.w * k) / 2) * flip), Math.round(y - size.h * k * creatureFeet(sp.sheet)));
       return;
     }
     if ('still' in unit.sprite) {

@@ -18,7 +18,7 @@ import { ShotPainter, shotTicks } from '../battle/projectiles';
 import { ENEMIES, type HumanSprite, type MachineSprite, type StillSprite } from '../../shared/data/enemies';
 import { SPELL_BY_ID } from '../../shared/data/spells';
 import type { ExpeditionView, FighterView } from '../../shared/sim/snapshot';
-import { creatureFlip, creatureFrame, creaturePoseFrames, creatureSize, type CreatureSheet } from '../art/creatures';
+import { creatureFeet, creatureFlip, creatureFrame, creaturePoseFrames, creatureSize, type CreatureSheet } from '../art/creatures';
 import { corpseAlpha, FALL_TICKS, HEAVY, MELEE_LAND, motionOf, moveSprite, TickClock } from './fightMotion';
 import { impactFrame, IMPACT_SIZE, SPLAT_SIZE, splatFrame } from '../art/effects';
 import { bleeds } from '../map/bloodPools';
@@ -815,7 +815,8 @@ export class FightScene {
       const flip = creatureFlip(sp.sheet, facing);
       const sc = sp.scale * k * 1.2;
       s.scale.set(sc * flip, sc);
-      s.position.set(Math.round(x - ((size.w * sc) / 2) * flip), Math.round(y - size.h * sc));
+      // (the sheet's feet line sits on the ground, not the frame's bottom edge: small creatures in big frames)
+      s.position.set(Math.round(x - ((size.w * sc) / 2) * flip), Math.round(y - size.h * sc * creatureFeet(sp.sheet)));
       return dies;
     }
     if (unit && 'still' in unit.sprite) {
