@@ -13,6 +13,7 @@ export type DeedKind =
   | 'sagas' // sagas ended as their hero
   | 'beasts' // beasts bred and trained at the ranch, as its Beastmaster
   | 'bouts' // bouts won in the arena
+  | 'watched' // sneaks caught on the night watch
   | 'campaigns'; // campaigns of the realm's wars fought and won (sim/war/campaigns.ts)
 
 export interface DeedLadder {
@@ -33,6 +34,7 @@ export const DEED_TITLES: Record<DeedKind, DeedLadder> = {
   sagas: { label: 'Sagas ended', steps: [[1, 'the Storied'], [3, 'Hero of Tales']] },
   beasts: { label: 'Beasts raised', steps: [[3, 'Friend of Beasts'], [10, 'Beastmaster'], [25, 'Lord of the Menagerie']] },
   bouts: { label: 'Arena bouts won', steps: [[1, 'the Brawler'], [4, 'Gladiator'], [10, 'Champion of the Sand']] },
+  watched: { label: 'Sneaks caught on the watch', steps: [[2, 'the Watchful'], [6, 'Nightwarden'], [15, 'Warden of the Dark']] },
   campaigns: { label: 'Campaigns won', steps: [[1, 'the Veteran'], [3, 'Warhorse'], [6, 'Marshal of the Realm']] },
 };
 

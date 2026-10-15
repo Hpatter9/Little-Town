@@ -101,6 +101,7 @@ import { chooseLich, watchLich } from './occult';
 import { castHeld, castPowers, holdPower } from './powers';
 import { lurkers } from './lurkers';
 import { prowlers } from './prowlers';
+import { nightWatchHourly } from './nightWatch';
 import { bandsTick } from './bands';
 import { caveBear } from './caveBear';
 import { updateNomads } from './nomads';
@@ -233,6 +234,7 @@ export class Sim {
     treasuryHourly(s, this.rng);
     ambitionHourly(s);
     partiesHourly(s);
+    nightWatchHourly(s); // (who keeps the watch tonight, by the danger: sim/nightWatch.ts)
     oddsHourly(s); // (a probing band's night visit: sim/raidOdds.ts)
     boatsHourly(s, this.rng);
     seafaringHourly(s); // (harbour, shoals, colonies, pirates and the sea's monsters: sim/seafaring.ts)
