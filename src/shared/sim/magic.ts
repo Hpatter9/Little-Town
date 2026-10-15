@@ -549,7 +549,8 @@ function wanted(s: GameState, m: MagicState): Want[] {
         if ((s.doom?.kind === 'drought' && s.doom.phase === 'active') || s.disaster?.kind === 'wildfire') out.push({ rite: id, cast: () => rain(s) });
         break;
       case 'blood_rite':
-        if (m.mana < manaCap(s) * BLOOD_WHEN) out.push({ rite: id, cast: (p) => bloodRite(s, m, p) });
+        // (a hamlet has no blood to spare: a prisoner, or a town of a few grown-ups)
+        if (m.mana < manaCap(s) * BLOOD_WHEN && (s.prisoners.length > 0 || s.people.filter((q) => !isChild(q)).length >= TOWER_PEOPLE)) out.push({ rite: id, cast: (p) => bloodRite(s, m, p) });
         break;
       case 'scrying':
         if (unmapped(s)) out.push({ rite: id, cast: () => scry(s) });
