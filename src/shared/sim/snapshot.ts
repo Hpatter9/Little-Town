@@ -74,6 +74,7 @@ import { beastForm, levelOf, stageOf, type BeastForm } from '../data/levels';
 import { callingName, callingText } from '../data/founderClasses';
 import { personFighter, weaponRange } from './combat';
 import { kitOf } from './actions';
+import { kitCap } from './kit';
 import { levelProgress } from './classes';
 import { turnable, undeadShare } from './turning';
 import { FULL_MOON_PHASE, moonPhaseOf, nightDay } from './monsters';
@@ -281,6 +282,9 @@ export interface PersonView {
   /** Worn items by slot (item ids), and their quality. */
   gear: Partial<Record<Slot, string>>;
   gearQ: Partial<Record<Slot, number>>;
+  /** The battle items in their pouch (item ids) and the room in it (sim/kit.ts). */
+  pouch: string[];
+  pouchCap: number;
   /** Their own coins (wages, for their gear), once the town has money. */
   coins: number | null;
   /** Their income (sim/economy.ts): today, yesterday, and what their last hourly pay was for. */
@@ -1960,6 +1964,8 @@ function personSlow(s: GameState, p: Person): Omit<PersonView, FastPart> {
     maxHp: maxHp(p),
     gear: { ...p.gear },
     gearQ: { ...(p.gearQ ?? {}) },
+    pouch: [...(p.kit ?? [])],
+    pouchCap: kitCap(p),
     // (whole coins only: a purse may hold the odd fraction, from a share of a sale or a tax)
     coins: p.coins != null ? Math.floor(p.coins) : moneyTown(s) ? 0 : null,
     income: moneyTown(s) ? wholeIncome(incomeOf(s, p), p.paidFor?.line ?? null) : null,
