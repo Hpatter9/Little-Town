@@ -67,6 +67,7 @@ import { acceptQuest, declineQuest, questBoardHourly } from './questBoard';
 import { delvesHourly } from './delves';
 import { placesHourly } from './places';
 import { nestsHourly } from './nests';
+import { wildHourly } from './wild';
 import { calamityHourly } from './calamity';
 import { deepHourly } from './deep';
 import { portalsHourly } from './portals';
@@ -247,6 +248,7 @@ export class Sim {
     delvesHourly(s);
     placesHourly(s, this.rng);
     nestsHourly(s); // (monster nests on the land: sim/nests.ts)
+    wildHourly(s); // (herds, predators and the woods spreading: sim/wild.ts)
     calamityHourly(s); // (the Calamity: sim/calamity.ts)
     deepHourly(s); // (the Deep under the town: sim/deep.ts)
     portalsHourly(s); // (other worlds through an arch or a rift: sim/portals.ts)
