@@ -4,6 +4,9 @@
 
 import type { ExpeditionView, MineView, Snapshot } from '../../shared/sim/snapshot';
 import { guildMark } from '../art/guildMarks';
+import { itemIcon } from '../art/icons';
+import { ITEM_BY_ID } from '../../shared/data/items';
+import { KIT_BY_ID } from '../../shared/data/kitItems';
 import { MATERIAL_NAMES, type Material } from '../../shared/data/materials';
 import { fightShare, tripLabel, tripShare } from './progress';
 
@@ -247,20 +250,30 @@ export function createFightHud(on: { back(): void; speed(n: number): void }): Fi
       // (the floating window naming the latest spell, skill or ultimate, as the old games had it: lower in the scene,
       // held about a second and a half, an ultimate longer and in gold; faded by hand each frame, since the strip's
       // CSS animations don't run while the fight scene is drawing)
-      const shown = [...v.acts].reverse().find((a) => a.pool && a.age < 40);
+      // (a drink is quick, so the blow or spell it came with follows at once: the item keeps the window for its first moments)
+      const recent = v.acts.filter((a) => a.pool && a.age < 40);
+      const shown = [...recent].reverse().find((a) => a.item && a.age < 15) ?? recent[recent.length - 1];
       const key = shown ? `${shown.side}:${shown.ref}:${shown.name}:${shown.age - (shown.age % 100)}` : '';
       if (shown && key !== bannerKey) {
         bannerKey = key;
         bannerShown = performance.now();
         bannerUntil = bannerShown + (shown.ult ? 2600 : 1500);
-        banner.className = shown.ult ? 'ult' : shown.spell ? 'spell' : 'skill';
+        banner.className = shown.ult ? 'ult' : shown.item ? 'item' : shown.spell ? 'spell' : 'skill';
         banner.replaceChildren();
         const name = document.createElement('span');
         name.className = 'ff-act';
-        name.textContent = shown.name;
+        // (a battle item from a pouch: its icon before the name, and what was done with it for the cost)
+        const kit = shown.item ? KIT_BY_ID[shown.item] : undefined;
+        const def = kit ? ITEM_BY_ID[kit.id] : undefined;
+        if (def) {
+          const icon = itemIcon(def, 2);
+          icon.classList.add('ff-item-icon');
+          name.append(icon);
+        }
+        name.append(shown.name);
         const cost = document.createElement('span');
         cost.className = 'ff-cost';
-        cost.textContent = shown.ult ? `${shown.who} · ULTIMATE` : `${shown.who} · ${shown.cost} ${POOL_NAMES[shown.pool!]}`;
+        cost.textContent = shown.ult ? `${shown.who} · ULTIMATE` : kit ? `${shown.who} ${kit.use === 'throw' ? 'throws' : kit.use === 'escape' || kit.use === 'buff' ? 'uses' : 'drinks'}` : `${shown.who} · ${shown.cost} ${POOL_NAMES[shown.pool!]}`;
         banner.append(name, cost);
         // (what it does, in a line)
         if (shown.text) {

@@ -23,6 +23,7 @@ import { ENEMIES } from '../data/enemies';
 import { RAID_KIND_BY_ID } from '../data/raids';
 import { TILE } from '../constants';
 import { Rng, hashSeed, mixSeed } from '../rng';
+import { raiderDrinks } from './kit';
 import { aimOf, canPay, held, kitOf, takeTurn, tickStatuses, useAction, type Arena, type Combatant, type Kit, type KitAction, type Statuses } from './actions';
 import { boardOk, canStep, coverChance, easeRelief, layTerrain, sightClear } from './tacticsTerrain';
 import { aimTiles, areaLabel, areaOf, areaTiles, spreads, SPREAD_POWER, type TacArea, type Tile } from './tacticsArea';
@@ -1264,6 +1265,13 @@ function play(s: GameState, r: Raid, t: Tactics, rng: Rng): void {
   if (a.stage === 'act') {
     const target = a.target ? t.units.find((u) => u.key === a.target) : undefined;
     let did = false;
+    // (a raider with a potion in its pouch drinks it under half health, then goes on with its turn: sim/kit.ts)
+    const sup = me.foe ? raiderOf(r, me.key) : undefined;
+    const drank = sup ? raiderDrinks(s, sup) : 0;
+    if (drank) {
+      t.fx.push({ tick: s.tick, kind: 'tend', from: [me.u, me.v], to: [[me.u, me.v]] });
+      t.hits.push({ u: me.u, v: me.v, text: `+${drank}`, foe: true, tick: s.tick, heal: true });
+    }
     if (a.kind === 'flee' && me.u === 0) {
       const rd = raiderOf(r, me.key);
       if (rd) rd.gone = true;

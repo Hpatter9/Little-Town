@@ -2,7 +2,7 @@
 // moves with the player's answers, what the town does, and who runs it (sim/alignment.ts). Each people starts where
 // its lore puts it and drifts back toward that when nothing pushes. Past the thresholds each end opens things.
 import type { OriginId } from './origins';
-import type { NatureId } from './natures';
+import type { NatureId, Topic } from './natures';
 
 export const ALIGN_MAX = 100;
 /** Past these, the town is of the light (GOOD_AT, DEEP_GOOD_AT) or the dark (EVIL_AT, DEEP_EVIL_AT). */
@@ -148,3 +148,32 @@ export const ALIGN_EVENT_ORDER: Record<string, readonly number[]> = {
   redemption_penance: [3, 1, -2],
   redemption_shadow: [2, -1, 0],
 };
+
+/** What the folk of a town of the light or the dark say now and then, by topic (read by `cultureView`, which mixes them
+ *  with the town's own customs' sayings; the map's speech bubbles then pick among them: renderer/map/speech.ts). The
+ *  deep ends add a line or two to the plain good and evil. */
+export type AlignTone = 'good' | 'evil';
+export const ALIGN_SAYINGS: Record<AlignTone, Partial<Record<Topic, string[]>>> = {
+  good: {
+    greet: ['Peace be with you.', 'Welcome, friend. There is room.', 'Kindness costs nothing.'],
+    work: ['Many hands, light work.', 'We share what we make.'],
+    hungry: ['Share what we have; none go without.'],
+    raid: ['We defend, we do not hate.', 'Spare who yields!'],
+    feast: ['A table with room for all!'],
+    mourn: ['They were good to us.', 'Mercy was in them.'],
+    idle: ['A quiet, kindly day.'],
+    night: ['Stay by our fire tonight.'],
+  },
+  evil: {
+    greet: ['Keep your eyes down.', 'Mind your tongue here.', 'State your business.'],
+    work: ['Work, or be worked.', 'The weak carry the load.'],
+    hungry: ['The strong eat first.'],
+    raid: ['Show them no mercy!', 'Let none leave.'],
+    feast: ['Drink to the strong!'],
+    mourn: ['Weakness buried them.', 'One less mouth.'],
+    idle: ['Fear keeps the peace.'],
+    night: ['Shadows keep the watch for us.'],
+  },
+};
+/** The tone a score gives a town's talk, or null in between. */
+export const alignTone = (score: number): AlignTone | null => (score >= GOOD_AT ? 'good' : score <= EVIL_AT ? 'evil' : null);

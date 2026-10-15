@@ -9,10 +9,10 @@ import type { NatureId } from './natures';
 export type GossipKind =
   | 'death' | 'maimed' | 'joined' | 'back' | 'lost' | 'setout' | 'dragon' | 'built' | 'learned' | 'slain' | 'raid'
   | 'fire' | 'flood' | 'wedding' | 'couple' | 'birth' | 'grown' | 'brawl' | 'crime' | 'age' | 'guard' | 'beasts'
-  | 'funeral' | 'blessing' | 'trial' | 'omen' | 'miracle' | 'heresy' | 'cult' | 'convert' | 'wrath' | 'pilgrims';
+  | 'funeral' | 'blessing' | 'trial' | 'omen' | 'miracle' | 'heresy' | 'cult' | 'convert' | 'wrath' | 'pilgrims' | 'whisper';
 
 /** The news that's bad to hear (the rest is good, or at least something to talk about). */
-export const BAD_NEWS: ReadonlySet<GossipKind> = new Set(['death', 'maimed', 'lost', 'dragon', 'raid', 'fire', 'flood', 'brawl', 'crime', 'funeral', 'omen', 'heresy', 'cult', 'wrath']);
+export const BAD_NEWS: ReadonlySet<GossipKind> = new Set(['death', 'maimed', 'lost', 'dragon', 'raid', 'fire', 'flood', 'brawl', 'crime', 'funeral', 'omen', 'heresy', 'cult', 'wrath', 'whisper']);
 
 /** How someone of each nature starts on a piece of news. */
 export const OPENERS: Record<NatureId, string[]> = {
@@ -66,6 +66,8 @@ export const SAYINGS: Record<GossipKind, string[]> = {
   convert: ['{who} has turned to {what}.', 'Heard about {who}? {what}, now.'],
   wrath: ['{what} is angry with us.', 'That was {what}\'s anger, that was.', 'What did we do to deserve {what}\'s wrath?'],
   pilgrims: ['The pilgrims are home from {what}!', 'They walked all the way to {what} and back.'],
+  // (a whisper of the town's hidden dealings, told as it was heard: sim/intrigue.ts)
+  whisper: ['{what}', 'You didn\'t hear it from me. {what}', 'Keep your voice down. {what}'],
 };
 
 /** Answers that fit each kind of news. */
@@ -102,6 +104,7 @@ export const REPLIES: Record<GossipKind, string[]> = {
   convert: ['Good for them.', 'Each to their own.'],
   wrath: ['Pray it passes.', 'We\'ve angered them somehow.'],
   pilgrims: ['Welcome home to them.', 'I\'d have gone, if they\'d asked.'],
+  whisper: ['Hush. Walls have ears.', 'I\'d not repeat that.', 'I\'ve heard the same, quietly.'],
 };
 
 /** How someone of each nature takes good news and bad, when the news's own answers aren't used. */

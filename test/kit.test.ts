@@ -7,10 +7,12 @@ import { TOPICS } from '../src/shared/data/research';
 import { Rng } from '../src/shared/rng';
 import { takeTurn, kitOf, type Arena, type Combatant } from '../src/shared/sim/actions';
 import { startBattle, stepBattle, keepBag } from '../src/shared/sim/combat';
-import { kitCap, kitNeed, raiderPotions, restockKits } from '../src/shared/sim/kit';
+import { kitCap, kitNeed, raiderDrinks, raiderPotions, raiderPouch, restockKits } from '../src/shared/sim/kit';
+import { addItems } from '../src/shared/sim/crafting';
+import { buyKit } from '../src/shared/sim/wages';
 import { pickKitItem } from '../src/shared/sim/kitFight';
 import { runPlanner } from '../src/shared/sim/planner';
-import { makePerson, maxHp, type Building, type GameState } from '../src/shared/sim/state';
+import { campCell, makePerson, maxHp, type Building, type GameState, type Raider } from '../src/shared/sim/state';
 import { TICK_HZ, TICKS_PER_HOUR } from '../src/shared/sim/time';
 import { plainGame, row } from './helpers';
 
@@ -209,4 +211,58 @@ test('a fallen raider of the people kinds may leave a potion; beasts never', () 
   assert.equal((s.items.healing_potion ?? 0) + (s.items.greater_healing_potion ?? 0), found.length);
   const s2 = plainGame('loot2');
   assert.equal(raiderPotions(s2, Array.from({ length: 200 }, (_, i) => rd(i, 'wolf'))).length, 0);
+});
+
+test('a raider of the people kinds that carries a potion drinks it under half health, once, and leaves nothing for the town', () => {
+  const s = plainGame('raider-drinks');
+  // (find a raider the kit stream gives a potion)
+  let rd: Raider | undefined;
+  for (let id = 1; id < 400 && !rd; id++) {
+    const probe = { id, kind: 'orc_grunt', ally: false, hp: 10, maxHp: 100, down: false } as unknown as Raider;
+    if (raiderPouch(s, probe).length) rd = { id, kind: 'orc_grunt', ally: false, hp: 100, maxHp: 100, down: false } as unknown as Raider;
+  }
+  assert.ok(rd, 'one of them carries a potion');
+  assert.equal(raiderDrinks(s, rd), 0, 'whole: it keeps the potion');
+  rd.hp = 40;
+  const mended = raiderDrinks(s, rd);
+  assert.ok(mended > 0 && rd.hp > 40, `mended ${mended}`);
+  rd.hp = 20;
+  assert.equal(raiderDrinks(s, rd), 0, 'once only');
+  rd.down = true;
+  raiderPotions(s, [rd]);
+  assert.equal((s.items.healing_potion ?? 0) + (s.items.greater_healing_potion ?? 0), 0, 'the drunk potion is not found on the body');
+  // beasts carry none, allies never drink
+  const wolf = { id: 3, kind: 'wolf', ally: false, hp: 10, maxHp: 100, down: false } as unknown as Raider;
+  assert.equal(raiderDrinks(s, wolf), 0);
+});
+
+test('a raider that did not drink leaves its potion on the body', () => {
+  const s = plainGame('raider-keeps');
+  const bodies: Raider[] = [];
+  for (let id = 1; id < 400; id++) bodies.push({ id, kind: 'orc_grunt', ally: false, hp: 0, maxHp: 100, down: true } as unknown as Raider);
+  const found = raiderPotions(s, bodies);
+  assert.ok(found.length > 20 && found.length < 80, `${found.length} of 400`);
+  assert.equal(raiderPotions(s, bodies).length, 0, 'taken once');
+});
+
+test('townsfolk buy battle items at the shop with their own coins (autopilot only), fighters first', () => {
+  const s = plainGame('buy-kit');
+  s.buildings.push({ id: s.nextId++, def: 'trading_post', tile: campCell(s).x + 3, row: row(s), status: 'done', delivered: {}, progress: 1, store: {} } as Building);
+  const p = s.people[0];
+  p.cls = 'warrior';
+  p.coins = 500;
+  s.coins = 0;
+  addItems(s, 'healing_potion', 2);
+  buyKit(s);
+  assert.equal(p.kit?.length ?? 0, 0, 'not without the autopilot');
+  s.autopilot = true;
+  p.coins = 0;
+  buyKit(s);
+  assert.equal(p.kit?.length ?? 0, 0, "can't afford it");
+  p.coins = 500;
+  buyKit(s);
+  assert.deepEqual(p.kit, ['healing_potion']);
+  assert.ok(p.coins < 500 && (s.coins ?? 0) > 0, 'the coins went to the town');
+  assert.equal(s.items.healing_potion, 1, 'one left on the shelf');
+  assert.ok(p.recent?.some((r) => r.text.includes('Bought a')), 'it shows on their card');
 });

@@ -13,6 +13,8 @@ import { itemPrice, offers, pieceName, SALE_GEAR, takeOffer, type Offer } from '
 import { nightOut } from './nightOut';
 import { moneyTown } from './economy';
 import { SAVINGS_KEEP } from '../data/economy';
+import { carriesKit, kitWant } from './kit';
+import { KIT_BY_ID } from '../data/kitItems';
 import { isChild } from './social';
 import { earn, notify, remember, type GameState, type Person } from './state';
 import { calendar, TICKS_PER_HOUR } from './time';
@@ -47,6 +49,7 @@ export function updateWages(s: GameState): void {
   const hour = calendar(s.tick).hour;
   if (hour === TAVERN_HOUR) nightOut(s); // (sim/nightOut.ts: they go there and drink)
   buyGear(s);
+  buyKit(s);
 }
 
 /** Fighting gear goes to fighters first; the rest in turn. */
@@ -65,6 +68,27 @@ export function buyGear(s: GameState): void {
         .sort((a, b) => gearScore(b.item, b.q) - gearScore(a.item, a.q))[0];
       if (pick) buyPiece(s, p, slot, pick);
     }
+  }
+}
+
+/** Battle items (potions, draughts, charms: data/kitItems.ts) on the shop's shelves: with the autopilot, each grown-up with a
+ *  calling and room in their pouch buys the next one they would carry with their own coins, fighters first, one an hour
+ *  and at the same local price as gear (the stores' own hand-out is sim/kit.ts `restockKits`). */
+export function buyKit(s: GameState): void {
+  if (!s.autopilot) return;
+  const defs = Object.keys(s.items).filter((id) => KIT_BY_ID[id] && ITEM_BY_ID[id]).map((id) => ITEM_BY_ID[id]);
+  if (!defs.length) return;
+  const buyers = s.people.filter((p) => p.away === null && !p.downed && carriesKit(p)).sort((a, b) => fightSkill(s, b) - fightSkill(s, a) || a.id - b.id);
+  for (const p of buyers) {
+    const id = kitWant(s, p, (k) => (s.items[k] ?? 0) > 0);
+    if (!id) continue;
+    const pick = offers(s, [ITEM_BY_ID[id]], localPrice).find((o) => o.price <= (p.coins ?? 0) - SAVINGS_KEEP);
+    if (!pick || !takeOffer(s, pick)) continue;
+    p.coins = (p.coins ?? 0) - pick.price;
+    s.coins = (s.coins ?? 0) + pick.price;
+    earn(s, 'townsfolk', pick.price);
+    (p.kit ??= []).push(id);
+    remember(s, p, `Bought a ${pieceName(pick)} at the shop for ${pick.price} coins`);
   }
 }
 

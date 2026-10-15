@@ -15,6 +15,7 @@ import { gossipLine, sayingOf, townGossip, type Gossip } from './gossip';
 import { isChild, opinion } from './social';
 import { mood } from './townsfolk';
 import { faithDiaryLine } from './religion';
+import { secretsAbout } from './intrigue';
 import { tireless, type GameState, type Person } from './state';
 import { calendar, TICKS_PER_HOUR, type Season } from './time';
 import { weatherAt, type Weather } from './weather';
@@ -149,6 +150,8 @@ export interface DiaryFacts {
   dream?: string | null;
   /** A line about their faith today (sim/religion.ts), if any. */
   faith?: string | null;
+  /** A secret of their own that they keep (sim/intrigue.ts `secretsAbout`), in their own words, if they have one. */
+  secret?: string | null;
 }
 
 /** The facts of someone's day. */
@@ -205,7 +208,16 @@ export function diaryFacts(s: GameState, p: Person): DiaryFacts {
     roughNights: p.roughNights ?? 0,
     dream: dreamOf(s, p),
     faith: faithDiaryLine(s, p, roll01(p.id, today, 11)),
+    secret: isChild(p) ? null : secretLine(secretsAbout(s, p)[0]),
   };
+}
+
+/** A secret kept, as its keeper writes it down (the facts are told of them in the third person). */
+function secretLine(what: string | undefined): string | null {
+  if (!what) return null;
+  if (what === 'owes far more than they let on') return 'I owe far more than anyone knows, and I mean to keep it so.';
+  if (what.startsWith('has a lover')) return 'There is someone else, and my partner must never learn of it.';
+  return `I ${what.replace(/, and nobody knows$/, '')}, and nobody saw me. It stays that way.`;
 }
 
 /** The Great Enemy's dream on the night of an omen: about half the town has it (the same half all day). */
@@ -293,6 +305,7 @@ export function writeDiary(f: DiaryFacts): string[] {
     const said = r(5) < 0.5 ? sayingOf(f.talk, r(6)) : null;
     events.push(said ? `Everyone's talking about it: ${lowerFirst(said)}` : gossipLine(f.talk, f.nature, r(6)));
   }
+  if (f.secret && r(41) < 0.5) events.push(f.secret);
   if (events.length) out.push(events.join(' '));
   // how they feel, and why; the body; grief and love
   const feel: string[] = [];

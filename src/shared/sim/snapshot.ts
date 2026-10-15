@@ -11,7 +11,7 @@ import { CONQUEST } from '../data/conquest';
 import { skirmishTrip } from './roamers';
 import { marketOn, marketSquare } from './pastimes';
 import { diaryOf } from './diary';
-import { townGossip, type Gossip } from './gossip';
+import { townGossip, whisperGossip, type Gossip } from './gossip';
 import { playingKids, tagIt } from './idleScenes';
 import { ROAMER_NAME } from '../data/roamers';
 import { paveSeconds } from './streets';
@@ -46,7 +46,8 @@ import { DESTINATION_BY_ID as DEST_BY_ID } from '../data/expeditions';
 import { musterView, type MusterView } from './muster';
 import { secretView, specialStory } from './specials';
 import { BOAT_BY_KIND, type BoatKind } from '../data/boats';
-import { boatLine, fleet } from './boats';
+import { KIT_ITEMS } from '../data/kitItems';
+import { boatLine, fleet, tradeShips } from './boats';
 import { harbourReport, quay } from './seafaring';
 import { airfleet, airshipLine, mastOf } from './skies';
 import { AIRSHIP_BY_KIND, type AirshipKind } from '../data/skies';
@@ -577,7 +578,7 @@ export interface ExpeditionView {
   roles: Record<number, string>;
   /** A fight in progress, if any, and the spells and skills used in it lately (ticks ago). */
   battle: FighterView[] | null;
-  acts: { age: number; side: 'party' | 'enemy'; ref: number; name: string; targets: number[]; spell: boolean; ult: boolean; cost: number; pool: 'mp' | 'sp' | 'limit' | null; who: string; text: string }[];
+  acts: { age: number; side: 'party' | 'enemy'; ref: number; name: string; targets: number[]; spell: boolean; ult: boolean; /** A battle item used from a pouch: its id (data/kitItems.ts), else null. */ item: string | null; cost: number; pool: 'mp' | 'sp' | 'limit' | null; who: string; text: string }[];
   /** Waiting on a question for the player. */
   waiting: boolean;
   /** A delve: the room they're in (1 up; 0 at the door) of how many, what it is, torches left, what's happened lately. */
@@ -944,6 +945,8 @@ export interface Snapshot {
   places: PlaceView[];
   /** The town's boats (sim/boats.ts): at home (away null) or the place they've sailed for; and the water cell by the
    *  boatyard where those at home lie moored. */
+  /** The trade empire's ships out on a voyage, drawn with the fleet's boats (sim/boats.ts `tradeShips`). */
+  tradeShips: { id: number; kind: BoatKind; name: string; hull: number; max: number; away: string }[];
   fleet: { id: number; kind: BoatKind; name: string; hull: number; max: number; away: string | null }[];
   mooring: { x: number; y: number } | null;
   /** The Harbour tab (sim/seafaring.ts): the harbour, the shoals, the catch, losses, colonies and the sea's news. */
@@ -1306,6 +1309,7 @@ export function snapshot(s: GameState): Snapshot {
       ...(d.bySky ? { bySky: true } : {}),
       ...((line) => (line ? { airship: line } : {}))(airshipLine(s, d)),
     })),
+    tradeShips: tradeShips(s),
     fleet: fleet(s).map((b) => ({ id: b.id, kind: b.kind, name: b.name, hull: Math.max(0, b.hull), max: BOAT_BY_KIND[b.kind].hull, away: b.away === null ? null : ((e) => (e ? destinationOf(s, e.dest)?.name ?? '' : ''))(s.expeditions.find((e) => e.id === b.away)) })),
     wall: s.ring && !s.ring.done ? ((w) => (w ? { gen: s.ring!.gen, ...w, shape: RING_SHAPE_NAMES[ringShapeOf(s)] } : null))(ringProgress(s)) : null,
     mooring: quay(s),
@@ -1545,7 +1549,7 @@ export function snapshot(s: GameState): Snapshot {
     nursing: s.buildings.filter((b) => sickbedsIn(b) > 0).map((b) => ({ building: b.id, beds: sickbedsIn(b), people: patientsIn(s, b).map((p) => p.id) })),
     journalHead: s.journal.at(-1)?.id ?? 0,
     news: latestNews(s),
-    gossip: slow(s, 'gossip', () => townGossip(s.journal, s.tick)),
+    gossip: slow(s, 'gossip', () => [...townGossip(s.journal, s.tick), ...whisperGossip(s.intrigue?.whispers ?? [], s.tick)]),
     eraReady: s.eraReady,
   };
 }
@@ -2312,10 +2316,11 @@ function expeditionView(s: GameState, e: Expedition): ExpeditionView {
       targets: a.targets,
       spell: !!a.meta?.spell,
       ult: !!a.meta?.ult,
+      item: a.meta?.item ? (KIT_ITEMS.find((k) => k.name === a.name)?.id ?? null) : null,
       cost: a.meta?.cost ?? 0,
       pool: a.meta?.pool ?? null,
       who: e.battle!.fighters.find((f) => f.side === a.side && f.ref === a.ref)?.name ?? '',
-      text: a.meta?.pool ? actText(a.name) : '',
+      text: a.meta?.item ? (KIT_ITEMS.find((k) => k.name === a.name)?.text ?? '') : a.meta?.pool ? actText(a.name) : '',
     })),
     waiting: e.prompt !== null,
     hunt: !!e.hunt,

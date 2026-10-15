@@ -4,8 +4,12 @@
 
 import type { BattleView } from '../../shared/sim/battle';
 import { raidShare } from '../fight/progress';
+import type { Snapshot } from '../../shared/sim/snapshot';
+import { guildMark, guildsOf } from '../art/guildMarks';
 
 export interface BattleHud {
+  /** The town's guilds (the snapshot's), for the badge on a fighter's chip. */
+  guilds: Snapshot['guilds'];
   update(b: BattleView | null, raidName: string): void;
   /** The fighter picked to place, and the spell picked to aim (null: none). */
   picked: number | null;
@@ -68,6 +72,7 @@ export function createBattleHud(on: { go(): void; auto(on: boolean): void; speed
   const hud: BattleHud = {
     picked: null,
     aiming: null,
+    guilds: [],
     insets() {
       if (top.hidden) return [0, 0];
       const t = Math.round(top.getBoundingClientRect().bottom);
@@ -109,7 +114,7 @@ export function createBattleHud(on: { go(): void; auto(on: boolean): void; speed
       if (!placing) hud.picked = null;
       if (placing || b.auto) hud.aiming = null;
       // the bottom bar: fighters while placing, spells while fighting (none if the town is doing it all)
-      const key = JSON.stringify([placing, b.auto, hud.picked, hud.aiming, b.roster.map((r) => [r.id, r.spot, Math.round((r.hp / r.maxHp) * 10)]), b.spells.map((s) => [s.id, Math.ceil(s.readyIn), s.affordable])]);
+      const key = JSON.stringify([placing, b.auto, hud.picked, hud.aiming, b.roster.map((r) => [r.id, r.spot, Math.round((r.hp / r.maxHp) * 10), guildsOf(hud, r.id)[0]?.role]), b.spells.map((s) => [s.id, Math.ceil(s.readyIn), s.affordable])]);
       if (key === chipsKey) return;
       chipsKey = key;
       bar.hidden = false;
@@ -122,6 +127,8 @@ export function createBattleHud(on: { go(): void; auto(on: boolean): void; speed
             c.className = `battle-chip${r.spot !== null ? ' placed' : ''}${hud.picked === r.id ? ' on' : ''}`;
             const mark = r.hero ? '★' : r.mage ? '✦' : r.ranged ? '🏹' : '⚔';
             c.textContent = `${mark} ${r.name.split(' ')[0]}`;
+            const gm = guildMark(hud, r.id);
+            if (gm) c.append(' ', gm);
             const hp = document.createElement('span');
             hp.className = 'battle-hp';
             const fill = document.createElement('span');

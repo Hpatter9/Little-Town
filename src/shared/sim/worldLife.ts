@@ -6,6 +6,7 @@
 // keep the seasons (sim/war/strikes.ts): they begin mostly in autumn and winter and end mostly in winter; their hosts
 // march in spring and summer (a province taken), raid each other's harvests in autumn, and hold in winter.
 
+import type { BoatKind } from '../data/boats';
 import { hashSeed, mixSeed } from '../rng';
 import { FACTION_BY_ID, STRONGHOLD_SPOTS } from '../data/factions';
 import { MAP_HOME } from '../data/worldMap';
@@ -128,7 +129,7 @@ function arrive(s: GameState): void {
 
 /** What the world map shows moving: the marches, a host coming for the town, an envoy riding in; and the feuds. */
 export interface WorldView {
-  marches: { kind: 'feud' | 'trade' | 'host' | 'envoy' | 'wagon' | 'caravan' | 'ship' | 'campaign'; from: { x: number; y: number }; to: { x: number; y: number }; t: number; label: string; size: number }[];
+  marches: { kind: 'feud' | 'trade' | 'host' | 'envoy' | 'wagon' | 'caravan' | 'ship' | 'campaign'; /** A ship's boat, drawn as the fleet's are. */ boat?: BoatKind; from: { x: number; y: number }; to: { x: number; y: number }; t: number; label: string; size: number }[];
   feuds: { a: string; b: string; at: { x: number; y: number } }[];
   /** The trade house's open routes (sim/markets.ts), drawn faintly from home. */
   routes: { to: { x: number; y: number }; name: string }[];

@@ -2,7 +2,8 @@
 // tap), the one picked (a flag, and the route out to it), and each party that's out, moving along its route as it
 // goes and comes back. It's one element kept between renders, so the map image doesn't reload each time.
 
-import { ISLANDS } from '../../shared/data/boats';
+import { ISLANDS, type BoatKind } from '../../shared/data/boats';
+import { boatArt, MAP_LENGTH } from '../art/boatArt';
 import { MAP_HOME, MAP_SIZE, MAP_SPOTS } from '../../shared/data/worldMap';
 import { STRONGHOLD_SPOTS } from '../../shared/data/factions';
 import { regionScouted, REGIONS } from '../../shared/data/regions';
@@ -165,6 +166,11 @@ export class WorldMapView {
       }
       const at = { x: m.from.x + (m.to.x - m.from.x) * m.t, y: m.from.y + (m.to.y - m.from.y) * m.t };
       const tok = el('div', `map-march ${m.kind}`, m.kind === 'trade' ? '🐫' : m.kind === 'wagon' ? '🛒' : m.kind === 'caravan' ? '🐪' : m.kind === 'ship' ? '⛵' : m.kind === 'envoy' ? '✉' : String(m.size));
+      if (m.kind === 'ship' && m.boat) {
+        // (the empire's ship in the same boat as the fleet's: art/boatArt.ts)
+        const pic = boatToken(m.boat);
+        if (pic) tok.replaceChildren(pic);
+      }
       tok.title = m.label;
       tok.setAttribute('aria-label', m.label);
       place(tok, at);
@@ -252,4 +258,22 @@ function label(text: string, at: { x: number; y: number }, cls: string): HTMLEle
   else if (at.x > MAP_SIZE - 110) l.classList.add('right');
   if (at.y > MAP_SIZE - 60) l.classList.add('above');
   return l;
+}
+
+/** A boat of the fleet's art as a small picture, for a token on the map (null if its canvas can't be had). */
+function boatToken(kind: BoatKind): HTMLCanvasElement | null {
+  try {
+    const src = boatArt(kind, MAP_LENGTH[kind] * 0.8).texture.source.resource as unknown;
+    if (!(src instanceof HTMLCanvasElement)) return null;
+    const c = document.createElement('canvas');
+    c.width = src.width;
+    c.height = src.height;
+    c.style.width = `${src.width}px`;
+    c.style.height = `${src.height}px`;
+    c.style.imageRendering = 'pixelated';
+    c.getContext('2d')?.drawImage(src, 0, 0);
+    return c;
+  } catch {
+    return null;
+  }
 }

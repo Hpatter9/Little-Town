@@ -4,6 +4,7 @@
 
 import type { AnnalsView } from '../../shared/sim/snapshot';
 import { el } from './dom';
+import { fallenGuildMark } from '../art/guildMarks';
 
 const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`;
 
@@ -21,8 +22,8 @@ function titles(list: string[]): HTMLElement | null {
   return row;
 }
 
-/** `guildMark`: the badge of someone's guild, shown beside the name of the living (the dead leave their guilds, so the fallen
- *  have none). */
+/** `guildMark`: the badge of someone's guild, shown beside the name of the living (the fallen carry the badge of the guild they
+ *  fell in on their record). */
 export function renderHeroes(a: AnnalsView, guildMark?: (personId: number) => HTMLElement | null): HTMLElement[] {
   const out: HTMLElement[] = [];
   out.push(el('h2', '', 'The famous'));
@@ -54,7 +55,10 @@ export function renderHeroes(a: AnnalsView, guildMark?: (personId: number) => HT
   for (const f of a.fallen) {
     const c = el('div', 'card hall-card fallen');
     const top = el('div', 'card-top');
-    top.append(el('span', 'card-name', `${f.founder ? '★ ' : ''}${f.name}`), el('span', 'card-size', `Day ${f.day}`));
+    const fname = el('span', 'card-name', `${f.founder ? '★ ' : ''}${f.name}`);
+    const fgm = fallenGuildMark(f);
+    if (fgm) fname.append(' ', fgm);
+    top.append(fname, el('span', 'card-size', `Day ${f.day}`));
     c.append(top, el('div', 'hall-cause', `Died ${f.cause}.`), el('div', 'hint', deeds(f)));
     const t = titles(f.titles);
     if (t) c.append(t);

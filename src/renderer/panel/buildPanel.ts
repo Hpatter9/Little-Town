@@ -25,7 +25,8 @@ import { button, duration, el } from './dom';
 import { materialIcon } from '../art/materialIcons';
 import { BUILD_MULTIPLIER } from '../../shared/sim/state';
 import { hiddenNote, HidePrefs } from './hide';
-import { glance, inTown } from './townOverview';
+import { foodDays, glance, inTown } from './townOverview';
+import { storesKey } from './craftingPanel';
 import { topicKnown } from './secrets';
 import { expandable, facts, list, type More } from './details';
 import { UPGRADES } from '../../shared/data/buildings';
@@ -36,9 +37,48 @@ import { depthOf } from '../../shared/sim/buildings';
 import { SKILL_NAMES } from '../../shared/data/skills';
 import { topicName } from '../../shared/data/originResearch';
 
-/** Changes whenever something this panel shows changes. */
-export const buildKey = (s: Snapshot) =>
-  JSON.stringify([hide.key, s.powers.map((p) => [p.id, Math.ceil(p.readyHours), Math.ceil(p.activeHours), p.held, p.affordable]), s.powerLog[0], s.nomad && [s.nomad.site, s.nomad.settled, Math.ceil((s.nomad.nextMoveDays ?? 0) * 24)], s.lichOffer, s.theme, s.coins, s.ledger, s.guards.n, s.guards.watch, !!s.shop, !!s.tavern, s.era, s.research.revealed, s.buildSlots, s.stock, s.unlockAll, s.research.done, s.storageCapacity, s.housing, s.direction, s.plan, Math.round(s.align.score / 2), Math.round(s.align.order / 2), s.align.title, s.align.pact, s.align.swings[0], s.villages.map((v) => [v.pop, v.loyalty, v.rebel, v.beset, v.helpers, v.cartOut, v.goods, v.news[0], v.canGift]), s.politics && [s.politics.blocs.map((b) => [b.sat, b.members.length, b.wants, b.striking]), s.politics.laws.map((l) => l.on), s.politics.log[0], s.politics.crimes, s.politics.strike, s.politics.tax, s.politics.edictWait], s.buildings.map((b) => [b.def, b.status, Math.floor(b.progress * 20)]), heritageKey(s), faithKey(s), s.skipRaids, s.pins.map((p) => [p.def, p.building, Math.floor(p.progress * 20), p.why])]);
+/** The treasury's table as it is drawn (whole coins), not the day's raw sums. */
+const ledgerKey = (s: Snapshot) => s.ledger && Object.values(s.ledger).map((n) => Math.round(Number(n) || 0));
+
+/** What of the stores the open tab shows: the overview's food days (to the digit drawn), the stores themselves and the
+ *  buildings' cost chips every count, and the other tabs none (a haul changes the stock ten times a minute). */
+export const townStockKey = (s: Snapshot, tab: string) =>
+  tab === 'Stores' ? storesKey(s) : tab === 'Buildings' ? costChipsKey(s) : tab === '' || tab === 'Overview' ? foodDaysShown(s) + '|' + s.crafting.length + '|' + s.craftSlots : '';
+
+/** The Buildings tab shows the stock only as cost chips ("short" or not): a material's count past the dearest building's cost
+ *  changes nothing on the page. */
+const DEAREST: Partial<Record<Material, number>> = {};
+for (const b of BUILDINGS) for (const [m, n] of Object.entries(b.cost)) DEAREST[m as Material] = Math.max(DEAREST[m as Material] ?? 0, n ?? 0);
+const costChipsKey = (s: Snapshot) => (Object.keys(DEAREST) as Material[]).map((m) => Math.min(s.stock[m] ?? 0, DEAREST[m]!)).join(',');
+
+const foodDaysShown = (s: Snapshot) => {
+  const d = foodDays(s);
+  return d === Infinity ? 'inf' : d < 10 ? d.toFixed(1) : String(Math.round(d));
+};
+
+/** Changes whenever something this panel shows changes. `tab` is the sub-tab the page is drawn on (subtabs.ts `shownTab`), or
+ *  null when that isn't known yet: the parts only one tab draws are left out of the others' keys, so a power's hourly
+ *  countdown or a knight's vow doesn't rebuild the Treasury under a finger. */
+export const buildKey = (s: Snapshot, tab: string | null = null) => {
+  const on = (names: readonly string[], part: () => unknown): unknown => (tab === null || names.includes(tab) ? part() : 0);
+  const heritageTiles = () => [s.heritage?.blood && [s.heritage.blood.store, s.heritage.blood.farms, s.heritage.blood.prisoners, s.heritage.blood.cells, s.heritage.blood.nightly], s.heritage?.horde && [s.heritage.horde.fury, s.heritage.horde.waaagh, s.heritage.horde.out?.target, s.heritage.horde.name]];
+  return JSON.stringify([
+    hide.key,
+    s.theme,
+    on(['Overview'], () => [s.powers.map((p) => [p.id, Math.ceil(p.readyHours), Math.ceil(p.activeHours), p.held, p.affordable]), s.powerLog[0], s.nomad && [s.nomad.site, s.nomad.settled, Math.ceil((s.nomad.nextMoveDays ?? 0) * 24)], s.lichOffer, heritageTiles()]),
+    on(['Overview', 'Treasury'], () => s.coins),
+    on(['Treasury'], () => ledgerKey(s)),
+    s.guards.n, s.guards.watch, !!s.shop, !!s.tavern, s.era, s.research.revealed, s.buildSlots, s.unlockAll, s.research.done, s.storageCapacity, s.housing, s.direction, s.plan,
+    Math.round(s.align.score / 2), Math.round(s.align.order / 2), s.align.title, s.align.pact, s.align.swings[0],
+    on(['Villages'], () => s.villages.map((v) => [v.pop, v.loyalty, v.rebel, v.beset, v.helpers, v.cartOut, v.goods, v.news[0], v.canGift])),
+    s.politics && [s.politics.tax, on(['Council'], () => [s.politics!.blocs.map((b) => [b.sat, b.members.length, b.wants, b.striking]), s.politics!.laws.map((l) => l.on), s.politics!.log[0], s.politics!.crimes, s.politics!.strike, s.politics!.edictWait])],
+    s.buildings.map((b) => [b.def, b.status, on(['Buildings'], () => Math.floor(b.progress * 20))]),
+    on(['Our ways', 'Magic'], () => heritageKey(s)),
+    on(['Overview', 'Faith'], () => faithKey(s)),
+    s.skipRaids,
+    s.pins.map((p) => [p.def, p.building, Math.floor(p.progress * 20), p.why]),
+  ]);
+};
 
 export function renderBuild(s: Snapshot, bridge: Bridge | undefined, rerender: () => void = () => {}): HTMLElement[] {
   const used = blueprintCount(s);
