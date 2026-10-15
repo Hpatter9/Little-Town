@@ -4,7 +4,7 @@
 
 import { addDeed } from './deeds';
 import { protestSpot, striking } from './politics';
-import { isGate, lineOf, RING_CLEAR_PULL } from './ringWall';
+import { isGate, lineOf, ringTown, RING_CLEAR_PULL } from './ringWall';
 import { drinkAt, drinking } from './nightOut';
 import { finishRelax, relaxSpot, relaxTicks, wantsRelax } from './leisure';
 import { LEISURE } from '../data/recreation';
@@ -30,6 +30,7 @@ import { nextPave, pave, paveReady, paveSeconds } from './streets';
 import { SHAFT } from '../data/deep';
 import { shaftHasWork } from './deep';
 import { guardEngages, roamerToHunt } from './roamers';
+import { onNightWatch } from './nightWatch';
 import { buildingCentre, buildingDoor, defOf, distToBuilding, footprint, stillNeeded, storageFree, storages, townRadius, inWork, overgrownCells, cellCleared, buildableNow, deliveredShare, layoutOf, sameLayout, type BuildingsLayout } from './buildings';
 import { FEED_SECONDS } from '../data/lighting';
 import { feedLight, lightToFeed } from './lighting';
@@ -491,6 +492,15 @@ export function updatePerson(s: GameState, p: Person, rng: Rng, ctx: TickContext
         if (goTo(s, p, { x: task.targetX, y: task.targetY })) p.activity = 'idle';
         break;
       }
+      // (a post at the camp's edge is held while it's theirs)
+      if (task.hold) {
+        if (!edgePost(s, p)) {
+          p.task = null;
+          break;
+        }
+        if (goTo(s, p, { x: task.targetX, y: task.targetY })) p.activity = 'idle';
+        break;
+      }
       if (goTo(s, p, { x: task.targetX, y: task.targetY })) p.task = null; // then back the other way
       break;
     }
@@ -572,6 +582,8 @@ export const alarmRaised = (s: GameState) => {
 
 /** Patrol shifts (DESIGN §10): with a Barracks, guards on Defend High take day or night shifts (by turns). */
 export function onShift(s: GameState, p: Person): boolean {
+  // (a townsperson on the night watch's roster: sim/nightWatch.ts)
+  if (onNightWatch(s, p)) return true;
   if (p.priorities.defend !== 1 || p.bornTick != null) return false;
   // (a hired guard (sim/treasury.ts) keeps watch without a barracks)
   if (!p.guard && !s.buildings.some((b) => b.def === 'barracks' && b.status === 'done')) return false;
@@ -630,6 +642,36 @@ export const gateTop = (b: Building): Pt => {
   const r = footprint(b);
   return { x: (r.x + r.w / 2) * CELL, y: (r.y + r.h / 2) * CELL };
 };
+
+/** Where a guard on watch goes next: after a band roaming near the town, up on a gate by night, at the camp's edge when
+ *  there is no wall yet, or the long way round the town. */
+function patrolTask(s: GameState, p: Person): Task {
+  // (a band roaming near the town: they go out after it)
+  const band = roamerToHunt(s, p);
+  if (band) return { type: 'patrol', targetX: band.x, targetY: band.y, band: band.id };
+  // (by night, up on a gate: gatePost)
+  const post = gatePost(s, p);
+  if (post) {
+    const top = gateTop(post);
+    return { type: 'patrol', targetX: top.x, targetY: top.y, post: post.id };
+  }
+  // (by night with no wall standing: half of the watch stands at the camp's edge, one on each side: sim/nightWatch.ts)
+  const edge = edgePost(s, p);
+  if (edge) return { type: 'patrol', targetX: edge.x, targetY: edge.y, hold: true };
+  const end = patrolEnd(s, p);
+  return { type: 'patrol', targetX: end.x, targetY: end.y };
+}
+
+/** With the ring wall not yet standing all round, the first half of the watch (by id) holds the town's edge by night, on
+ *  one side and the other in turn. Null by day, in a town that has a wall, or for the rest. */
+function edgePost(s: GameState, p: Person): Pt | null {
+  const h = calendar(s.tick).hour;
+  if (s.ring?.done || !ringTown(s) || (h < WALL_WATCH_FROM && h >= WALL_WATCH_UNTIL)) return null;
+  const watch = s.people.filter((q) => q.away === null && !q.downed && onShift(s, q)).sort((a, b) => a.id - b.id);
+  const i = watch.indexOf(p);
+  if (i < 0 || i >= Math.ceil(watch.length / 2)) return null;
+  return { x: townEdgeX(s, i % 2 === 0 ? -1 : 1), y: campXY(s).y };
+}
 
 /** The far end of the built town from where a guard is: the door of the building farthest from them (by night, along
  *  the ring wall: `wallWalk`). */
@@ -1191,6 +1233,8 @@ function chooseTask(s: GameState, p: Person): Task | null {
     }
   }
   if (p.morale < SULK_MORALE || p.breakdown) return null; // sulking (or in the middle of a break)
+  // The night watch (sim/nightWatch.ts): a townsperson on its roster walks the beat or stands a post before their own work.
+  if (onNightWatch(s, p) && !s.raid) return p.task?.type === 'patrol' && p.task.band === undefined ? p.task : patrolTask(s, p);
   // (hands already full, whatever they're doing: no more gathering or fetching on top)
   if (poolSize(p.carrying) >= carryCapacity(s, p)) handsFull = true;
   // The lamplighter's round (sim/lighting.ts): a light running low and the dark coming, one or two of the town go
@@ -1371,17 +1415,7 @@ function findJob(s: GameState, p: Person, job: Job): Task | null {
     case 'defend':
       // (fighting only happens in raids, see chooseTask; between them, guards on shift patrol)
       if (!onShift(s, p)) return null;
-      // (a band roaming near the town: they go out after it)
-      const band = roamerToHunt(s, p);
-      if (band) return { type: 'patrol', targetX: band.x, targetY: band.y, band: band.id };
-      // (by night, up on a gate: gatePost)
-      const post = gatePost(s, p);
-      if (post) {
-        const top = gateTop(post);
-        return { type: 'patrol', targetX: top.x, targetY: top.y, post: post.id };
-      }
-      const end = patrolEnd(s, p);
-      return { type: 'patrol', targetX: end.x, targetY: end.y };
+      return patrolTask(s, p);
     case 'research': {
       // (one person to a station: with every one taken, they find other work)
       if (!s.research.queue.length || researchCanWait(s, p)) return null;

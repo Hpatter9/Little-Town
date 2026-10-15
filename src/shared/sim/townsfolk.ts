@@ -46,6 +46,7 @@ import { ORIGIN_DEFS, rulesOf } from '../data/origins';
 import { natureOf } from '../data/natures';
 import { makeStranger, oneOf, orcLook, strangerOrigin, welcomes } from './strangers';
 import { originWork, moraleMarks } from './origin';
+import { onRoster } from './nightWatch';
 
 /** Need drain per game hour. Food lasts about a day; rest about 18 waking hours. */
 export const FOOD_PER_HOUR = 1 / 24;
@@ -107,7 +108,7 @@ export function wantsToWake(s: GameState, p: Person): boolean {
  *  founder taken on as the guard slept the working day away and the town never grew. */
 const DAY_SLEEP_FROM = 8;
 const DAY_SLEEP_UNTIL = 16;
-const nightWatch = (s: GameState, p: Person) => !!p.guard && p.id % 2 !== 0 && p.id !== s.mainId && !!s.ring?.done;
+const nightWatch = (s: GameState, p: Person) => (!!p.guard && p.id % 2 !== 0 && p.id !== s.mainId && !!s.ring?.done) || onRoster(s, p);
 function bedtime(s: GameState, p: Person, h: number): boolean {
   return nightWatch(s, p) ? h >= DAY_SLEEP_FROM && h < DAY_SLEEP_UNTIL : isNight(h);
 }
