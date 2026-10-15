@@ -22,9 +22,9 @@ import { castsMagic, CLASS_DEFS } from '../data/classes';
 import { ENEMIES } from '../data/enemies';
 import { RAID_KIND_BY_ID } from '../data/raids';
 import { TILE } from '../constants';
-import type { Rng } from '../rng';
-import { hashSeed, mixSeed } from '../rng';
+import { Rng, hashSeed, mixSeed } from '../rng';
 import { aimOf, canPay, held, kitOf, takeTurn, tickStatuses, useAction, type Arena, type Combatant, type Kit, type KitAction, type Statuses } from './actions';
+import { boardOk, canStep, coverChance, easeRelief, layTerrain, sightClear } from './tacticsTerrain';
 import { aimTiles, areaLabel, areaOf, areaTiles, spreads, SPREAD_POWER, type TacArea, type Tile } from './tacticsArea';
 import { attributesOf } from './attributes';
 import { fighters, gateCell, ranged } from './battle';
@@ -45,6 +45,7 @@ import { runtime } from './watchAsk';
 import { enemyArmor } from '../data/enemies';
 import { levelOf, stageOf } from '../data/levels';
 import { callingName } from '../data/founderClasses';
+import { shotOf } from '../data/projectiles';
 
 /* ------------------------------------------------------------ the shapes of things */
 
@@ -65,9 +66,14 @@ export interface TacTile {
   wall?: string;
   /** The gate in the wall: the way in, open to all. */
   gate?: boolean;
-  /** Trees and bushes: cover (harder to hit). */
+  /** Trees and bushes: cover (harder to hit); a tree also blocks a shot's line of sight. */
   tree?: boolean;
   bush?: boolean;
+  /** A hill laid on the field (tacticsTerrain.ts): its flat top, or a step of its one ramp (the rest is a cliff,
+   *  climbed from nowhere). */
+  hill?: 'top' | 'ramp';
+  /** A fallen log: climbed over at a cost, cover for whoever stands behind it. */
+  log?: boolean;
   /** One of the town's traps (a building id), sprung by the first raider to step on it. */
   trap?: number;
 }
@@ -108,6 +114,8 @@ export interface TacFx {
   name?: string;
   /** An ultimate (the screen shakes). */
   ult?: boolean;
+  /** What flew, for a 'shot' or a tower's bolt (data/projectiles.ts `shotCode`): the views fly it from `from` to `to`. */
+  shot?: string;
 }
 
 /** A turn waiting on the player's orders. */
@@ -207,6 +215,8 @@ const ROUT = 0.15;
 /** Trees turn this share of blows aside; rain and night this much more of shots. */
 const COVER = 0.2;
 const RAIN_MISS = 0.15;
+/** A shooter on high ground reaches this much further for each step over its mark (a hill's top, three steps, two tiles). */
+export const HIGH_REACH = 0.7;
 /** How far spells and skills reach at most (tiles); each one's own reach and area are in tacticsArea.ts. */
 export const SPELL_REACH = 4;
 /** FFT's count: turns a townsperson lies struck down on the field before they're lost. */
@@ -298,6 +308,27 @@ export function makeBoard(s: GameState, side: -1 | 1, big = false, salt = 0): Pi
     }
   fords(b);
   lieOfTheLand(b, along, mixSeed(seed, 0x51de, salt));
+  easeRelief(b);
+  // the field as the land lies, kept to fall back on; then the pieces strewn over it from the 'board' side stream (hills
+  // with a ramp, copses, a pond, a stream with its ford...), and the town's wall across it. A layout that leaves a
+  // corner nobody can reach is thrown away and laid again, twice, and then the plain field stands.
+  const field = b.tiles;
+  const wood = field.filter((t) => t.tree).length / field.length;
+  const hill = field.filter((t) => t.g === 'hill' || t.g === 'rock').length / field.length;
+  const wet = field.filter((t) => t.g === 'water' || t.g === 'shallows' || t.g === 'marsh').length / field.length;
+  for (let attempt = 0; attempt < 3; attempt++) {
+    b.tiles = field.map((t) => ({ ...t }));
+    if (attempt < 2) layTerrain(b, along, new Rng(hashSeed(`${s.seed}:board:${salt}:${attempt}`)), s.biome ?? 'forest', { wood, hill, wet });
+    dressBoard(s, b, along, traps, seed, salt);
+    if (attempt === 2 || boardOk(b, along)) break;
+  }
+  return b;
+}
+
+/** The town's wall across the board at the gate's row with its gate, the town's side kept clear, the towers on the
+ *  wall, the traps on the field. */
+function dressBoard(s: GameState, b: Pick<Tactics, 'w' | 'h' | 'tiles'>, along: number, traps: Map<number, number>, seed: number, salt: number): void {
+  const { w, h } = b;
   // the town's wall across the board at the gate's row, its gate in the middle (open: the way in)
   const wall = townWall(s);
   // (the wall meets water: a grate the river runs through and nobody does, once the town has built one; till then
@@ -356,7 +387,6 @@ export function makeBoard(s: GameState, side: -1 | 1, big = false, salt = 0): Pi
     }
   }
   layTraps(b, [...traps.values()], along, mixSeed(seed, 0x7a95, salt));
-  return b;
 }
 
 /** The town's wall as the board draws it: the ring's, else the best it has built, else a palisade. */
@@ -906,7 +936,7 @@ function towerTurn(s: GameState, r: Raid, t: Tactics, me: TacUnit, st: TacStats,
   const near = (x: Raider, px: number) => r.raiders.filter((o) => o !== x && !o.down && !o.gone && !o.ally && Math.hypot(o.x - x.x, o.y - x.y) <= px);
   fireAt(s, rng, d, rd, near, (x, dmg) => hurt(s, x, dmg));
   credit(s, TOWERS, was);
-  t.fx.push({ tick: s.tick, kind: 'tower', from: [me.u, me.v], to: [[target.u, target.v]] });
+  t.fx.push({ tick: s.tick, kind: 'tower', from: [me.u, me.v], to: [[target.u, target.v]], shot: shotOf(BUILDING_BY_ID[b.def].name) });
   t.hits.push({ u: target.u, v: target.v, text: rd.hp < hp ? `${Math.round(hp - rd.hp)}` : 'Miss', foe: true, tick: s.tick });
   t.act = { key: me.key, path: [[me.u, me.v]], step: 0, kind: 'shoot', stage: 'beat', next: s.tick + BEAT_TICKS };
 }
@@ -949,11 +979,11 @@ export function reachable(s: GameState, t: Tactics, me: TacUnit, st: TacStats): 
       const v = Math.floor(i / t.w) + dv;
       const tile = tileAt(t, u, v);
       if (!standable(tile, me.foe, swim || me.foe)) continue;
-      const rise = tile!.h - here.h;
-      if (rise > st.jump || -rise > st.jump + 1) continue;
+      const step = canStep(here, tile!, st.jump);
+      if (step === null) continue;
       const other = taken.get(v * t.w + u);
       if (other && other.foe !== me.foe && other.count === undefined) continue;
-      const cost = c + (tile!.g === 'marsh' || tile!.g === 'shallows' || tile!.g === 'water' ? 2 : 1);
+      const cost = c + step;
       if (cost > st.move) continue;
       const j = v * t.w + u;
       if (out.has(j) && out.get(j)!.cost <= cost) continue;
@@ -989,11 +1019,11 @@ export function blowMult(t: Pick<Tactics, 'tiles' | 'w'>, from: { u: number; v: 
 }
 
 /** How far a shot reaches from a tile: further from high ground, less by night. */
-function shotReach(s: GameState, st: TacStats, from: TacTile, to: TacTile): number {
+export function shotReach(s: GameState, st: TacStats, from: TacTile, to: TacTile): number {
   if (!st.shooter) return st.reach;
   const h = calendar(s.tick).hour;
   const dark = h >= 21 || h < 5 ? 1 : 0;
-  return Math.max(1, st.reach + Math.max(0, Math.floor((from.h - to.h) / 2)) - dark);
+  return Math.max(1, st.reach + Math.max(0, Math.floor((from.h - to.h) * HIGH_REACH)) - dark);
 }
 
 /** Whether `from` can strike `target` from tile `at`. */
@@ -1003,7 +1033,8 @@ function canStrike(s: GameState, t: Tactics, st: TacStats, at: { u: number; v: n
   if (!a || !b) return false;
   const d = apart(at, target);
   if (d === 0 || d > shotReach(s, st, a, b)) return false;
-  return st.shooter || Math.abs(a.h - b.h) <= st.jump;
+  if (st.shooter) return d <= 1 || sightClear(t, at, target);
+  return Math.abs(a.h - b.h) <= st.jump;
 }
 
 /** What a fighter will do this turn: where to walk, and whom to strike (or tend, or open) from there. */
@@ -1092,7 +1123,7 @@ function wayIn(t: Tactics, st: TacStats): number[] {
     for (const [du, dv] of DIRS) {
       const n = tileAt(t, u + du, v + dv);
       const j = (v + dv) * t.w + u + du;
-      if (!n || dist[j] <= dist[i] + 1 || !standable(n, true) || Math.abs(n.h - t.tiles[i].h) > Math.max(2, st.jump)) continue;
+      if (!n || dist[j] <= dist[i] + 1 || !standable(n, true) || canStep(n, t.tiles[i], Math.max(2, st.jump)) === null) continue;
       dist[j] = dist[i] + 1;
       queue.push(j);
     }
@@ -1227,6 +1258,8 @@ export function bestCast(s: GameState, r: Raid, t: Tactics, me: TacUnit): { act:
     const area = areaOf(act, reach);
     const foe = aimOf(act) === 'foe';
     for (const at of aimTiles(area, [me.u, me.v], t.w, t.h)) {
+      // (a bolt at one mark needs sight of it; a burst arcs over trees and rises)
+      if (foe && area.shape === 'one' && !sightClear(t, me, { u: at[0], v: at[1] })) continue;
       const hit = touchedBy(t, me, areaTiles(area, [me.u, me.v], at, t.w, t.h), foe);
       if (!hit.length) continue;
       let score: number;
@@ -1345,15 +1378,17 @@ function strike(s: GameState, r: Raid, t: Tactics, me: TacUnit, target: TacUnit,
   const w = weatherAt(s.seed, s.tick, null).kind;
   const wet = st.shooter && (w === 'rain' || w === 'storm' || w === 'snow' || w === 'fog');
   const under = tileAt(t, target.u, target.v);
-  const cover = ((under?.tree || under?.bush) && rng.next() < COVER) || (wet && rng.next() < RAIN_MISS);
+  // (a shot meets the cover of the target's tile and beside it; a blow in melee only the thicket it stands in)
+  const shelter = st.shooter ? coverChance(t, me, target) : under?.tree || under?.bush ? COVER : 0;
+  const cover = (shelter > 0 && rng.next() < shelter) || (wet && rng.next() < RAIN_MISS);
   const mark = (text: string) => t.hits.push({ u: target.u, v: target.v, text, foe: target.foe, tick: s.tick });
-  t.fx.push({ tick: s.tick, kind: st.shooter ? 'shot' : 'blow', from: [me.u, me.v], to: [[target.u, target.v]] });
   const p = personOf(s, me.key);
+  const rd = raiderOf(r, me.key);
+  t.fx.push({ tick: s.tick, kind: st.shooter ? 'shot' : 'blow', from: [me.u, me.v], to: [[target.u, target.v]], ...(st.shooter ? { shot: shotFor(p, rd) } : {}) });
   const tp = personOf(s, target.key);
   const trd = raiderOf(r, target.key);
-  const rd = raiderOf(r, me.key);
   if (cover) {
-    mark(under?.tree || under?.bush ? 'Cover' : 'Miss');
+    mark(shelter > 0 ? 'Cover' : 'Miss');
     if (p) p.lastBlow = s.tick;
     if (rd) rd.lastAction = s.tick;
     return;
@@ -1383,6 +1418,15 @@ function strike(s: GameState, r: Raid, t: Tactics, me: TacUnit, target: TacUnit,
       mark(`${dmg}`);
     } else mark('Miss');
   }
+}
+
+/** What a shooter looses: by the weapon in a townsperson's hand (their calling's spell if they cast), by the raider's kind. */
+function shotFor(p: Person | undefined, rd: Raider | undefined): string {
+  if (p) return shotOf(weaponOf(p).def?.name ?? (castsMagic(p.cls) ? 'staff' : 'sling'), { magic: castsMagic(p.cls), caster: p.cls ?? '' });
+  if (!rd) return 'arrow';
+  const d = ENEMIES[rd.kind];
+  const w = 'weapon' in d.sprite && d.sprite.weapon ? d.sprite.weapon : '';
+  return shotOf(`${d.name} ${w}`, { caster: `${rd.kind} ${d.name}` });
 }
 
 /** A raider at the town's edge of the board: through, into the town (raids.ts takes it on from there). */
@@ -1458,6 +1502,7 @@ export function tacticsOrder(s: GameState, o: TacticsOrder): boolean {
       const area = areaOf(act, st.reach);
       const at: Tile = o.at ?? (target ? [target.u, target.v] : [me.u, me.v]);
       if (!aimTiles(area, [me.u, me.v], t.w, t.h).some(([u, v]) => u === at[0] && v === at[1])) return false;
+      if (aimOf(act) === 'foe' && area.shape === 'one' && !sightClear(t, me, { u: at[0], v: at[1] })) return false;
       t.act = { ...base, path: [[me.u, me.v]], skill: act.id, at: [at[0], at[1]], kind: 'cast', stage: 'act' };
       return true;
     }
@@ -1623,7 +1668,8 @@ export function tacticsView(s: GameState): TacticsView | null {
         skills: (me.kit?.actions ?? []).map((a) => {
           const aim = aimOf(a);
           const area = areaOf(a, st.reach);
-          const tiles = aimTiles(area, [me.u, me.v], t.w, t.h);
+          // (a bolt at one mark is aimed only where it can be seen)
+          const tiles = aimTiles(area, [me.u, me.v], t.w, t.h).filter(([u, v]) => !(aim === 'foe' && area.shape === 'one' && !sightClear(t, me, { u, v })));
           const pool = aim === 'foe' ? foes : aim === 'friend' ? friends : [me];
           const could = new Set<number>();
           for (const at of tiles) for (const [u, v] of areaTiles(area, [me.u, me.v], at, t.w, t.h)) could.add(v * t.w + u);
@@ -1658,7 +1704,7 @@ export function tacticsView(s: GameState): TacticsView | null {
     auto: t.auto,
     order,
     hits: t.hits.map((x) => ({ u: x.u, v: x.v, text: x.text, foe: x.foe, age: s.tick - x.tick, ...(x.heal ? { heal: true } : {}) })),
-    fx: t.fx.map((x) => ({ kind: x.kind, from: x.from, to: x.to, age: s.tick - x.tick, ...(x.name ? { name: x.name } : {}), ...(x.ult ? { ult: true } : {}), ...(x.foe !== undefined ? { foe: x.foe } : {}) })),
+    fx: t.fx.map((x) => ({ kind: x.kind, from: x.from, to: x.to, age: s.tick - x.tick, ...(x.name ? { name: x.name } : {}), ...(x.ult ? { ult: true } : {}), ...(x.shot ? { shot: x.shot } : {}), ...(x.foe !== undefined ? { foe: x.foe } : {}) })),
     chests: t.chests.map((c) => ({ u: c.u, v: c.v })),
     banner: t.banner && s.tick - t.banner.tick < 4 * TICK_HZ ? { text: t.banner.text, age: s.tick - t.banner.tick, kind: t.banner.kind } : null,
     turns: t.turns,
