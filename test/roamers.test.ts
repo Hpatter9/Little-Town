@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { CELL } from '../src/shared/sim/land';
-import { roadSafety, sheltered, spawnRoamer, startSkirmish } from '../src/shared/sim/roamers';
+import { roadSafety, sheltered, skirmishNames, spawnRoamer, startSkirmish } from '../src/shared/sim/roamers';
 import { Sim } from '../src/shared/sim/sim';
 import { campXY, makePerson, maxHp, type GameState, type Person } from '../src/shared/sim/state';
 import { Rng } from '../src/shared/rng';
@@ -92,4 +92,14 @@ test('a guard on watch goes after a band near the town and takes it on', () => {
   const r = spawnRoamer(s, 'beasts')!;
   for (let t = 0; t < 6000 && g.skirmish === undefined && !s.skirmishes?.length; t++) sim.step();
   assert.ok(s.skirmishes?.some((k) => k.e.members.includes(g.id) && k.roamer === r.id), 'the guard took it on');
+});
+
+test('a skirmish notice copes with a party that is all gone', () => {
+  const s = plainGame('roam-names');
+  const a = addPerson(s);
+  const b = addPerson(s);
+  // (everyone dead or gone by the end once crashed the notice: ps[-1].name)
+  assert.equal(skirmishNames([]), 'Nobody');
+  assert.equal(skirmishNames([a]), a.name);
+  assert.equal(skirmishNames([a, b]), `${a.name} and ${b.name}`);
 });
