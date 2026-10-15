@@ -70,6 +70,7 @@ import { isSagaDest, sagaDestOf, sagaTripHome } from './sagas';
 import { huntDestOf, huntHome, isHuntDest } from './hunts';
 import { dragonDestination, dragonHome, isDragonDest } from './dragon';
 import { isVillageDest, villageDestination, villageHome } from './villages';
+import { isPilgrimDest, pilgrimDestination, pilgrimHome } from './religion';
 import { isUnderDest, underDestination } from './underdark';
 import { isPortalDest, portalDestination, portalHome } from './portals';
 import { heartCleared, heartDestination, heartOpen, isHeartDest } from './calamity';
@@ -109,6 +110,7 @@ export function destinationOf(s: GameState, id: string): Destination | undefined
   if (isHuntDest(id)) return huntDestOf(s, id);
   if (isDragonDest(id)) return dragonDestination(s);
   if (isVillageDest(id)) return villageDestination(s, id);
+  if (isPilgrimDest(id)) return pilgrimDestination(s); // (the faithful's pilgrimage: sim/religion.ts)
   if (isPortalDest(id)) return portalDestination(s, id);
   if (isUnderDest(id)) return underDestination(s, id); // (a place found in the Underdark: sim/underdark.ts)
   if (isHeartDest(id)) return heartDestination(s, true); // (held: a party that cleared it still has to get home)
@@ -763,6 +765,7 @@ function comeHome(s: GameState, e: Expedition, d: Destination, members: Person[]
   huntHome(s, e, party);
   dragonHome(s, e, party);
   villageHome(s, e.dest, !!e.cleared && !e.recalled);
+  pilgrimHome(s, e, party); // (the pilgrims home: sim/religion.ts)
   portalHome(s, e.dest, party, !!e.cleared && !e.recalled, at);
   companyHome(s, e, party, d.name, jobDone(e, party)); // (a bond between those who went, sim/companies.ts)
   payBounty(s, e, party); // (a bounty the treasury posted on the place, if they did the job)

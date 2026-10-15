@@ -262,7 +262,7 @@ export type Task =
   /** Raid: go after a raider and fight (ticks until the next strike). */
   | { type: 'defend'; cooldown: number }
   /** Guard duty between raids (with a Barracks): walking the town from end to end. */
-  | { type: 'patrol'; targetX: number; targetY: number; band?: number; /** A sentry's gate (by night: gatePost in people.ts). */ post?: number }
+  | { type: 'patrol'; targetX: number; targetY: number; band?: number; /** A sentry's gate (by night: gatePost in people.ts). */ post?: number; /** Holds the spot it was sent to (a post at the camp's edge: people.ts `edgePost`). */ hold?: boolean }
   /** Raid: hide in your bed (safe), or huddle by the fire if you have none. */
   | { type: 'shelter' }
   /** Stop someone's bleeding (an attempt takes a while; it may fail). */
@@ -275,6 +275,8 @@ export type Task =
   | { type: 'toil' }
   /** On strike with their bloc, gathered before the seat (sim/politics.ts). */
   | { type: 'protest' }
+  /** A priest at their altar for the dawn rite (sim/religion.ts `priestDuty`). */
+  | { type: 'officiate'; building: number }
   /** A child at lessons (at a building, or round the fire), or at their master's side (sim/lineage.ts). */
   | { type: 'lesson'; building: number | null }
   | { type: 'apprentice'; master: number }
@@ -418,6 +420,9 @@ export interface SagaRun {
 
 export interface Raid {
   id: number;
+  /** Spotted by the night watch (sim/nightWatch.ts): where ("at the east gate"), and the watchmen who were near. */
+  watched?: string;
+  watchers?: number[];
   /** A pirate crew landed on the beach from the sea (sim/seafaring.ts). */
   landing?: boolean;
   /** A saga's raid: the run it belongs to (sim/sagas.ts). */
@@ -582,6 +587,9 @@ export interface Person {
   origin?: OriginId;
   /** Their nature (data/natures.ts), when not the one their id decides. */
   nature?: NatureId | null;
+  /** The god they follow (or none, or the rival cult), and how zealous they are, 0 to 100 (sim/religion.ts). */
+  creed?: import('../data/religion').Creed;
+  zeal?: number;
   /** A monster (werewolf or vampire), its standing order for the Hunter's Guild, and when it last fed. */
   monster?: MonsterKind | null;
   /** A special newcomer's secret (data/specials.ts, sim/specials.ts): who they really are, and how it stands. */
@@ -1267,6 +1275,8 @@ export interface GameState {
   ruins?: import('./ruins').Ruin[];
   /** The town's gods: their favour and the latest signs (sim/faith.ts). */
   faith?: import('./faith').FaithState;
+  /** The townsfolk's faith: omens, miracles, idols, the rival cult, the priests' doings (sim/religion.ts). */
+  religion?: import('./religion').ReligionState;
   /** A natural disaster under way on the map, when the next is due, and the last (for its ash: sim/disasters.ts). */
   disaster?: import('./disasters').Disaster;
   nextDisaster?: number;
@@ -1284,7 +1294,7 @@ export interface GameState {
   lastDisaster?: { kind: import('./disasters').DisasterKind; tick: number; burnt?: [number, number][] };
   chronicles?: Chronicle[];
   yearStart?: YearStart;
-  yearRaids?: { came: number; won: number; pillaged: number };
+  yearRaids?: { came: number; won: number; pillaged: number; watched?: number };
   /** The town's purse (none when left out), strangers in town, and when the next is due at the shop. */
   coins?: number;
   travellers?: Traveller[];
@@ -1392,6 +1402,9 @@ export interface GameState {
   lastVisit?: number;
   /** When night prowlers last slipped in where the wall had gaps (sim/prowlers.ts). */
   lastProwl?: number;
+  /** The night watch (sim/nightWatch.ts): the night it was set for, the townsfolk taking it besides the hired guards, the
+   *  last time sneaks were met, and the tallies (spotted at the gate, caught, got past). */
+  watch?: { night: number; ids: number[]; alert?: number; spotted?: number; caught?: number; missed?: number };
   /** The visiting bands on the land (sim/bands.ts), and the caravan the last caravan band came with (its arrival). */
   bands?: Band[];
   lastCaravanBand?: number;

@@ -5785,3 +5785,132 @@ and apartments), `HOME_DOOR_H` 44 px against a person's 48: cut from the dungeon
 in the repo and credited), its arch kept and the planks drawn down to the sill, in a dark frame. Previewed at 393x852 and
 852x393 on a 30-day town (longhouse and lean-tos); the cottage and row house were not in it, the same code places them.
 Workshops, shops, taverns and the nomad looks are as before.
+
+## The night watch (the owner's ask: "to combat the parties coming in at night, I'd like to have guards patrol or post up at gates at night")
+
+Changes HISTORY "Night prowlers" (a prowl met at the wall is smaller), "The odds weighed" / the probe (a watchman at the way in
+may meet it), "Visiting bands" (disguised bandits seen through), "Town jobs" / guards (the roster beside the hired guards) and
+"Lights at the gates first" (the gate lamp helps the watch). The hired guards already kept shifts, walked the wall with torches
+and stood sentry on the gates (`onShift`, `wallWalk`, `gatePost` in sim/people.ts); this sets who is on the watch by the
+danger and makes the watch bite.
+
+**The roster** (`src/shared/sim/nightWatch.ts`, `nightWatchHourly` hourly from sim.ts beside `oddsHourly`, autopilot only).
+At noon (`nightIndex` turns over then) the town sets the watch for the coming night, in `s.watch` (`{ night, ids, alert?,
+spotted?, caught?, missed? }`, all optional). The hired guards on the night shift (odd ids) keep it as before; besides them
+`watchWanted` posts townsfolk, so a town with no guard hired is covered too: `max(1, hired night guards) + danger(s)`,
+at most a third of the grown-ups, less the hired. `danger` is one for each of a prowl lately (`s.lastProwl`), a probe waiting or
+sneaks met lately (`watch.alert`), a raid lately, a ring wall not yet standing all round, and two on the Defence direction
+(`WATCH_DANGER_DAYS` 4). Never under `WATCH_LEAST_PEOPLE` (4) grown-ups, in a castle/hold/horde town (`ringTown`), or the
+founder. Candidates are grown-ups at home on their feet, not running a station, defend not off, the better fighters first, and
+they keep the watch `WATCH_STINT` (3) nights running, then the next in turn.
+
+**On the beat.** `onShift` is true for a roster member in the watch hours (`WATCH_FROM` 19 to `WATCH_UNTIL` 6: `onNightWatch`);
+`chooseTask` gives them (and a hired guard on the night shift) a `patrol` task before their own work (`patrolTask`, the old defend-job branch pulled out): after a
+band near the town, else up on a gate (`gatePost`), else with no wall standing half of the watch holds the camp's edge, one
+on each side (`edgePost`, a patrol task with `hold: true` so they stand there), else the wall walk or the long way round. They
+are seen with a torch at night as every guard on shift is (`onWatch`, lightMap). Roster members sleep by day, 8 to 16
+(townsfolk.ts `nightWatch`; the hired guards had it already, once the ring stands: `gateSentry.test.ts` holds that, so before a wall the roster, not the hired guards, keeps the night; `wantsToWake` also gets the watch up for its hours once rested to `WATCH_WAKE_REST` 0.3), so they are up for it and are off day work meanwhile. The tap card
+says "On the night watch" (or ", at a gate") by night, "On patrol" otherwise (snapshot.ts).
+
+**The watch bites.** `spotAt(s, at, rng)`: the watchmen on patrol within `WATCH_SPOT_RANGE` (10) cells of the way in each have
+`WATCH_SPOT_BASE` 0.3 + 0.008 a fighting level (+0.15 for a sentry up on a gate), at most 0.7 each, combined, times the moon
+(`moonLight`: `WATCH_DARK` 0.7 on the new moon, `WATCH_BRIGHT` 1.15 on the full), times `WATCH_LAMP` 1.25 with a lit lamp
+within 5 cells (the gate lamps), at most `WATCH_SPOT_MOST` 0.95. A long wall with two guards has blind stretches: out of sight
+nothing is seen.
+- A **prowl** (sim/prowlers.ts): spotted, the raid is begun at the gap as before but with `WATCH_CAUGHT_SHARE` (0.5) of the
+  budget (`caughtBudget`): the watch meets them at the wall, the alarm is raised, the news names the watchman. Not spotted,
+  as before.
+- A **probe** (sim/raidOdds.ts `oddsHourly`): first `watchMeetsProbe` picks the way in (a gate, else a gap, else the town's
+  edge, on the watch stream) and rolls `spotAt`; spotted, the few sneaks (`probe.n`, the kind's cheapest foe each) are a small
+  inside raid at the gate and the probe is over. Otherwise the old proxy (`PROBE_CATCH*`, guards and towers) and the
+  steal/burn go on.
+- **Disguised bandits** (sim/bands.ts `seenThrough`): the watch is the guards and the roster; the raid begun where they stand is
+  marked as the watch's (`watchSawBandits`).
+The raid carries `Raid.watched` ("at the east gate") and `Raid.watchers`; the recap gains `RaidRecap.watched` and a line
+("The night watch spotted them ..."). When the raid is won (`raidRecap` calls `watchWon`): the news "The night watch caught the
+night thieves at the east gate", `s.watch.caught`, `yearRaids.watched` (the chronicle says "The night watch caught sneaks N
+times"), and each watchman who was in the fight earns the deed `watched` (titles the Watchful, Nightwarden, Warden of the
+Dark: data/deeds.ts) and `WATCH_XP` (5) in their fighting skill. A raid got away from with loot is not counted. Watchmen are hurt
+or killed in the fight as any defender is.
+
+**Shown.** The Plan tab's Guards section gains a line (`watchLine`: how many are on the night watch, more while the nights
+are dangerous, how often it has caught sneaks; `s.guards.watch`, in the panel's key).
+
+**Rules kept.** Own side stream `new Rng(hashSeed(`${s.seed}:watch:${s.tick}:<tag>`))` (`watchRng`); nothing drawn from the
+town's stream except by `startRaid` when a watched raid starts. Autopilot only. New fields optional (`GameState.watch`,
+`Raid.watched/watchers`, `RaidRecap.watched`, `yearRaids.watched`, task `hold`). Tests: `test/nightWatch.test.ts`.
+
+## Religion and the gods made real (the DLC)
+
+Changes "Gods and faith" (sim/faith.ts and data/gods.ts are unchanged; this sits on top of them). Also touches "Town politics
+and law" (a heresy trial), "Step 7, life's ceremonies" (the priest at funerals) and "Town alignment" (cruel and merciful rites).
+
+- **The data** (`src/shared/data/religion.ts`): the `Creed` (a `Domain`, `'none'` or `'cult'`), the natures that keep faith
+  hard (`ZEALOUS`), drift from it (`DOUBTING`) and turn heretic (`HERETICAL`), `ZEAL_START` per nature and `NONE_SHARE`;
+  the numbers for followers, priests, feast days (`FEAST_DAYS` 3, 5, 7, 9 of each season, in `DOMAINS` order), each god's
+  nature (`NATURE_ACTS`), omens (`OMEN_AT` -25, `OMENS`), the greater wraths (`GREAT_WRATH_AT` -60, `GREAT_WRATH_CHANCE` 0.3,
+  `CURSED_ROTS`, `PLAGUE_SHARE`, `STORM_STRIKES`, `STORM_KILLS`), miracles (`MIRACLE_AT` 60, `MIRACLE_GAP_DAYS` 10,
+  `SPARE_CHANCE`, `STORM_CHANCE`, `FAMINE_AT`, `UNSPARED`), the rival cult (`CULT_PEOPLE` 7, `CULT_CHANCE`, `CULT_RECRUIT`,
+  `DENOUNCE_CHANCE`, `CULT_NAMES`, `ORIGIN_CULT`), the pilgrimage (`PILGRIM_EVERY_DAYS` 18, `HOLY_PLACES` per people,
+  `PILGRIM_RELIC`), the diary lines (`FAITH_LINES`) and two buildings never in the building book (`RELIGION_BUILDINGS`:
+  `god_idol`, `cult_altar`), merged into `BUILDINGS`.
+- **The sim** (`src/shared/sim/religion.ts`, `religionHourly` and `religionTick` from sim.ts right after `faithHourly`;
+  autopilot only; rolls from the side stream `${seed}:religion:${tick}:<what>`, never the town's; `s.religion`,
+  `ReligionState`; `Person.creed` and `Person.zeal`, all optional):
+  - **Creeds** (`creedOf`, kept from the first dawn; `pickCreed` is pure, by the seed and id: the god of what they're best
+    at, or by chance, or none; a child takes a parent's; `seenCreed` for the menus, which never sets it). Each dawn zeal
+    drifts `ZEAL_DRIFT` toward the nature's, a rite day lifts it `ZEAL_RITE`; the doubting low in zeal lapse
+    (`LAPSE_CHANCE`), the godless may find the best pleased god (`CONVERT_CHANCE`). `isZealot`: zeal 80+ and a zealous nature.
+  - **Favour at dawn** (`dawn`): every god asks `DEMAND_PER_HEAD` (0.6) a head a day, at most `DEMAND_MOST` (16), so a
+    big town's neglected gods sour; followers add `FOLLOWER_FAVOUR` x zeal/50 each, a god nobody at home follows loses
+    `UNFOLLOWED` (5) (the demand and that start only once there's a place of worship: before it, faith.ts's own `NEGLECT`
+    is enough for a camp), idols add `IDOL_FAVOUR`, cultists cost every god `CULT_FAVOUR`, and `actsInNature`: the harvest god likes
+    `harvestFullDays` of food and hates every starving mouth, the hearth god a happy town (and a glum one), the war god a raid
+    driven off or pillaged (each `raidRecap` once), the sky god every party out. The rope angers the hearth god at once
+    (`hearthHanging`, in `deathSeen`).
+  - **The priests**: whoever holds a wayside shrine, temple or cathedral (new `OPERATORS` rows: Priest, High Priest,
+    Social). At dawn (`FAITH_HOUR` for `PRIEST_HOURS`) the priest takes the new task `officiate` (people.ts, `priestDuty`,
+    `altarSpot`; activity `pray`), and the least pleased god gets `PRIEST_RITE` + `PRIEST_PER_LEVEL` a Social level
+    (`priestRite`). A god's feast day kept with a priest (`feastDay`): `FEAST_KEPT`, food from its offerings laid out, a
+    morale mark; the war god's feast in a blood town (`BLOOD_RITES`: vampires, orcs, liches) is a blood offering
+    (`alignPush` -2, `orderPush` +1), the hearth god's gives alms to the poor (`alignPush` +1). Without a priest it passes
+    unkept (`FEAST_MISSED`; never in a camp with no altar). The priest says the words at a funeral (`funeralRites`: grief x `FUNERAL_RITES_EASE`), blesses
+    the defenders when raiders are sighted (`blessRaid`: a `fight` mark `RAID_BLESSING`, more with the war god pleased, to the
+    raid's end) and every party setting out (`blessTrips`: a lift `ROAD_BLESSING`).
+  - **Omens and the greater wraths**: a god at `OMEN_AT` sends an omen ("An omen: ...", every `OMEN_GAP_DAYS`); only after
+    one, at `GREAT_WRATH_AT`, its greater wrath (`greatWrath`; neither in a camp under `GREAT_WRATH_PEOPLE` (5), and the
+    harvest god's never on a town already starving): the harvest god curses the harvest (`CURSED_ROTS` of the food in
+    store above `CURSE_SPARES_DAYS` of it, crops x0.5 three days), the hearth god sends a plague (`PLAGUE_SHARE` sicken, the frailest dies), the war
+    god sends wolves (a raid, `raidBudget`), the sky god a great storm (`STORM_STRIKES` bolts: roofs fired, people burned or
+    killed). It spends `GREAT_WRATH_SPENDS`; the god's followers lose `ZEAL_WRATH` and `SCHISM_SHARE` of them turn to the
+    best pleased god (a schism).
+  - **Miracles** (`miracle`; one in `MIRACLE_GAP_DAYS`): a hearth god at `MIRACLE_AT` may spare someone dying in town
+    (`deathSeen`, hooked in `killPerson` after the phoenix feather; never old age, the rope, exile or a sacrifice:
+    `UNSPARED`); a sky god may scatter a raid on its way with a storm (`STORM_SCATTERS` of the raiders gone, the rest hurt;
+    a line added to the raid's recap story via `recapNote`); a harvest god at `FAMINE_AT` may fill a starving town's granary
+    (`famineBroken`, `FAMINE_DAYS` of grain). Each is a key notice (the news bubble), a sign, converts the godless
+    (`MIRACLE_CONVERTS`), and raises an idol (`raiseIdol`, at most `IDOLS_MOST`). The year's chronicle names them
+    (`religionYearLines` in annals.ts).
+  - **The rival cult** (`cultDawn`): with `CULT_PEOPLE` grown-ups, `CULT_CHANCE` a day (more as gods sour), a heretical
+    soul low in zeal and spirits founds the cult of a name (`ORIGIN_CULT` or `CULT_NAMES`); its black altar is set up
+    (`cult_altar`); the town is asked (a `ways` prompt, system `religion`, answered by `answerReligion` through heritage.ts):
+    root it out (a heresy trial for its leader, `orderPush` +2), let it be (`tolerated`), or hear it out (every god -8, some
+    join, `alignPush` -1, `orderPush` -3). It recruits the low (`CULT_RECRUIT`); zealots denounce its members
+    (`DENOUNCE_CHANCE`, a heresy trial); every `CULT_RITE_DAYS` at 23:00 its dark rite (`cultNight`: every god -3,
+    `alignPush` -3, `orderPush` -2), with three or more a chance of a sacrifice (a townsperson killed, then their leader
+    tried for murder). With no members left it ends and its altar comes down.
+  - **The heresy trial** (sim/politics.ts `trial`, data/politics.ts `CrimeKind` gains `'heresy'`, never rolled as a crime):
+    pardon, the stocks, exile or the rope; its own telling.
+  - **Pilgrimage** (`pilgrimage`, at 09:00): once a temple or cathedral stands and the town has `PILGRIM_PEOPLE`, every
+    `PILGRIM_EVERY_DAYS` the priest leads the most zealous (`PILGRIM_PARTY`) to the people's holy place (`pilgrimDestination`,
+    id `pilgrim:<origin>`, a gather trip with bandits on the road; expeditions.ts `destinationOf`). Home (`pilgrimHome`,
+    from expeditions.ts): every god `PILGRIM_FAVOUR`, the pilgrims' zeal and spirits up, `PILGRIM_RELIC` a Phoenix Feather.
+- **Words**: the diary has a line on their faith (`faithDiaryLine`, `DiaryFacts.faith`); the town's talk reads miracles,
+  heresy trials, the cult, converts, the wraths and the pilgrims (new `GossipKind`s and their sayings and replies).
+- **Seen**: `snapshot.religion` (`ReligionView`) and `PersonView.creed` ("Follows Ceres (a zealot)", on the person's page).
+  The Town menu's Faith tab (`panel/faithPanel.ts`): each god's card has its followers and feast day (tap: more); new
+  sections **The faithful** (the priests, the godless and zealots, the cult, the pilgrims, the latest of the faith's news)
+  and **Miracles** (both in `GROUPS`). `faithKey` joins the Town panel's redraw key (the Faith tab never redrew before).
+- **Art**: the idol is the Forest Objects pack's idol tree (`art/packs/tree_idol.png`), also the druids' and the fae's
+  wayside shrine; the cult's altar the Cave Objects pack's horned totem (`art/packs/cult_totem.png`). CREDITS.md.
+- Tests: `test/religion.test.ts`.

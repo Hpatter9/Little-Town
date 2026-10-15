@@ -111,6 +111,8 @@ import shard2 from '../art/deep/crystal2.png';
 import caveFire1 from '../art/packs/cave_fire1.png';
 import caveFire2 from '../art/packs/cave_fire2.png';
 import caveAltar from '../art/packs/cave_altar.png';
+import treeIdol from '../art/packs/tree_idol.png';
+import cultTotem from '../art/packs/cult_totem.png';
 import caveStatue from '../art/packs/cave_statue.png';
 import caveTotem from '../art/packs/cave_totem.png';
 import caveGem from '../art/packs/cave_gem.png';
@@ -495,7 +497,12 @@ const PICKS: Record<string, Pick> = {
   // the shrine is the cave pack's skull altar; the phylactery its crystal (green for the liches)
   resurrection_shrine: { url: caveAltar, overhang: 0 },
   // the gods' houses (data/gods.ts): the altar, the crystal tower, the great stone keep
-  wayside_shrine: { url: caveAltar, overhang: 0 },
+  // (the druids and the fae pray at the forest pack's carved idol tree)
+  wayside_shrine: { url: caveAltar, overhang: 0, variants: [{ styles: ['druid', 'fae'], pick: { url: treeIdol, overhang: 0 } }] },
+  // an idol raised to a god for a miracle (the forest pack's idol tree), and the rival cult's black altar (the cave
+  // pack's horned totem: sim/religion.ts)
+  god_idol: { url: treeIdol, overhang: 6 },
+  cult_altar: { url: cultTotem, overhang: 4 },
   // the Portal Arch (data/portals.ts): the cave pack's horned gate between two crystals; a rift is its summoning circle
   portal_arch: { parts: [[shard1, 0, 60], [portalGate, 22, 0], [shard2, 104, 64]], size: [168, 126], overhang: 0 },
   portal_rift: { parts: [[portalCircle, 0, 0], [shard1, 32, 8]], size: [128, 118], overhang: 0 },

@@ -20,6 +20,7 @@ import { honour } from './memorials';
 import { empireYearLines } from './empireYear';
 import { dynastyYearLines } from './dynasty';
 import { alignmentYearLines } from './alignment';
+import { religionYearLines } from './religion';
 import { topicName } from '../data/originResearch';
 
 /** Midwinter: the middle day of winter, of an evening. */
@@ -164,9 +165,10 @@ export function writeChronicle(s: GameState): Chronicle {
   if (came.length) lines.push(`${some(came, 4)} came to live among us.`);
   if (lost.length) lines.push(`We lost ${lost.length === 1 ? 'one' : lost.length}: ${some(lost.map((f) => `${f.name}, ${f.cause}`), 3)}.`);
   else lines.push('Nobody was lost this year.');
-  const r = s.yearRaids ?? { came: 0, won: 0, pillaged: 0 };
+  const r: NonNullable<GameState['yearRaids']> = s.yearRaids ?? { came: 0, won: 0, pillaged: 0 };
   if (r.came) lines.push(`${r.came === 1 ? 'One raid came' : `${r.came} raids came`}: ${r.won} driven off${r.pillaged ? `, ${r.pillaged} got away with what they came for` : ''}.`);
   else lines.push('No raider came to the gate.');
+  if (r.watched) lines.push(`The night watch caught sneaks ${r.watched === 1 ? 'once' : `${r.watched} times`}.`);
   // the year's champion: who felled the most raiders since the last chronicle
   const champ = now.map((p) => ({ p, n: (p.felled ?? 0) - (y.felled[p.id] ?? 0) })).filter((x) => x.n > 0).sort((a, b) => b.n - a.n)[0];
   if (champ) lines.push(`The year's champion was ${champ.p.name}, who felled ${champ.n === 1 ? 'a raider' : `${champ.n} raiders`}.`);
@@ -182,6 +184,7 @@ export function writeChronicle(s: GameState): Chronicle {
   if (uniques > 0) lines.push(`${uniques === 1 ? 'A treasure of legend was' : `${uniques} treasures of legend were`} won.`);
   lines.push(...empireYearLines(s)); // (the trade empire's year: sim/empireYear.ts)
   lines.push(...alignmentYearLines(s, y.tick)); // (the town's swings toward good or evil: sim/alignment.ts)
+  lines.push(...religionYearLines(s, y.tick)); // (the year's miracles and the cult: sim/religion.ts)
   lines.push(...dynastyYearLines(s, y.tick)); // (the houses' year: feuds, the ruling house, heirlooms: sim/dynasty.ts)
   // the Great Enemy's turns this year (sim/greatEnemy.ts)
   const foe = s.greatEnemy && s.greatEnemy.chosen >= 0 ? s.greatEnemy : null;
