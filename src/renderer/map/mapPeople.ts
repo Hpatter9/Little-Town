@@ -38,6 +38,7 @@ import type { Habit } from '../../shared/data/natures';
 
 import { heldWeapon, wardrobe, wornLayers } from '../art/held';
 import { CENTRE_X, FEET_Y, FRAME_COUNT, FRAME_SIZE, lpcFrame, type LpcAnim } from '../art/lpc/lpc';
+import { SideRing } from '../art/sideRing';
 import { glowTexture } from '../town/layer';
 import { TAIL_H, TAIL_W, tailTexture, WAIST } from '../art/merTail';
 import { BEAT, danceStep, mournStep, prayStep, type DanceStep } from './dance';
@@ -158,6 +159,8 @@ interface Drawn {
   visitor: boolean;
   sprite: Sprite;
   shadow: Sprite;
+  /** The side ring under them while they fight (art/sideRing.ts). */
+  ring: SideRing;
   horse: Sprite;
   horseFront: Sprite;
   load: Graphics;
@@ -272,6 +275,10 @@ export class MapPeople {
   season = 'spring';
   hour = 12;
   raid = false;
+  /** Side rings under fighters: 'fight' under those in a fight, 'board' under everyone (the tactics board's), else none. */
+  rings: 'off' | 'fight' | 'board' = 'fight';
+  /** The one whose turn it is on the board (a brighter ring). */
+  activeId: number | null = null;
   /** A raid on its way (its warning) or here: the alarm is up, and the children run for home. */
   alarm = false;
   /** A plague on (sim/pastimes.ts `plagueOn`): the sick cough oftener, a green puff. */
@@ -325,6 +332,8 @@ export class MapPeople {
         const shadow = this.layer.addChild(new Sprite(glowTexture()));
         shadow.anchor.set(0.5);
         shadow.tint = 0x000000;
+        const ring = new SideRing();
+        this.layer.addChild(ring.g);
         const load = this.layer.addChild(bundle());
         const horse = this.layer.addChild(new Sprite());
         horse.scale.set(HORSE_SCALE);
@@ -338,7 +347,7 @@ export class MapPeople {
         const spray = this.layer.addChild(new Sprite());
         spray.anchor.set(0.5, 0.5);
         spray.visible = false;
-        d = { view: p, visitor: isVisitor, sprite, shadow, horse, horseFront, load, bubble, spray, from: { x: p.x, y: p.y }, to: { x: p.x, y: p.y }, at: now, x: p.x, y: p.y, walked: 0, animStart: now, lastActivity: p.activity, face: null };
+        d = { view: p, visitor: isVisitor, sprite, shadow, ring, horse, horseFront, load, bubble, spray, from: { x: p.x, y: p.y }, to: { x: p.x, y: p.y }, at: now, x: p.x, y: p.y, walked: 0, animStart: now, lastActivity: p.activity, face: null };
         this.drawn.set(p.id, d);
       }
       if (d.stillSince === undefined || Math.abs(p.x - d.to.x) >= 0.5 || Math.abs(p.y - d.to.y) >= 0.5) d.stillSince = now;
@@ -367,7 +376,7 @@ export class MapPeople {
     }
     for (const [id, d] of this.drawn)
       if (!seen.has(id)) {
-        for (const o of [d.cough, d.sprite, d.shadow, d.horse, d.horseFront, d.load, d.bubble, d.spray, d.barrow, d.pail, d.reflect, d.kite, d.props, d.blood, d.emote, d.levelUp, d.aura, d.lamp, d.tail, d.speech, d.marks, d.work, d.hpBar]) o?.destroy();
+        for (const o of [d.cough, d.sprite, d.shadow, d.ring.g, d.horse, d.horseFront, d.load, d.bubble, d.spray, d.barrow, d.pail, d.reflect, d.kite, d.props, d.blood, d.emote, d.levelUp, d.aura, d.lamp, d.tail, d.speech, d.marks, d.work, d.hpBar]) o?.destroy();
         this.drawn.delete(id);
       }
   }
@@ -1099,6 +1108,10 @@ export class MapPeople {
       d.shadow.alpha = 0.42;
       d.shadow.position.set(Math.round(x + this.sunLean), Math.round(y) + 1);
       d.shadow.zIndex = z - 0.5;
+      // the side ring: blue for the town's own, green for a visitor fighting beside them (art/sideRing.ts)
+      const inFight = d.view.defending || d.view.activity === 'fight' || d.view.sinceBlow < HERO_LINGER || d.view.sinceHit < HERO_LINGER;
+      const ringed = !hidden && !swimming && this.rings !== 'off' && (this.rings === 'board' || inFight);
+      d.ring.set(ringed ? { side: d.visitor ? 'friend' : 'town', w: this.rings === 'board' ? 44 : 26 * k, down: d.view.downed !== null, active: this.activeId === d.view.id } : null, x, y + 1, z - 0.4);
       // a lantern: a warm pool of light about their feet (the lights layer fades up after dusk and is dark by day)
       if (this.lights) {
         if (!d.lamp) {

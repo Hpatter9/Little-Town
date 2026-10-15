@@ -418,6 +418,7 @@ async function start(): Promise<void> {
   (window as unknown as { __people?: MapPeople }).__people = people; // (for previews)
   (window as unknown as { __hkCell?: typeof hkCell }).__hkCell = hkCell; // (for previews: a townsperson's cell)
   const raiders = new MapRaiders(map.things);
+  raiders.rings = 'fight';
   const roamers = new MapRaiders(map.things); // (the bands roaming the land: sim/roamers.ts)
   const penned = new MapRaiders(map.things); // (the ranch's beasts in their pens: sim/ranch.ts)
   (window as unknown as { __penned?: unknown }).__penned = penned; // (for previews)
