@@ -19,7 +19,7 @@ export function skipRaid(s: GameState): boolean {
 
 /** Every tick: a town set to skip its raids skips each as it turns active. */
 export function skipRaidsTick(s: GameState): void {
-  if (s.skipRaids && raidOn(s) && !s.raidSkip) skipRaid(s);
+  if ((s.skipRaids || s.raid?.skipIt) && raidOn(s) && !s.raidSkip) skipRaid(s);
 }
 
 /** The raid is over: the player's own auto setting back as it was (from raids.ts endRaid). */
