@@ -3,6 +3,7 @@
 // brings, a loan owing, a bust), its routes to the powers (what each makes and wants, the road, the wagon on it, the
 // profit so far; close or open), and the house's ledger of runs.
 
+import { BOAT_BY_KIND, ISLANDS } from '../../shared/data/boats';
 import type { Bridge } from '../../shared/ipc';
 import type { MarketView } from '../../shared/sim/markets';
 import type { Snapshot } from '../../shared/sim/snapshot';
@@ -16,6 +17,85 @@ export const marketsKey = (s: Snapshot) => {
   const m = s.markets;
   return m ? JSON.stringify([m.prices.map((p) => [p.m, p.price, p.change, p.swing]), m.swings, m.house, m.routes, m.log[0]]) : '';
 };
+
+/** The Harbour tab's redraw key: everything renderHarbour shows. */
+export const harbourKey = (s: Snapshot) => JSON.stringify([s.seafaring, s.fleet.map((b) => [b.id, b.kind, b.name, b.hull, b.away])]);
+
+const isleName = (id: string) => ISLANDS.find((i) => i.id === id)?.name ?? id;
+const cap = (t: string) => t.charAt(0).toUpperCase() + t.slice(1);
+
+/** The Harbour tab (sim/seafaring.ts `harbourReport`): the quay and its berths, the season's shoal, the catch, what the
+ *  sea has cost, the fleet, the island colonies, the isles the Tide Clan holds, and the sea's news. */
+export function renderHarbour(s: Snapshot): HTMLElement[] {
+  const out: HTMLElement[] = [el('h2', '', 'Harbour')];
+  const h = s.seafaring;
+  if (!h || (!s.fleet.length && !h.harbour && !h.colonies.length && !h.log.length)) {
+    out.push(el('div', 'hint', 'The town has no boats yet. Research Boatbuilding and raise a boatyard by the water, and the fleet will fish the shoals; a harbour then shelters it, and settlers may found colonies on the isles.'));
+    return out;
+  }
+  const quay = el('div', `card harbour${h.harbour ? '' : ' shut'}`);
+  const top = el('div', 'card-top');
+  top.append(el('span', 'card-name', h.harbour ? '⚓ A harbour stands' : '⚓ No harbour yet'), el('span', 'card-size', `${s.fleet.length} of ${h.berths} berths`));
+  quay.append(top, el('div', 'purpose', h.harbour ? 'Its quays and sea wall shelter the fleet from squalls and land a bigger catch.' : 'A harbour (Shipwrighting) would shelter the fleet from squalls, land a bigger catch and berth two more boats.'));
+  out.push(quay);
+
+  const shoal = el('div', 'card shoal');
+  const st = el('div', 'card-top');
+  st.append(el('span', 'card-name', `🐟 ${cap(h.shoal.name)}`), el('span', 'card-size', h.shoal.ground === 'deep' ? 'deep water' : 'inshore'));
+  shoal.append(st, el('div', 'purpose', `${h.shoal.ground === 'deep' ? 'Carracks and the bigger ships' : 'Dugouts and longboats'} fish them best this season. The run is ${h.shoal.rich >= 1.15 ? 'rich' : h.shoal.rich >= 0.95 ? 'fair' : 'thin'}.${h.escort ? ' A great shape escorts the fleet today.' : ''}`));
+  out.push(shoal);
+
+  out.push(
+    facts([
+      ['Catch today', `${h.catchToday}`],
+      ['Catch this week', `${h.catchWeek}`],
+      ['Catch, all told', `${h.catchTotal}`],
+      ['Boats lost', `${h.boatsLost}`],
+      ['Men lost at sea', `${h.menLost}`],
+    ]),
+  );
+
+  if (s.fleet.length) {
+    const grid = el('div', 'cards wide');
+    for (const b of s.fleet) {
+      const c = el('div', `card boat${b.hull < b.max / 2 ? ' hurt' : ''}`);
+      const bt = el('div', 'card-top');
+      bt.append(el('span', 'card-name', b.name), el('span', 'card-size', BOAT_BY_KIND[b.kind].name));
+      const bar = el('div', 'bar');
+      const fill = el('div', 'bar-fill');
+      fill.style.width = `${Math.round(Math.min(1, b.hull / Math.max(1, b.max)) * 100)}%`;
+      bar.append(fill);
+      const row = el('div', 'bar-row');
+      row.append(el('span', 'bar-label', 'Hull'), bar, el('span', 'bar-text', `${b.hull}/${b.max}`));
+      c.append(bt, row, el('div', 'purpose', b.away === null ? (b.hull < b.max / 2 ? 'At her moorings, mending.' : 'At home, fishing.') : `Away: ${b.away || 'at sea'}.`));
+      grid.append(c);
+    }
+    out.push(grid);
+  }
+
+  for (const c of h.colonies) {
+    const card = el('div', `card colony${c.loyalty < 30 ? ' unrest' : ''}`);
+    const ct = el('div', 'card-top');
+    ct.append(el('span', 'card-name', `⚑ ${c.name}`), el('span', 'card-size', `${c.pop} folk · ${isleName(c.isle)}`));
+    const bar = el('div', 'bar');
+    const fill = el('div', 'bar-fill');
+    fill.style.width = `${Math.max(0, Math.min(100, c.loyalty))}%`;
+    bar.append(fill);
+    const row = el('div', 'bar-row');
+    row.append(el('span', 'bar-label', 'Loyalty'), bar, el('span', 'bar-text', `${c.loyalty}`));
+    card.append(ct, row);
+    if (c.news) card.append(el('div', 'purpose', c.news));
+    out.push(card);
+  }
+  if (h.claimed.length) out.push(el('div', 'hint', `Held by the Tide Clan: ${h.claimed.map(isleName).join(', ')}.`));
+
+  if (h.log.length) {
+    const ul = el('ul', 'log');
+    for (const line of h.log) ul.append(el('li', '', line));
+    out.push(ul);
+  }
+  return out;
+}
 
 export function renderMarkets(s: Snapshot, bridge: Bridge | undefined): HTMLElement[] {
   const m = s.markets;

@@ -5,7 +5,7 @@
 // (her hull battered, someone maybe swept over the side), the sea's foes and pirates (fought on the FF screen); with
 // her hull gone she's wrecked, and those aboard may drown. The town plans all of it itself (`planBoats`).
 
-import { BOAT_BY_KIND, BOAT_ITEMS, BOAT_NAMES, BOATS, DROWN, DROWN_SWIMMER, FISH_HOUR, FISHING_STORM, FLEET_MOST, MONSTER_HOURLY, OVERBOARD, OVERBOARD_AT, PIRATE_HOURLY, REPAIR_SHARE, SEA_FOES, SEAWORTHY, STORM_HOURLY, STORM_HURT, WINTER_CATCH, type BoatDef, type BoatKind } from '../data/boats';
+import { BOAT_BY_KIND, BOAT_ITEMS, BOAT_NAMES, BOATS, DROWN, DROWN_SWIMMER, FISH_HOUR, FISHING_STORM, MONSTER_HOURLY, OVERBOARD, OVERBOARD_AT, PIRATE_HOURLY, REPAIR_SHARE, SEA_FOES, SEAWORTHY, STORM_HOURLY, STORM_HURT, WINTER_CATCH, type BoatDef, type BoatKind } from '../data/boats';
 import { BUILDING_BY_ID } from '../data/buildings';
 import { eraReached } from '../data/eras';
 import { the, type Destination } from '../data/expeditions';
@@ -21,8 +21,10 @@ import { killPerson } from './health';
 import { groundAt, spiralSpot, touchesWater, wet, type LandMap, type Rect } from './land';
 export { touchesWater };
 import type { Rng } from '../rng';
-import { swims } from './sea';
-import { addStock, campCell, notify, type Boat, type Expedition, type GameState, type Person } from './state';
+import { seaTown, swims } from './sea';
+import { catchFactor, fleetMost, noteCatch, squallShelter, squallSinks, washUp } from './seafaring';
+import { Rng as SeaRng, hashSeed } from '../rng';
+import { addStock, campCell, campXY, notify, type Boat, type Expedition, type GameState, type Person } from './state';
 import { calendar, TICKS_PER_HOUR } from './time';
 
 /** How far the town will open its land looking for water for a boatyard (the planner's own furthest). */
@@ -69,11 +71,11 @@ export function launch(s: GameState, kind: BoatKind): Boat {
   const n = s.boatsBuilt ?? 0;
   s.boatsBuilt = n + 1;
   const def = BOAT_BY_KIND[kind];
-  const boat: Boat = { id: s.nextId++, kind, name: BOAT_NAMES[n % BOAT_NAMES.length] + (n >= BOAT_NAMES.length ? ` ${Math.floor(n / BOAT_NAMES.length) + 1}` : ''), hull: def.hull, away: null };
+  const boat: Boat = { id: s.nextId++, kind, name: BOAT_NAMES[n % BOAT_NAMES.length] + (n >= BOAT_NAMES.length ? ` ${Math.floor(n / BOAT_NAMES.length) + 1}` : ''), hull: def.hull, away: null, built: s.tick };
   s.boats = [...fleet(s), boat];
   notify(s, `A new boat is launched at the boatyard: the ${boat.name}, a ${def.name.toLowerCase()}.`, true);
   const home = fleet(s).filter((b) => b.away === null);
-  if (fleet(s).length > FLEET_MOST && home.length > 1) {
+  if (fleet(s).length > fleetMost(s) && home.length > 1) {
     const worst = [...home].sort((a, b) => rank(a) - rank(b))[0];
     if (worst !== boat) {
       s.boats = fleet(s).filter((b) => b !== worst);
@@ -83,6 +85,8 @@ export function launch(s: GameState, kind: BoatKind): Boat {
   return boat;
 }
 const rank = (b: Boat) => BOATS.findIndex((d) => d.kind === b.kind);
+/** Iron hulls start with the steamer. */
+const STEAMER_RANK = BOATS.findIndex((d) => d.kind === 'steamer');
 
 /** Fit to sail: at home, her hull above SEAWORTHY. */
 export const seaworthy = (b: Boat) => b.away === null && b.hull >= boatDef(b).hull * SEAWORTHY;
@@ -111,24 +115,30 @@ export function boatsHourly(s: GameState, rng: Rng): void {
   if (s.tick % TICKS_PER_HOUR !== 0) return;
   const { hour, season } = calendar(s.tick);
   const yard = boatyardOf(s);
-  if (hour === FISH_HOUR && yard) fish(s, yard, season === 'winter', rng);
+  if (hour === FISH_HOUR && (yard || seaTown(s))) fish(s, yard, season === 'winter', rng);
   if (hour === 6) mend(s);
   if (s.autopilot !== false) planBoats(s);
 }
 
-function fish(s: GameState, yard: ReturnType<typeof boatyardOf> & object, winter: boolean, rng: Rng): void {
+function fish(s: GameState, yard: ReturnType<typeof boatyardOf>, winter: boolean, rng: Rng): void {
   let caught = 0;
   for (const b of fleet(s)) {
     if (b.away !== null || b.hull <= 0) continue;
-    caught += Math.round(boatDef(b).catch * (winter ? WINTER_CATCH : 1));
-    // (now and then the weather catches a fishing boat out)
-    if (rng.chance(FISHING_STORM * (winter ? 2 : 1))) {
+    caught += Math.round(boatDef(b).catch * (winter ? WINTER_CATCH : 1) * catchFactor(s, b));
+    // (now and then the weather catches a fishing boat out; a harbour's wall turns some away)
+    if (rng.chance(FISHING_STORM * (winter ? 2 : 1) * squallShelter(s))) {
       b.hull = Math.max(1, b.hull - Math.round(boatDef(b).hull * 0.2));
+      // (and a boat already battered may founder, with the men in her: sim/seafaring.ts)
+      if (squallSinks(s, b)) {
+        caught -= Math.round(boatDef(b).catch * (winter ? WINTER_CATCH : 1) * catchFactor(s, b));
+        continue;
+      }
       notify(s, `The ${b.name} came in battered by a squall.`);
     }
   }
+  noteCatch(s, caught);
   if (!caught) return;
-  const at = buildingCentre(yard);
+  const at = yard ? buildingCentre(yard) : campXY(s);
   const stock = { fish: caught };
   depositNear(s, at, stock);
 }
@@ -174,7 +184,7 @@ export function planBoats(s: GameState): void {
   if (!best) return;
   const boats = fleet(s);
   const grown = s.people.filter((p) => !isChild(p)).length;
-  const want = boats.length === 0 || (boats.length < 2 && grown >= 6) || (boats.every((b) => rank(b) < BOATS.indexOf(best)) && boats.length <= FLEET_MOST);
+  const want = boats.length === 0 || (boats.length < 2 && grown >= 6) || (boats.every((b) => rank(b) < BOATS.indexOf(best)) && boats.length <= fleetMost(s));
   if (!want) return;
   const stock = totalStock(s);
   if (!Object.entries(best.cost).every(([m, n]) => (stock[m as keyof typeof stock] ?? 0) >= (n ?? 0) + 4)) return;
@@ -199,7 +209,7 @@ export function seaHour(s: GameState, e: Expedition, members: Person[], rng: Rng
   if (rng.chance(STORM_HOURLY[season])) {
     const share = STORM_HURT[0] + rng.next() * (STORM_HURT[1] - STORM_HURT[0]);
     // (an iron hull rides it out better)
-    const hurt = Math.round(def.hull * share * (rank(b) >= 3 ? 0.5 : 1));
+    const hurt = Math.round(def.hull * share * (rank(b) >= STEAMER_RANK ? 0.5 : 1));
     b.hull -= hurt;
     notify(s, `A storm catches the ${b.name} at sea.`, true);
     if (b.hull <= 0) return wreck(s, e, b, members, rng);
@@ -217,7 +227,7 @@ export function seaHour(s: GameState, e: Expedition, members: Person[], rng: Rng
     notify(s, `Pirates come alongside the ${b.name}!`, true);
     return fight({ sea_reaver: s.era === 'medieval' ? 2 : 3 });
   }
-  if (rng.chance(MONSTER_HOURLY)) {
+  if (rng.chance(MONSTER_HOURLY * (seaTown(s) ? 0.3 : 1))) {
     notify(s, `Something rises out of the water by the ${b.name}.`, true);
     fight(foes[rng.int(0, foes.length - 1)]);
   }
@@ -231,6 +241,7 @@ export function wreck(s: GameState, e: Expedition, b: Boat, members: Person[], r
   e.loot = {};
   e.wrecked = true;
   notify(s, `The ${b.name} is wrecked and goes down!`, true);
+  washUp(s, b, new SeaRng(hashSeed(`${s.seed}:sea:${s.tick}:wreck:${b.id}`)));
   for (const p of members) {
     if (rng.chance(swimmer(s, p) ? DROWN_SWIMMER : DROWN)) killPerson(s, p, `drowned when the ${b.name} went down`);
   }

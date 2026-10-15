@@ -56,6 +56,8 @@ export const expeditionsKey = (s: Snapshot) =>
     s.expeditions.map((e) => [e.id, e.phase, Math.floor(e.phaseProgress * 50), e.lootSize, e.recalled, e.waiting, e.battle?.map((f) => [f.hp, f.down])]),
     s.era,
     s.destinations,
+    s.seafaring.colonies.map((c) => [c.isle, c.pop]),
+    s.seafaring.claimed,
     s.people.map((p) => [p.id, p.away, p.skills.gathering.level, p.skills.melee.level, p.skills.ranged.level, Math.round(p.hp), p.downed, p.bleedMinutes]),
     s.stock.berries,
     s.stock.meat,
@@ -126,6 +128,7 @@ export function renderExpeditions(s: Snapshot, bridge: Bridge | undefined, reren
     s.regions,
     s.realm.factions.filter((f) => f.known).map((f) => ({ id: f.id, name: f.name, stronghold: f.stronghold, stance: f.stance, stanceName: f.stanceName, assault: f.assault, folk: f.folk, size: f.size, tier: f.tier })),
     s.world,
+    { colonies: s.seafaring.colonies.map((c) => ({ isle: c.isle, name: c.name, pop: c.pop })), claimed: s.seafaring.claimed },
     s.greatEnemy && s.greatEnemy.stage !== 'dormant' ? s.greatEnemy : null,
   );
   out.push(worldMap.el, el('div', 'hint map-hint', 'Tap a place on the map to find its card. Tap a card for more: the foes, the loot, a bounty, or forbidding it.'));

@@ -1,6 +1,6 @@
 // The town's boats, painted (no pack has a whole working boat; the Seabed pack's two ships are wrecks, and stand for
 // wrecks). Side-on, the bow to the right, the waterline at the picture's foot: a dugout log, a longboat with its
-// striped square sail and shields, a carrack with two masts and a high stern, a paddle steamer with its funnel, a
+// striped square sail and shields, a carrack with two masts and a high stern, a galleon with three, a paddle steamer with its funnel, a
 // motor launch with its wheelhouse, a hydrofoil up on its foils. Drawn small for the map (moored by the boatyard)
 // and long for the watched voyage (the party stands on her deck): `boatArt(kind, length)`.
 
@@ -17,6 +17,8 @@ const LOOKS: Record<BoatKind, Look> = {
   dugout: { hull: ['#8a5a32', '#5a3a1e'], trim: '#a8784a', depth: 0.16 },
   longboat: { hull: ['#9a6a3a', '#5e3e22'], trim: '#c8a060', depth: 0.17 },
   carrack: { hull: ['#7a4e2a', '#4a2e18'], trim: '#c8a050', depth: 0.2 },
+  // (the galleon: darker planking, gold trim)
+  galleon: { hull: ['#4e3220', '#2a1a10'], trim: '#e0b040', depth: 0.21 },
   steamer: { hull: ['#3a3e46', '#22252c'], trim: '#a83a2a', depth: 0.18 },
   motor_launch: { hull: ['#e8e4dc', '#9a9890'], trim: '#2a5a8a', depth: 0.15 },
   hydrofoil: { hull: ['#c8d4dc', '#6a7a86'], trim: '#2ab0c0', depth: 0.12 },
@@ -24,16 +26,17 @@ const LOOKS: Record<BoatKind, Look> = {
 
 const cache = new Map<string, PixelArt>();
 
-/** A boat `length` px long, side-on, the bow to the right, the waterline at the foot. */
-export function boatArt(kind: BoatKind, length: number): PixelArt {
-  const key = `${kind}|${length}`;
+/** A boat `length` px long, side-on, the bow to the right, the waterline at the foot. Moored, her sails are furled
+ *  (a rolled bundle on each yard); under way they are set. */
+export function boatArt(kind: BoatKind, length: number, furled = false): PixelArt {
+  const key = `${kind}|${length}|${furled ? 'f' : ''}`;
   let art = cache.get(key);
   if (art) return art;
   const look = LOOKS[kind];
   const L = Math.max(16, Math.round(length));
   const hullH = Math.max(4, Math.round(L * look.depth));
   // (room above for masts, sails and funnels, and below for a hydrofoil's struts)
-  const above = kind === 'carrack' ? Math.round(L * 0.75) : kind === 'longboat' ? Math.round(L * 0.6) : kind === 'steamer' ? Math.round(L * 0.42) : kind === 'dugout' ? Math.round(L * 0.12) : Math.round(L * 0.3);
+  const above = kind === 'carrack' || kind === 'galleon' ? Math.round(L * 0.75) : kind === 'longboat' ? Math.round(L * 0.6) : kind === 'steamer' ? Math.round(L * 0.42) : kind === 'dugout' ? Math.round(L * 0.12) : Math.round(L * 0.3);
   const below = kind === 'hydrofoil' ? Math.round(L * 0.1) : 0;
   const W = L + 4;
   const H = above + hullH + below;
@@ -46,15 +49,23 @@ export function boatArt(kind: BoatKind, length: number): PixelArt {
         paddle(p, Math.round(L * 0.3), deckY, hullH);
         break;
       case 'longboat':
-        mastAndSquareSail(p, 2 + Math.round(L * 0.48), deckY, Math.round(L * 0.55), Math.round(L * 0.34), ['#e8e0cc', '#b83a2a']);
+        mastAndSquareSail(p, furled, 2 + Math.round(L * 0.48), deckY, Math.round(L * 0.55), Math.round(L * 0.34), ['#e8e0cc', '#b83a2a']);
         for (let x = 2 + Math.round(L * 0.18); x < 2 + L * 0.8; x += Math.max(4, Math.round(L * 0.09))) shield(p, x, deckY + 1, Math.max(2, Math.round(L * 0.035)));
         prow(p, 2 + L - 2, deckY, Math.round(L * 0.1), look.trim);
         break;
       case 'carrack':
         castle(p, 2, deckY, Math.round(L * 0.24), Math.round(L * 0.1), look);
-        mastAndSquareSail(p, 2 + Math.round(L * 0.58), deckY, Math.round(L * 0.7), Math.round(L * 0.3), ['#ece4cc', '#d8ccb0']);
-        mastAndSquareSail(p, 2 + Math.round(L * 0.32), deckY - Math.round(L * 0.1), Math.round(L * 0.5), Math.round(L * 0.22), ['#ece4cc', '#d8ccb0']);
+        mastAndSquareSail(p, furled, 2 + Math.round(L * 0.58), deckY, Math.round(L * 0.7), Math.round(L * 0.3), ['#ece4cc', '#d8ccb0']);
+        mastAndSquareSail(p, furled, 2 + Math.round(L * 0.32), deckY - Math.round(L * 0.1), Math.round(L * 0.5), Math.round(L * 0.22), ['#ece4cc', '#d8ccb0']);
         flag(p, 2 + Math.round(L * 0.58), deckY - Math.round(L * 0.7), Math.round(L * 0.08), '#b83a2a');
+        break;
+      case 'galleon':
+        // (a high stern castle, three masts and the red pennant)
+        castle(p, 2, deckY, Math.round(L * 0.26), Math.round(L * 0.13), look);
+        mastAndSquareSail(p, furled, 2 + Math.round(L * 0.66), deckY, Math.round(L * 0.62), Math.round(L * 0.24), ['#ece4cc', '#d8ccb0']);
+        mastAndSquareSail(p, furled, 2 + Math.round(L * 0.46), deckY, Math.round(L * 0.72), Math.round(L * 0.28), ['#ece4cc', '#d8ccb0']);
+        mastAndSquareSail(p, furled, 2 + Math.round(L * 0.26), deckY - Math.round(L * 0.1), Math.round(L * 0.5), Math.round(L * 0.2), ['#ece4cc', '#d8ccb0']);
+        flag(p, 2 + Math.round(L * 0.46), deckY - Math.round(L * 0.72), Math.round(L * 0.08), '#b83a2a');
         break;
       case 'steamer':
         cabin(p, 2 + Math.round(L * 0.25), deckY, Math.round(L * 0.45), Math.round(L * 0.1), '#e8e0d0', '#8a8478');
@@ -86,7 +97,7 @@ function hull(p: Painter, look: Look, x0: number, deckY: number, L: number, h: n
     const t = i / (L - 1);
     // (the keel line rises to each end: more sharply at the bow)
     const rise = t > 0.75 ? ((t - 0.75) / 0.25) ** 2 : t < 0.15 ? ((0.15 - t) / 0.15) ** 2 * 0.6 : 0;
-    const top = deckY - (kind === 'longboat' || kind === 'carrack' ? Math.round(rise * h * 0.6) : 0);
+    const top = deckY - (kind === 'longboat' || kind === 'carrack' || kind === 'galleon' ? Math.round(rise * h * 0.6) : 0);
     const bottom = deckY + Math.round(h * (1 - rise * 0.85));
     for (let y = top; y < bottom; y++) {
       const u = (y - top) / Math.max(1, bottom - top);
@@ -105,11 +116,18 @@ function paddle(p: Painter, x: number, deckY: number, h: number): void {
   p.rect(x + 4, deckY + h - 1, 2, 3, '#8a5a32');
 }
 
-function mastAndSquareSail(p: Painter, x: number, deckY: number, height: number, width: number, colours: [string, string]): void {
+function mastAndSquareSail(p: Painter, furled: boolean, x: number, deckY: number, height: number, width: number, colours: [string, string]): void {
   p.rect(x, deckY - height, 2, height, '#4a3018');
   const top = deckY - height + 3;
   const h = Math.round(height * 0.62);
   p.rect(x - Math.round(width / 2) - 1, top - 1, width + 4, 2, '#4a3018'); // (the yard)
+  if (furled) {
+    // (the cloth gathered into a roll along the yard, tied with a rope)
+    p.rect(x - Math.round(width / 2), top + 1, width + 2, 3, colours[1]);
+    p.rect(x - Math.round(width / 2), top + 1, width + 2, 1, colours[0]);
+    p.px(x + 1, top + 2, '#4a3018');
+    return;
+  }
   for (let y = 0; y < h; y++) {
     // (bellied out a little in the middle)
     const belly = Math.round(Math.sin((y / h) * Math.PI) * 2);
@@ -162,4 +180,4 @@ function wheel(p: Painter, cx: number, cy: number, r: number): void {
 }
 
 /** How long a boat is drawn on the map (px), by kind: the canoe a cell, the carrack and steamer a cell and a half. */
-export const MAP_LENGTH: Record<BoatKind, number> = { dugout: 30, longboat: 40, carrack: 50, steamer: 50, motor_launch: 40, hydrofoil: 44 };
+export const MAP_LENGTH: Record<BoatKind, number> = { dugout: 30, longboat: 40, carrack: 50, galleon: 58, steamer: 50, motor_launch: 40, hydrofoil: 44 };

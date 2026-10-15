@@ -44,7 +44,8 @@ import { DESTINATION_BY_ID as DEST_BY_ID } from '../data/expeditions';
 import { musterView, type MusterView } from './muster';
 import { secretView, specialStory } from './specials';
 import { BOAT_BY_KIND, type BoatKind } from '../data/boats';
-import { boatLine, boatyardOf, fleet, mooring } from './boats';
+import { boatLine, fleet } from './boats';
+import { harbourReport, quay } from './seafaring';
 import { airfleet, airshipLine, mastOf } from './skies';
 import { AIRSHIP_BY_KIND, type AirshipKind } from '../data/skies';
 import { flyHeight } from './roamers';
@@ -915,6 +916,8 @@ export interface Snapshot {
    *  boatyard where those at home lie moored. */
   fleet: { id: number; kind: BoatKind; name: string; hull: number; max: number; away: string | null }[];
   mooring: { x: number; y: number } | null;
+  /** The Harbour tab (sim/seafaring.ts): the harbour, the shoals, the catch, losses, colonies and the sea's news. */
+  seafaring: ReturnType<typeof harbourReport>;
   /** The town's airships (sim/skies.ts): at home at the mast (away null) or the place they've flown for; `leg` while
    *  she's leaving or coming home over the town (the share of the way out or back, and the side the place lies); and
    *  the mast's footprint (cells) where those at home are moored. */
@@ -1262,7 +1265,8 @@ export function snapshot(s: GameState): Snapshot {
     })),
     fleet: fleet(s).map((b) => ({ id: b.id, kind: b.kind, name: b.name, hull: Math.max(0, b.hull), max: BOAT_BY_KIND[b.kind].hull, away: b.away === null ? null : ((e) => (e ? destinationOf(s, e.dest)?.name ?? '' : ''))(s.expeditions.find((e) => e.id === b.away)) })),
     wall: s.ring && !s.ring.done ? ((w) => (w ? { gen: s.ring!.gen, ...w, shape: RING_SHAPE_NAMES[ringShapeOf(s)] } : null))(ringProgress(s)) : null,
-    mooring: ((y) => (y ? mooring(s.land, footprint(y)) : null))(boatyardOf(s)),
+    mooring: quay(s),
+    seafaring: harbourReport(s),
     airships: airshipsView(s),
     mast: ((m) => (m ? footprint(m) : null))(mastOf(s)),
     skyPirates: skyPiratesView(s),
