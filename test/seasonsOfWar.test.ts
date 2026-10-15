@@ -243,7 +243,7 @@ test('the council answers demands: the proud refuse, the weak and peaceful pay, 
   assert.equal(adviseDemand(s, f, 50).option, 0, 'much the stronger: pay');
   s.origin = 'dwarves';
   assert.equal(adviseDemand(s, f, 50).option, 0, 'even the proud bow to a power many times the town');
-  f.troops = townMightOf(s) * 2;
+  f.troops = townMightOf(s) * 1.6;
   assert.equal(adviseDemand(s, f, 50).option, 1, 'the hold pays nobody it can stand against');
   s.origin = 'settlers';
   assert.equal(adviseDemand(s, f, 50).option, 0, 'where a peaceful town would pay');

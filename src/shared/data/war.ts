@@ -140,7 +140,7 @@ export const FIGHTERS_LEAST = 3;
 export const PEACE_GIFT_EVERY_DAYS = 3;
 export const PEACE_TREASURY = 3;
 /** Even a proud people pays a power this many times its might (and is ashamed of it). */
-export const PROUD_BOWS = 3;
+export const PROUD_BOWS = 2;
 /** Knowledge's envoys: a demand talked down to this share, and a war between two friends brokered to peace on this
  *  chance a winter day. */
 export const TALKED_DOWN = 0.6;
