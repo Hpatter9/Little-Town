@@ -45,7 +45,7 @@ import { FOOD_VALUE } from '../data/people';
 import { RESEARCH_STATIONS, TOPICS, type Topic } from '../data/research';
 import { TERRAIN } from '../data/terrain';
 import { blueprintCount, buildSlots, canPlace, canUpgrade, demolish, depthOf, footprint, footprints, isUnlocked, placeBlueprint, stillNeeded, storages, totalCapacity, totalStock, townRadius, unlockInfo, upgrade, inWork, overgrownCells, refreshOvergrown } from './buildings';
-import { buildable, wet, setGround, type Rect, touchesWater, type Pt, delveDepth, delvePool, doorOf, groundAt, idx, inMap, isMarked, isOpen, roadDistance, setMarked, spiralSpot } from './land';
+import { buildable, wet, setGround, type Rect, touchesWater, type Pt, delveDepth, delvePool, doorOf, groundAt, idx, inMap, isMarked, isOpen, overlaps, roadDistance, setMarked, spiralSpot } from './land';
 import { openGround } from '../data/biomes';
 import { craftNeeded, craftSlots, itemUnlocked, queueCraft, reduceCraft, stationFor } from './crafting';
 import { canQueue, researchMods, queueResearch, seatStageNow, tidyPicks } from './research';
@@ -698,6 +698,8 @@ export function findSpot(s: GameState, def: BuildingDef): (Pt & { wild?: true })
  *  first (the more of its walls it shares, the more compact the castle stays). */
 function roomSpot(s: GameState, def: BuildingDef): Pt | null {
   // (a mountain hold's rooms open off its hallways and the entrance hall, never off one another)
+  // (the main hallway's ground is kept clear of rooms until it is cut)
+  const held = holdOf(s) === 'mountain' && !s.buildings.some(isHallway) ? trunkSite(s) : null;
   // (an older hold walled in on every side, with no hallway to be cut, still grows off any of its rooms)
   const cells = holdOf(s) === 'mountain' && (s.buildings.some(isHallway) || hallSpot(s)) ? hallCells(s) : castleCells(s);
   const solid = solidCells(s);
@@ -706,7 +708,7 @@ function roomSpot(s: GameState, def: BuildingDef): Pt | null {
     roads: true,
     door: false,
     carve: holdOf(s) === 'mountain',
-    ok: (rect) => joinsCastle(cells, s.land, rect, solid),
+    ok: (rect) => joinsCastle(cells, s.land, rect, solid) && !(held && overlaps(rect, held)),
     prefer: (rect) => -sharedEdges(cells, s.land, rect, solid),
   });
   if (!r) return null;
@@ -758,6 +760,13 @@ function findHallSpot(s: GameState): { x: number; y: number; turned: boolean } |
   return best ? { x: best.x, y: best.y, turned: best.turned } : null;
 }
 
+/** Where the main hallway will run: north of the entrance hall, in the middle of its top wall. */
+const trunkSite = (s: GameState) => {
+  const core = coreRect(s);
+  const d = depthOf(BUILDING_BY_ID[HALLWAY]);
+  return { x: core.x + Math.floor(core.w / 2) - 1, y: core.y - d, w: BUILDING_BY_ID[HALLWAY].width, h: d };
+};
+
 /** A mountain hold cuts a hallway: the main one once it has a couple of rooms, and another whenever a room finds no hallway
  *  frontage (`wanted`). One at a time. */
 function tryHall(s: GameState, n: Needs, wanted: boolean): void {
@@ -765,7 +774,7 @@ function tryHall(s: GameState, n: Needs, wanted: boolean): void {
   const def = BUILDING_BY_ID[HALLWAY];
   if (!def || s.buildings.some((b) => isHallway(b) && b.status === 'blueprint')) return;
   const built = s.buildings.some((b) => isHallway(b));
-  if (!wanted && built) return;
+  if (!wanted && (built || s.buildings.filter((b) => b.room && !isHallway(b) && b.status === 'done').length < 3)) return;
   if (blueprintCount(s) >= buildSlots(s) || !affordable(s, def, n.stock)) return;
   const at = hallSpot(s);
   if (at) placeBlueprint(s, HALLWAY, at.x, at.y, at.turned);
