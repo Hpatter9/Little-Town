@@ -6,6 +6,7 @@
 import { ITEM_BY_ID } from '../../shared/data/items';
 import { ORIGIN_DEFS } from '../../shared/data/origins';
 import { legendLine, linesOf, type Legend, type LegendLine } from '../../shared/sim/legacy';
+import type { EnemyLegend } from '../../shared/sim/greatEnemy';
 import type { AncestryView } from '../../shared/sim/ancestors';
 import { readLegends } from '../legends';
 import { el } from './dom';
@@ -80,6 +81,9 @@ export function legendCard(l: Legend, picked?: boolean, onPick?: () => void): HT
   top.append(el('span', 'card-name', `${l.town ? `${l.town}: ` : ''}${l.founder}${l.generation > 1 ? ` (${ordinal(l.generation)} of the line)` : ''}`), el('span', 'card-size', picked ? 'Chosen' : FATE[l.fate]));
   c.append(top, el('div', 'purpose', `${ORIGIN_DEFS[l.origin]?.name ?? l.origin}${l.of ? ` · of ${l.of}` : ''} · ${legendLine(l)}`));
   if (l.heirloom && ITEM_BY_ID[l.heirloom]) c.append(el('div', `hint${l.cursed ? ' bad' : ''}`, `Heirloom: ${ITEM_BY_ID[l.heirloom].name}${l.heirloomCarried ? `, carried ${l.heirloomCarried} generation${l.heirloomCarried === 1 ? '' : 's'}` : ''}${l.cursed ? ' (cursed)' : ''}`));
+  // (its Great Enemy, as the town ended: sim/greatEnemy.ts, kept on the legend by simHost.ts)
+  const foe = (l as Legend & { enemy?: EnemyLegend }).enemy;
+  if (foe) c.append(el('div', `hint${foe.fate === 'won' ? ' bad' : ''}`, foe.fate === 'beaten' ? `Slew ${foe.name}.` : foe.fate === 'won' ? `Broken by ${foe.name}. A descendant's town will meet it again.` : `${foe.name} still plotted against it.`));
   if (onPick) {
     c.addEventListener('click', onPick);
     return c;

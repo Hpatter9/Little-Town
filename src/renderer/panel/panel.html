@@ -1266,6 +1266,47 @@
         line-height: 28px;
         border-width: 3px;
       }
+      /* the Great Enemy (sim/greatEnemy.ts): its shadow spreading from its seat, the seat, its outposts */
+      .map-spread {
+        position: absolute;
+        transform: translate(-50%, -50%);
+        border-radius: 50%;
+        background: radial-gradient(circle, color-mix(in srgb, var(--foe, #7a4cc8) 70%, transparent) 0%, color-mix(in srgb, var(--foe, #7a4cc8) 38%, transparent) 50%, transparent 72%);
+        pointer-events: none;
+      }
+      .map-foe {
+        position: absolute;
+        transform: translate(-50%, -50%);
+        width: 24px;
+        height: 24px;
+        padding: 0;
+        border-radius: 50%;
+        border: 2px solid var(--foe, #7a4cc8);
+        background: rgba(20, 10, 24, 0.9);
+        color: #f0d8ff;
+        font-size: 13px;
+        line-height: 19px;
+        cursor: default;
+      }
+      .map-foe.seat {
+        width: 30px;
+        height: 30px;
+        font-size: 17px;
+        line-height: 25px;
+        box-shadow: 0 0 8px var(--foe, #7a4cc8);
+      }
+      .map-foe.open,
+      .map-foe.outpost:not(.slain) {
+        cursor: pointer;
+      }
+      .map-foe.slain,
+      .map-foe.beaten {
+        opacity: 0.5;
+        box-shadow: none;
+      }
+      .map-label.foe {
+        color: #e8c8ff;
+      }
       .map-label.hold {
         font-size: 10px;
         opacity: 0.85;

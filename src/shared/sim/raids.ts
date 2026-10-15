@@ -103,6 +103,7 @@ import { caveBearBeaten } from './caveBear';
 import { packRaidBeaten } from './pack';
 import { sagaRaidOver } from './sagas';
 import { calamityRaidOver } from './calamity';
+import { greatEnemyRaidOver } from './greatEnemy';
 import { groveAllies, groveRaidOver } from './grove';
 import { mountFight, ranchAllies, ranchRaidOver } from './ranch';
 import { ancestorAllies } from './ancestors';
@@ -873,6 +874,7 @@ function endRaid(s: GameState, rng: Rng): void {
   sagaRaidOver(s, r);
   hostOver(s, r);
   calamityRaidOver(s, r);
+  greatEnemyRaidOver(s, r);
   groveRaidOver(s, r);
   ranchRaidOver(s, r); // (tamed beasts home to the ranch: sim/ranch.ts)
   // thieves who got away may have led off a horse, too

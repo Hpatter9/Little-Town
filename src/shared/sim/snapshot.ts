@@ -158,6 +158,7 @@ import { ARENA_AWAY } from '../data/arena';
 import { portalDestinations, portalSummaries, portalView, type PortalSummary, type PortalView } from './portals';
 import { politicsView, type PoliticsView } from './politics';
 import { calamityView, heartDestinations, type CalamityView } from './calamity';
+import { enemyDestinations, greatEnemyView, type GreatEnemyView } from './greatEnemy';
 import { sceneView } from './cutscenes';
 export type SceneView = NonNullable<ReturnType<typeof sceneView>>;
 import { nestPlaceName } from './nests';
@@ -1008,6 +1009,8 @@ export interface Snapshot {
   villageBuildings: Building[];
   /** The Calamity (sim/calamity.ts), and where the land is blighted (cells: round each nest and its heart). */
   calamity: CalamityView | null;
+  /** The Great Enemy (sim/greatEnemy.ts), once chosen. */
+  greatEnemy: GreatEnemyView | null;
   /** A cutscene waiting or playing (sim/cutscenes.ts), and those seen, to watch again. */
   scene: SceneView | null;
   scenesSeen: { key: number; id: string; title: string; tick: number }[];
@@ -1239,7 +1242,7 @@ export function snapshot(s: GameState): Snapshot {
       : null,
     housing: { beds: housingCapacity(s), people: s.people.length },
     expeditions: s.expeditions.map((e) => expeditionView(s, e)),
-    destinations: [...DESTINATIONS, ...placeDestinations(s), ...packDestinations(s), ...sagaDestinations(s), ...huntDestinations(s), ...dragonDestinations(s), ...heartDestinations(s), ...villageDestinations(s), ...portalDestinations(s)].map((d) => ({
+    destinations: [...DESTINATIONS, ...placeDestinations(s), ...packDestinations(s), ...sagaDestinations(s), ...huntDestinations(s), ...dragonDestinations(s), ...heartDestinations(s), ...enemyDestinations(s), ...villageDestinations(s), ...portalDestinations(s)].map((d) => ({
       id: d.id,
       unlocked: destinationUnlocked(s, d),
       scouted: s.scouted.includes(d.id),
@@ -1308,6 +1311,7 @@ export function snapshot(s: GameState): Snapshot {
     politics: brief(s, 'politics', () => politicsView(s)),
     villageBuildings: villageBuildings(s),
     calamity: calamityView(s),
+    greatEnemy: greatEnemyView(s),
     scene: sceneView(s),
     scenesSeen: (s.scenesSeen ?? []).map((r) => ({ key: r.key, id: r.id, title: r.title, tick: r.tick })),
     blight: blightSources(s),

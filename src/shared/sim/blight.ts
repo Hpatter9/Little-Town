@@ -13,6 +13,9 @@ export function blightSources(s: GameState): { x: number; y: number; r: number }
   const out = (s.places ?? []).filter((p) => p.nest && p.state === 'waiting').map((p) => ({ x: p.x + 0.5, y: p.y + 0.5, r: nestBlight(p.nest!.level) }));
   const c = s.calamity;
   if (c?.heart && c.scar > 0) out.push({ x: c.heart.x + 0.5, y: c.heart.y + 0.5, r: c.scar });
+  // (and the Great Enemy's, creeping in from the land's edge toward its seat: sim/greatEnemy.ts)
+  const e = s.greatEnemy?.creep;
+  if (e) out.push({ x: e.x + 0.5, y: e.y + 0.5, r: e.r });
   return out;
 }
 

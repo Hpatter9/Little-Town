@@ -142,6 +142,8 @@ export interface DiaryFacts {
   weather: Weather;
   season: Season;
   roughNights: number;
+  /** A dream of the Great Enemy last night (sim/greatEnemy.ts: its omens), if they had it. */
+  dream?: string | null;
 }
 
 /** The facts of someone's day. */
@@ -196,7 +198,15 @@ export function diaryFacts(s: GameState, p: Person): DiaryFacts {
     weather: weatherAt(s.seed, s.tick, s.doom?.phase === 'active' ? s.doom.kind : null).kind,
     season: c.season,
     roughNights: p.roughNights ?? 0,
+    dream: dreamOf(s, p),
   };
+}
+
+/** The Great Enemy's dream on the night of an omen: about half the town has it (the same half all day). */
+function dreamOf(s: GameState, p: Person): string | null {
+  const d = s.greatEnemy?.dream;
+  if (!d || s.tick - d.tick > 20 * TICKS_PER_HOUR || isChild(p)) return null;
+  return roll01(p.id, d.tick) < 0.5 ? d.text : null;
 }
 
 const pick = <T>(list: readonly T[], roll: number): T => list[Math.min(list.length - 1, Math.floor(Math.max(0, roll) * list.length))];
@@ -283,6 +293,7 @@ export function writeDiary(f: DiaryFacts): string[] {
   feel.push(pick(f.morale >= 65 ? v.happy : f.morale >= 35 ? v.fine : v.low, r(7)));
   if (f.up && f.morale >= 35) feel.push(`What lifted me: ${lower(f.up)}.`);
   if (f.down && (f.morale < 65 || r(8) < 0.5)) feel.push(`What weighs on me: ${lower(f.down)}.`);
+  if (f.dream) feel.push(`Last night I dreamed ${f.dream}. I can't shake it.`);
   if (f.grief) feel.push(`I keep thinking of ${f.grief}.`);
   if (f.wound) feel.push(`${f.wound[0].toUpperCase()}${f.wound.slice(1)} still hurts.`);
   if (f.sick) feel.push('I feel feverish.');
