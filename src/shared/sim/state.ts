@@ -458,6 +458,15 @@ export interface Raid {
    *  came, at what level. */
   tally?: Record<number, RaidTally>;
   roll?: { id: number; name: string; level: number; xp: number }[];
+  /** The odds weighed (sim/raidOdds.ts): the question put to the town as they arrived outmatched, whether they have been
+   *  weighed, the question put as they broke, how it was answered, and a skip asked for at the alarm. */
+  parley?: number;
+  weighed?: boolean;
+  mercyAsk?: number;
+  mercy?: 'spared' | 'hunted';
+  skipIt?: boolean;
+  /** Fled on arrival, at the sight of the town (and spared, or not). */
+  turned?: boolean;
 }
 
 export interface Needs {
@@ -1229,6 +1238,9 @@ export interface GameState {
   tacticsAuto?: boolean;
   /** The raid under way is being skipped to its recap (sim/raidSkip.ts), with the auto setting it had; and whether every
    *  raid is skipped. */
+  /** The odds weighed, mercy and grudges (sim/raidOdds.ts). `extra`: bands turned back since one last came (the next is
+   *  that much bigger); `grudge`: a hunted band's survivors will be back; the tallies steer the town's answer. */
+  raidOdds?: { extra?: number; streak?: number; turned?: number; spared?: number; hunted?: number; grudge?: { kind: string; at: number }; align?: number };
   raidSkip?: { auto?: boolean };
   skipRaids?: boolean;
   /** The raid battles fight themselves (`autoBattle` in battle.ts): on unless the player turned it off. */

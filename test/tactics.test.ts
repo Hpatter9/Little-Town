@@ -90,6 +90,7 @@ function boardNow(seed: string, n = 5, manual = false) {
   if (manual) {
     s.autopilot = true; // (the board waits on the player only in a town that runs itself)
     s.tacticsAuto = false;
+    s.raidOdds = { streak: 3 }; // (a town of fighters against two bandits would see them turn back: sim/raidOdds.ts; these come regardless)
   }
   const r = startRaid(s, RAID_KIND_BY_ID.bandits, 30, new Rng(5));
   s.prompts = [];
