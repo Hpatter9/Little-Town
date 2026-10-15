@@ -1306,6 +1306,8 @@ export interface GameState {
   lookingInside?: number;
   /** Everyone with kin, living and dead (sim/lineage.ts): the family trees. */
   kin?: Record<number, import('./lineage').KinRecord>;
+  /** Generations and dynasties (sim/dynasty.ts): upbringing, feuds, bonds, the ruling house, heirlooms. */
+  dynasty?: import('./dynasty').DynastyState;
   /** The trade economy: prices, booms and shortages, the trade house, its routes and wagons (sim/markets.ts). */
   market?: import('./markets').MarketState;
   /** A druid town's grove (sim/grove.ts). */

@@ -9,6 +9,7 @@
 // task in people.ts) and a town ruled badly may rise (`revolt`). The votes, trials and revolts are prompts the event box
 // shows (`answerPolitics`, from answerPrompt).
 
+import { feudFrom } from './dynasty';
 import { blackSheep } from './lineage';
 import { BUILDING_BY_ID } from '../data/buildings';
 import { CLASS_DEFS } from '../data/classes';
@@ -386,6 +387,7 @@ export function crime(s: GameState, rng: Rng): void {
     if (b.hp !== undefined) b.hp = Math.max(1, b.hp * 0.7);
     what = `smashed up the ${(BUILDING_BY_ID[b.def]?.name ?? b.def).toLowerCase()}`;
   }
+  if (victim) feudFrom(s, culprit, victim, kind); // (a wrong between families starts a feud: sim/dynasty.ts)
   pol.crimes = (pol.crimes ?? 0) + 1;
   const caught = Math.min(CAUGHT_MOST, CAUGHT_BASE + guards * CAUGHT_PER_GUARD + (lawOn(s, 'harsh_law') ? CAUGHT_HARSH : 0));
   if (!rng.chance(caught)) {
