@@ -20,6 +20,7 @@ import { ENEMIES, type HumanSprite, type MachineSprite, type StillSprite } from 
 import { SPELL_BY_ID } from '../../shared/data/spells';
 import type { ExpeditionView, FighterView } from '../../shared/sim/snapshot';
 import { creatureFeet, creatureFlip, creatureFrame, creaturePoseFrames, creatureSize, type CreatureSheet } from '../art/creatures';
+import { SideRing } from '../art/sideRing';
 import { corpseAlpha, FALL_TICKS, HEAVY, MELEE_LAND, motionOf, moveSprite, TickClock } from './fightMotion';
 import { impactFrame, IMPACT_SIZE, SPLAT_SIZE, splatFrame } from '../art/effects';
 import { bleeds } from '../map/bloodPools';
@@ -117,6 +118,8 @@ interface Figure {
   sprite: Sprite;
   pop: Text;
   spark: Sprite;
+  /** The side ring under the feet (art/sideRing.ts). */
+  ring: SideRing;
 }
 
 export class FightScene {
@@ -134,6 +137,8 @@ export class FightScene {
   private readonly world = new Container();
   private worldTop = 0;
   private readonly figures = new Container();
+  /** The fighters whose side ring was drawn this frame. */
+  private ringed = new Set<string>();
   private readonly fx = new Graphics();
   /** Open water over the ground while a boat is at sea (the scene's own ground is the shore). */
   private readonly sea = new Graphics();
@@ -233,7 +238,10 @@ export class FightScene {
       const art = fightBackdrop(scene, v.id);
       this.backdrop = art;
       [art.far, art.mid, art.near, art.front].forEach((a, i) => (this.layers[i].texture = a.texture));
-      for (const f of this.figs.values()) f.sprite.destroy();
+      for (const f of this.figs.values()) {
+        f.sprite.destroy();
+        f.ring.g.destroy();
+      }
       this.figures.removeChildren();
       this.figures.addChild(this.hull); // (her hull stays: it's shown or hidden each frame)
       this.figs.clear();
@@ -341,6 +349,7 @@ export class FightScene {
     this.drawDelve(delve, fighting, now);
     this.fx.clear();
     const seen = new Set<string>();
+    this.ringed = new Set();
     // (at sea the scroll keeps going: she sails on, fight or no fight)
     if (this.aboard(v) && !walking) this.scroll += MARCH * dt * 0.5;
     this.drawSea(this.afloat(v), now);
@@ -351,11 +360,14 @@ export class FightScene {
       this.drawMarch(v, now, walking, seen);
     }
     this.shots.end();
+    // (rings show only while they fight: drawFight turns them on)
     for (const [k, f] of this.figs) {
+      if (!this.ringed.has(k)) f.ring.set(null, 0, 0, 0);
       if (seen.has(k)) continue;
       f.sprite.destroy();
       f.pop.destroy();
       f.spark.destroy();
+      f.ring.g.destroy();
       this.figs.delete(k);
     }
   }
@@ -368,8 +380,9 @@ export class FightScene {
       pop.anchor.set(0.5, 1);
       pop.resolution = 4;
       const spark = new Sprite();
-      this.figures.addChild(sprite, spark, pop);
-      f = { sprite, pop, spark };
+      const ring = new SideRing();
+      this.figures.addChild(ring.g, sprite, spark, pop);
+      f = { sprite, pop, spark, ring };
       this.figs.set(key, f);
     }
     return f;
@@ -696,6 +709,10 @@ export class FightScene {
       // (the motion is only a lean and a shift of the picture's place: squash and lean about their feet)
       moveSprite(g.sprite, p[0], p[1], m, 1, !(deadFrame && f.down));
       g.sprite.zIndex = p[1] - (f.down ? 0.5 : 0);
+      // the side ring on the ground line: blue the party, red the foes, green the town's summoned or hired help
+      const ringSide = f.side === 'enemy' ? 'foe' : f.conjured || !f.look ? 'friend' : 'town';
+      g.ring.set({ side: ringSide, w: Math.min(34, Math.max(20, Math.abs(g.sprite.width) * 0.7)), down: f.down }, p[0], p[1] + 1, p[1] - 0.6);
+      this.ringed.add(key);
       g.sprite.alpha = f.down ? (f.side === 'enemy' ? corpseAlpha(r.sh - 2, 'enemy') : 1) : 1;
       // (an elite wears its affix's colour; a boss its own; the struck flash white, then red)
       const base = f.elite ? (ELITES[f.elite as EliteAffix]?.tint ?? 0xffffff) : (ENEMIES[f.kind]?.tint ?? 0xffffff);

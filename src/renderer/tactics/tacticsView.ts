@@ -146,6 +146,8 @@ export class TacticsScene {
     this.people = new MapPeople(this.board);
     this.raiders = new MapRaiders(this.board);
     this.people.raid = true;
+    this.people.rings = 'board';
+    this.raiders.rings = 'board';
     this.fx.addChild(this.lines, this.fxSprites, this.shots.container, this.life.container);
     this.world.addChild(this.board, this.fx, this.juice.world);
     this.root.addChild(this.back, this.world, this.shade, this.juice.screen, this.hud, this.barsG);
@@ -223,6 +225,10 @@ export class TacticsScene {
         if (r) raiders.push({ ...r, x, y, dir, swimming: false, floor: null });
       }
     }
+    // (the unit whose turn it is gets the brighter ring)
+    const turn = t.act?.key ?? t.orders?.key ?? '';
+    this.people.activeId = turn[0] === 'p' ? Number(turn.slice(1)) : null;
+    this.raiders.activeId = turn[0] === 'r' ? Number(turn.slice(1)) : null;
     const now = performance.now();
     this.people.update(people, null, now);
     this.raiders.update(raiders, now);
