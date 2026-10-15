@@ -8,6 +8,7 @@
 import { noteFelled, noteRegrown } from './grove';
 import { blighted } from './blight';
 import { Rng, hashSeed } from '../rng';
+import { RICH_POOL } from '../data/wild';
 import { TERRAIN } from '../data/terrain';
 import type { Material } from '../data/materials';
 import { builtOn, footprint } from './buildings';
@@ -70,10 +71,13 @@ export function regrowHourly(s: GameState): void {
     const pool: Partial<Record<Material, number>> = {};
     for (const [mat, [lo, hi]] of Object.entries(TERRAIN[was as keyof typeof TERRAIN].pool) as [Material, [number, number]][]) {
       const n = rng.int(lo, hi);
-      if (n > 0) pool[mat] = n;
+      // (burnt woods come back richer: sim/disasters.ts)
+      const rich = m.rich?.[i] ? Math.ceil(n * RICH_POOL) : n;
+      if (rich > 0) pool[mat] = rich;
     }
     m.pools[i] = pool;
     delete m.regrow![i];
+    if (m.rich) delete m.rich[i];
     noteRegrown(s);
   }
   if (!Object.keys(m.regrow!).length) delete m.regrow;
