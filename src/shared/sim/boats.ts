@@ -259,3 +259,22 @@ export const boatLine = (s: GameState, d: Destination) => {
   return d.byBoat ? (b ? `By boat: the ${b.name}` : 'Needs a seaworthy boat') : waterside(d.id) && b ? `By boat, faster: the ${b.name}` : '';
 };
 export const placeName = (d: Destination) => the(d.name);
+
+/* ------------------------------------------------------------ the trade empire's ships */
+
+/** The kind of boat the trade empire's ships are drawn as: the best of the town's own fleet, else the best the town has
+ *  learned to build, else the first age's dugout. (A hook for one system to draw every boat: the empire's ships sail
+ *  the same lanes as the fleet's, in the same sprites; sim/tradeEmpire.ts keeps their voyages.) */
+export function shipKind(s: GameState): BoatKind {
+  const own = [...fleet(s)].sort((a, b) => BOATS.indexOf(boatDef(b)) - BOATS.indexOf(boatDef(a)))[0];
+  return own?.kind ?? bestBoat(s)?.kind ?? BOATS[0].kind;
+}
+
+/** The empire's ships out on a voyage, as boats away (the snapshot adds them to what the renderer sails: the hull
+ *  is nominal, they are not the town's to mend). */
+export function tradeShips(s: GameState): { id: number; kind: BoatKind; name: string; hull: number; max: number; away: string }[] {
+  const ships = (s.empire?.caravans ?? []).filter((c) => c.kind === 'ship');
+  if (!ships.length) return [];
+  const kind = shipKind(s);
+  return ships.map((c) => ({ id: c.id, kind, name: 'Trading ship', hull: 1, max: 1, away: 'a far market' }));
+}

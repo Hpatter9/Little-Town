@@ -11,6 +11,7 @@
 // All of it is the town's own (the autopilot on), on a side stream of the seed; the player sets nothing but the
 // direction.
 
+import type { BoatKind } from '../data/boats';
 import { eraReached } from '../data/eras';
 import { FACTION_BY_ID, STRONGHOLD_SPOTS } from '../data/factions';
 import { eventPicture } from '../data/eventScenes';
@@ -109,6 +110,7 @@ import { hashSeed, Rng } from '../rng';
 import { alignPush, orderPush } from './alignment';
 import { depositNear, totalStock } from './buildings';
 import { ally } from './classes';
+import { shipKind } from './boats';
 import { takeFromStorage } from './expeditions';
 import { realm } from './factions';
 import { killPerson } from './health';
@@ -959,15 +961,16 @@ export function empireView(s: GameState): EmpireView | null {
 }
 
 /** The empire on the world map: the posts and the roads to them, and each caravan on the leg it is on. */
-export function empireOnMap(s: GameState): { posts: { id: string; name: string; x: number; y: number; level: number; sea: boolean }[]; moves: { kind: 'caravan' | 'ship'; from: { x: number; y: number }; to: { x: number; y: number }; t: number; label: string }[] } | null {
+export function empireOnMap(s: GameState): { posts: { id: string; name: string; x: number; y: number; level: number; sea: boolean }[]; moves: { kind: 'caravan' | 'ship'; boat?: BoatKind; from: { x: number; y: number }; to: { x: number; y: number }; t: number; label: string }[] } | null {
   const e = s.empire;
   if (!e || (!e.posts.length && !e.caravans.length)) return null;
+  const boat = e.caravans.some((c) => c.kind === 'ship') ? shipKind(s) : undefined;
   const moves = e.caravans.map((c) => {
     let i = 1;
     while (i < c.times.length - 1 && s.tick >= c.times[i]) i++;
     const t = Math.max(0, Math.min(1, (s.tick - c.times[i - 1]) / Math.max(1, c.times[i] - c.times[i - 1])));
     const toward = i < c.path.length - 1 ? e.posts.find((q) => q.id === c.stops[i - 1]?.post)?.name : 'home';
-    return { kind: c.kind, from: c.path[i - 1], to: c.path[i], t, label: `Our ${c.kind} ${i < c.path.length - 1 ? 'to' : 'bound'} ${toward ?? 'a far market'}: ${list(s.tick < (c.times[1] ?? 0) ? c.out : c.back)}` };
+    return { kind: c.kind, ...(c.kind === 'ship' ? { boat } : {}), from: c.path[i - 1], to: c.path[i], t, label: `Our ${c.kind} ${i < c.path.length - 1 ? 'to' : 'bound'} ${toward ?? 'a far market'}: ${list(s.tick < (c.times[1] ?? 0) ? c.out : c.back)}` };
   });
   return { posts: e.posts.map((p) => ({ id: p.id, name: p.name, x: p.x, y: p.y, level: p.level, sea: p.sea })), moves };
 }

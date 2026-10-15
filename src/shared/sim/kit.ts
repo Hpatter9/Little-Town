@@ -11,7 +11,7 @@ import { CLASS_DEFS } from '../data/classes';
 import { levelOf } from '../data/levels';
 import { natureOf } from '../data/enemies';
 import { hashSeed, Rng } from '../rng';
-import { RAIDER_POTION } from './kitFight';
+import { HEAL_BELOW, RAIDER_POTION } from './kitFight';
 import { addItems } from './crafting';
 import { isChild } from './social';
 import { notify, type GameState, type Person, type Raider } from './state';
@@ -41,6 +41,17 @@ function order(s: GameState): Person[] {
   return s.people.filter((p) => p.away === null && armed(p) && !p.downed).sort((a, b) => skill(b) - skill(a) || a.id - b.id);
 }
 
+/** The battle item a person would carry next and the stores (or the shop's shelves) hold, or null: none wanted, or the
+ *  pouch is full. `stocked` says what is on offer (the stores' items by default). */
+export function kitWant(s: GameState, p: Person, stocked: (id: string) => boolean = (id) => (s.items[id] ?? 0) > 0): string | null {
+  if ((p.kit?.length ?? 0) >= kitCap(p)) return null;
+  const want = wishes(p).find(([id, n]) => stocked(id) && (MEND.includes(id) ? MEND.reduce((k, m) => k + count(p, m), 0) : count(p, id)) < n);
+  return want ? want[0] : null;
+}
+
+/** Whether a person carries a pouch at all (a grown-up with a calling). */
+export const carriesKit = armed;
+
 /** Once an hour, with the autopilot: the stores' battle items go into the pouches, those first in line served first, one
  *  round at a time (so the best-placed don't take everything). Hands out only what the stores hold. */
 export function restockKits(s: GameState): void {
@@ -51,10 +62,10 @@ export function restockKits(s: GameState): void {
     let gave = false;
     for (const p of people) {
       if ((p.kit?.length ?? 0) >= kitCap(p)) continue;
-      const want = wishes(p).find(([id, n]) => (s.items[id] ?? 0) > 0 && (MEND.includes(id) ? MEND.reduce((k, m) => k + count(p, m), 0) : count(p, id)) < n);
+      const want = kitWant(s, p);
       if (!want) continue;
-      (p.kit ??= []).push(want[0]);
-      addItems(s, want[0], -1);
+      (p.kit ??= []).push(want);
+      addItems(s, want, -1);
       gave = true;
     }
     if (!gave) break;
@@ -74,16 +85,41 @@ export function kitNeed(s: GameState, id: string): number {
   return { heal: 10, mana: 8, cure: 6, escape: 5, buff: 4, throw: 3 }[def.use] + def.rank * 0.1;
 }
 
-/** Potions found on the fallen of a raid (raiders of the people kinds): into the stores. Returns what was found. */
+/** What a raider of the people kinds carries in its pouch: a healing potion now and then, settled once (the kit side
+ *  stream `kit:<raider>`, so it is the same whenever it is first asked) and kept on the raider (`Raider.kit`). */
+export function raiderPouch(s: GameState, rd: Raider): string[] {
+  if (rd.kit) return rd.kit;
+  rd.kit = [];
+  if (rd.ally || natureOf(rd.kind) !== 'person') return rd.kit;
+  const rng = new Rng(hashSeed(`${s.seed}:kit:raider:${rd.id}`));
+  if (rng.chance(RAIDER_POTION)) rd.kit.push(rng.chance(0.2) ? 'greater_healing_potion' : 'healing_potion');
+  return rd.kit;
+}
+
+/** A raider that carries a potion drinks it when it is under half health (once; the rest of its turn is its own). Returns
+ *  how much it mended, or 0. The fights' raiders call this at the start of their turn (battle.ts, tactics.ts). */
+export function raiderDrinks(s: GameState, rd: Raider): number {
+  if (rd.down || rd.ally || rd.hp >= rd.maxHp * HEAL_BELOW) return 0;
+  const pouch = raiderPouch(s, rd);
+  if (!pouch.length) return 0;
+  const k = KIT_BY_ID[pouch[0]];
+  pouch.shift();
+  if (!k?.amount) return 0;
+  const n = Math.min(rd.maxHp - rd.hp, Math.round(rd.maxHp * k.amount));
+  rd.hp += n;
+  return n;
+}
+
+/** Potions found on the fallen of a raid (raiders of the people kinds): the ones they had not drunk, into the stores.
+ *  Returns what was found. */
 export function raiderPotions(s: GameState, fallen: readonly Raider[]): string[] {
   const found: string[] = [];
   for (const rd of fallen) {
-    if (rd.ally || natureOf(rd.kind) !== 'person') continue;
-    const rng = new Rng(hashSeed(`${s.seed}:kit:${s.tick}:${rd.id}`));
-    if (!rng.chance(RAIDER_POTION)) continue;
-    const id = rng.chance(0.2) ? 'greater_healing_potion' : 'healing_potion';
-    addItems(s, id, 1);
-    found.push(ITEM_BY_ID[id]?.name ?? id);
+    for (const id of raiderPouch(s, rd)) {
+      addItems(s, id, 1);
+      found.push(ITEM_BY_ID[id]?.name ?? id);
+    }
+    rd.kit = [];
   }
   if (found.length) notify(s, `A fallen raider's pouch held ${found.length === 1 ? `a ${found[0].toLowerCase()}` : `${found.length} potions`}.`);
   return found;

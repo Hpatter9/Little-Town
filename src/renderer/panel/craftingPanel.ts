@@ -16,6 +16,9 @@ import { topicKnown } from './secrets';
 import { expandable, itemDetails, materialDetails, pickable, pickedIn } from './details';
 import { topicName } from '../../shared/data/originResearch';
 
+/** What the stores show: every count in stock, the spare items and what's worn. */
+export const storesKey = (s: Snapshot) => JSON.stringify([invTab, s.era, s.storageUsed, s.storageCapacity, s.stock, s.items, s.people.map((p) => p.gear)]);
+
 /** Changes whenever something this panel shows changes (progress to the whole percent). */
 export const craftingKey = (s: Snapshot) =>
   JSON.stringify([
@@ -23,15 +26,12 @@ export const craftingKey = (s: Snapshot) =>
     invTab, // (the stores' kind chips: a tap redraws)
     s.era,
     s.craftSlots,
-    s.stock,
-    s.items,
     s.unlockAll,
     s.research.done,
     s.research.revealed,
     s.crafting.map((o) => [o.id, o.count, Math.floor(o.progress * 100), o.waiting, o.crafter, o.needed]),
     s.buildings.filter((b) => b.status === 'done').map((b) => b.def),
-    s.people.map((p) => p.gear),
-  ]);
+  ]) + storesKey(s);
 
 /** The Town's Stores: how full the stores are, and everything in them (and worn), with a tab for each kind. */
 export function renderStores(s: Snapshot, rerender: () => void = () => {}): HTMLElement[] {

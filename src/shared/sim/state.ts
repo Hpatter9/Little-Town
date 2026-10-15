@@ -320,6 +320,8 @@ export type Activity = 'idle' | 'walk' | 'build' | 'research' | 'eat' | 'sleep' 
 
 export interface Raider {
   id: number;
+  /** The battle items in its pouch (sim/kit.ts `raiderPouch`): settled when first asked; empty once drunk or handed over. */
+  kit?: string[];
   /** Taming (data/taming.ts): the failed tries on it so far, and the Beast Tamer who won it over. */
   tameTries?: number;
   tamedBy?: number;

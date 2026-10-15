@@ -3,11 +3,11 @@
 import { withDeltas } from '../deltaBridge';
 import { PANELS, type Bridge, type PanelId, type StripState } from '../../shared/ipc';
 import type { Snapshot } from '../../shared/sim/snapshot';
-import { buildKey, renderBuild } from './buildPanel';
+import { buildKey, renderBuild, townStockKey } from './buildPanel';
 import { craftingKey, renderStores, renderWorkshops } from './craftingPanel';
 import { hostBridge, localBridge } from '../localBridge';
 import { el } from './dom';
-import { inTabs, selectTab, tabKey } from './subtabs';
+import { inTabs, selectTab, shownTab, tabKey } from './subtabs';
 import { expeditionsKey, renderExpeditions } from './expeditionsPanel';
 import { renderJournal } from './journalPanel';
 import { guildMark, guildsOf } from '../art/guildMarks';
@@ -68,13 +68,13 @@ const release = () => {
 };
 for (const ev of ['pointerup', 'pointercancel'] as const) window.addEventListener(ev, () => window.setTimeout(release, 60), { capture: true, passive: true });
 
-function render(): void {
-  if (!shown) return;
-  // Only rebuild the DOM when something visible changed (snapshots arrive ten times a second).
+/** The redraw key: changes only when something the open menu shows changes (snapshots arrive ten times a second). */
+function keyOf(): string {
+  if (!shown) return '';
   const key = !snap
     ? shown
     : shown === 'build'
-      ? 'b' + buildKey(snap) + craftingKey(snap)
+      ? 'b' + buildKey(snap, shownTab('build')) + townStockKey(snap, shownTab('build') ?? tabKey('build'))
       : shown === 'research'
         ? 'r' + researchKey(snap)
         : shown === 'townsfolk'
@@ -94,7 +94,12 @@ function render(): void {
                   : shown === 'newgame'
                     ? 'n' + !!snap.gameOver + legendsVersion()
                     : shown;
-  const keyed = `${key}|${tabKey(shown ?? '')}|${detailsKey()}`;
+  return `${key}|${tabKey(shown ?? '')}|${detailsKey()}`;
+}
+
+function render(): void {
+  if (!shown) return;
+  const keyed = keyOf();
   if (keyed === renderedKey) {
     // (the Townsfolk list's live details change ten times a second: patched into the rows as they stand)
     if (snap && shown === 'townsfolk') patchTownsfolk(snap, body);
@@ -133,6 +138,8 @@ function render(): void {
   }
   else if (snap && shown === 'newgame') body.replaceChildren(...renderNewGame(snap, bridge));
   else body.replaceChildren(el('p', 'empty', 'Loading…'));
+  // (drawing may have settled which sub-tab is open: the key as it is now, so the next snapshot doesn't redraw for nothing)
+  renderedKey = keyOf();
   body.scrollTop = scroll;
 }
 

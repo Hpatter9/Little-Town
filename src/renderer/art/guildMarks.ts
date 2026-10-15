@@ -20,7 +20,7 @@ export function guildsOf(s: Pick<Snapshot, 'guilds'>, personId: number): GuildOf
 }
 
 /** A badge for a guild role, `size` CSS px; the glyph is painted when its sheet has loaded. */
-export function guildBadge(role: GuildRole, size = 16, title?: string): HTMLCanvasElement {
+export function guildBadge(role: GuildRole, size = 16, title?: string, painted?: () => void): HTMLCanvasElement {
   const e = GUILD_EMBLEMS[role];
   const c = document.createElement('canvas');
   c.className = 'guild-badge';
@@ -47,6 +47,7 @@ export function guildBadge(role: GuildRole, size = 16, title?: string): HTMLCanv
     const sy = Math.floor(e.glyph[1] / info.cols) * info.cell;
     const d = size * 0.78;
     g.drawImage(im, sx, sy, info.cell, info.cell, (size - d) / 2, (size - d) / 2, d, d);
+    painted?.();
   });
   return c;
 }
@@ -56,4 +57,17 @@ export function guildMark(s: Pick<Snapshot, 'guilds'>, personId: number): HTMLCa
   const gs = guildsOf(s, personId);
   if (!gs.length) return null;
   return guildBadge(gs[0].role, 16, gs.map((g) => `${g.name}${g.lead ? ' (leader)' : ''}`).join(', '));
+}
+
+/** The badge a fallen person's guild gave them (kept on their record when they fell: sim/annals.ts). */
+export function fallenGuildMark(f: { guild?: { role: GuildRole; name: string; lead: boolean } }): HTMLCanvasElement | null {
+  return f.guild ? guildBadge(f.guild.role, 16, `${f.guild.name}${f.guild.lead ? ' (leader)' : ''}`) : null;
+}
+
+/** The mark by a name, for the living or the dead: the guild they are in, else the one they fell in. */
+export function guildMarkOrFallen(s: Pick<Snapshot, 'guilds' | 'annals'>, personId: number): HTMLCanvasElement | null {
+  const live = guildMark(s, personId);
+  if (live) return live;
+  const f = s.annals.fallen.find((q) => q.id === personId);
+  return f ? fallenGuildMark(f) : null;
 }

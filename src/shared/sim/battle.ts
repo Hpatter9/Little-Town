@@ -28,6 +28,7 @@ import { CELL, findPath, groundAt, inMap, SWIM_COST, wet, type Pt } from './land
 import { blockedBy } from './walk';
 import { personFighter, weaponOf, weaponRange } from './combat';
 import { hasMana, manaMax, manaNow, manaTurn, setMana } from './mana';
+import { raiderDrinks } from './kit';
 import { held, kitOf, takeTurn, tickStatuses, type Arena, type Combatant, type Kit, type Statuses } from './actions';
 import { ally } from './classes';
 import { castsFire, castsMagic } from '../data/classes';
@@ -924,6 +925,8 @@ export function stepBattle(s: GameState, r: Raid, rng: Rng): boolean {
     const here = pointAt(path, cum, bt.d);
     // a siege engine batters the walls, the gate and the towers in its reach rather than the people
     if (rd.cooldown <= 0 && rd.kind === 'siege_engine' && siegeBlow(s, b, rd, here, path[path.length - 1], rng)) continue;
+    // (a raider with a potion in its pouch drinks it under half health: sim/kit.ts)
+    if (rd.cooldown <= 0 && !rd.ally) raiderDrinks(s, rd);
     // blows: on the one holding it, else (a shooter) on whoever's in reach
     if (rd.cooldown <= 0) {
       let target: BattleUnit | undefined = holder;

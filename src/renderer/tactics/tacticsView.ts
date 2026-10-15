@@ -18,6 +18,8 @@ import type { Snapshot, PersonView, RaiderView } from '../../shared/sim/snapshot
 import type { TacticsView, TacTile, TacUnitView } from '../../shared/sim/tactics';
 import type { Command } from '../../shared/sim/commands';
 import { MapPeople } from '../map/mapPeople';
+import { guildBadge, guildsOf } from '../art/guildMarks';
+import type { GuildRole } from '../../shared/data/guilds';
 import { MapRaiders } from '../map/mapRaiders';
 import type { MapView } from '../map/mapView';
 import { pxFrames, sheetOf } from '../town/spellsView';
@@ -59,6 +61,19 @@ const SIDES: Partial<Record<TacTile['g'], [string, string, string]>> = {
 };
 
 const FONT = 'monospace';
+/** The guild badges as textures, one a role, made once (the boxes are redrawn often); the glyph is painted when its sheet loads. */
+const badgeTextures = new Map<string, Texture>();
+function badgeTexture(role: GuildRole): Texture {
+  let tex = badgeTextures.get(role);
+  if (!tex) {
+    const canvas = guildBadge(role, 16, undefined, () => tex?.source.update());
+    tex = Texture.from(canvas);
+    badgeTextures.set(role, tex);
+  }
+  return tex;
+}
+/** A unit box's height: a caster's mana bar takes a row more. */
+const boxHeight = (u: TacUnitView) => (!u.tower && u.mp !== null && u.mpMax ? 78 : 72);
 const style = (size: number, fill: number, bold = false, stroke = 4) => ({ fontFamily: FONT, fontSize: size, fill, fontWeight: bold ? ('bold' as const) : ('normal' as const), stroke: { color: 0x120a06, width: stroke } });
 
 /** A button on the HUD: where it is on the screen and what a tap does. */
@@ -152,6 +167,7 @@ export class TacticsScene {
   }
 
   update(next: Snapshot): void {
+    this.guilds = next.guilds;
     const t = next.tactics;
 
     this.view = t;
@@ -655,6 +671,8 @@ export class TacticsScene {
     }
   }
   private barsAt = 0;
+  /** The town's guilds (the snapshot's), for the badges in the unit boxes. */
+  private guilds: Snapshot['guilds'] = [];
 
   /** Where a shot or a spell leaves from and lands (world px): the shooter's chest, the mark's middle. */
   private shotEnds(f: TacticsView['fx'][number], to: [number, number]): [[number, number], [number, number]] {
@@ -851,7 +869,7 @@ export class TacticsScene {
     // (the target beside it upright; sideways above it, clear of the notices in the corner)
     if (other && other !== me) {
       if (up) this.unitBox(other, w - boxW - 8, boxY, boxW);
-      else this.unitBox(other, 8, boxY - 78, boxW);
+      else this.unitBox(other, 8, boxY - boxHeight(other) - 6, boxW);
     }
     // the player's orders, along the bottom
     if (t.orders) this.ordersBar(t, h - 50);
@@ -867,7 +885,8 @@ export class TacticsScene {
 
   private unitBox(u: TacUnitView, x: number, y: number, w: number): void {
     const col = u.foe ? 0x5a1a14 : u.tower ? 0x3a3a3a : 0x14284a;
-    const g = new Graphics().roundRect(0, 0, w, 72, 6).fill({ color: col, alpha: 0.92 }).stroke({ color: u.foe ? 0xe07060 : 0x8ab4f0, width: 2 });
+    const tall = boxHeight(u) - 72; // (a caster's mana bar takes a row of its own under the health: drawBars)
+    const g = new Graphics().roundRect(0, 0, w, 72 + tall, 6).fill({ color: col, alpha: 0.92 }).stroke({ color: u.foe ? 0xe07060 : 0x8ab4f0, width: 2 });
     g.position.set(x, y);
     this.hud.addChild(g);
     const name = new Text({ text: `${u.leader ? '★ ' : ''}${u.name}`, style: style(13, 0xffffff, true, 3) });
@@ -875,13 +894,23 @@ export class TacticsScene {
     const sub = new Text({ text: u.tower ? 'Tower' : `${u.title}${u.level ? ` · Lv ${u.level}` : ''}`, style: { fontFamily: FONT, fontSize: 10, fill: 0xd8d0c0 } });
     sub.position.set(x + 8, y + 22);
     this.hud.addChild(name, sub);
+    // (a guild's badge in the box's corner, for a townsperson in one)
+    if (u.key.startsWith('p')) {
+      const gs = guildsOf({ guilds: this.guilds }, u.ref);
+      if (gs.length) {
+        const badge = new Sprite(badgeTexture(gs[0].role));
+        badge.scale.set(16 / badge.texture.width);
+        badge.position.set(x + w - 22, y + 4);
+        this.hud.addChild(badge);
+      }
+    }
     if (!u.tower) {
       // (its health bar is drawn each frame, with its ghost: drawBars)
       this.boxes.push({ key: u.key, x, y, w });
       const hp = new Text({ text: u.count !== null ? `DOWN · ${u.count} turn${u.count === 1 ? '' : 's'} left` : `HP ${u.hp}/${u.max}${u.mp !== null ? ` · MP ${u.mp}/${u.mpMax}` : ''}`, style: { fontFamily: FONT, fontSize: 10, fill: u.count !== null ? 0xff8070 : 0xffffff } });
-      hp.position.set(x + 8, y + 48);
+      hp.position.set(x + 8, y + 48 + tall);
       const mv = new Text({ text: `Mv ${u.move} Jp ${u.jump} Rg ${u.reach}${u.st.length ? ` · ${u.st.slice(0, 2).join(', ')}` : ''}`, style: { fontFamily: FONT, fontSize: 10, fill: 0xc8c0e0 } });
-      mv.position.set(x + 8, y + 59);
+      mv.position.set(x + 8, y + 59 + tall);
       this.hud.addChild(hp, mv);
     }
   }

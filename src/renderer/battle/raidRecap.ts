@@ -6,6 +6,7 @@
 
 import { MATERIAL_NAMES, type Material, type Stock } from '../../shared/data/materials';
 import type { Snapshot } from '../../shared/sim/snapshot';
+import { guildMarkOrFallen } from '../art/guildMarks';
 
 const SEEN_KEY = 'littletown.recapSeen';
 
@@ -39,6 +40,8 @@ export function createRaidRecap(): RaidRecapView {
   document.body.append(box);
   let shownKey = '';
   let last: Snapshot['raidRecap'] = null;
+  /** The latest snapshot, for the badges by the names. */
+  let snap: Snapshot | null = null;
   let seen = 0;
   try {
     seen = Number(localStorage.getItem(SEEN_KEY) ?? 0) || 0;
@@ -78,6 +81,8 @@ export function createRaidRecap(): RaidRecapView {
       for (const r of c.rows) {
         const row = el('div', `rr-row${r.died ? ' died' : r.fell ? ' fell' : ''}${r.id === c.best ? ' best' : ''}`);
         const name = el('span', 'rr-name', `${r.id === c.best ? '★ ' : ''}${r.name}`);
+        const gm = snap ? guildMarkOrFallen(snap, r.id) : null;
+        if (gm) name.append(' ', gm);
         if (r.died) name.append(el('span', 'rr-mark', ' slain'));
         else if (r.fell) name.append(el('span', 'rr-mark', ' fell'));
         const xp = el('span', 'rr-xp', r.died ? '—' : `+${r.xp}`);
@@ -117,6 +122,7 @@ export function createRaidRecap(): RaidRecapView {
 
   return {
     update(s) {
+      snap = s;
       last = s.raidRecap;
       // (not over a battle still on; once a raid is over, shown once by itself)
       if (!last || s.battle || s.raid || s.tactics) {

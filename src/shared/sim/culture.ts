@@ -8,6 +8,7 @@
 // a side stream of its own ('culture'), and it draws nothing from the town's stream.
 
 import { CULTURE_FROM_DAY, DISH_FOOD_DAYS, CULTURE_TRAITS, CUSTOM_DAY, CUSTOM_HOUR, CUSTOM_MARK, DECAY, DISH_MARK, DISH_MOST, DISPLACE, FASHION_SHARE, HELD_MOST, LOSE, REMARK_DAYS, STRENGTH_MOST, TRAIT_BY_ID, WIN, dishId, type CultureSignal, type CultureTrait, type Fashion } from '../data/culture';
+import { ALIGN_SAYINGS, alignTone } from '../data/alignment';
 import { DOMAINS } from '../data/gods';
 import type { Topic } from '../data/natures';
 import { Rng, hashSeed } from '../rng';
@@ -241,6 +242,9 @@ export function cultureView(s: GameState): CultureView {
   const held = (c?.held ?? []).map((id) => TRAIT_BY_ID[id]).filter(Boolean);
   const sayings: Partial<Record<Topic, string[]>> = {};
   for (const t of held) for (const [k, v] of Object.entries(t.saying)) (sayings[k as Topic] ??= []).push(...v!);
+  // (a town of the light or the dark says so now and then: data/alignment.ts)
+  const tone = alignTone(s.align?.score ?? 0);
+  if (tone) for (const [k, v] of Object.entries(ALIGN_SAYINGS[tone])) (sayings[k as Topic] ??= []).push(...v!);
   const lead = held[0];
   return {
     held: held.map((t) => ({ id: t.id, name: t.name, cause: t.cause, strength: Math.round(c!.strength[t.id] ?? 0), custom: t.custom.name, customText: t.custom.text, season: t.custom.season, dish: t.dish.name, dishText: t.dish.text, saying: Object.values(t.saying)[0]?.[0] ?? '', prop: t.prop, sign: t.sign, since: c!.since[t.id] ?? 0 })),

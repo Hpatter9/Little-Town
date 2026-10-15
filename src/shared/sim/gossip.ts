@@ -89,6 +89,16 @@ function leaderOf(journal: readonly JournalEntry[], before: number, place: strin
   return undefined;
 }
 
+/** The whispers going round (sim/intrigue.ts `Whisper`s: what is hidden shows as rumour) as talk, the newer first. They
+ *  are read from state, never added to it; their ids run below zero so they never meet a journal entry's. */
+export function whisperGossip(whispers: readonly { tick: number; text: string }[], tick: number): Gossip[] {
+  return whispers
+    .filter((w) => tick - w.tick <= GOSSIP_HOURS * TICKS_PER_HOUR)
+    .slice(-2)
+    .reverse()
+    .map((w) => ({ id: -w.tick - 1, kind: 'whisper' as const, what: w.text }));
+}
+
 /** The news worth talking of now, newest first: the milestones of the last `GOSSIP_HOURS`, read into news, one of a
  *  kind about the same thing, at most `GOSSIP_MOST`. */
 export function townGossip(journal: readonly JournalEntry[], tick: number): Gossip[] {

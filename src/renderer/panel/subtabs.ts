@@ -81,6 +81,8 @@ const GROUPS: Record<string, MenuTabs> = {
 
 const KEY = (menu: string) => `littletown.subtab.${menu}`;
 const chosen = new Map<string, string>();
+/** The tab each menu was last drawn on (the chosen one if it was shown, else the first). */
+const effective = new Map<string, string>();
 function openTab(menu: string): string | null {
   if (chosen.has(menu)) return chosen.get(menu)!;
   try {
@@ -130,7 +132,10 @@ export function inTabs(menu: string, els: HTMLElement[], redraw: () => void, kin
     else parts.get(current)!.push(e);
   }
   const shown = cfg.groups.map(([n]) => n).filter((n) => parts.get(n)!.length);
-  if (shown.length < 2) return els;
+  if (shown.length < 2) {
+    effective.delete(menu);
+    return els;
+  }
   const want = openTab(menu);
   const open = want && shown.includes(want) ? want : shown[0];
   const row = el('div', 'row inv-tabs menu-tabs');
@@ -146,6 +151,7 @@ export function inTabs(menu: string, els: HTMLElement[], redraw: () => void, kin
     });
     row.append(b);
   }
+  effective.set(menu, open);
   const content = parts.get(open)!;
   // (the open tab's own first heading only repeats the tab's name)
   if (content[0]?.tagName === 'H2' && content[0].textContent === open) content.shift();
@@ -154,3 +160,7 @@ export function inTabs(menu: string, els: HTMLElement[], redraw: () => void, kin
 
 /** What the open tab is, for the menu's redraw key. */
 export const tabKey = (menu: string) => openTab(menu) ?? '';
+
+/** The tab a menu was last drawn on, or null before it has been drawn (or if it has no tabs): for a redraw key that leaves
+ *  out what the other tabs show. */
+export const shownTab = (menu: string): string | null => effective.get(menu) ?? null;
