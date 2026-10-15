@@ -1,6 +1,7 @@
 // Things that happen on the road (DESIGN §8): mostly settled by the party's stance, sometimes a question
 // for the player with a timer and a default.
 
+import { answerAlignPrompt } from './alignment';
 import { answerWays } from './heritage';
 import { answerEvolve } from './classes';
 import { answerWatch } from './watchAsk';
@@ -90,6 +91,7 @@ export function answerPrompt(s: GameState, id: number, option: number, rng: Rng)
   const prompt = s.prompts.find((q) => q.id === id);
   if (!prompt || option < 0 || option >= prompt.options.length) return;
   s.prompts = s.prompts.filter((q) => q !== prompt);
+  if (answerAlignPrompt(s, prompt, option)) return; // (the alignment's own questions: sim/alignment.ts)
   if (prompt.kind === 'raid') return answerRaidPrompt(s, prompt.options[option], rng);
   if (prompt.kind === 'rite') return answerRite(s, prompt.options[option]);
   if (prompt.kind === 'lich') return answerLich(s, prompt.options[option]);

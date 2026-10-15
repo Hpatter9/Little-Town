@@ -772,6 +772,9 @@ export interface Prompt {
   text: string;
   options: string[];
   defaultOption: number;
+  /** A choice event's recommended answer (what the town would pick: sim/alignment.ts) and the reason said under it. */
+  recommended?: number;
+  why?: string;
   expiresTick: number;
   /** A choice event's fuller telling (the scene, the event, more of it), its picture (a painted background, data/
    *  eventScenes.ts), and who it's about: for the full-screen event box. */
@@ -1358,6 +1361,8 @@ export interface GameState {
   nextEventTick?: number;
   /** When the last fateful event (data/fatefulEvents.ts) came. */
   lastFateful?: number;
+  /** The town's alignment, good to evil (sim/alignment.ts). */
+  align?: import('./alignment').AlignState;
   /** When a wanderer last came to the gate (arrivals are a question to the player, and come no oftener than
    *  VISIT_GAP_HOURS apart). */
   lastVisit?: number;

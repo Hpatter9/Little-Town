@@ -151,6 +151,7 @@ import { dragonDestinations, dragonView, type DragonView } from './dragon';
 import { villageBuildings, villageDestinations, villageViews, type VillageView } from './villages';
 import { interiorView, type InteriorView } from './interiors';
 import { dynastyView, type DynastyView } from './dynasty';
+import { alignView, townTitle } from './alignment';
 import { intrigueView, type IntrigueView } from './intrigue';
 import { familiesView, type FamilyLine } from './lineage';
 import { guildsView, type GuildView } from './guilds';
@@ -492,6 +493,9 @@ export interface PromptView {
   text: string;
   options: string[];
   defaultOption: number;
+  /** A choice event's recommended answer and the reason (sim/alignment.ts), or null. */
+  recommended: number | null;
+  why: string | null;
   kind: string;
   /** A choice event's fuller telling, its picture (a backdrop id) and who it's about (the full-screen event box). */
   story: string | null;
@@ -848,6 +852,8 @@ export interface Snapshot {
   seed: string;
   /** The settlement's voted name, or its origin's default until the vote. */
   townName: string;
+  /** The town's alignment title ("the Merciful"), or null (sim/alignment.ts). */
+  townTitle: string | null;
   /** The town's coins (from selling to travellers), its shop (once one's planned), and the travellers in town. */
   coins: number;
   shop: ShopView | null;
@@ -1027,6 +1033,8 @@ export interface Snapshot {
   uniques: { id: string; holder: string | null }[];
   raid: RaidView | null;
   reputation: number;
+  /** The town's alignment: the bar, its label, and the cast the town is tinted by (sim/alignment.ts). */
+  align: ReturnType<typeof alignView>;
   gameOver: { text: string; won: boolean } | null;
   /** An epic boss in a fight right now (in town first, else on an expedition): its health bar. */
   bossBar: { name: string; hp: number; maxHp: number; enraged: boolean; where: string } | null;
@@ -1193,6 +1201,7 @@ export function snapshot(s: GameState): Snapshot {
   return {
     seed: s.seed,
     townName: s.townName ?? (s.lich ? ORIGIN_DEFS.lich.town : originOf(s).town),
+    townTitle: townTitle(s),
     coins: Math.floor(s.coins ?? 0),
     shop: venueView(s, 'shop'),
     tavern: venueView(s, 'tavern'),
@@ -1373,6 +1382,8 @@ export function snapshot(s: GameState): Snapshot {
       text: p.text,
       options: [...p.options],
       defaultOption: p.defaultOption,
+      recommended: p.recommended ?? null,
+      why: p.why ?? null,
       kind: p.kind,
       story: p.story ?? null,
       picture: p.picture ?? null,
@@ -1417,6 +1428,7 @@ export function snapshot(s: GameState): Snapshot {
         }
       : null,
     reputation: s.reputation,
+    align: alignView(s),
     gameOver: s.gameOver ? { text: s.gameOver.text, won: !!s.gameOver.won } : null,
     biome: s.biome ?? 'forest',
     turnable: turnable(s),

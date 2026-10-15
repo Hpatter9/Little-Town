@@ -18,6 +18,7 @@
 // lieutenant lives, the plan is set far back; won once they are all dead, the Enemy is slain at home.
 // Only with the autopilot on; every roll is its own side stream (`enemy`).
 
+import { alignEnemyPace, alignPact, alignPacted } from './alignment';
 import {
   AGENT_CAUGHT, AGENT_CAUGHT_PER_GUARD, CALAMITY_OMEN_SHARE, AGENT_DAILY, COUNTER_TOPICS, CREEP_MOST, CREEP_PER_DAY, CREEP_START, ENEMY_CHOSEN_DAY, ENEMY_HOUR, ENEMY_KINDS,
   FAITH_FAVOUR, FAITH_SLOW, FALL_EVERY_DAYS, GREAT_ENEMIES, GUILD_PURSE, HOST_EVERY_DAYS, HOST_MOST, HOST_SHARE, LIEUTENANT_SETBACK, MARK_CHANCE, MARK_SHARE,
@@ -179,6 +180,7 @@ export function paceToday(s: GameState, e = s.greatEnemy): number {
   let pace = 1 + OUTPOST_HASTE * standing;
   for (const [topic, slow] of Object.entries(COUNTER_TOPICS)) if (s.research.done.includes(topic)) pace -= slow;
   if (faithHolds(s)) pace -= FAITH_SLOW;
+  pace += alignEnemyPace(s); // (alignment hook: a good town draws its hate first; sim/alignment.ts)
   pace += calamityPace(s); // (its nests and the wards against them: sim/calamity.ts)
   return Math.max(PACE_LEAST, Math.min(PACE_MOST, pace));
 }
@@ -212,7 +214,7 @@ function enemyDaily(s: GameState, e: GreatEnemyState, g: Rng): void {
   if (g.chance(AGENT_DAILY)) agent(s, e, g);
   if ((e.thralls?.length ?? 0) < POWERS_FALL_MOST && (e.lastFall === undefined || s.tick - e.lastFall >= FALL_EVERY_DAYS * TICKS_PER_DAY)) powerFalls(s, e, g);
   if (e.stage === 'stirring' && !s.raid && s.tick >= s.nextRaidTick - TICKS_PER_DAY && g.chance(MARK_CHANCE)) markedRaid(s, e, g);
-  if (e.stage === 'march') {
+  if (e.stage === 'march' && !alignPacted(s)) { // (alignment hook: no hosts or tribute under a pact)
     if (!s.raid && living(e).length && (e.lastHost === undefined || s.tick - e.lastHost >= HOST_EVERY_DAYS * TICKS_PER_DAY)) host(s, e, g);
     if (!s.prompts.some((p) => p.kind === 'enemy') && (e.lastTribute === undefined || s.tick - e.lastTribute >= TRIBUTE_EVERY_DAYS * TICKS_PER_DAY)) demand(s, e);
   }
@@ -545,6 +547,7 @@ export function enemyPlaceCleared(s: GameState, id: string): void {
 /* ------------------------------------------------------------ the last siege */
 
 function warnSiege(s: GameState, e: GreatEnemyState): void {
+  if (alignPact(s)) return; // (alignment hook: a dark town may be offered a pact instead; sim/alignment.ts)
   e.siegeAt = s.tick + SIEGE_WARNING_HOURS * TICKS_PER_HOUR;
   setStage(s, e, 'siege');
   notify(s, `${capital(enemyDef(e).name)} is coming with its whole host. It will be at the gate within a day and a half.`, true);

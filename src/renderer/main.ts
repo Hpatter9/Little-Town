@@ -657,6 +657,7 @@ async function start(): Promise<void> {
       theme: n.theme,
       gathering: n.gathering?.kind ?? null,
       biome: n.biome,
+      align: n.align?.score,
     });
   (window as unknown as { __music: typeof music }).__music = music;
   // the land's soundscape, on with the music (ambience.ts)
@@ -1674,6 +1675,7 @@ async function start(): Promise<void> {
     lightMap.sync(next);
     map.realLight = lightMap.active;
     map.setDaylight(next.calendar.daylight * (1 - gloom), freeze);
+    map.setCast(next.align.cast);
     lightDaylight = next.calendar.daylight * (1 - gloom);
     map.setSun(next.calendar.hour + next.calendar.minute / 60, next.calendar.daylight * (1 - gloom));
     people.sunLean = Math.round(sunAt(next.calendar.hour + next.calendar.minute / 60, 1).skew * 5);
@@ -1881,6 +1883,7 @@ async function start(): Promise<void> {
     }), `${next.buildings.length}`);
     lamps.sync(next.land, next.era, next.lights ? next.lights.lights.filter((l) => l.room === null) : null);
     lamps.setDaylight(next.calendar.daylight);
+    lamps.setCast(next.align.cast);
     lamps.calm = map.calm;
     critters.sync(next, lamps.litGlows());
     critters.folk = birds.folk;
