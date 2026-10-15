@@ -166,7 +166,7 @@ export const ORIGIN_DEFS: Record<OriginId, OriginDef> = {
     town: 'Chronos Harbour',
     description: 'Merfolk of the shore. Half their land is the sea: they swim it, fish it for fish, kelp and pearls, and build their homes in the shallows. Ships bring far more travellers; so do pirates.',
     features: ['Always on the coast: the south half of the land is sea, with shallows along the shore', 'Everyone swims; homes, the seat and the defences stand in the water', 'The sea gives fish, kelp and pearls, and gives again each dawn', 'Foraging 50% faster; travellers come half again as often', 'Pirates come more; fields grow slower', 'Spells: Tide Call, Whirlpool, Sea Fog', 'Heritage begins with Net Weaving'],
-    start: { companions: ['gatherer'], stores: { berries: 20, meat: 6 }, research: ['foraging', 'net_weaving'] },
+    start: { companions: ['gatherer', 'hunter'], stores: { berries: 20, meat: 6 }, research: ['foraging', 'net_weaving'] },
     rules: { forage: 1.5, crops: 0.8, travellers: 1.5, raids: { pirates: 2 }, shape: 'sea' },
     powers: ['tide_call', 'whirlpool', 'sea_fog'],
   },

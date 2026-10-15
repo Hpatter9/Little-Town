@@ -629,6 +629,7 @@ export function launchHost(s: GameState, f: Faction, rng: Rng): Raid | null {
   const kind = RAID_KIND_BY_ID[raidOf(s, f)];
   if (!kind) return null;
   const r = startRaid(s, kind, h.size * 20, rng, undefined, { ...hostMakeup(s, f, h.size, h), host: f.id });
+  if (h.siege) r.warSiege = true; // (a siege is fought out, not left on the clock: sim/tactics.ts)
   notify(s, `The war host of ${d.name} is here: ${r.raiders.filter((rd) => !rd.ally).length} strong!`, true);
   return r;
 }

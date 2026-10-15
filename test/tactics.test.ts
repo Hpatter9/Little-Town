@@ -268,3 +268,59 @@ test('traps are laid out on the field the raiders cross, a different spread each
   assert.notDeepEqual(spread(2), a, 'another battle, another spread');
   assert.deepEqual(spread(1), a, 'the same battle replays the same');
 });
+
+import { PRESS_MAX, raidersWinning } from '../src/shared/sim/tactics';
+import { CAUGHT_OUT, caughtOut } from '../src/shared/sim/raids';
+
+test('a raid still winning when its clock runs out presses on, an hour at a time up to a limit; a losing one routs on the clock', () => {
+  const win = boardNow('tac-press', 7);
+  for (const rd of win.r.raiders) rd.hp = rd.maxHp = 100000;
+  assert.ok(raidersWinning(win.s, win.r, win.t), 'the raiders hold the field');
+  win.r.leavesTick = win.s.tick;
+  run(win.s, win.rng, 1);
+  assert.equal(win.t.pressed, 1, 'it presses on');
+  assert.ok(win.r.leavesTick >= win.s.tick + 590, 'with another hour');
+  win.t.pressed = PRESS_MAX;
+  win.r.leavesTick = win.s.tick;
+  const clock = win.r.leavesTick;
+  run(win.s, win.rng, 1);
+  assert.equal(win.r.leavesTick, clock, 'but only so many hours');
+  const small = boardNow('tac-small', 4);
+  for (const rd of small.r.raiders) rd.hp = rd.maxHp = 100000;
+  assert.ok(!raidersWinning(small.s, small.r, small.t), 'a town of fewer than PRESS_FIGHTERS has no margin: its raid routs on the clock');
+  const lose = boardNow('tac-rout', 7);
+  for (const rd of lose.r.raiders) rd.hp = 1;
+  assert.ok(!raidersWinning(lose.s, lose.r, lose.t), 'the town holds it');
+  lose.r.leavesTick = lose.s.tick;
+  run(lose.s, lose.rng, 1);
+  assert.equal(lose.t.pressed, undefined, 'a losing raid is not given more time');
+});
+
+test('some of those sheltering are always caught out, the same ones all through the raid, never a child or the founder', () => {
+  const s = plainGame('caught');
+  const r = startRaid(s, RAID_KIND_BY_ID.bandits, 30, new Rng(2));
+  const folk: ReturnType<typeof makePerson>[] = [];
+  for (let i = 0; i < 400; i++) folk.push(makePerson(new Rng(i + 1), s.nextId++, 'hunter', s.people[0], []));
+  const caught = folk.filter((p) => caughtOut(s, p));
+  assert.ok(Math.abs(caught.length / folk.length - CAUGHT_OUT) < 0.04, `${caught.length} of ${folk.length}`);
+  assert.deepEqual(folk.filter((p) => caughtOut(s, p)).map((p) => p.id), caught.map((p) => p.id), 'fixed by the raid and the person');
+  assert.ok(!caughtOut(s, s.people[0]) && !folk.some((p) => ((p.type = 'child'), caughtOut(s, p))), 'not the founder, not children');
+  s.raid = null;
+  assert.ok(!caughtOut(s, caught[0]), 'no raid, nobody caught out');
+  void r;
+});
+
+import { SIEGE_MAX_HOURS } from '../src/shared/sim/tactics';
+
+test('the Enemy\'s last siege is fought out: its clock never draws it off the field while the field is held, up to a limit', () => {
+  const sg = boardNow('tac-siege', 4);
+  sg.r.enemy = 'siege';
+  sg.r.arrivesTick = sg.s.tick;
+  sg.r.leavesTick = sg.s.tick;
+  run(sg.s, sg.rng, 1);
+  assert.ok(sg.r.leavesTick > sg.s.tick, 'the clock is pushed on');
+  sg.r.arrivesTick = sg.s.tick - SIEGE_MAX_HOURS * 600;
+  sg.r.leavesTick = sg.s.tick;
+  run(sg.s, sg.rng, 1);
+  assert.ok(sg.r.leavesTick <= sg.s.tick, 'after the limit it ends like any raid');
+});

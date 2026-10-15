@@ -74,7 +74,7 @@ import {
   MAGE_PER_LEVEL,
   MAGE_SPLASH,
 } from '../data/raids';
-import type { Rng } from '../rng';
+import { hashSeed, mixSeed, type Rng } from '../rng';
 import { buildingCentre, buildingDoor, defOf, depositNear, storages, totalStock } from './buildings';
 import { CELL, type Pt } from './land';
 import { seaTown } from './sea';
@@ -410,7 +410,16 @@ function takeFood(s: GameState, units: number): boolean {
 
 /* ------------------------------------------------------------ the raid itself */
 
-/** Anyone raiders can see and reach: in town, standing, and not hidden in a bed. */
+/** The share of those sheltering (grown, not fighting) who are caught out: at the well, with the beasts, a door too
+ *  far: they never get under a roof while the raid is in town. Who they are is fixed by the raid and the person, so it
+ *  draws nothing from any stream. */
+export const CAUGHT_OUT = 0.1;
+export function caughtOut(s: GameState, p: Person): boolean {
+  if (!s.raid || p.type === 'child' || p.id === s.mainId) return false;
+  return (mixSeed(hashSeed(s.seed), s.raid.id, p.id) >>> 0) % 1000 < CAUGHT_OUT * 1000;
+}
+
+/** Anyone raiders can see and reach: in town, standing, and not hidden in a bed (those caught out never get to one). */
 function exposed(p: Person, raidKind?: string): boolean {
   if (p.away !== null || p.downed) return false;
   if (raidKind === 'zombies' && p.monster === 'undead') return false; // (the dead pass the undead by)

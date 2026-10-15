@@ -432,6 +432,8 @@ export interface Raid {
   /** One of the Great Enemy's raids (sim/greatEnemy.ts): bearing its mark, a host led by a lieutenant (which), or the
    *  last siege. */
   enemy?: 'mark' | 'host' | 'siege';
+  /** A realm power's siege host (sim/war/siege.ts): fought out like the Enemy's last siege, not left on the clock. */
+  warSiege?: boolean;
   enemyLt?: number;
   /** Fallen raiders raised by necromancers this raid, and when a Beast Tamer can tame again. */
   raised?: number;

@@ -294,6 +294,21 @@ export const caravansAllowed = (s: GameState) => CARAVANS_BASE + houseLevel(s);
 /** The treasury less what is owed the guilds: what the empire may spend. */
 const spare = (s: GameState, e: EmpireState) => (s.coins ?? 0) - e.deals.reduce((n, d) => n + (d.kind === 'loan' ? (d.owed ?? 0) : 0), 0);
 const adultsHome = (s: GameState) => s.people.filter((p) => p.away === null && p.type !== 'child' && p.id !== s.mainId);
+/** Who goes, `n` of `adults`, in `by` order: those with no partner at home first, then whole couples together (a couple
+ *  split by the road has no children, and the partner at home is no help to the family loop in sim/social.ts either: two
+ *  couples are held back instead of one), and a half couple only to make up the number. */
+function sparest(adults: Person[], n: number, by: (a: Person, b: Person) => number): Person[] {
+  const mate = (p: Person) => adults.find((q) => q.id === p.partner && q !== p);
+  const sorted = [...adults].sort(by);
+  const out: Person[] = sorted.filter((p) => !mate(p)).slice(0, n);
+  for (const p of sorted) {
+    const q = mate(p);
+    if (out.length + 2 > n) break;
+    if (q && !out.includes(p) && !out.includes(q)) out.push(p, q);
+  }
+  for (const p of sorted) if (out.length < n && !out.includes(p)) out.push(p);
+  return out;
+}
 
 /* ------------------------------------------------------------ the posts */
 
@@ -313,10 +328,7 @@ function foundPost(s: GameState, e: EmpireState): void {
   const site = sites[0]?.q;
   if (!site) return;
   // the folk who go: the best talkers of those the town can spare
-  const folk = adults
-    .filter((p) => p.hp > 0 && !p.downed)
-    .sort((a, b) => b.skills.social.level - a.skills.social.level || a.id - b.id)
-    .slice(0, POST_FOLK);
+  const folk = sparest(adults.filter((p) => p.hp > 0 && !p.downed), POST_FOLK, (a, b) => b.skills.social.level - a.skills.social.level || a.id - b.id);
   if (folk.length < POST_FOLK) return;
   s.coins = (s.coins ?? 0) - POST_COINS;
   earn(s, 'trade', -POST_COINS);
@@ -540,7 +552,7 @@ function dispatch(s: GameState, e: EmpireState): void {
 function launch(s: GameState, e: EmpireState, pl: Plan, adults: Person[]): void {
   const rng = roll(s, 'caravan');
   const ship = pl.posts.some((p) => p.sea);
-  const drivers = adults.sort((a, b) => a.id - b.id).slice(0, DRIVERS);
+  const drivers = sparest(adults, DRIVERS, (a, b) => a.id - b.id);
   for (const [m, n] of Object.entries(pl.out) as [Material, number][]) {
     takeFromStorage(s, m, n);
     noteFlow(s, m, n);

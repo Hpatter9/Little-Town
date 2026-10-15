@@ -179,6 +179,8 @@ export interface Tactics {
   banner?: { text: string; tick: number; kind: 'start' | 'wave' | 'leader' | 'win' | 'lose' | 'lost' };
   /** The ending, once there is one. */
   outcome?: 'won' | 'lost' | 'fled';
+  /** Hours added to the raid's clock because the raiders were winning (`PRESS_MAX` at most). */
+  pressed?: number;
 }
 
 /* ------------------------------------------------------------ tuning */
@@ -214,6 +216,18 @@ function guardOf(t: Tactics): number {
 }
 /** How long past its leaving time a raid may hold the field before its last raiders slip away. */
 const STALL_TICKS = 2 * TICKS_PER_HOUR;
+/** A raid that is still winning when its clock runs out presses on, an hour at a time, up to `PRESS_MAX` times: it is
+ *  winning while the raiders left (on the board and waiting) hold `PRESS_RATIO` or more of the health the town's
+ *  standing fighters have. A losing raid routs on the clock as before. */
+export const PRESS_MAX = 2;
+export const PRESS_RATIO = 2;
+/** A town with fewer fighters than this on the board has no margin to lose: its raids rout on the clock as they always did
+ *  (soaks of a founding town's first weeks: a few folk, a bear that wins, and the town is gone). */
+export const PRESS_FIGHTERS = 6;
+/** Turns come one at a time, about 11 game ticks each, so a board of many units takes hours before the two sides have even
+ *  met: a siege of 57 raiders against 43 fighters saw nothing fall for eleven hours, and the raid's clock ended it with its
+ *  leader (who comes on last) still unstruck. The Enemy's last siege is therefore fought out, up to this many hours. */
+export const SIEGE_MAX_HOURS = 72;
 /** A raider breaks below this share of its health (not a boss). */
 const ROUT = 0.15;
 /** Trees turn this share of blows aside; rain and night this much more of shots. */
@@ -789,6 +803,17 @@ export function stepTactics(s: GameState, r: Raid, rng: Rng): boolean {
   const t = r.tactics;
   if (!t || t.phase === 'done') return false;
   tidy(s, r, t, rng);
+  // (the raid's clock runs out while the raiders are winning: they press on instead of leaving; a siege never draws off)
+  if (s.tick >= r.leavesTick) {
+    if (r.enemy === 'siege' || r.warSiege) { // (and a realm power's siege: sim/war/siege.ts)
+      // (the Enemy's last siege is fought out, whoever is ahead: its host does not draw off on a clock while the field is
+      // held, or its leader would come on last and never be struck at; at most `SIEGE_MAX_HOURS`)
+      if (s.tick < r.arrivesTick + SIEGE_MAX_HOURS * TICKS_PER_HOUR) r.leavesTick = s.tick + TICKS_PER_HOUR;
+    } else if ((t.pressed ?? 0) < PRESS_MAX && raidersWinning(s, r, t)) {
+      r.leavesTick = s.tick + TICKS_PER_HOUR;
+      t.pressed = (t.pressed ?? 0) + 1;
+    }
+  }
   // (a raider still on the field long after its raid should have left, shut in some corner nobody can reach, slips away)
   if (s.tick >= r.leavesTick + STALL_TICKS) {
     for (const rd of r.raiders) if (!rd.ally && !rd.down && !rd.gone) rd.gone = true;
@@ -841,6 +866,21 @@ export function stepTactics(s: GameState, r: Raid, rng: Rng): boolean {
   beginTurn(s, r, t, me, stats.get(me.key)!, rng);
   syncPlaces(s, r, t);
   return true;
+}
+
+/** Whether the raiders have the better of it: the health of those left of them against the town's standing fighters'. */
+export function raidersWinning(s: GameState, r: Raid, t: Tactics): boolean {
+  let town = 0;
+  let standing = 0;
+  for (const u of t.units) {
+    if (u.foe || u.key[0] === 't' || u.count !== undefined) continue;
+    town += personOf(s, u.key)?.hp ?? raiderOf(r, u.key)?.hp ?? 0;
+    standing++;
+  }
+  if (standing < PRESS_FIGHTERS) return false;
+  let foe = 0;
+  for (const rd of r.raiders) if (!rd.ally && !rd.down && !rd.gone) foe += rd.hp;
+  return foe > 0 && foe >= town * PRESS_RATIO;
 }
 
 /** The fallen and the gone off the board (a townsperson struck down lies there with their count); raiders who joined
