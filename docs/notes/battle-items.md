@@ -25,12 +25,15 @@ action in any fight. New files: `data/kitItems.ts` (the items), `sim/kit.ts` (ha
   `pickKitItem`: a potion under `HEAL_BELOW` (0.5) of health (the smallest that mends 60% of what is missing, else the
   strongest); an antidote while poisoned, burning or bleeding; a draught when the caster has less mana than their cheapest
   spell or under `DRY_SHARE` (0.3); smoke under `ESCAPE_BELOW` (0.3) with foes about; a charm, whetstone or stim at the
-  start (a status they don't have yet); a thrown knife or flask `THROW_CHANCE` (0.4) of turns. The item is taken from the
-  pouch, applied through the same engine as a skill (`useItemAction`, `ActMeta.item`), and logged by name so the views show
-  it like a spell (`actLooks.ts`, `fightView.ts` and `actFx.ts` look the name up in `KIT_BY_ID`/`KIT_FX`).
+  start (a status they don't have yet); a thrown knife or flask `THROW_CHANCE` (0.5) of turns, and only one that hits at
+  least `THROW_BEATS` (1.2) times as hard as their own blow. **A drink or a buff is a quick action** (`useKitItem` returns
+  `'quick'`: they still act that turn); a throw takes the turn (`'turn'`). **No drink or smoke when one blow of theirs would
+  end the fight** (one foe left at or under their average hit). The item is taken from the pouch, applied through the same
+  engine as a skill (`useItemAction`, `ActMeta.item`), and logged by name so the views show it like a spell (`actLooks.ts`,
+  `fightView.ts` and `actFx.ts` look the name up in `KIT_BY_ID`/`KIT_FX`).
 - **Side stream:** the only draw is `new Rng(hashSeed(`kit:${tick}:${who}:${bagSize}`))` (the arena has no town seed), and
   the town's stream is never touched; the fight's own stream is drawn from only when an item is used.
 - **Raider loot:** `raiderPotions` (at the end of a raid, `raids.ts`): each fallen raider of the people kinds
   (`natureOf` = person) has `RAIDER_POTION` (0.12) of leaving a potion (a fifth of them Greater), into the stores.
-- **The card** lists the pouch: `PersonView.pouch`/`pouchCap`, a line under the age text in the Townsfolk tab (in its key).
+- **The card** lists the pouch: `PersonView.pouch`/`pouchCap`, a line in the top block of the person's card in the Townsfolk tab (in its key).
 - Not done (design calls): buying them in the shop with a person's own coins; raiders drinking their potions in the fight.
