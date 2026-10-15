@@ -50,6 +50,7 @@ export const townsfolkKey = (s: Snapshot) => {
     s.housing.beds <= s.housing.people,
     s.prisoners.map((p) => [p.id, Math.floor(p.conviction * 20), p.hungry]),
     s.families.map((f) => [f.root, f.members.length, f.living, f.renown, f.blackSheep.length, f.members.map((m) => m.master).join()]),
+    s.dynasty && [s.dynasty.ruling?.root, s.dynasty.ruling?.stage, Math.round((s.dynasty.ruling?.strength ?? 0) / 5), s.dynasty.ruling?.heir, s.dynasty.ruling?.crisis, s.dynasty.feuds.map((f) => [f.aRoot, f.bRoot, Math.round(f.heat / 10), !!f.ended]), s.dynasty.bonds.length, s.dynasty.heirlooms.map((l) => [l.item, l.holder, !!l.lost, l.story.length]), s.dynasty.log.length],
     s.guilds.map((g) => [g.id, g.name, g.leader?.id, g.members.map((m) => [m.id, m.level]), g.log[0]]),
     s.turnable,
     confirmTurn,

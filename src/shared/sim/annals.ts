@@ -16,6 +16,7 @@ import { weatherAt } from './weather';
 import { seaTown } from './sea';
 import { notify, type GameState, type Person, type Prompt } from './state';
 import { honour } from './memorials';
+import { dynastyYearLines } from './dynasty';
 import { topicName } from '../data/originResearch';
 
 /** Midwinter: the middle day of winter, of an evening. */
@@ -176,6 +177,7 @@ export function writeChronicle(s: GameState): Chronicle {
   if (sagas.length) lines.push(`${sagas.length === 1 ? 'A tale was' : `${sagas.length} tales were`} brought to an end.`);
   const uniques = (s.uniques ?? []).length - y.uniques;
   if (uniques > 0) lines.push(`${uniques === 1 ? 'A treasure of legend was' : `${uniques} treasures of legend were`} won.`);
+  lines.push(...dynastyYearLines(s, y.tick)); // (the houses' year: feuds, the ruling house, heirlooms: sim/dynasty.ts)
   lines.push(lost.length > (r.came ? 2 : 1) ? 'It was a hard year. May the next be kinder.' : born.length + came.length > lost.length ? 'The town grows. May the next year be as kind.' : 'The fires are banked for winter, and the town waits on the spring.');
   const c: Chronicle = { year: cal.year, day: cal.day, title: `The chronicle of Year ${cal.year}`, lines };
   (s.chronicles ??= []).push(c);

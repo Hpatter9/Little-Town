@@ -3,6 +3,7 @@
 // generation, the line's founders at the top, each member a chip (the living bright, the dead with a cross, a child
 // small, a black sheep marked), lines drawn from parents to children. Tapping a living member opens them.
 
+import type { DynastyView } from '../../shared/sim/dynasty';
 import type { FamilyLine, KinNode } from '../../shared/sim/lineage';
 import type { Snapshot } from '../../shared/sim/snapshot';
 import { el } from './dom';
@@ -61,18 +62,67 @@ function tree(line: FamilyLine, open: (id: number) => void): HTMLElement {
   return box;
 }
 
+/** The ruling house, its feuds and friendships, and the heirlooms (sim/dynasty.ts): what the family trees below mean. */
+function dynastyBlocks(d: DynastyView): HTMLElement[] {
+  const out: HTMLElement[] = [];
+  const r = d.ruling;
+  if (r) {
+    const c = el('div', `card dynasty ${r.stage}`);
+    const top = el('div', 'card-top');
+    top.append(el('span', 'card-name', `♛ ${r.name}`), el('span', 'card-size', r.stageText));
+    c.append(top, el('div', 'hint', `Rules since day ${r.since} · strength ${r.strength} (best ${r.peak}) · ${r.living} living${r.head ? ` · led by ${r.head}` : ''}${r.heir ? ` · heir ${r.heir}` : ' · no heir'}`));
+    if (r.crisis) c.append(el('div', 'hint warn', `Crisis: ${r.crisis}.`));
+    if (r.scandal) c.append(el('div', 'hint warn', 'A scandal clings to the house.'));
+    if (r.challenger) c.append(el('div', 'hint', `The ${r.challenger} is growing past it.`));
+    out.push(
+      expandable(c, 'dynasty:ruling', () => [
+        ...d.past.map((p) => `${p.name}: days ${p.from}-${p.to}, ${p.fate}.`),
+        ...d.log.slice(-8).map((e) => `Day ${e.day}: ${e.text}`),
+      ]),
+    );
+  }
+  const live = d.feuds.filter((f) => !f.ended);
+  if (live.length || d.bonds.length) {
+    const c = el('div', 'card');
+    c.append(el('div', 'card-name', 'Feuds and friendships'));
+    for (const f of live) c.append(el('div', 'hint', `⚔ ${f.a} and ${f.b}: ${f.why} (day ${f.since}, heat ${f.heat}).`));
+    for (const f of d.feuds.filter((x) => x.ended).slice(-3)) c.append(el('div', 'hint', `✓ ${f.a} and ${f.b}: ended by ${f.ended!.how} (day ${f.ended!.day}).`));
+    for (const b of d.bonds) c.append(el('div', 'hint', `♥ ${b.a} and ${b.b}: ${b.why}.`));
+    out.push(c);
+  }
+  for (const l of d.heirlooms) {
+    const c = el('div', `card heirloom${l.lost ? ' lost' : ''}`);
+    const top = el('div', 'card-top');
+    top.append(el('span', 'card-name', `◆ ${l.item}`), el('span', 'card-size', l.lost ? 'lost' : l.holder ? `carried by ${l.holder}` : 'in the family chest'));
+    c.append(top, el('div', 'hint', `Of the ${l.house} · ${l.carried} generation${l.carried === 1 ? '' : 's'} passed${l.lost ? ` · lost: ${l.lost}` : ''}`));
+    out.push(expandable(c, `heirloom:${l.item}`, () => l.story));
+  }
+  return out;
+}
+
 export function familiesSection(s: Snapshot, open: (id: number) => void): HTMLElement[] {
   const out: HTMLElement[] = [el('h2', '', 'Families')];
   out.push(el('div', 'hint', 'The town\'s families and how they branch. Children go to lessons of a morning and learn a trade at a master\'s side of an afternoon; they take after their parents, and carry their grudges. When someone dies their home and purse go to their heir. A line grows famous by its deeds, and every family has its black sheep.'));
+  if (s.dynasty) out.push(...dynastyBlocks(s.dynasty));
   if (!s.families.length) {
     out.push(el('p', 'empty', 'No families yet: the first child born in town begins one.'));
     return out;
   }
+  const tags = (root: number) => {
+    const d = s.dynasty;
+    if (!d) return '';
+    return [
+      d.ruling?.root === root ? '♛' : '',
+      d.feuds.some((f) => !f.ended && (f.aRoot === root || f.bRoot === root)) ? '⚔' : '',
+      d.bonds.some((b) => b.aRoot === root || b.bRoot === root) ? '♥' : '',
+      d.heirlooms.some((l) => l.houseRoot === root && !l.lost) ? '◆' : '',
+    ].filter(Boolean).join('');
+  };
   for (const line of s.families) {
     const c = el('div', `card family${line.famous ? ' famous' : ''}`);
     const top = el('div', 'card-top');
     const title = line.name.charAt(0).toUpperCase() + line.name.slice(1);
-    top.append(el('span', 'card-name', `${line.famous ? '★ ' : ''}${title}`), el('span', 'card-size', `${line.living} living · ${line.generations} generation${line.generations > 1 ? 's' : ''}`));
+    top.append(el('span', 'card-name', `${line.famous ? '★ ' : ''}${title}${tags(line.root) ? ` ${tags(line.root)}` : ''}`), el('span', 'card-size', `${line.living} living · ${line.generations} generation${line.generations > 1 ? 's' : ''}`));
     c.append(top, el('div', 'hint', `Renown ${line.renown}${line.famous ? ' · a famous line' : ''}${line.blackSheep.length ? ` · black sheep: ${line.blackSheep.join(', ')}` : ''}`));
     out.push(
       expandable(c, `family:${line.root}`, () => [

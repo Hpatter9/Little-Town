@@ -1456,7 +1456,7 @@
         display: block;
         margin-bottom: 2px;
       }
-      /* (many kinds of foe, or a short sideways screen: one line each, the name then the life bar) */
+      /* (more than three foes, or a short sideways screen: one line each, the name, its turn gauge, then the life bar) */
       .ff-foes.crowd .ff-foe {
         display: flex;
         align-items: center;
@@ -1466,9 +1466,6 @@
       .ff-foes.crowd .ff-foe .ff-head {
         flex: 0 0 44%;
         min-width: 0;
-      }
-      .ff-foes.crowd .ff-foe .ff-turnwrap {
-        display: none;
       }
       .ff-foes.crowd .ff-foe .ff-meter {
         flex: 1 1 auto;
@@ -1480,6 +1477,28 @@
       }
       .ff-foes.crowd .ff-gauge {
         height: 9px;
+      }
+      /* (more than six foes: smaller text, no turn gauge, and thinner bars with smaller numbers) */
+      .ff-foes.tight {
+        font-size: 11px;
+      }
+      .ff-foes.tight .ff-foe .ff-turnwrap {
+        display: none;
+      }
+      .ff-foes.tight .ff-foe .ff-head {
+        flex: 0 0 52%;
+      }
+      .ff-foes.tight .ff-gauge {
+        height: 7px;
+      }
+      .ff-foes.tight .ff-gauge b {
+        font-size: 8px;
+        line-height: 5px;
+      }
+      /* (more than ten foes: the list scrolls inside its window, so the bottom stays above the fighters' feet) */
+      .ff-foes.packed {
+        max-height: 36vh;
+        overflow-y: auto;
       }
       #prompt {
         position: absolute;
