@@ -114,7 +114,7 @@ export const DOINGS: Record<string, string> = {
   drink: 'at the tavern', eat: 'eating', idle: 'idling about', play: 'playing', tag: 'playing tag', splash: 'jumping in puddles',
   eaves: 'sheltering from the rain', pigeons: 'feeding the pigeons', riverside: 'sitting by the water', busk: 'playing music in the square',
   sit: 'sitting by the fire', stroll: 'out walking', market: 'at the market', well: 'fetching water', carry: 'fetching water',
-  rounds: 'going the rounds of the sick', lesson: 'at my lessons', apprentice: 'learning a trade', protest: 'on strike',
+  rounds: 'going the rounds of the sick', lesson: 'at my lessons', apprentice: 'learning a trade', protest: 'on strike', officiate: 'keeping the dawn rite at the altar',
   pave: 'laying the street', light: 'tending the lamps', fire: 'fighting a fire', toil: 'at the town\'s work', away: 'away from town',
   feast: 'at the feast', wedding: 'at the wedding', funeral: 'at the funeral', great_funeral: 'at the burying', rite: 'at the rite',
   shelter: 'hiding from raiders', pray: 'at prayer', mineshaft: 'down the mine', patrol: 'patrolling', craft: 'at my craft',

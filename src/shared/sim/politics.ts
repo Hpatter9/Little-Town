@@ -354,7 +354,7 @@ export function crime(s: GameState, rng: Rng): void {
   const total = pool.reduce((n, p) => n + weight(p), 0);
   let r = rng.next() * total;
   const culprit = pool.find((p) => (r -= weight(p)) <= 0) ?? pool[0];
-  let kind = rng.weighted({ ...CRIMES }) as CrimeKind;
+  let kind = rng.weighted({ ...CRIMES }) as Exclude<CrimeKind, 'heresy'>;
   const enemies = enemiesOf(s, culprit).filter((e) => e.away === null && !e.downed);
   if (kind === 'murder' && !enemies.length) kind = 'assault';
   const others = grown.filter((p) => p !== culprit && !p.downed);
@@ -404,27 +404,28 @@ export function crime(s: GameState, rng: Rng): void {
 export function trial(s: GameState, culprit: Person, crime: CrimeKind, what: string, victim?: Person): void {
   const pol = politicsOf(s);
   blackSheep(s, culprit, what); // (the family's black sheep: sim/lineage.ts)
-  const options: Sentence[] = crime === 'murder' ? ['pardon', 'stocks', 'exile', 'hang'] : ['pardon', 'fine', 'stocks', 'exile'];
+  const options: Sentence[] = crime === 'murder' || crime === 'heresy' ? ['pardon', 'stocks', 'exile', 'hang'] : ['pardon', 'fine', 'stocks', 'exile'];
   const harsh = lawOn(s, 'harsh_law');
-  const def: Sentence = crime === 'murder' ? (harsh ? 'hang' : 'exile') : crime === 'theft' ? (harsh ? 'stocks' : 'fine') : crime === 'assault' ? (harsh ? 'exile' : 'stocks') : 'fine';
+  const def: Sentence = crime === 'murder' ? (harsh ? 'hang' : 'exile') : crime === 'heresy' ? (harsh ? 'exile' : 'stocks') : crime === 'theft' ? (harsh ? 'stocks' : 'fine') : crime === 'assault' ? (harsh ? 'exile' : 'stocks') : 'fine';
+  const heresy = crime === 'heresy'; // (a heresy trial: sim/religion.ts)
   const cal = calendar(s.tick);
   const prompt: Prompt = {
     id: s.nextId++,
     kind: 'trial',
     expedition: null,
     title: `The trial of ${culprit.name}`,
-    text: `${culprit.name} ${what}, and was caught. The town waits for the sentence.`,
+    text: heresy ? `${culprit.name} ${what}. The town waits for the sentence.` : `${culprit.name} ${what}, and was caught. The town waits for the sentence.`,
     options: options.map((o) => SENTENCES[SENTENCE_OF.indexOf(o)]),
     defaultOption: options.indexOf(def),
     expiresTick: s.tick + TRIAL_HOURS * TICKS_PER_HOUR,
-    story: `In the night ${culprit.name} ${what}, and was caught at it. In the morning the whole town crowds in to see them judged.\n\n${culprit.name} is ${natureOf(culprit).name.toLowerCase()}, ${(culprit.coins ?? 0) < POOR_COINS ? 'poor' : 'not poor'}, and ${culprit.morale < 40 ? 'has been unhappy a long while' : 'had no great grievance anyone knew of'}. The devout ask for mercy; the soldiers for an example.${harsh ? ' The law of the town is harsh.' : ''}`,
+    story: heresy ? `${culprit.name} ${what}, and stands before the town accused of heresy. ${culprit.name} is ${natureOf(culprit).name.toLowerCase()}. The zealots want an example made; the gentler devout ask for mercy.${harsh ? ' The law of the town is harsh.' : ''}` : `In the night ${culprit.name} ${what}, and was caught at it. In the morning the whole town crowds in to see them judged.\n\n${culprit.name} is ${natureOf(culprit).name.toLowerCase()}, ${(culprit.coins ?? 0) < POOR_COINS ? 'poor' : 'not poor'}, and ${culprit.morale < 40 ? 'has been unhappy a long while' : 'had no great grievance anyone knew of'}. The devout ask for mercy; the soldiers for an example.${harsh ? ' The law of the town is harsh.' : ''}`,
     picture: eventPicture(`trial:${s.tick}`, 'crime law court justice crowd', { hour: cal.hour, season: cal.season, weather: weatherAt(s.seed, s.tick, null).kind, biome: s.biome ?? 'forest', era: s.era, sea: seaTown(s) }),
     who: culprit.id,
     politics: 'trial',
   };
   s.prompts.push(prompt);
   pol.trial = { prompt: prompt.id, who: culprit.id, crime, what, options, victim: victim?.id };
-  log(s, 'crime', `${culprit.name} ${what}, and was caught. A trial is called.`, true);
+  log(s, 'crime', heresy ? `${culprit.name} ${what}. A heresy trial is called.` : `${culprit.name} ${what}, and was caught. A trial is called.`, true);
 }
 
 function sentence(s: GameState, option: number, rng: Rng): void {

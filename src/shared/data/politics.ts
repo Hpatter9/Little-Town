@@ -97,7 +97,8 @@ export const CAUGHT_MOST = 0.9;
 export const POOR_COINS = 8;
 /** The crimes and their weights; a murder needs an enemy. */
 export const CRIMES = { theft: 6, assault: 3, vandalism: 2, murder: 1 } as const;
-export type CrimeKind = keyof typeof CRIMES;
+/** (heresy is never rolled as a crime: the zealots bring it, sim/religion.ts) */
+export type CrimeKind = keyof typeof CRIMES | 'heresy';
 /** The natures more given to crime. */
 export const CRIMINAL_NATURES: readonly NatureId[] = ['greedy', 'grumpy', 'restless', 'proud'];
 export const TRIAL_HOURS = 8;

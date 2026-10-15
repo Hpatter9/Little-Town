@@ -14,6 +14,7 @@ import { FRIEND, RIVAL } from '../data/social';
 import { gossipLine, sayingOf, townGossip, type Gossip } from './gossip';
 import { isChild, opinion } from './social';
 import { mood } from './townsfolk';
+import { faithDiaryLine } from './religion';
 import { tireless, type GameState, type Person } from './state';
 import { calendar, TICKS_PER_HOUR, type Season } from './time';
 import { weatherAt, type Weather } from './weather';
@@ -76,6 +77,8 @@ export function doingOf(s: GameState, p: Person): string {
       return s.gathering?.kind ?? 'feast';
     case 'protest':
       return 'protest';
+    case 'officiate':
+      return 'officiate';
     case 'pave':
       return 'pave';
     case 'light':
@@ -144,6 +147,8 @@ export interface DiaryFacts {
   roughNights: number;
   /** A dream of the Great Enemy last night (sim/greatEnemy.ts: its omens), if they had it. */
   dream?: string | null;
+  /** A line about their faith today (sim/religion.ts), if any. */
+  faith?: string | null;
 }
 
 /** The facts of someone's day. */
@@ -199,6 +204,7 @@ export function diaryFacts(s: GameState, p: Person): DiaryFacts {
     season: c.season,
     roughNights: p.roughNights ?? 0,
     dream: dreamOf(s, p),
+    faith: faithDiaryLine(s, p, roll01(p.id, today, 11)),
   };
 }
 
@@ -294,6 +300,7 @@ export function writeDiary(f: DiaryFacts): string[] {
   if (f.up && f.morale >= 35) feel.push(`What lifted me: ${lower(f.up)}.`);
   if (f.down && (f.morale < 65 || r(8) < 0.5)) feel.push(`What weighs on me: ${lower(f.down)}.`);
   if (f.dream) feel.push(`Last night I dreamed ${f.dream}. I can't shake it.`);
+  if (f.faith) feel.push(f.faith);
   if (f.grief) feel.push(`I keep thinking of ${f.grief}.`);
   if (f.wound) feel.push(`${f.wound[0].toUpperCase()}${f.wound.slice(1)} still hurts.`);
   if (f.sick) feel.push('I feel feverish.');

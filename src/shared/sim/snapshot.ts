@@ -23,6 +23,7 @@ import { PATH_ABILITIES } from '../data/abilities';
 import { freePoints } from './attributes';
 import { tacticsView, type TacticsView } from './tactics';
 import { faithView, type FaithView } from './faith';
+import { creedLine, religionView, type ReligionView } from './religion';
 import { disasterView, type DisasterView } from './disasters';
 import { worldView, type WorldView } from './worldLife';
 import { marketView, type MarketView } from './markets';
@@ -110,6 +111,7 @@ import { ENEMIES } from '../data/enemies';
 import { atPlace, DESTINATIONS, MAX_EXPEDITIONS, ROLES, the } from '../data/expeditions';
 import { RAID_KIND_BY_ID } from '../data/raids';
 import { alarmRaised, cavalry, gateTop, onShift } from './people';
+import { watchHour, watchLine } from './nightWatch';
 import { isGate, ringProgress, ringShapeOf } from './ringWall';
 import { ERA_NAMES, type Era } from '../data/eras';
 import { seatOf } from '../data/seats';
@@ -324,6 +326,8 @@ export interface PersonView {
   /** Their town job, if they hold one ("Smith", "Shopkeeper"), and where. */
   job: { title: string; at: string } | null;
   natureLine: string;
+  /** The god they follow, in a line ("Follows Ceres (a zealot)": sim/religion.ts), when the town keeps its gods. */
+  creed: string | null;
   /** Their own short story (data/backstories.ts; a ready-made founder's is the one written for them). */
   story: string;
   /** Titles earned by deeds, the sagas and the rest (sim/deeds.ts, sim/annals.ts), the latest last. */
@@ -1019,6 +1023,8 @@ export interface Snapshot {
    *  among the living. */
   annals: AnnalsView;
   faith: FaithView;
+  /** The townsfolk's faith: priests, followers, feast days, miracles, the cult (sim/religion.ts). */
+  religion: ReligionView;
   disaster: DisasterView | null;
   world: WorldView;
   /** The Monster Hunters' Guild (sim/hunts.ts): whether it stands, its hunts, its forge, and hunts won. */
@@ -1103,7 +1109,7 @@ export interface Snapshot {
   townSize: number | null;
   /** The tax lever, and the treasury's guards (sim/treasury.ts). */
   tax: TaxRate;
-  guards: { n: number; wanted: number; wage: number; names: string[] };
+  guards: { n: number; wanted: number; wage: number; names: string[]; watch: string };
   plan: TownPlan | null;
   /** The tick of the last big boss moment (a roar, a sweeping attack): the strip shakes. */
   bossShake: number;
@@ -1331,6 +1337,7 @@ export function snapshot(s: GameState): Snapshot {
     met: s.met ?? [],
     annals: annalsView(s),
     faith: faithView(s),
+    religion: religionView(s),
     disaster: disasterView(s),
     world: worldView(s),
     hunts: brief(s, 'hunts', () => huntsView(s)),
@@ -1476,7 +1483,7 @@ export function snapshot(s: GameState): Snapshot {
     direction: directionOf(s),
     townSize: s.popTarget ?? null,
     tax: taxRate(s),
-    guards: { n: guardsOf(s).length, wanted: guardsWanted(s), wage: guardWage(s), names: guardsOf(s).map((g) => g.name) },
+    guards: { n: guardsOf(s).length, wanted: guardsWanted(s), wage: guardWage(s), names: guardsOf(s).map((g) => g.name), watch: watchLine(s) },
     plan: s.plan ?? null,
     ironman: !!s.ironman,
     launchHours: s.launchTick != null ? Math.max(0, (s.launchTick - s.tick) / TICKS_PER_HOUR) : null,
@@ -1976,6 +1983,7 @@ function personSlow(s: GameState, p: Person): Omit<PersonView, FastPart> {
     natureName: natureOf(p).name,
     job: jobView(s, p),
     natureLine: natureOf(p).line,
+    creed: s.autopilot !== false && p.bornTick == null ? creedLine(s, p) : null,
     story: storyOf(s, p),
     titles: p.titles ?? [],
     deeds: deedLines(p),
@@ -2391,7 +2399,7 @@ function describe(s: GameState, p: Person): string {
     case 'defend':
       return p.activity === 'fight' ? 'Fighting off the raiders!' : 'Defending the town';
     case 'patrol':
-      return 'On patrol';
+      return task.band === undefined && watchHour(calendar(s.tick).hour) ? (task.post !== undefined ? 'On the night watch, at a gate' : 'On the night watch') : 'On patrol';
     case 'shelter':
       return p.bed !== null ? 'Sheltering from the raid' : 'Huddled by the fire (no bed to hide in)';
     case 'repair':
@@ -2404,6 +2412,8 @@ function describe(s: GameState, p: Person): string {
       return s.busy?.text ?? 'Hard at work for the town';
     case 'protest':
       return 'On strike before the seat';
+    case 'officiate':
+      return `Keeping the dawn rite at the ${name(task.building).toLowerCase()}`;
     case 'lesson':
       return task.building == null ? 'At lessons round the fire with the elders' : `At lessons at the ${name(task.building).toLowerCase()}`;
     case 'apprentice': {
