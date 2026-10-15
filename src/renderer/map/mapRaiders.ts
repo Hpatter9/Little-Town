@@ -8,7 +8,7 @@ import { WAIST } from '../art/merTail';
 import { ENEMIES, type HumanSprite, type MachineSprite, type StillSprite } from '../../shared/data/enemies';
 import type { RaiderView } from '../../shared/sim/snapshot';
 import { TICK_MS } from '../../shared/sim/time';
-import { creatureFeet, creatureFlip, creatureFrame, creatureSize, type CreatureSheet } from '../art/creatures';
+import { creatureFeet, creatureFlip, creatureFrame, creaturePoseFrames, creatureSize, type CreatureSheet } from '../art/creatures';
 import { BLOOD_SIZE, bloodFrame, FLAME_SIZE, fireHitFrame, IMPACT_SIZE, impactFrame, lightningHitFrame, shockFrame, SPELL_SIZE, SPLAT_SIZE, splatFrame } from '../art/effects';
 import { bleeds } from './bloodPools';
 import { CENTRE_X, FEET_Y, FRAME_COUNT, FRAME_SIZE, lpcFrame, type LpcAnim } from '../art/lpc/lpc';
@@ -16,6 +16,10 @@ import { machineFrame, machineSize } from '../art/machines';
 import { attackAnim, enemyLook } from '../art/rivals';
 import { stillTexture } from '../art/stills';
 import { glowTexture } from '../town/layer';
+import { corpseAlpha, FALL_TICKS, motionOf, moveSprite, TickClock } from '../fight/fightMotion';
+
+/** How much of the fight screen's motion a raider on the map gets (a smaller picture, a smaller step). */
+const MOTION_K = 0.6;
 
 interface Drawn {
   view: RaiderView;
@@ -38,6 +42,7 @@ interface Drawn {
 }
 
 export class MapRaiders {
+  private readonly clock = new TickClock();
   private readonly drawn = new Map<number, Drawn>();
 
   constructor(private readonly layer: Container) {}
@@ -83,7 +88,8 @@ export class MapRaiders {
       d.x = x;
       d.y = y;
       const moving = Math.hypot(d.to.x - d.from.x, d.to.y - d.from.y) > 0.5;
-      const lunge = r.sinceAction < 6 && !r.down ? r.dir * 5 : 0;
+      const lunge = 0; // (the blow's lunge and recoil are worked out below: fight/fightMotion.ts)
+      let dies = false;
       const s = d.sprite;
       const def = ENEMIES[r.kind];
       const facing = r.dir < 0 ? 'left' : 'right';
@@ -91,7 +97,8 @@ export class MapRaiders {
       if ('sheet' in def.sprite) {
         const sp = def.sprite as { sheet: CreatureSheet; block: number; scale: number };
         const frame = r.down ? 1 : moving ? Math.floor(d.walked / 6) : Math.floor(secs * 2);
-        s.texture = creatureFrame(sp.sheet, sp.block, facing, frame, r.sinceAction < 6 && !r.down, r.down ? 'dead' : !moving && r.sinceAction >= 6 ? 'idle' : undefined);
+        dies = r.down && creaturePoseFrames(sp.sheet, 'dead') > 0;
+        s.texture = creatureFrame(sp.sheet, sp.block, facing, frame, r.sinceAction < 6 && !r.down, r.down ? 'dead' : !moving && r.sinceAction >= 6 ? 'idle' : undefined, dies ? (Math.max(0, this.clock.fine(`${r.id}:h`, r.sinceHit, now) - 2) / FALL_TICKS) * creaturePoseFrames(sp.sheet, 'dead') : undefined);
         const size = creatureSize(sp.sheet);
         const flip = creatureFlip(sp.sheet, facing);
         s.anchor.set(0.5, creatureFeet(sp.sheet));
@@ -154,10 +161,12 @@ export class MapRaiders {
       s.y -= lift;
       top -= lift;
       s.zIndex = lift ? y + 400 : y;
-      s.alpha = r.down ? 0.4 : 1;
+      const sa = this.clock.fine(`${r.id}:a`, r.sinceAction, now);
+      const sh = this.clock.fine(`${r.id}:h`, r.sinceHit, now);
+      s.alpha = r.down ? corpseAlpha(sh - 2, 'enemy') : 1;
       // (an ally keeps its own colours: a green glow underfoot and a green bar mark it as the town's; tinting the
       // whole creature green made a summoned wolf look like a stray monster)
-      s.tint = r.sinceHit < 3 && !r.down ? 0xff7070 : (def.tint ?? 0xffffff);
+      s.tint = r.sinceHit < 3 && !r.down ? 0xff7070 : r.down ? 0xb0a0a0 : (def.tint ?? 0xffffff);
       const since = r.sinceHit + t;
       const special = r.hitFx === 'blood' ? bloodFrame(since) : r.hitFx === 'shock' ? shockFrame(since * 1.5) : r.hitFx === 'fire' ? fireHitFrame(since * 1.2) : r.hitFx === 'lightning' ? lightningHitFrame(since * 1.2) : null;
       // (a plain blow: flesh sprays blood, the rest a spark)
@@ -205,7 +214,14 @@ export class MapRaiders {
       d.shadow.tint = r.ally && !r.down ? 0x60e070 : 0x000000;
       d.shadow.position.set(Math.round(x), Math.round(y) + 2);
       d.shadow.zIndex = y - 0.5;
+      // the blow's wind-up, lunge and recoil, the struck one's knock back and fall (a smaller step than the fight screen's)
+      if (!r.swimming && !lift) {
+        const wide = s.texture.width > s.texture.height * 1.1;
+        const m = motionOf({ toward: r.dir < 0 ? -1 : 1, sinceAction: sa, sinceHit: sh, down: r.down, ranged: !!def.ranged, hard: 0, friendDown: 999, wide, cheering: false, now, ref: r.id });
+        moveSprite(s, x, y + 2, m, MOTION_K, !(dies && r.down));
+      } else s.rotation = 0;
     }
+    this.clock.prune(new Set([...this.drawn.keys()].flatMap((k) => [`${k}:a`, `${k}:h`])));
   }
 
   raiderAt(wx: number, wy: number): RaiderView | null {
