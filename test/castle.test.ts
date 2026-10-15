@@ -194,7 +194,7 @@ test('a Deep Hold is cut into the mountain: half the land is rock, the halls car
 });
 
 test('a Deep Hold grows its halls into the mountain over the days', () => {
-  const sim = new Sim(newGame('hold-grows', { origin: 'dwarves' }));
+  const sim = new Sim(newGame('hold-grows-b', { origin: 'dwarves' }));
   const s = sim.state;
   for (let t = 0; t < 10 * TICKS_PER_DAY && !s.gameOver; t++) sim.step();
   const built = rooms(s);

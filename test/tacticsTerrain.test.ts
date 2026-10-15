@@ -85,15 +85,15 @@ test('a hill climbs only from its ramp: the top is reached by the ramp alone, ev
   assert.equal(canStep(foot, g.tiles[ramp], 2), 2);
 });
 
-test('a step: climbing is limited to two and costs more, a log costs more, a long drop is too far', () => {
+test('a step: climbing is limited to two and costs more, a log costs more, a cliff is too far down as up', () => {
   const t = (h: number, extra: Partial<TacTile> = {}): TacTile => ({ h, g: 'grass', lx: 0, ly: 0, ...extra });
   assert.equal(canStep(t(1), t(1), 2), 1);
   assert.equal(canStep(t(1), t(2), 2), 2);
   assert.equal(canStep(t(1), t(1 + CLIMB_MAX), 3), 3);
   assert.equal(canStep(t(1), t(1 + CLIMB_MAX + 1), 3), null);
   assert.equal(canStep(t(1), t(1, { log: true }), 2), 2);
-  assert.equal(canStep(t(5), t(2), 2), 1, 'down three with a jump of two');
-  assert.equal(canStep(t(6), t(2), 2), null);
+  assert.equal(canStep(t(4), t(2), 2), 1, 'down two with a jump of two');
+  assert.equal(canStep(t(5), t(2), 3), null, 'a cliff is a cliff both ways');
 });
 
 test('trees and boulders block a bow\'s line, a high shooter sees over them, walls are shot over', () => {

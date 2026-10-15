@@ -212,6 +212,8 @@ function guardOf(t: Tactics): number {
   const folk = t.units.filter((u) => u.key[0] === 'p').length;
   return folk <= 2 ? 0.6 : folk <= 4 ? 0.7 : HOME_GUARD;
 }
+/** How long past its leaving time a raid may hold the field before its last raiders slip away. */
+const STALL_TICKS = 2 * TICKS_PER_HOUR;
 /** A raider breaks below this share of its health (not a boss). */
 const ROUT = 0.15;
 /** Trees turn this share of blows aside; rain and night this much more of shots. */
@@ -787,6 +789,12 @@ export function stepTactics(s: GameState, r: Raid, rng: Rng): boolean {
   const t = r.tactics;
   if (!t || t.phase === 'done') return false;
   tidy(s, r, t, rng);
+  // (a raider still on the field long after its raid should have left, shut in some corner nobody can reach, slips away)
+  if (s.tick >= r.leavesTick + STALL_TICKS) {
+    for (const rd of r.raiders) if (!rd.ally && !rd.down && !rd.gone) rd.gone = true;
+    t.waiting = [];
+    tidy(s, r, t, rng);
+  }
   // lingering statuses (poison, regeneration...) on everyone
   statuses(s, r, t, rng);
   if (t.hits.length) t.hits = t.hits.filter((x) => s.tick - x.tick < 2 * TICK_HZ);

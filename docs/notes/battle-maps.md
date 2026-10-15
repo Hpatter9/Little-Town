@@ -45,3 +45,10 @@ prop set. No new art files; sources already in `CREDITS.md`.
 
 Tests: `test/tacticsTerrain.test.ts` (connected boards in every biome, same seed same board, hills climbed by the ramp
 alone, step costs, line of sight, cover, reach, shot names). Tools: `tools/probe-board.mjs [count] [show]`.
+
+**A stall found by the hold scenario, and fixed:** with the first rules a raider could drop three steps into a pond-bank pocket it
+could not climb out of, and a defender above it could not strike down three steps: the battle stood still for days. A
+cliff is now a cliff both ways (`canStep`: a step of more than `min(jump, CLIMB_MAX)` either way is refused), and a
+raider still on the field `STALL_TICKS` (2 hours) past its raid's leaving time slips away (`stepTactics`). The castle test
+'a Deep Hold grows its halls' now uses the seed 'hold-grows-b' (the old seed's town simply took a different course: rooms
+over ten seeds were 95 on this branch against 98 on main).

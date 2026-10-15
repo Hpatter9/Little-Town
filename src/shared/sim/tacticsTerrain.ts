@@ -44,11 +44,12 @@ function standing(tile: TacTile | null, swim: boolean): boolean {
 }
 
 /** What a step from one tile to the next costs a fighter who can jump `jump`, or null if it can't be taken: a climb
- *  of more than `CLIMB_MAX` (or than they jump) is a cliff, a drop of more than a step past their jump is too far; each
+ *  of more than `CLIMB_MAX` (or than they jump) is a cliff, a drop of more than that is too far too; each
  *  step climbed costs `CLIMB_COST` more, marsh and water two, a log over. */
 export function canStep(from: TacTile, to: TacTile, jump: number): number | null {
   const rise = to.h - from.h;
-  if (rise > Math.min(jump, CLIMB_MAX) || -rise > jump + 1) return null;
+  // (a cliff is a cliff both ways: nobody drops into a pocket they can't climb out of)
+  if (Math.abs(rise) > Math.min(jump, CLIMB_MAX)) return null;
   let cost = to.g === 'marsh' || to.g === 'shallows' || to.g === 'water' ? 2 : 1;
   if (rise > 0) cost += rise * CLIMB_COST;
   if (to.log) cost += LOG_COST;
