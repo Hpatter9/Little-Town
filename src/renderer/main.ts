@@ -1,6 +1,7 @@
 // Strip renderer: draws the town and HUD, turns clicks into sim commands, and decides when the strip
 // should capture the mouse.
 
+import { guildsOf } from './art/guildMarks';
 import { withDeltas } from './deltaBridge';
 import { biomeById } from '../shared/data/biomes';
 import { hkCell, hkDraw, hkKnow, hkLayers, hkWhoOf, onHkLoad } from './art/hkFolk';
@@ -660,6 +661,7 @@ async function start(): Promise<void> {
       theme: n.theme,
       gathering: n.gathering?.kind ?? null,
       biome: n.biome,
+      align: n.align?.score,
     });
   (window as unknown as { __music: typeof music }).__music = music;
   // the land's soundscape, on with the music (ambience.ts)
@@ -1234,7 +1236,7 @@ async function start(): Promise<void> {
       if (selectedPerson !== null && !p) selectedPerson = null;
       return personCard.hide();
     }
-    personCard.show(p, p.id === snap.mainId, map.screenOf(at.x, at.y).x);
+    personCard.show(p, p.id === snap.mainId, map.screenOf(at.x, at.y).x, guildsOf(snap, p.id));
   };
 
   const selectPerson = (id: number | null) => {
@@ -1635,7 +1637,7 @@ async function start(): Promise<void> {
     // (a raid's battle comes first: watching waits behind it)
     const watched = next.battle ? null : next.watch;
     // (the sea's looks for a shore town's trips, and for any party out in a boat)
-    fight.update(watched, next.biome, next.calendar.season, next.origin.id === 'merfolk' || (!!watched?.boat && watched.phase !== 'work'));
+    fight.update(watched, next.biome, next.calendar.season, next.origin.id === 'merfolk' || (!!watched?.boat && watched.phase !== 'work'), new Set(next.people.filter((p) => p.mer).map((p) => p.id)));
     fightHud.update(watched, next.fightSpeed);
     // (a mine gone into: the same screen, unless a fight or battle has it)
     const inMine = watched || next.battle ? null : next.mine;
@@ -1689,6 +1691,7 @@ async function start(): Promise<void> {
     lightMap.sync(next);
     map.realLight = lightMap.active;
     map.setDaylight(next.calendar.daylight * (1 - gloom), freeze);
+    map.setCast(next.align.cast);
     lightDaylight = next.calendar.daylight * (1 - gloom);
     map.setSun(next.calendar.hour + next.calendar.minute / 60, next.calendar.daylight * (1 - gloom));
     people.sunLean = Math.round(sunAt(next.calendar.hour + next.calendar.minute / 60, 1).skew * 5);
@@ -1896,6 +1899,7 @@ async function start(): Promise<void> {
     }), `${next.buildings.length}`);
     lamps.sync(next.land, next.era, next.lights ? next.lights.lights.filter((l) => l.room === null) : null);
     lamps.setDaylight(next.calendar.daylight);
+    lamps.setCast(next.align.cast);
     lamps.calm = map.calm;
     critters.sync(next, lamps.litGlows());
     critters.folk = birds.folk;

@@ -40,6 +40,7 @@ import { EVENT_MORE } from '../data/eventMore';
 import { assignBeds, campEdge, joinOrigin, secretStranger } from './townsfolk';
 import { isChild } from './social';
 import { topicName } from '../data/originResearch';
+import { alignAnswered, recommend } from './alignment';
 import { shiftDread } from './calamity';
 
 /** Game hours an event waits for an answer before the default is taken (in play; it waits while you're away). */
@@ -104,6 +105,9 @@ export function startEvent(s: GameState, def: EventDef, rng: Rng): void {
   const pool = grownUps(s).filter((p) => p.id !== s.mainId);
   const who = def.who ? (pool.length ? rng.pick(pool) : grownUps(s)[0]) : undefined;
   const id = s.nextId++;
+  // (the town's own pick: shown on the card, and what it takes if nobody answers in time, when it runs itself)
+  const rec = recommend(s, def);
+  const usual = def.options.findIndex((o) => o.default);
   s.prompts.push({
     id,
     kind: 'event',
@@ -111,7 +115,9 @@ export function startEvent(s: GameState, def: EventDef, rng: Rng): void {
     title: `${def.fateful ? '⚡ ' : ''}${fill(s, def.title, who)}`,
     text: fill(s, def.text, who) + coinsLine(s, def),
     options: def.options.map((o) => fill(s, o.label, who) + costOf(s, o)),
-    defaultOption: def.options.findIndex((o) => o.default),
+    defaultOption: s.autopilot !== false ? rec.option : usual,
+    recommended: rec.option,
+    why: rec.why,
     expiresTick: s.tick + hours(EVENT_HOURS),
     ...eventTelling(s, def, who),
   });
@@ -153,6 +159,7 @@ export function answerEvent(s: GameState, option: number, rng: Rng): void {
   o.effects.forEach((e, i) => {
     if ('later' in e) (s.eventLater ??= []).push({ tick: s.tick + hours(e.later), event: def.id, option, index: i, who: ev.who });
   });
+  alignAnswered(s, def, option);
   const out: string[] = [];
   apply(
     s,

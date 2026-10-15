@@ -383,7 +383,9 @@ export function startSkirmish(s: GameState, r: Roamer, caught: Person): Skirmish
   return k;
 }
 
-const names = (ps: Person[]) => (ps.length === 1 ? ps[0].name : `${ps.slice(0, -1).map((p) => p.name).join(', ')} and ${ps[ps.length - 1].name}`);
+/** The party's names for a notice. Everyone may be gone by the end (dead or left the land), so an empty list reads "Nobody". */
+export const skirmishNames = (ps: Person[]): string => (ps.length === 0 ? 'Nobody' : ps.length === 1 ? ps[0].name : `${ps.slice(0, -1).map((p) => p.name).join(', ')} and ${ps[ps.length - 1].name}`);
+const names = skirmishNames;
 
 /** The fight goes on a beat; over, its harm is carried back to the people and the band is gone or goes on. */
 function stepSkirmish(s: GameState, k: Skirmish): void {

@@ -254,11 +254,8 @@ function drawLandmark(g: CanvasRenderingContext2D, p: ProvinceView, cx: number, 
       drawSprite(g, 'sign', x, feet + cell * 0.2, cell * 0.9);
       break;
     case 'Harbour': {
-      // a jetty out into the water
-      g.fillStyle = '#7a5a36';
-      g.fillRect(Math.round(x - cell * 0.15), Math.round(feet - cell * 0.1), Math.max(2, cell * 0.3), Math.max(3, cell * 1.4));
-      g.fillStyle = '#9a7a4e';
-      for (let i = 0; i < 4; i++) g.fillRect(Math.round(x - cell * 0.15), Math.round(feet - cell * 0.1 + i * cell * 0.35), Math.max(2, cell * 0.3), Math.max(1, cell * 0.08));
+      // a jetty out into the water: the pier's planks (Bridges pack) laid down the shore
+      for (let i = 0; i < 3; i++) drawSprite(g, 'pier', x, feet + cell * (0.5 + i * 0.5), cell * 0.5);
       break;
     }
     default:

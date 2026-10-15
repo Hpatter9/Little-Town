@@ -17,6 +17,8 @@ import { BIOMES } from './data/biomes';
 import { TICKS_PER_HOUR } from './sim/time';
 import { inherit, legendOf, type Legend } from './sim/legacy';
 import type { EnemyKind } from './data/greatEnemy';
+import { startEvent } from './sim/events';
+import { EVENT_BY_ID } from './data/events';
 import { enemyLegend, forceEnemy, inheritEnemy, type EnemyLegend } from './sim/greatEnemy';
 import { queueScene } from './sim/cutscenes';
 import { spawnBand } from './sim/bands';
@@ -155,6 +157,8 @@ export function startSimHost(post: (m: FromHost) => void): (m: ToHost) => void {
       (s.roamers ??= []).push(r);
       s.watching = startSkirmish(s, r, p).id;
     },
+    align: (score: number, order: number) => { const s = stateOf(); s.align = { ...(s.align ?? { log: [] }), score, order, log: s.align?.log ?? [] }; }, // (for previews: set the town's alignment)
+    event: (id: string) => { const s = stateOf(); if (EVENT_BY_ID[id]) startEvent(s, EVENT_BY_ID[id], new Rng(1)); }, // (for previews: put a choice event)
     enemy: (to?: 'omens' | 'stirring' | 'march' | 'siege', kind?: EnemyKind) => forceEnemy(stateOf(), to, kind),
     cutscene: (id: string, vars: Record<string, string> = {}, foes: Record<string, string> = {}) => queueScene(stateOf(), id, { vars, foes }),
   };
