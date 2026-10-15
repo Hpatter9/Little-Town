@@ -143,10 +143,16 @@ export class Sim {
   }
 
   /** Advance by `ms` of real time. Runs whole ticks and carries the remainder. Returns ticks stepped. */
-  advance(ms: number, maxTicks = MAX_TICKS_PER_ADVANCE): number {
+  advance(ms: number, maxTicks = MAX_TICKS_PER_ADVANCE, budgetMs = Infinity): number {
     this.carryMs += Math.max(0, ms);
+    // (a wall-clock budget: ticks that don't fit stay owed and are caught up over the next calls, up to maxTicks' worth)
+    const until = budgetMs === Infinity ? Infinity : performance.now() + budgetMs;
     let n = 0;
     while (this.carryMs >= TICK_MS && n < maxTicks) {
+      if (until !== Infinity && (n & 7) === 7 && performance.now() > until) {
+        this.carryMs = Math.min(this.carryMs, TICK_MS * maxTicks);
+        return n;
+      }
       this.carryMs -= TICK_MS;
       this.step();
       n++;

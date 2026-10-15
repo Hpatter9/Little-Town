@@ -20,6 +20,9 @@ const CATCH_UP_BATCH = 500;
 /** How often a snapshot goes out while catching up (for its progress), ms. */
 const CATCH_UP_SNAP_MS = 400;
 
+/** The most a pump spends running ticks (ms): at the fast speeds the rest is caught up on the next pumps, so input and drawing stay responsive. */
+const FRAME_BUDGET_MS = 40;
+
 /** How long a frame spends running a raid being skipped (ms). */
 const SKIP_SLICE_MS = 24;
 
@@ -116,7 +119,7 @@ export class GameLoop {
     const fast = this.speed * battleSpeedNow(this.sim.state);
     const ms = (now - this.last) * fast;
     this.last = now;
-    if (this.sim.advance(ms, MAX_TICKS_PER_ADVANCE * fast) > 0) this.onTicks(this.snapshot());
+    if (this.sim.advance(ms, MAX_TICKS_PER_ADVANCE * fast, FRAME_BUDGET_MS) > 0) this.onTicks(this.snapshot());
   }
 
   private catchUpSlice(): void {
