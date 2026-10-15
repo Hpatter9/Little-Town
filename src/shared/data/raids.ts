@@ -6,6 +6,7 @@ import { CALAMITY_RAIDS } from './calamity';
 import { DEEP_RAIDS } from './deep';
 import { REBEL_RAID } from './villages';
 import { PORTAL_RAIDS } from './portals';
+import { SEA_RAID_KIND } from './seafaring';
 import { PACK_RAIDS } from './pack';
 import { BESTIARY_RAIDS } from './bestiary';
 import { RISING_RAIDS } from './risingPowers';
@@ -118,7 +119,7 @@ const BASE_RAID_KINDS: readonly RaidKind[] = [
   ...SKY_RAIDS,
 ];
 
-export const RAID_KINDS: readonly RaidKind[] = [...BASE_RAID_KINDS, ...PACK_RAIDS];
+export const RAID_KINDS: readonly RaidKind[] = [...BASE_RAID_KINDS, ...PACK_RAIDS, SEA_RAID_KIND];
 export const RAID_KIND_BY_ID: Readonly<Record<string, RaidKind>> = Object.fromEntries(RAID_KINDS.map((k) => [k.id, k]));
 
 /** No raids before this many game hours. */

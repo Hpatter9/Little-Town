@@ -120,6 +120,7 @@ import { diaryTick } from './diary';
 import { injuriesHourly } from './injuries';
 import { partiesHourly, postBounty, setVeto, withdrawBounty } from './parties';
 import { boatsHourly } from './boats';
+import { seafaringHourly } from './seafaring';
 import { voteSettlementName } from './settlementName';
 
 /** How the town trades at its shop: the planner decides what's spare and what to buy. */
@@ -228,6 +229,7 @@ export class Sim {
     ambitionHourly(s);
     partiesHourly(s);
     boatsHourly(s, this.rng);
+    seafaringHourly(s); // (harbour, shoals, colonies, pirates and the sea's monsters: sim/seafaring.ts)
     skiesHourly(s); // (airships, sky pirates and the hunters of the sky: sim/skies.ts)
     ceremoniesHourly(s);
     festivalsHourly(s);

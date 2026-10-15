@@ -1856,7 +1856,7 @@ async function start(): Promise<void> {
     map.workFx.sync(next.buildings, next.workingAt);
     map.workFx.syncBuilders(next.people.filter((p) => p.activity === 'build' && !p.indoors).map((p) => ({ id: p.id, x: p.x, y: p.y, dir: p.dir })));
     herds.update(next.buildings);
-    boats.update(next.fleet, next.mooring);
+    boats.update(next.fleet, next.mooring, next.land);
     airships.update(next.airships, next.mast, next.skyPirates);
     wagons.update(next.wagons);
     pools.sync(next.blood);

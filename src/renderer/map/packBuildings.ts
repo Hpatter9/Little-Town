@@ -340,6 +340,8 @@ const PICKS: Record<string, Pick> = {
   bell_tower: { url: suLookout, overhang: 3 },
   // a yard of logs, racks and a cart where the boats are built
   boatyard: { parts: [[vLogpile, 0, 6], [vRack, 46, 0], [fLog3, 80, 24], [doBarrel, 128, 14]], size: [156, 50], overhang: 0 },
+  // the harbour: a long quay of the jetty's planks, with crates, barrels and a lantern at its end
+  harbour: { parts: [[pierH, 0, 4], [pierH, 32, 4], [pierH, 64, 4], [pierH, 96, 4], [doCrates, 8, 0], [barrel, 44, 2], [doBarrel, 76, 0], [lantern, 112, 0]], size: [128, 40], overhang: 0, lamps: [[120, 10]] },
   // the Court's blood farm: graves and the cells' stones
   blood_farm: { parts: [[grave1, 0, 0], [grave3, 34, 6], [grave5, 66, 0], [grave2, 16, 28], [grave4, 50, 30]], size: [98, 62], overhang: 0 },
   // DawnLike's pit, stakes and spikes, a cell each; the loose animated-objects pack's electric coil
