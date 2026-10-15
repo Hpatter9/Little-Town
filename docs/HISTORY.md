@@ -5676,3 +5676,18 @@ way down's tap card ("Into the Underdark") or the Deep's bar ("Caves"). The worl
 (`underSummary.dests`), and the news bubble carries what comes up (`notify(..., true)`).
 
 Tests: `test/underdark.test.ts`.
+
+## Crocodiles stand on the ground (a floating-sprite fix)
+
+The owner's report: every crocodile floated. Its sheet (`art/creatures/crocodiles.png`, whtdragon's MV sheet) has
+96-pixel frames, and the side-facing rows hold a thin flat crocodile in the middle of the frame (rows 33 to 47), so
+with the frame's bottom edge treated as its feet it hung half a frame above the ground. Changes the HISTORY.md sections
+"Watching a party's fights" and "The bestiary".
+
+- `art/creatureSheets.ts`: the `crocodiles` sheet now says where its art is, `top: 0.34` (for the health bar) and
+  `feet: 0.5` (its belly).
+- The fight screen (`fight/fightView.ts`), the expedition pane (`town/expeditionPane.ts`) and cutscenes
+  (`cutscene/cutsceneView.ts`) placed every creature's frame with its bottom edge on the ground, ignoring the sheet's
+  `feet` line that the raid map (`map/mapRaiders.ts`) already honoured. They now use `creatureFeet(sheet)` too, so the
+  other sheets with a feet line (the tomes, the mimic, the goblin, the slime, the demons and blood monsters) also stand
+  where they should in those views. Renderer only: the sim hashes are unchanged.
