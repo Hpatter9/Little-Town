@@ -417,9 +417,11 @@ export interface SagaRun {
 
 export interface Raid {
   id: number;
+  /** A pirate crew landed on the beach from the sea (sim/seafaring.ts). */
+  landing?: boolean;
   /** A saga's raid: the run it belongs to (sim/sagas.ts). */
   saga?: number;
-  /** One of the Calamity's raids: its army, or the last siege (sim/calamity.ts). */
+  /** (Old saves: one of the Calamity's own raids, from before it was the Great Enemy's stage: sim/greatEnemy.ts `bindCalamity` hands them over.) */
   calamity?: 'army' | 'siege';
   /** One of the Great Enemy's raids (sim/greatEnemy.ts): bearing its mark, a host led by a lieutenant (which), or the
    *  last siege. */
@@ -841,6 +843,8 @@ export interface Boat {
   hull: number;
   /** The expedition she's away with, or null at home. */
   away: number | null;
+  /** The tick she was launched (sim/seafaring.ts: ships wear with age). */
+  built?: number;
 }
 
 /** An airship of the town's fleet (data/skies.ts, sim/skies.ts). */
@@ -1140,6 +1144,9 @@ export interface GameState {
   boats?: Boat[];
   /** Boats built so far (for their names, in turn). */
   boatsBuilt?: number;
+  /** Island colonies and the sea book (sim/seafaring.ts). */
+  colonies?: import('./seafaring').Colony[];
+  sea?: import('./seafaring').SeaBook;
   /** The town's airships (data/skies.ts, sim/skies.ts): built at the airship mast, moored there or away with a party. */
   airships?: Airship[];
   /** Airships built so far (for their names, in turn). */
@@ -1296,7 +1303,7 @@ export interface GameState {
   wild?: import('./wild').Wild;
   roamers?: Roamer[];
   skirmishes?: Skirmish[];
-  /** The Calamity (sim/calamity.ts): what it is, how far its dread has risen, its heart and sieges. */
+  /** The Calamity (sim/calamity.ts): the Great Enemy's stirring made manifest: what it is, its dread, its heart. */
   calamity?: CalamityState;
   /** The Great Enemy: one villain a town and the long arc of the game (sim/greatEnemy.ts). */
   greatEnemy?: import('./greatEnemy').GreatEnemyState;
@@ -1312,6 +1319,8 @@ export interface GameState {
   kin?: Record<number, import('./lineage').KinRecord>;
   /** Generations and dynasties (sim/dynasty.ts): upbringing, feuds, bonds, the ruling house, heirlooms. */
   dynasty?: import('./dynasty').DynastyState;
+  /** House intrigue (sim/intrigue.ts): the houses' purses, a ring, holds on the council, killings, whispers. */
+  intrigue?: import('./intrigue').IntrigueState;
   /** The trade economy: prices, booms and shortages, the trade house, its routes and wagons (sim/markets.ts). */
   market?: import('./markets').MarketState;
   /** A druid town's grove (sim/grove.ts). */

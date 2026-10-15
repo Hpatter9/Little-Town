@@ -2,6 +2,7 @@
 // tap), the one picked (a flag, and the route out to it), and each party that's out, moving along its route as it
 // goes and comes back. It's one element kept between renders, so the map image doesn't reload each time.
 
+import { ISLANDS } from '../../shared/data/boats';
 import { MAP_HOME, MAP_SIZE, MAP_SPOTS } from '../../shared/data/worldMap';
 import { STRONGHOLD_SPOTS } from '../../shared/data/factions';
 import { regionScouted, REGIONS } from '../../shared/data/regions';
@@ -33,6 +34,14 @@ export interface MapHold {
   tier: number;
 }
 
+/** The sea's marks (snapshot `seafaring`): the isles with a colony of the town's, and those the Tide Clan holds. */
+export interface MapSea {
+  colonies: { isle: string; name: string; pop: number }[];
+  claimed: string[];
+}
+
+const BY_BOAT = new Set(ISLANDS.map((d) => d.id));
+
 export class WorldMapView {
   readonly el = el('div', 'world-map');
   private readonly svg = document.createElementNS(SVG, 'svg');
@@ -45,9 +54,9 @@ export class WorldMapView {
     this.el.append(this.svg, this.marks);
   }
 
-  update(dests: MapDestination[], picked: string | null, parties: ExpeditionView[], known: string[], holds: MapHold[] = [], world?: Snapshot['world'], enemy: GreatEnemyView | null = null, caves: { name: string; kind: string; stance: string }[] = []): void {
+  update(dests: MapDestination[], picked: string | null, parties: ExpeditionView[], known: string[], holds: MapHold[] = [], world?: Snapshot['world'], sea?: MapSea, enemy: GreatEnemyView | null = null, caves: { name: string; kind: string; stance: string }[] = []): void {
     const foe = enemy && [enemy.stage, enemy.seatKnown, enemy.seatOpen, enemy.spread, enemy.lieutenants.map((l) => [l.slain, l.dest])];
-    const key = JSON.stringify([dests, picked, parties.map((e) => [e.id, e.dest, Math.round(tripProgress(e) * 200), e.phase]), known, holds, world?.feuds, world?.routes, world?.marches.map((m) => [m.kind, m.label, Math.round(m.t * 100)]), foe, caves]);
+    const key = JSON.stringify([dests, picked, parties.map((e) => [e.id, e.dest, Math.round(tripProgress(e) * 200), e.phase]), known, holds, world?.feuds, world?.routes, world?.marches.map((m) => [m.kind, m.label, Math.round(m.t * 100)]), sea, foe, caves]);
     if (key === this.key) return;
     this.key = key;
     this.svg.replaceChildren();
@@ -81,6 +90,8 @@ export class WorldMapView {
       line.setAttribute('class', cls);
       this.svg.append(line);
     };
+    // the sea lanes: a dotted blue line from the home port to every isle that is a boat trip
+    for (const d of dests) if (BY_BOAT.has(d.id) && MAP_SPOTS[d.id]) route(MAP_SPOTS[d.id], `map-route sea-lane${d.unlocked ? '' : ' faint'}`);
     for (const e of parties) if (MAP_SPOTS[e.dest]) route(MAP_SPOTS[e.dest], 'map-route party');
     // the trade house's open routes (sim/markets.ts), faint gold
     for (const r of world?.routes ?? []) route(r.to, 'map-route trade-road');
@@ -97,6 +108,24 @@ export class WorldMapView {
       place(dot, at);
       dot.addEventListener('click', () => this.onPick(d.id));
       this.marks.append(dot);
+    }
+
+    // the isles the Tide Clan holds (a merfolk-blue ring) and the town's colonies (a small flag, with the folk there)
+    for (const id of sea?.claimed ?? []) {
+      const at = MAP_SPOTS[id];
+      if (!at) continue;
+      const ring = el('div', 'map-claim');
+      ring.title = 'Held by the Tide Clan';
+      place(ring, at);
+      this.marks.append(ring);
+    }
+    for (const c of sea?.colonies ?? []) {
+      const at = MAP_SPOTS[c.isle];
+      if (!at) continue;
+      const f = el('div', 'map-colony');
+      f.title = `${c.name}: ${c.pop} folk`;
+      place(f, at);
+      this.marks.append(f);
     }
 
     // the powers' strongholds (sim/factions.ts), marked by how the town stands with each; one at war can be stormed
