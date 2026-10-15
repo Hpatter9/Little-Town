@@ -49,7 +49,6 @@ const PART_T = 6;
 const PART_FACE = 22;
 const MERLON = 6;
 const WALL_T = 8;
-const WALL_FACE = 16;
 /** The curtain wall's face seen from inside (its north run), and a hold's hewn rock face. */
 const INNER_FACE = 26;
 const ROCK_FACE = 24;
@@ -62,6 +61,9 @@ const TALL = 64;
 /** The south wall, which the town is seen over, stands lower so the hall behind it stays in view (its gate, the tallest
  *  thing in it, stands up over it). */
 const TALL_S = 44;
+/** A wall's foot (its z, the line people sort against) stands on the cell's edge, this far past it: someone in the cell
+ *  beside the wall is in front of it, never up on its face; someone in the cell behind it is behind it. */
+const FOOT = 4;
 /** A doorway's opening in a partition (px): wide, and tall enough to walk through. */
 const DOOR = 24;
 const DOOR_H = 54;
@@ -313,20 +315,21 @@ export function buildCastle(castle: CastleView, rooms: Building[], footprint: (b
     const e = at(x + 1, y);
     // north: the curtain wall's inside face, or a partition with the room above (drawn by the lower cell)
     if (n === undefined) {
-      if (mountain) put(P.rockN.texture, px, py + ROCK_FACE - TALL, py + ROCK_T + ROCK_FACE);
-      else put(P.outerN.texture, px, py + INNER_FACE - TALL, py + MERLON + WALL_T + INNER_FACE);
-    } else if (n !== id) put((doors.has(`${x},${y}|h`) ? P.doorH : P.partH).texture, px, py + PART_FACE - TALL, py + PART_T + PART_FACE);
+      // (nothing worth seeing is behind the outer wall, so it never fades)
+      if (mountain) put(P.rockN.texture, px, py + FOOT - ROCK_T - TALL, py + FOOT, false);
+      else put(P.outerN.texture, px, py + FOOT - (MERLON + WALL_T + TALL), py + FOOT, false);
+    } else if (n !== id) put((doors.has(`${x},${y}|h`) ? P.doorH : P.partH).texture, px, py + FOOT - (PART_T + TALL), py + FOOT);
     // south: the curtain wall's outer face hanging below the cell, the gate in it before the hall (a mountain hold's
     // carved gate in the cliff)
     if (s === undefined) {
-      if (mountain) put(P.rockS.texture, px, py + CELL + WALL_FACE - ROCK_T - TALL_S, py + CELL + WALL_FACE);
-      else put(P.outerS.texture, px, py + CELL + WALL_FACE - (MERLON + WALL_T + TALL_S), py + CELL + WALL_FACE);
+      if (mountain) put(P.rockS.texture, px, py + CELL + FOOT - ROCK_T - TALL_S, py + CELL + FOOT);
+      else put(P.outerS.texture, px, py + CELL + FOOT - (MERLON + WALL_T + TALL_S), py + CELL + FOOT);
       if (x === castle.gate.x && y === castle.gate.y - 1 && gateTex) {
         if (mountain) {
-          const g = put(gateTex, px + CELL / 2 - HOLD_GATE_SIZE / 2, py + CELL + WALL_FACE - HOLD_GATE_SIZE, py + CELL + WALL_FACE + 1, false);
+          const g = put(gateTex, px + CELL / 2 - HOLD_GATE_SIZE / 2, py + CELL + FOOT - HOLD_GATE_SIZE, py + CELL + FOOT + 1, false);
           g.width = g.height = HOLD_GATE_SIZE;
         } else {
-          const g = put(gateTex, px + CELL / 2 - TALL / 2, py + CELL + WALL_FACE - TALL, py + CELL + WALL_FACE + 1, false);
+          const g = put(gateTex, px + CELL / 2 - TALL / 2, py + CELL + FOOT - TALL, py + CELL + FOOT + 1, false);
           g.width = g.height = TALL;
         }
       }
@@ -336,10 +339,10 @@ export function buildCastle(castle: CastleView, rooms: Building[], footprint: (b
     const side = castle.gates?.find((q) => q.x === x && q.y === y);
     if (side && gateTex) {
       if (side.side === 's' && s === undefined) {
-        const g = put(gateTex, px + CELL / 2 - TALL / 2, py + CELL + WALL_FACE - TALL, py + CELL + WALL_FACE + 1, false);
+        const g = put(gateTex, px + CELL / 2 - TALL / 2, py + CELL + FOOT - TALL, py + CELL + FOOT + 1, false);
         g.width = g.height = TALL;
       } else if (side.side === 'n' && n === undefined) {
-        const g = put(gateTex, px + CELL / 2 - TALL / 2, py + MERLON + WALL_T + INNER_FACE - TALL, py + MERLON + WALL_T + INNER_FACE + 1, false);
+        const g = put(gateTex, px + CELL / 2 - TALL / 2, py + FOOT - TALL, py + FOOT + 1, false);
         g.width = g.height = TALL;
       }
     }
@@ -359,7 +362,7 @@ export function buildCastle(castle: CastleView, rooms: Building[], footprint: (b
       const k = `${cx},${cy}`;
       if (a === undefined && b === undefined && !towers.has(k)) {
         towers.add(k);
-        put(P.tower.texture, cx - TOWER_W / 2, cy - TOWER_H + 4 + (cy > py ? WALL_FACE : 0), cy + (cy > py ? WALL_FACE + 2 : 6));
+        put(P.tower.texture, cx - TOWER_W / 2, cy - TOWER_H + 4, cy + 6);
       }
     }
   }
