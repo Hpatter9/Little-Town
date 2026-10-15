@@ -117,6 +117,14 @@ export const DRIFT_DAILY = 0.04;
 export const PIRATE_FROM_DAY = 8;
 export const PIRATE_GAP: [number, number] = [9, 16];
 export const PIRATE_BUDGET = 0.7;
+/** The Drowned King's anger (0..1, sim/seafaring.ts `kingAnger`) shortens the gap between crews by up to this share and
+ *  swells them by up to this share; a tribute paid in the last `KING_EASE_DAYS` days takes `KING_EASED` off the anger. */
+export const KING_GAP_CUT = 0.4;
+export const KING_BUDGET_MORE = 0.5;
+export const KING_EASE_DAYS = 8;
+export const KING_EASED = 0.3;
+/** Each refused tribute adds, and each paid one takes off, this much anger. */
+export const KING_REFUSED = 0.12;
 /** The share of its pirates' strength a harbour's sea wall takes off (the lamp warns, the quay blocks the landing). */
 export const SEA_RAID_KIND: RaidKind = {
   id: 'sea_raiders',

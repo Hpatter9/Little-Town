@@ -126,6 +126,7 @@ import { injuriesHourly } from './injuries';
 import { partiesHourly, postBounty, setVeto, withdrawBounty } from './parties';
 import { boatsHourly } from './boats';
 import { seafaringHourly } from './seafaring';
+import { oddsHourly } from './raidOdds';
 import { voteSettlementName } from './settlementName';
 
 /** How the town trades at its shop: the planner decides what's spare and what to buy. */
@@ -234,6 +235,7 @@ export class Sim {
     treasuryHourly(s, this.rng);
     ambitionHourly(s);
     partiesHourly(s);
+    oddsHourly(s); // (a probing band's night visit: sim/raidOdds.ts)
     boatsHourly(s, this.rng);
     seafaringHourly(s); // (harbour, shoals, colonies, pirates and the sea's monsters: sim/seafaring.ts)
     skiesHourly(s); // (airships, sky pirates and the hunters of the sky: sim/skies.ts)

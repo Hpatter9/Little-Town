@@ -1638,7 +1638,7 @@ async function start(): Promise<void> {
     const watched = next.battle ? null : next.watch;
     // (the sea's looks for a shore town's trips, and for any party out in a boat)
     fight.update(watched, next.biome, next.calendar.season, next.origin.id === 'merfolk' || (!!watched?.boat && watched.phase !== 'work'), new Set(next.people.filter((p) => p.mer).map((p) => p.id)));
-    fightHud.update(watched, next.fightSpeed);
+    fightHud.update(watched, next.fightSpeed, next.guilds);
     // (a mine gone into: the same screen, unless a fight or battle has it)
     const inMine = watched || next.battle ? null : next.mine;
     mine.update(inMine);
