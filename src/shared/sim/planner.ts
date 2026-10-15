@@ -5,6 +5,7 @@
 
 import { CONQUEST } from '../data/conquest';
 import { PRISON_BUILDINGS, SICKBEDS } from '../data/prisons';
+import { MAGIC_BUILDINGS, magicTopicWorth, TOWER_PEOPLE } from '../data/magic';
 import { needsSickbed, sickbedsOf } from './sickbeds';
 import { cellsOf } from './prisoners';
 import { bloodTown } from './vampires';
@@ -40,6 +41,8 @@ import { HERDS } from '../data/livestock';
 import { growPen, herdOf, stockPen } from './livestock';
 import { WORTH } from '../data/trade';
 import { ITEMS, ITEM_BY_ID, MAX_POTS, type ItemDef } from '../data/items';
+import { KIT_BY_ID } from '../data/kitItems';
+import { kitNeed } from './kit';
 import { MATERIAL_NAMES, MATERIALS, type Material, type Stock , SEA_MATERIALS } from '../data/materials';
 import { FOOD_VALUE } from '../data/people';
 import { RESEARCH_STATIONS, TOPICS, type Topic } from '../data/research';
@@ -296,6 +299,7 @@ function topicScore(t: Topic, n: Needs): number {
   if (t.id === 'family_life') score += n.people >= 4 ? 40 : 10;
   // (boats: fishing when food runs short, islands and the sea's markets once the town is a few strong: data/boats.ts)
   if (t.id === 'planar_lore') score += n.people >= 6 ? 18 : 2; // (the Portal Arch: other worlds, sim/portals.ts)
+  score += magicTopicWorth(t.id, n.people, n.raided); // (the leylines and the schools of magic: data/magic.ts)
   if (t.id === 'delving') score += n.people >= 5 ? 30 : 4; // (the shaft to the Deep: ore below, and what lives with it, sim/deep.ts)
   if (t.id === 'monster_lore') score += n.people >= 5 ? 20 : 4; // (the Monster Hunters' Guild: hunts for a purse, and gear from the parts)
   if (BOAT_TOPICS.some((b) => b.id === t.id)) score += (n.people >= 4 ? 24 : 6) + (t.id === 'boatbuilding' && n.shore ? 16 : 0) + (n.foodDays < 5 && t.id === 'boatbuilding' ? 12 : 0) + (n.direction === 'trade' && (t.id === 'navigation' || t.id === 'steamships') ? 10 : 0);
@@ -472,6 +476,15 @@ function planCrafting(s: GameState, n: Needs): Stock {
   // 4. a few bandages or poultices, and pots when the stores are filling up
   const isMedicine = (i: ItemDef) => i.id === 'poultice' || i.id === 'bandage';
   if (room() && !ordered(s, isMedicine) && kept(s, isMedicine) < 3) tryMake(bestMakeable(s, isMedicine, (i) => (i.id === 'bandage' ? 2 : 1)));
+  // 4a. battle items for the fighters' pouches, one order at a time, and only while the town is fed (sim/kit.ts)
+  const isKit = (i: ItemDef) => !!KIT_BY_ID[i.id];
+  if (room() && n.foodDays >= 2 && !ordered(s, isKit)) {
+    // (the most wanted the town has the makings for now; else gather for the most wanted)
+    const wanted = ITEMS.filter((i) => isKit(i) && kitNeed(s, i.id) > 0 && itemUnlocked(s, i) && stationFor(s, i)).sort((x, y) => kitNeed(s, y.id) - kitNeed(s, x.id));
+    const ready = wanted.find((i) => inputsReady(s, i, n.stock));
+    if (ready) queueCraft(s, ready.id);
+    else if (wanted[0]) lack(wanted[0]);
+  }
   // 4b. a prosthetic for each lost part waiting on one: the best the town can make (the healer fits it: sim/injuries.ts)
   for (const fits of new Set(prostheticsWanted(s))) {
     if (!room()) break;
@@ -895,6 +908,7 @@ function wishes(s: GameState, n: Needs): { def: string; why: string }[] {
     if (LEISURE[d.id] && grown < LEISURE_PEOPLE) continue; // (a hamlet has a roof to raise before a green to play on)
     if (TRAINING_IDS.has(d.id) && (!CONQUEST.on || grown < WAR_PEOPLE)) continue; // (training grounds for the war, once there are hands to spare)
     if (d.id === 'trophy_hall' && treasuresHeld(s) < 2) continue; // (only once there's something to show)
+    if (MAGIC_BUILDINGS.some((m) => m.id === d.id) && grown < TOWER_PEOPLE) continue; // (a tower and a library once there are hands to spare: data/magic.ts)
     // (a specialty shop once the general store stands and the town is big enough to keep one)
     if (lineOfDef(d.id)) {
       if (shopOf(s) && grown >= STORE_PEOPLE) add(d.id, `to sell ${LINES[lineOfDef(d.id)!].banner.toLowerCase()} to travellers`);

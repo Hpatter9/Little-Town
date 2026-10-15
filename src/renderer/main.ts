@@ -108,7 +108,7 @@ function travellerPerson(t: TravellerView): PersonView {
     indoors: t.phase === 'shopping', // (inside the shop: see its window)
     bucket: false,
     rally: null,
-    away: null, hp: 1, maxHp: 1, downed: null, bleedMinutes: null, gear: {}, gearQ: {}, coins: null, detail: [], recent: [], bedroll: false, carryCapacity: 0,
+    away: null, hp: 1, maxHp: 1, downed: null, bleedMinutes: null, gear: {}, gearQ: {}, pouch: [], pouchCap: 0, coins: null, detail: [], recent: [], bedroll: false, carryCapacity: 0,
     partner: null, married: false, friends: [], rivals: [], enemies: [], devoted: [], body: { wounds: [], lasting: [], fitted: [], sight: 1, handling: 1, moving: 1, pain: 0, marks: [] }, growsUpIn: null, breakdown: null, ageDays: 0,
   ageYears: 0, lifeStage: 'prime', ageText: '', elder: false, swimming: false, mer: false, nature: 'cheerful', natureName: 'Cheerful', natureLine: '', creed: null, job: null,
   monster: null, tireless: false, order: null, sick: false, rounds: false,
@@ -1929,6 +1929,7 @@ async function start(): Promise<void> {
     map.syncCastle(next.castle ?? null, next.buildings);
     map.syncPlaces(next.places);
     map.syncBlight(next.blight ?? [], next.calamity?.heartAt ?? null);
+    map.syncLeylines(next.magic ?? null); // (the leylines glowing after dark: map/mapLeylines.ts)
     // (a tree with someone behind it, or a building's front, is drawn see-through)
     map.seeThrough([
       ...next.people.filter((p) => !p.indoors).map((p) => people.posOf(p.id) ?? p),

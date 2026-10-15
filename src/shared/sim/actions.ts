@@ -11,8 +11,12 @@ import { CLASS_DEFS, type ClassId } from '../data/classes';
 import { BAD_STATUS, type Effect, type Element, type Status, type Target, type Use } from '../data/effects';
 import { ENEMIES, natureOf } from '../data/enemies';
 import { levelOf } from '../data/levels';
-import { spellsKnown, type SpellDef } from '../data/spells';
+import { SPELL_BY_ID, spellsKnown, type SpellDef } from '../data/spells';
+import { CURSED, ENCHANTED, FOCI } from '../data/magic';
+import { ITEM_BY_ID } from '../data/items';
+import type { KitItem } from '../data/kitItems';
 import type { Rng } from '../rng';
+import { useKitItem } from './kitFight';
 import type { Person } from './state';
 import { TICK_HZ } from './time';
 
@@ -59,6 +63,8 @@ export interface Combatant {
   kit?: Kit;
   lastHit?: number;
   lastAction?: number;
+  /** Battle items they carry (sim/kit.ts): ids, used up one by one. */
+  bag?: string[];
   /** Called up by a spell (a summoned beast or spirit). */
   conjured?: boolean;
   /** The last number to pop up over them (damage, or healing): for the watcher. */
@@ -82,6 +88,8 @@ export interface ActMeta {
   ult: boolean;
   cost: number;
   pool: 'mp' | 'sp' | 'limit';
+  /** A battle item from a person's pouch (data/kitItems.ts). */
+  item?: boolean;
 }
 
 /** What a fight gives the engine: everyone in it, the tick, a way to call up a summoned ally, and a log of what was
@@ -101,8 +109,10 @@ const secs = (n: number) => Math.round(n * TICK_HZ);
 /** The three spells a caster keeps ready: the best they know for what their class does most, then the next most
  *  useful kinds (a healer keeps two mends and a strike; a sorcerer two strikes and a hindrance), each the highest
  *  learned of its kind. */
-export function readySpells(cls: ClassId, level: number): SpellDef[] {
-  const known = spellsKnown(cls, level).sort((a, b) => b.level - a.level);
+export function readySpells(cls: ClassId, level: number, studied: readonly string[] = []): SpellDef[] {
+  // (and the spells they've learned by study: sim/magic.ts)
+  const own = spellsKnown(cls, level);
+  const known = [...own, ...studied.map((id) => SPELL_BY_ID[id]).filter((d) => d && !own.includes(d))].sort((a, b) => b.level - a.level);
   if (!known.length) return [];
   const role = CLASS_DEFS[cls].role;
   // (callers keep a summons ready first of all)
@@ -121,14 +131,17 @@ const CALLERS: Partial<Record<ClassId, Use[]>> = { summoner: ['summon', 'attack'
 const NO_PASSIVE = (): Kit['passive'] => ({ damage: 0, power: 0, healing: 0, crit: 0, critDamage: 0, counter: 0, lifesteal: 0, thorns: 0, guard: 0, resist: 0, regen: 0, lastStand: 0, firstStrike: false });
 
 /** Someone's kit: their ready spells, their active skills, and their passive skills added up. */
-export function kitOf(p: Pick<Person, 'cls' | 'level' | 'road'> & { gear?: { weapon?: string | null } }): Kit | undefined {
+export function kitOf(p: Pick<Person, 'cls' | 'level' | 'road'> & { gear?: { weapon?: string | null; charm?: string | null }; arcana?: Person['arcana'] }): Kit | undefined {
   if (!p.cls) return undefined;
   const lv = levelOf(p);
   // (a calling's skills come only with its weapon in hand: no bow, no volley; spells need nothing: data/armed.ts)
   const armed = !p.gear || armedForSkills(p.cls, p.gear.weapon);
   const actions: KitAction[] = [];
-  for (const s of readySpells(p.cls, lv)) actions.push({ id: s.id, name: s.name, spell: true, level: s.level, cooldown: secs(s.cooldown), ready: 0, effects: s.effects, use: s.use, cost: spellCost(s.level), pool: 'mp' });
+  for (const s of readySpells(p.cls, lv, p.arcana?.spells)) actions.push({ id: s.id, name: s.name, spell: true, level: s.level, cooldown: secs(s.cooldown), ready: 0, effects: s.effects, use: s.use, cost: spellCost(s.level), pool: 'mp' });
   const passive = NO_PASSIVE();
+  // (a caster's focus, enchanted or cursed charm feeds their spells: data/magic.ts)
+  const charm = p.gear?.charm;
+  if (charm && (FOCI.includes(charm) || ENCHANTED.includes(charm) || CURSED.includes(charm))) passive.power += ITEM_BY_ID[charm]?.effects.power ?? 0;
   for (const a of abilitiesKnown(p.cls, lv, p.road)) {
     if (a.active && armed) actions.push({ id: a.id, name: a.name, spell: false, level: a.level, cooldown: secs(a.active.cooldown), ready: 0, effects: a.active.effects, use: a.use as Use, cost: a.ultimate ? 1 : skillCost(a.level), pool: a.ultimate ? 'limit' : 'sp' });
     if (a.passive) {
@@ -152,7 +165,7 @@ export function passiveStats(p: Pick<Person, 'cls' | 'level' | 'road'>): Passive
 
 /* ------------------------------------------------------------ statuses */
 
-const has = (f: Combatant, s: Status, tick: number) => (f.st?.[s]?.until ?? -1) > tick;
+export const has = (f: Combatant, s: Status, tick: number) => (f.st?.[s]?.until ?? -1) > tick;
 
 /** Can't act at all (stunned, asleep, frozen, stopped). */
 export function held(f: Combatant, tick: number): boolean {
@@ -265,7 +278,11 @@ function worth(a: Arena, f: Combatant, act: KitAction): number {
  *  Returns whether they used one. */
 export function takeTurn(a: Arena, f: Combatant): boolean {
   const kit = f.kit;
-  if (!kit || held(f, a.tick)) return false;
+  if (held(f, a.tick)) return false;
+  // a potion, a draught or a thrown flask from their pouch, when it helps (sim/kitFight.ts)
+  // (a drink or a buff is quick: they still act; a thrown flask takes the turn)
+  if (f.bag?.length && useKitItem(a, f) === 'turn') return true;
+  if (!kit) return false;
   const silenced = has(f, 'silence', a.tick);
   let best: KitAction | null = null;
   let bestW = 0;
@@ -303,6 +320,28 @@ export function useAction(a: Arena, f: Combatant, act: KitAction): boolean {
   for (const e of act.effects) for (const t of apply(a, f, act, e)) struck.add(t);
   if (act.pool === 'limit') f.limit = 0;
   a.log(f, act.name, [...struck], { spell: act.spell, ult: act.pool === 'limit', cost: act.cost, pool: act.pool });
+  return true;
+}
+
+/** Use a battle item from the pouch (sim/kitFight.ts has chosen it and taken it out): a share of health or mana, then its
+ *  effects through the same engine as a skill's. Shown like one (`ActMeta.item`). */
+export function useItemAction(a: Arena, f: Combatant, k: KitItem): boolean {
+  f.lastAction = a.tick;
+  const act: KitAction = { id: k.id, name: k.name, spell: false, level: 0, cooldown: 0, ready: 0, effects: k.effects, use: k.use === 'heal' ? 'heal' : k.use === 'throw' ? 'attack' : 'support', cost: 0, pool: 'sp' };
+  const struck = new Set<Combatant>();
+  if (k.amount && (k.use === 'heal' || k.use === 'buff')) {
+    const n = Math.min(f.maxHp - f.hp, Math.round(f.maxHp * k.amount));
+    f.pop = { tick: a.tick, amount: n, heal: true };
+    f.hp += n;
+    struck.add(f);
+  }
+  if (k.use === 'mana' && f.maxMp !== undefined) {
+    f.mp = Math.min(f.maxMp, (f.mp ?? 0) + Math.round(f.maxMp * (k.amount ?? 0.5)));
+    struck.add(f);
+  }
+  for (const e of k.effects) for (const t of apply(a, f, act, e)) struck.add(t);
+  if (!struck.size) struck.add(f);
+  a.log(f, k.name, [...struck], { spell: false, ult: false, cost: 0, pool: 'sp', item: true });
   return true;
 }
 

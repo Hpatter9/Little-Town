@@ -390,3 +390,11 @@ The idol the town raises to a god after a miracle, and the druids' and the fae's
 Forest Objects Top-Down pack; the rival cult's black altar (`src/renderer/art/packs/cult_totem.png`) is the horned
 totem (`Dark_totem_dark_shadow2.png`) of its free Top-Down Pixel Art Cave Objects pack. Both cropped to the sprite.
 Craftpix free licence: https://craftpix.net/file-licenses/
+
+## Magic: the Mage Tower and the Arcane Library
+
+The Mage Tower on the map (`src/renderer/art/packs/su_stonetower.png`, scaled down) is the Magic Stone Tower prop of
+**Craftpix.net**'s free Simple Summer Top-Down Vector Tileset, used under Craftpix's free licence (use in the game; the
+raw files are not redistributed). The Arcane Library is laid from the glass jar, the shelves of tomes and potions and the
+reading tables of Craftpix's free Pixel Dungeon Props and Objects pack (`src/renderer/art/village/dprops.png`, already in
+the game). The rites, the surges and the cast in a fight play strips of the **5000 Pixel Effects** atlas (see Effects).

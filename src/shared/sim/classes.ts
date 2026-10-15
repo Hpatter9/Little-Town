@@ -8,6 +8,8 @@ import { tameChance, tamedMost, tamerPower } from '../data/taming';
 import { FOUNDERS } from '../data/founders';
 import { callingName, FOUNDER_CLASS } from '../data/founderClasses';
 import { ITEM_BY_ID, type ItemDef } from '../data/items';
+import { FOCI } from '../data/magic';
+import { SPELLCASTERS } from '../data/spells';
 import { LEVEL_SHARE_FIGHT, LEVEL_SHARE_WORK, levelOf, levelPower, MAX_LEVEL, stageOf, xpToLevel } from '../data/levels';
 import { BASE_PATHS, founderRoot, lineage, PATH_BY_ID, PATHS, roadsFrom, type PathNode } from '../data/paths';
 import { FORK, FOUNDER_FORK } from '../data/pathLore';
@@ -254,6 +256,7 @@ export const levelProgress = (p: Person) => (levelOf(p) >= MAX_LEVEL ? 1 : Math.
  *  cloaks and charms, and anyone without a class yet: anything). */
 export function canWear(p: Pick<Person, 'cls'>, def: ItemDef | string): boolean {
   const d = typeof def === 'string' ? ITEM_BY_ID[def] : def;
+  if (d && FOCI.includes(d.id)) return !!p.cls && SPELLCASTERS.has(p.cls); // (a focus only in a caster's hand: data/magic.ts)
   if (!p.cls || !d) return true;
   const c = CLASS_DEFS[p.cls];
   if (d.slot === 'weapon' && d.family) return c.weapons.includes(d.family);

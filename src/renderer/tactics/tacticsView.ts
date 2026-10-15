@@ -646,6 +646,12 @@ export class TacticsScene {
       // (low: the bar pulses red)
       if (share > 0 && share <= 0.3) this.barsG.rect(x, y, bw * share, 8).fill({ color: 0xff2010, alpha: 0.3 + 0.3 * Math.sin(now / 120) });
       if (gh.flash > 0) this.barsG.rect(x - 1, y - 1, bw + 2, 10).fill({ color: 0xffffff, alpha: gh.flash * 0.7 });
+      // (a caster's mana, a thin blue bar under the health: sim/mana.ts)
+      if (u.mp !== null && u.mpMax) {
+        this.barsG.rect(x - 1, y + 9, bw + 2, 5).fill({ color: 0x0c0806 });
+        this.barsG.rect(x, y + 10, bw, 3).fill({ color: 0x141c3a });
+        if (u.mp > 0) this.barsG.rect(x, y + 10, bw * Math.min(1, u.mp / u.mpMax), 3).fill({ color: 0x5a8cff });
+      }
     }
   }
   private barsAt = 0;
@@ -794,7 +800,7 @@ export class TacticsScene {
 
   private renderHud(t: TacticsView, now: number): void {
     // (redrawn when what it shows changes, and while the banners fade)
-    const key = `${this.w}x${this.h}|${t.turns}|${t.act?.key}|${t.act?.stage}|${this.mode}|${this.aimSkill}|${this.aimAt}|${this.selected}|${this.skillPage}|${t.orders?.left}|${t.orders?.moved}|${t.orders?.acted}|${t.auto}|${t.banner?.age}|${t.fx.map((f) => f.age).join(',')}|${t.units.map((u) => u.hp).join(',')}|${t.speed}`;
+    const key = `${this.w}x${this.h}|${t.turns}|${t.act?.key}|${t.act?.stage}|${this.mode}|${this.aimSkill}|${this.aimAt}|${this.selected}|${this.skillPage}|${t.orders?.left}|${t.orders?.moved}|${t.orders?.acted}|${t.auto}|${t.banner?.age}|${t.fx.map((f) => f.age).join(',')}|${t.units.map((u) => `${u.hp}:${u.mp ?? ''}`).join(',')}|${t.speed}`;
     if (key === this.hudKey) return;
     this.hudKey = key;
     for (const c of this.hud.removeChildren()) c.destroy({ children: true });
@@ -872,10 +878,10 @@ export class TacticsScene {
     if (!u.tower) {
       // (its health bar is drawn each frame, with its ghost: drawBars)
       this.boxes.push({ key: u.key, x, y, w });
-      const hp = new Text({ text: u.count !== null ? `DOWN · ${u.count} turn${u.count === 1 ? '' : 's'} left` : `HP ${u.hp}/${u.max}`, style: { fontFamily: FONT, fontSize: 10, fill: u.count !== null ? 0xff8070 : 0xffffff } });
-      hp.position.set(x + 8, y + 46);
+      const hp = new Text({ text: u.count !== null ? `DOWN · ${u.count} turn${u.count === 1 ? '' : 's'} left` : `HP ${u.hp}/${u.max}${u.mp !== null ? ` · MP ${u.mp}/${u.mpMax}` : ''}`, style: { fontFamily: FONT, fontSize: 10, fill: u.count !== null ? 0xff8070 : 0xffffff } });
+      hp.position.set(x + 8, y + 48);
       const mv = new Text({ text: `Mv ${u.move} Jp ${u.jump} Rg ${u.reach}${u.st.length ? ` · ${u.st.slice(0, 2).join(', ')}` : ''}`, style: { fontFamily: FONT, fontSize: 10, fill: 0xc8c0e0 } });
-      mv.position.set(x + 8, y + 58);
+      mv.position.set(x + 8, y + 59);
       this.hud.addChild(hp, mv);
     }
   }

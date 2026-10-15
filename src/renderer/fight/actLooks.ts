@@ -4,6 +4,7 @@
 
 import { ABILITY_BY_ID } from '../../shared/data/abilities';
 import { actFx } from '../../shared/data/actFx';
+import { KIT_BY_ID } from '../../shared/data/kitItems';
 import { SPELL_BY_ID } from '../../shared/data/spells';
 import type { SpriteFx } from '../town/spellLooks';
 
@@ -16,6 +17,7 @@ export function actIdOf(name: string): string {
   if (!byName.size) {
     for (const sp of Object.values(SPELL_BY_ID)) byName.set(sp.name, sp.id);
     for (const a of Object.values(ABILITY_BY_ID)) byName.set(a.name, a.id);
+    for (const k of Object.values(KIT_BY_ID)) byName.set(k.name, k.id);
   }
   return byName.get(name) ?? '';
 }

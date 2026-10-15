@@ -9,8 +9,9 @@ import type { EliteAffix } from '../data/dungeons';
 import { BLOOD_FURY, BLOOD_LIFESTEAL, castsMagic, CLASS_DEFS, NECRO_RAISES, type ClassId } from '../data/classes';
 import { BEAST_ARMOR, BEAST_DAMAGE, BEAST_HP, classStat, levelPower, shapeshifts } from '../data/levels';
 import { afraid, held, kitOf, pace, passiveStats, strike, takeTurn, tickStatuses, type ActMeta, type Arena, type Kit, type Statuses } from './actions';
-import { ATTR_BASE, DEX_AIM, DEX_DODGE, INT_POWER, manaRegenOf, maxManaOf, maxStaminaOf, speedOfDex, STAMINA_PER_BLOW, staminaRegenOf, STR_DAMAGE, VIT_HP, type Attrs, CHA_STATUS, CHA_SUMMON } from '../data/attributes';
+import { ATTR_BASE, DEX_AIM, DEX_DODGE, INT_POWER, manaRegenOf, maxStaminaOf, speedOfDex, STAMINA_PER_BLOW, staminaRegenOf, STR_DAMAGE, VIT_HP, type Attrs, CHA_STATUS, CHA_SUMMON } from '../data/attributes';
 import { attributesOf } from './attributes';
+import { manaMax, manaNow } from './mana';
 import { ENEMIES, enemyArmor, natureOf, type EnemyGroup } from '../data/enemies';
 import { WEREWOLF_DAMAGE } from '../data/monsters';
 import type { Role } from '../data/expeditions';
@@ -23,6 +24,8 @@ import { maxHp, type Person } from './state';
 import { TICK_HZ } from './time';
 
 export interface Fighter {
+  /** Battle items in their pouch (sim/kit.ts). */
+  bag?: string[];
   /** A delve's elite (data/dungeons.ts ELITES): its affix, also in its name. */
   elite?: EliteAffix;
   side: 'party' | 'enemy';
@@ -262,6 +265,8 @@ export function personFighter(p: Person, role: Role, row: 'front' | 'back', ammo
     beastDamage: g.beastDamage,
     quirks,
     ...(kit ? { kit } : {}),
+    // (a copy of their pouch: what's left goes back to them when the fight ends: `keepBag`)
+    ...(p.kit?.length && role !== 'porter' ? { bag: [...p.kit] } : {}),
     ammoType: ammoOf(p),
     ammo: ammoOf(p) ? ammo : 0,
     ammoBonus: AMMO_DAMAGE[ammoOf(p) ?? 'wood'] ?? 0,
@@ -270,8 +275,8 @@ export function personFighter(p: Person, role: Role, row: 'front' | 'back', ammo
     power: levelPower(p) * (1 + over('cha') * CHA_SUMMON),
     charm: over('cha') * CHA_STATUS,
     attrs: at,
-    mp: maxManaOf(at),
-    maxMp: maxManaOf(at),
+    mp: manaNow(p), // (what's left of their mana from the last fight: sim/mana.ts)
+    maxMp: manaMax(p),
     sp: maxStaminaOf(at),
     maxSp: maxStaminaOf(at),
     limit: 0,
@@ -597,4 +602,9 @@ export function battleLoot(b: Battle): Record<string, number> {
     for (const [m, n] of Object.entries(ENEMIES[f.kind].loot)) out[m] = (out[m] ?? 0) + (n ?? 0);
   }
   return out;
+}
+
+/** After a fight: what a person's pouch holds now (what they used is gone). */
+export function keepBag(p: Person, f: Pick<Fighter, 'bag'>): void {
+  if (f.bag && p.kit) p.kit = f.bag.length ? [...f.bag] : undefined;
 }

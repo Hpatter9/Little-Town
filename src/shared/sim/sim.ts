@@ -41,6 +41,7 @@ import { Rng } from '../rng';
 import { demolish, discardStock, placeBlueprint, townRadius, upgrade } from './buildings';
 import { cellAt, groundAt, isMarked, setGround, setMarked, type Pt, decayWear } from './land';
 import type { Command } from './commands';
+import { restockKits } from './kit';
 import { equip, hourlyItems, queueCraft, reduceCraft } from './crafting';
 import { growCrops, tendFields } from './farming';
 import { tendHerds } from './livestock';
@@ -75,6 +76,7 @@ import { greatEnemyHourly } from './greatEnemy';
 import { deepHourly } from './deep';
 import { underdarkHourly } from './underdark';
 import { portalsHourly } from './portals';
+import { magicHourly } from './magic';
 import { ancestorsHourly } from './ancestors';
 import { lookInside } from './interiors';
 import { dynastyHourly } from './dynasty';
@@ -213,6 +215,7 @@ export class Sim {
     for (const p of s.people) driftMorale(s, p);
     assignBeds(s);
     hourlyItems(s, this.rng);
+    restockKits(s); // (battle items into the pouches: sim/kit.ts)
     growCrops(s);
     tendFields(s, this.rng);
     tendHerds(s);
@@ -277,6 +280,7 @@ export class Sim {
     deepHourly(s); // (the Deep under the town: sim/deep.ts)
     underdarkHourly(s); // (the Underdark, the caves under the land: sim/underdark.ts)
     portalsHourly(s); // (other worlds through an arch or a rift: sim/portals.ts)
+    magicHourly(s); // (mana from the leylines, study, the town's rites and what they cost: sim/magic.ts)
     ancestorsHourly(s); // (a descendant's forebears: spirits, the heirloom, the Old House: sim/ancestors.ts)
     lineageHourly(s); // (children's lessons and apprenticeships: sim/lineage.ts)
     diaryTick(s); // (the day's doings counted for each townsperson's diary: sim/diary.ts)

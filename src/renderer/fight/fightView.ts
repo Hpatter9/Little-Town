@@ -10,7 +10,8 @@ import { airshipTexture, DECK, loadAirshipArt } from '../art/airshipArt';
 import { ColorMatrixFilter, Container, Graphics, Rectangle, Sprite, Text, Texture, TilingSprite } from 'pixi.js';
 import { ABILITY_BY_ID } from '../../shared/data/abilities';
 import type { Element } from '../../shared/data/effects';
-import { actFx } from '../../shared/data/actFx';
+import { actFx, PX_ELEMENT } from '../../shared/data/actFx';
+import { KIT_BY_ID, KIT_FX } from '../../shared/data/kitItems';
 import { castsMagic } from '../../shared/data/classes';
 import { ITEM_BY_ID } from '../../shared/data/items';
 import { shotCode, shotOf } from '../../shared/data/projectiles';
@@ -55,15 +56,9 @@ const GROUND_LIFT = 8;
 /** Down a dungeon, the share of each room's time the party stands at its thing before walking on. */
 const STOP = 0.3;
 
-/** Each element's colour for the flash where a spell or skill lands. */
-const ELEMENT_COLOUR: Record<Element, number> = {
-  physical: 0xffffff, fire: 0xff7030, ice: 0x9ae8ff, lightning: 0xfff070, holy: 0xffe8a0, dark: 0x8a40c0, nature: 0x6ad048, poison: 0x90f040,
-  arcane: 0xc080ff, blood: 0xe03040, time: 0xb0a0ff, sound: 0xffc0e0, water: 0x40b0e0, earth: 0xc09060, wind: 0xd0f0e0,
-};
-
-/** The element of a spell or skill (for its flash), by id. */
+/** The element of a spell or skill (for the effect gathering round its caster), by id. */
 function elementOf(id: string): Element {
-  const effects = SPELL_BY_ID[id]?.effects ?? ABILITY_BY_ID[id]?.active?.effects ?? [];
+  const effects = SPELL_BY_ID[id]?.effects ?? ABILITY_BY_ID[id]?.active?.effects ?? KIT_FX[id] ?? [];
   return effects.find((e) => e.element)?.element ?? (effects.some((e) => e.kind === 'heal' || e.kind === 'revive') ? 'holy' : 'arcane');
 }
 
@@ -81,7 +76,7 @@ const FOE_TARGETS = ['foe', 'foes', 'random_foes'];
  *  up close, and the big sheets of an ultimate. The element is the pixel effect's own (data/actFx.ts: `px:<element>-<family>`). */
 function flyingAct(id: string): string | null {
   const spell = SPELL_BY_ID[id];
-  const effects = spell?.effects ?? ABILITY_BY_ID[id]?.active?.effects ?? [];
+  const effects = spell?.effects ?? ABILITY_BY_ID[id]?.active?.effects ?? KIT_FX[id] ?? [];
   if (!effects.some((e) => FOE_TARGETS.includes(e.target) && e.kind !== 'heal' && e.kind !== 'revive')) return null;
   const fx = actFx(id);
   if (!fx.startsWith('px:')) return null;
@@ -191,6 +186,7 @@ export class FightScene {
     this.root.addChild(this.cover, this.world);
     for (const s of Object.values(SPELL_BY_ID)) this.idByName.set(s.name, s.id);
     for (const a of Object.values(ABILITY_BY_ID)) this.idByName.set(a.name, a.id);
+    for (const k of Object.values(KIT_BY_ID)) this.idByName.set(k.name, k.id);
   }
 
   get shown(): boolean {
@@ -604,21 +600,22 @@ export class FightScene {
         wait = MELEE_LAND;
         for (const r of act.targets) flights.set(`${foeSide}:${r}`, [...(flights.get(`${foeSide}:${r}`) ?? []), { age: act.age, wait }]);
       }
-      // a cast: a glow of the spell's colour gathers round the caster before it goes
-      if (from && act.age < 6 && (SPELL_BY_ID[id] || (actor?.ranged && code))) {
-        const gk = act.age / 6;
-        this.fx.circle(from[0] + (act.side === 'party' ? -4 : 4), from[1] - 16, 4 + 6 * Math.sin(gk * Math.PI)).fill({ color: ELEMENT_COLOUR[elementOf(id)], alpha: 0.5 * (1 - gk) });
-      }
-      const landed = t - wait / 10;
-      if (act.age - wait <= 8 && act.age - wait >= 0) {
-        const colour = ELEMENT_COLOUR[elementOf(id)];
-        const k = (act.age - wait) / 8;
-        for (const ref of act.targets) {
-          const p = at.get(`enemy:${ref}`) ?? at.get(`party:${ref}`);
-          if (!p) continue;
-          this.fx.circle(p[0], p[1] - 10, 6 + 10 * k).fill({ color: colour, alpha: 0.3 * (1 - k) });
+      // a cast: the spell's element gathers round the caster before it goes (the pixel effects pack's gather strip)
+      if (from && act.age < 8 && SPELL_BY_ID[id]) {
+        const gather = sheetOf(`px:${PX_ELEMENT[elementOf(id)]}-gather`);
+        const tex = gather.frame((act.age / 10) * gather.fps);
+        if (tex) {
+          const sp = (this.fxPool[used] ??= this.effects.addChild(new Sprite()));
+          used++;
+          sp.visible = true;
+          sp.texture = tex;
+          sp.blendMode = 'add';
+          const k = (gather.scale ?? 1) * 0.5;
+          sp.scale.set(k, k);
+          sp.position.set(Math.round(from[0] + (act.side === 'party' ? -4 : 4) - (gather.size * k) / 2), Math.round(from[1] - 4 - gather.size * k));
         }
       }
+      const landed = t - wait / 10;
       const sh = sheetOf(actSprite(id));
       act.targets.forEach((ref, i) => {
         const p = at.get(`enemy:${ref}`) ?? at.get(`party:${ref}`);
