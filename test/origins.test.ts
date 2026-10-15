@@ -149,3 +149,8 @@ test('knights start armed, with palisades known', () => {
   assert.ok(s.research.done.includes('palisades'));
   assert.ok((s.items.spear ?? 0) + s.people.filter((p) => p.gear.weapon === 'spear').length >= 3);
 });
+
+test('the Tide Clan starts with three founders, not two: one early death in a pair of founders left a town that never grew', () => {
+  const s = newGame('merfolk-founders', { origin: 'merfolk' });
+  assert.equal(s.people.length, 3);
+});
