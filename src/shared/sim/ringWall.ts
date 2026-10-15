@@ -12,9 +12,10 @@ import { BUILDING_BY_ID, type BuildingDef } from '../data/buildings';
 import { RING_SHAPE_OF, type RingShape } from '../data/ringShapes';
 import { builtOn, builtOnIndex, canPlace, demolish, isUnlocked, overgrownCells, placeBlueprint, unlockInfo } from './buildings';
 import { holdOf } from './castle';
-import { groundAt, idx, inMap, isPlannedRoad, isRoad, planRoad, unsetRoad, wet, WILD, wildToClear, type LandMap, type Pt, type Rect } from './land';
+import { CELL, groundAt, idx, inMap, isPlannedRoad, isRoad, planRoad, unsetRoad, wet, WILD, wildToClear, type LandMap, type Pt, type Rect } from './land';
 import { nomadic } from './nomads';
-import { campCell, type GameState } from './state';
+import { MATERIALS, type Material, type Stock } from '../data/materials';
+import { campCell, type Building, type GameState } from './state';
 import { TICKS_PER_HOUR } from './time';
 
 /** Cells between the outermost building and the wall; the ring grows in steps of this many cells a side. */
@@ -71,6 +72,14 @@ export interface Ring {
   doneAt?: number;
   /** The wild cells on the line being cleared for it (cell indices; marked for gathering, and taken first). */
   clearing?: number[];
+  /** The wall as one construction (the owner's ask): the work done on it all, in build-seconds summed over its pieces
+   *  (`ringTotals`), and the materials brought for it all; every piece's own progress and delivered are made from these
+   *  (`syncRing`). Left out of an older save: taken from its pieces' own the first time (`ringTotals`). */
+  sec?: number;
+  pool?: Stock;
+  /** Pieces of the line not yet in the construction (still laid as plans or waiting on their ground), as planRing
+   *  last counted them: the wall is not finished while any are. */
+  unlaid?: number;
 }
 
 /** Whether a town walls itself with a ring: not a castle or a hold (walls of their own), not a tribe on the move. */
@@ -513,6 +522,9 @@ export function planRing(s: GameState, wanted: boolean, raided = false): number[
     for (const i of overgrownCells(s, b)) if (clear.length < RING_CLEAR && !clear.includes(i)) clear.push(i);
   }
   ring.clearing = clear.slice();
+  // (the pieces still to be laid, their ground uncleared: the wall is not finished while any wait; `ringCap`)
+  ring.unlaid = missing.filter((m) => m.clear).length;
+  ringTotalsStale();
   // (a better wall learned since: the pieces still only planned become it)
   for (const b of s.buildings) {
     if (b.ring !== ring.gen || !b.planned) continue;
@@ -524,6 +536,7 @@ export function planRing(s: GameState, wanted: boolean, raided = false): number[
   //  the haulers and builders may take; the town's other sites are served first (people.ts `haulOrder`), so the wall
   //  never takes the wood another site is waiting on)
   for (const b of s.buildings) if (b.ring === ring.gen && b.planned && !b.overgrown) delete b.planned;
+  ringTotalsStale();
   return clear;
 }
 
@@ -608,4 +621,218 @@ export function liftRoadsOffWall(s: GameState): number {
     n++;
   }
   return n;
+}
+
+// ---- The wall as one construction (the owner's ask: "one large building they work on from anywhere, and the whole thing
+// goes up together as one") ----
+// While a ring is going up, its pieces (the blueprints of this generation) are one site: one pool of materials
+// (`Ring.pool`), one count of work done (`Ring.sec`), one progress that every piece shows. Builders take the nearest
+// open spot along the line, spread out (`ringBuilderPick`), haulers carry to the nearest part of it (`ringHaulTarget`),
+// and the whole wall, gates and grates with it, turns from blueprint to built in the same tick (`finishRing`). Once it
+// stands, a breach is mended piece by piece as before (a hole is a hole).
+
+/** Most of the wall that may be done while pieces of it are still waiting on ground to clear (or not yet laid). */
+export const RING_OPEN_CAP = 0.97;
+/** Builders along the wall keep this many cells (of crowding) from one another: each builder within `RING_CROWD_CELLS`
+ *  of a piece counts as `RING_CROWD_PULL` cells further off, so the crew spreads along the line. */
+export const RING_CROWD_CELLS = 3;
+export const RING_CROWD_PULL = 5;
+
+/** The ring when `b` is a piece of it still being raised (a blueprint of the ring under way, not mere plans): its
+ *  work and materials are the whole wall's. Null for anything else: other sites, and the pieces of a ring that stands
+ *  (a mended breach, an upgrade), which are built one at a time. */
+export function ringSite(s: Pick<GameState, 'ring'>, b: Pick<Building, 'ring' | 'status' | 'planned'>): Ring | null {
+  const ring = s.ring;
+  return ring && !ring.done && b.ring === ring.gen && b.status === 'blueprint' && !b.planned ? ring : null;
+}
+
+export interface RingTotals {
+  /** The blueprints of the ring under way (in work first, then those still only plans). */
+  live: Building[];
+  planned: number;
+  /** The makings of the pieces in work, the build-seconds of those, and of all (plans included). */
+  cost: Stock;
+  liveSec: number;
+  allSec: number;
+}
+let totalsMade: { s: GameState; ring: Ring; tick: number; n: number; totals: RingTotals } | null = null;
+/** What the construction holds now (kept for the tick; `planRing` and a finished wall make it afresh). */
+export function ringTotals(s: GameState, ring: Ring): RingTotals {
+  if (totalsMade && totalsMade.s === s && totalsMade.ring === ring && totalsMade.tick === s.tick && totalsMade.n === s.buildings.length) return totalsMade.totals;
+  const live: Building[] = [];
+  const cost: Stock = {};
+  let planned = 0, liveSec = 0, allSec = 0;
+  const first = ring.sec === undefined;
+  const fromPieces: Stock = {};
+  let secFrom = 0;
+  for (const b of s.buildings) {
+    if (b.ring !== ring.gen || b.status !== 'blueprint' || !isRingPiece(b.def)) continue;
+    const def = BUILDING_BY_ID[b.def];
+    const w = def?.buildSeconds ?? 1;
+    allSec += w;
+    if (b.planned) {
+      planned++;
+      continue;
+    }
+    live.push(b);
+    liveSec += w;
+    for (const m of MATERIALS) if (def?.cost[m]) cost[m] = (cost[m] ?? 0) + def.cost[m]!;
+    if (first) {
+      secFrom += w * b.progress;
+      for (const m of MATERIALS) if (b.delivered[m]) fromPieces[m] = (fromPieces[m] ?? 0) + b.delivered[m]!;
+    }
+  }
+  // (an older save: each piece had its own progress and makings; they are pooled once)
+  if (first) {
+    ring.sec = secFrom;
+    ring.pool = fromPieces;
+  }
+  const totals = { live, planned, cost, liveSec, allSec };
+  totalsMade = { s, ring, tick: s.tick, n: s.buildings.length, totals };
+  return totals;
+}
+/** Forget the kept totals (pieces were laid, taken or finished). */
+export const ringTotalsStale = () => {
+  totalsMade = null;
+};
+
+/** The makings the whole wall still lacks. */
+export function ringStillNeeded(s: GameState, ring: Ring): Stock {
+  const t = ringTotals(s, ring);
+  const out: Stock = {};
+  for (const m of MATERIALS) {
+    const need = (t.cost[m] ?? 0) - (ring.pool?.[m] ?? 0);
+    if (need > 0) out[m] = need;
+  }
+  return out;
+}
+
+/** The share of the makings on site (as `deliveredShare` is for one building). */
+export function ringDeliveredShare(s: GameState, ring: Ring): number {
+  const t = ringTotals(s, ring);
+  let total = 0, got = 0;
+  for (const m of MATERIALS) {
+    const n = t.cost[m] ?? 0;
+    total += n;
+    got += Math.min(n, ring.pool?.[m] ?? 0);
+  }
+  return total > 0 ? got / total : 1;
+}
+
+/** The share of the whole wall's work done. */
+export function ringWorkShare(s: GameState, ring: Ring): number {
+  const t = ringTotals(s, ring);
+  return t.allSec > 0 ? Math.min(1, (ring.sec ?? 0) / t.allSec) : 0;
+}
+
+/** How far the work may go now: no further than the makings brought, and while pieces wait on their ground or are
+ *  yet to be laid, no further than the pieces in work (and `RING_OPEN_CAP`): the wall is finished all at once. */
+export function ringCap(s: GameState, ring: Ring): number {
+  const t = ringTotals(s, ring);
+  const open = t.planned > 0 || (ring.unlaid ?? 0) > 0;
+  const room = open ? Math.min(RING_OPEN_CAP, t.allSec > 0 ? t.liveSec / t.allSec : 0) : 1;
+  return Math.min(ringDeliveredShare(s, ring), room);
+}
+
+/** Whether the wall has work for a builder now (as `buildableNow` is for one building). */
+export function ringBuildable(s: GameState, ring: Ring): boolean {
+  const t = ringTotals(s, ring);
+  if (!t.live.length) return false;
+  const cap = ringCap(s, ring);
+  return cap >= 1 || cap - ringWorkShare(s, ring) >= 0.02;
+}
+
+/** Add work to the wall (`sec` build-seconds' worth), no further than `ringCap`. Returns whether it is all done and
+ *  may be finished. */
+export function ringWork(s: GameState, ring: Ring, sec: number): boolean {
+  const t = ringTotals(s, ring);
+  if (t.allSec <= 0) return false;
+  const cap = ringCap(s, ring);
+  ring.sec = Math.min(cap * t.allSec, (ring.sec ?? 0) + sec);
+  return cap >= 1 && ring.sec >= t.allSec - 1e-9;
+}
+
+/** Bring materials to the wall: what it still lacks, taken from `carrying`. */
+export function ringDeliver(s: GameState, ring: Ring, carrying: Stock): void {
+  const need = ringStillNeeded(s, ring);
+  const pool = (ring.pool ??= {});
+  for (const m of MATERIALS) {
+    const n = Math.min(carrying[m] ?? 0, need[m] ?? 0);
+    if (n > 0) {
+      pool[m] = (pool[m] ?? 0) + n;
+      carrying[m] = (carrying[m] ?? 0) - n;
+    }
+  }
+}
+
+/** Every piece shows the wall's one progress and its share of the makings (the renderer, the planner and the queue read
+ *  the pieces): called once a tick while a wall is going up. */
+let syncedKey: { ring: Ring; key: string } | null = null;
+export function syncRing(s: GameState): void {
+  const ring = s.ring;
+  if (!ring || ring.done) return;
+  const t = ringTotals(s, ring);
+  if (!t.live.length) return;
+  // (only when something changed: the work, the makings, or the pieces)
+  const key = `${ring.sec}|${MATERIALS.map((m) => ring.pool?.[m] ?? 0).join(',')}|${t.live.length}|${t.planned}|${s.buildings.length}`;
+  if (syncedKey && syncedKey.ring === ring && syncedKey.key === key) return;
+  syncedKey = { ring, key };
+  const p = Math.min(0.999, ringWorkShare(s, ring));
+  const frac: Partial<Record<Material, number>> = {};
+  for (const m of MATERIALS) if (t.cost[m]) frac[m] = Math.min(1, (ring.pool?.[m] ?? 0) / t.cost[m]!);
+  for (const b of t.live) {
+    b.progress = p;
+    const cost = BUILDING_BY_ID[b.def]?.cost ?? {};
+    const d: Stock = {};
+    for (const m of MATERIALS) if (cost[m]) d[m] = cost[m]! * (frac[m] ?? 0);
+    b.delivered = d;
+  }
+}
+
+/** The whole wall is raised: every piece in work turns built in this tick, gates and grates with the walls. Returns the
+ *  number of pieces. */
+export function finishRing(s: GameState, ring: Ring): number {
+  const t = ringTotals(s, ring);
+  for (const b of t.live) {
+    const def = BUILDING_BY_ID[b.def];
+    b.progress = 1;
+    b.status = 'done';
+    b.builtAt = s.tick;
+    b.delivered = {};
+    if (def?.hp) b.hp = def.hp;
+  }
+  ring.sec = 0;
+  ring.pool = {};
+  syncedKey = null;
+  ringTotalsStale();
+  return t.live.length;
+}
+
+const distTo = (b: Building, p: Pt) => Math.hypot((b.tile + 0.5) * CELL - p.x, (b.row + 0.5) * CELL - p.y);
+
+/** The pieces for a builder to choose among, nearest to `at` first, each counted further off by the builders already
+ *  nearby (`taken`: where builders stand, px), so the crew spreads along the wall. */
+export function ringBuilderOrder(s: GameState, ring: Ring, at: Pt, taken: Pt[]): Building[] {
+  const crowd = RING_CROWD_CELLS * CELL;
+  const cost = new Map<Building, number>();
+  for (const b of ringTotals(s, ring).live) {
+    const c = { x: (b.tile + 0.5) * CELL, y: (b.row + 0.5) * CELL };
+    let n = 0;
+    for (const q of taken) if (Math.abs(q.x - c.x) <= crowd && Math.abs(q.y - c.y) <= crowd) n++;
+    cost.set(b, distTo(b, at) + n * RING_CROWD_PULL * CELL);
+  }
+  return [...cost.keys()].sort((a, c) => cost.get(a)! - cost.get(c)! || a.id - c.id);
+}
+
+/** The piece a hauler carries to: the nearest to where they stand. */
+export function ringHaulTarget(s: GameState, ring: Ring, at: Pt): Building | null {
+  let best: Building | null = null, bd = Infinity;
+  for (const b of ringTotals(s, ring).live) {
+    const d = distTo(b, at);
+    if (d < bd) {
+      bd = d;
+      best = b;
+    }
+  }
+  return best;
 }

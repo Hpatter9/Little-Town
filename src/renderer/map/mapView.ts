@@ -1128,7 +1128,8 @@ export class MapView {
         d = this.draw(b, sig);
         this.buildings.set(b.id, d);
       }
-      if (b.status === 'blueprint' && d.progress !== b.progress) this.updateBlueprint(b, d);
+      // (every piece of the wall going up shows the one progress and moves together: redrawn a hundredth at a time, not every tick)
+      if (b.status === 'blueprint' && (b.ring !== undefined ? Math.abs(d.progress - b.progress) >= 0.01 : d.progress !== b.progress)) this.updateBlueprint(b, d);
       if (b.fire !== undefined) d.sprite.tint = 0xff9060;
       const shown = b.status !== 'done' || !this.artHidden.has(b.id);
       if (d.sprite.visible !== shown) d.sprite.visible = shown;
