@@ -89,8 +89,7 @@ const clamp100 = (v: number) => Math.max(0, Math.min(100, v));
 const dayOf = (tick: number) => Math.floor(tick / TICKS_PER_DAY);
 /** The side stream: a fresh roll for this tick and what it's about. */
 const rngOf = (s: GameState, salt: string) => new Rng(hashSeed(`${s.seed}:religion:${s.tick}:${salt}`));
-const on = (s: GameState) => s.autopilot !== false && !s.gameOver && !process.env.REL_OFF; // TEMP
-const T = (k: string) => !!process.env[k]; // TEMP
+const on = (s: GameState) => s.autopilot !== false && !s.gameOver;
 /** "Ada", "Ada and Bo", "Ada, Bo and Cy", "Ada, Bo, Cy and 2 more". */
 const names = (list: string[]) => (list.length <= 1 ? list.join('') : list.length <= 3 ? `${list.slice(0, -1).join(', ')} and ${list.at(-1)}` : `${list.slice(0, 3).join(', ')} and ${list.length - 3} more`);
 
@@ -215,7 +214,7 @@ export function religionHourly(s: GameState): void {
   const hour = calendar(s.tick).hour;
   funeralRites(s);
   if (hour === FAITH_HOUR) dawn(s);
-  if (hour === PILGRIM_HOUR && !T('REL_NOPILGRIM')) pilgrimage(s);
+  if (hour === PILGRIM_HOUR) pilgrimage(s);
   if (hour === CULT_HOUR) cultNight(s);
 }
 
@@ -258,7 +257,7 @@ function dawn(s: GameState): void {
   // (the gods' demands, and their jealousy of each other, start once there's somewhere to worship them: before that
   // sim/faith.ts's own neglect is enough for a camp)
   const worshipped = placesOf(s).length > 0;
-  const demand = worshipped && !T('REL_NODEMAND') ? Math.min(DEMAND_MOST, home.length * DEMAND_PER_HEAD) : 0;
+  const demand = worshipped ? Math.min(DEMAND_MOST, home.length * DEMAND_PER_HEAD) : 0;
   for (const d of DOMAINS) {
     let v = f.favour[d] + follow[d] + acts[d] - demand - cultists * CULT_FAVOUR + idols.filter((i) => i.god === d).length * IDOL_FAVOUR;
     if (worshipped && !home.some((p) => p.creed === d)) v -= UNFOLLOWED;
@@ -274,7 +273,7 @@ function dawn(s: GameState): void {
     // (a camp too small, or a starving town for the harvest god, is spared the worst: its omens still come)
     const spared = home.length < GREAT_WRATH_PEOPLE || (d === 'harvest' && home.some((p) => p.starving));
     if (v <= GREAT_WRATH_AT && last !== undefined && !spared && wrathReady(s) && rng.chance(GREAT_WRATH_CHANCE)) {
-      if (!T('REL_NOWRATH') && !T('REL_NOWRATH_' + d)) greatWrath(s, d, rng);
+      greatWrath(s, d, rng);
       break;
     }
     // (an omen warns of the greater wrath: a camp too small for it gets none)
@@ -340,7 +339,6 @@ export function feastIn(s: GameState, d: Domain): number {
 /** A god's feast day: kept with a priest at home (food laid out, the town lifted, a cruel or a merciful rite by the
  *  people's ways), or let pass and the god slighted. */
 function feastDay(s: GameState): void {
-  if (T('REL_NOFEAST')) return;
   const i = FEAST_DAYS.indexOf(calendar(s.tick).dayOfSeason);
   if (i < 0) return;
   const d = DOMAINS[i];
