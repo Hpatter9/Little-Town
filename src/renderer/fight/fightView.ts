@@ -18,7 +18,8 @@ import { ShotPainter, shotTicks } from '../battle/projectiles';
 import { ENEMIES, type HumanSprite, type MachineSprite, type StillSprite } from '../../shared/data/enemies';
 import { SPELL_BY_ID } from '../../shared/data/spells';
 import type { ExpeditionView, FighterView } from '../../shared/sim/snapshot';
-import { creatureFlip, creatureFrame, creatureSize, type CreatureSheet } from '../art/creatures';
+import { creatureFlip, creatureFrame, creaturePoseFrames, creatureSize, type CreatureSheet } from '../art/creatures';
+import { corpseAlpha, FALL_TICKS, HEAVY, MELEE_LAND, motionOf, moveSprite, TickClock } from './fightMotion';
 import { impactFrame, IMPACT_SIZE, SPLAT_SIZE, splatFrame } from '../art/effects';
 import { bleeds } from '../map/bloodPools';
 import { ELITES, type EliteAffix } from '../../shared/data/dungeons';
@@ -283,6 +284,14 @@ export class FightScene {
   /** The drama of an ultimate: the screen shakes and flashes white when one is loosed. */
   private ultSeen = '';
   private ultAt = -1e9;
+  /** A heavy hit or a fall on the screen: when it landed (ms), how hard it shakes, and the flash's colour. */
+  private hitAt = -1e9;
+  private hitK = 0;
+  private flashColour = 0xffffff;
+  /** Smoothed tick counters (fractions of a tick between the sim's), each fighter's last pop and who was down. */
+  private readonly clock = new TickClock();
+  private readonly popAge = new Map<string, number>();
+  private readonly wasDown = new Set<string>();
 
   render(now: number, dt: number): void {
     const v = this.view;
@@ -298,10 +307,11 @@ export class FightScene {
       }
     }
     const since = (now - this.ultAt) / 1000;
-    if (since < 0.8) {
-      const k = (1 - since / 0.8) * 7;
-      this.world.position.set(Math.round((Math.random() - 0.5) * k), this.worldTop + Math.round((Math.random() - 0.5) * k));
-    } else this.world.position.set(0, this.worldTop);
+    // (and a shorter, smaller shake for a heavy blow or a fall)
+    const hs = (now - this.hitAt) / 1000;
+    const k = Math.max(since < 0.8 ? (1 - since / 0.8) * 7 : 0, hs < 0.28 ? (1 - hs / 0.28) * this.hitK : 0);
+    if (k > 0.3) this.world.position.set(Math.round((Math.random() - 0.5) * k), this.worldTop + Math.round((Math.random() - 0.5) * k));
+    else this.world.position.set(0, this.worldTop);
     // down a dungeon they walk on between rooms, and stop a while at each room's thing (a chest, a trap, a shrine...)
     const delve = v.delve && v.phase === 'work' ? v.delve : null;
     const stops = !!delve && !!delve.kind && !['fight', 'boss'].includes(delve.kind) && delve.progress < STOP;
@@ -410,6 +420,9 @@ export class FightScene {
     // (the white flash of an ultimate, fading over a third of a second)
     const flash = (performance.now() - this.ultAt) / 1000;
     if (flash >= 0 && flash < 0.35) this.dark.rect(0, 0, this.vw, this.vh).fill({ color: 0xffffff, alpha: 0.7 * (1 - flash / 0.35) });
+    // (a townsperson falling: the screen blinks red a moment)
+    const fell = (performance.now() - this.hitAt) / 1000;
+    if (this.flashColour !== 0xffffff && fell >= 0 && fell < 0.4) this.dark.rect(0, 0, this.vw, this.vh).fill({ color: this.flashColour, alpha: 0.3 * (1 - fell / 0.4) });
   }
 
   /** Between fights: the party in a line, walking to the right (or working at the site). */
@@ -425,6 +438,8 @@ export class FightScene {
       const key = `m${m.id}`;
       seen.add(key);
       const f = this.fig(key);
+      f.sprite.rotation = 0;
+      f.sprite.blendMode = 'normal';
       const x = this.vw / 2 + (n - 1) * 9 - i * 18;
       const frame = walking && !afloat ? 1 + (Math.floor(now / 100 + i * 3) % 8) : 0;
       // (stopped down a dungeon they stand and look; at the site they work it)
@@ -562,6 +577,7 @@ export class FightScene {
       const foeSide = act.side === 'party' ? 'enemy' : 'party';
       const aims = code ? act.targets.map((r) => at.get(`${foeSide}:${r}`)).filter((q): q is [number, number] => !!q) : [];
       const from = at.get(`${act.side}:${act.ref}`);
+      const actor = fighters.find((x) => x.side === act.side && x.ref === act.ref);
       if (code && from && aims.length) {
         const goal = aims.length > 1 ? [aims.reduce((s, q) => s + q[0], 0) / aims.length, aims.reduce((s, q) => s + q[1], 0) / aims.length] : aims[0];
         const a: [number, number] = [from[0] + (act.side === 'party' ? -10 : 8), from[1] - 16];
@@ -570,6 +586,15 @@ export class FightScene {
         wait = LEAD + dur;
         this.shots.put(code, a, b, t * 10 - LEAD, dur, SHOT_SCALE);
         for (const r of act.targets) flights.set(`${foeSide}:${r}`, [...(flights.get(`${foeSide}:${r}`) ?? []), { age: act.age, wait }]);
+      } else if (from && !actor?.ranged && this.strikesFoes(id)) {
+        // a skill struck up close: its effect and the flinch wait for the lunge to land
+        wait = MELEE_LAND;
+        for (const r of act.targets) flights.set(`${foeSide}:${r}`, [...(flights.get(`${foeSide}:${r}`) ?? []), { age: act.age, wait }]);
+      }
+      // a cast: a glow of the spell's colour gathers round the caster before it goes
+      if (from && act.age < 6 && (SPELL_BY_ID[id] || (actor?.ranged && code))) {
+        const gk = act.age / 6;
+        this.fx.circle(from[0] + (act.side === 'party' ? -4 : 4), from[1] - 16, 4 + 6 * Math.sin(gk * Math.PI)).fill({ color: ELEMENT_COLOUR[elementOf(id)], alpha: 0.5 * (1 - gk) });
       }
       const landed = t - wait / 10;
       if (act.age - wait <= 8 && act.age - wait >= 0) {
@@ -599,35 +624,81 @@ export class FightScene {
       });
     }
     this.plainShots(fighters, v, at, now, flights);
+    this.plainBlows(fighters, v, flights);
     for (let i = used; i < this.fxPool.length; i++) this.fxPool[i].visible = false;
     for (const k of this.actSeen.keys()) if (!live.has(k)) this.actSeen.delete(k);
+    // first, each fighter as the screen sees it (a blow that was shot, cast or struck lands late: its flinch and number
+    // wait for it), with the sim's tick counts smoothed to fractions of a tick so the motion is smooth
+    const rigs = new Map<string, { f: FighterView; real: FighterView; popWait: number; sa: number; sh: number }>();
+    const clockKeys = new Set<string>();
     for (const real of fighters) {
       const key = `${real.side}:${real.ref}`;
-      const p = at.get(key);
-      if (!p) continue;
-      seen.add(key);
-      // (a blow that was shot or cast at them lands when the shot arrives: its flinch and number wait for it)
+      if (!at.has(key)) continue;
       const wait = flights.get(key);
       const hitWait = wait?.find((w) => Math.abs(real.sinceHit - w.age) <= 2)?.wait ?? 0;
       const popWait = real.pop ? (wait?.find((w) => Math.abs(real.pop!.age - w.age) <= 2)?.wait ?? 0) : 0;
       const late = hitWait > 0 && real.sinceHit < hitWait;
       const f: FighterView = hitWait ? { ...real, sinceHit: late ? 999 : real.sinceHit - hitWait, ...(late ? { down: false } : {}), pop: real.pop } : real;
+      clockKeys.add(`${key}:a`).add(`${key}:h`);
+      rigs.set(key, { f, real, popWait, sa: this.clock.fine(`${key}:a`, f.sinceAction, now), sh: this.clock.fine(`${key}:h`, f.sinceHit, now) });
+    }
+    this.clock.prune(clockKeys);
+    // (a friend just fallen, and a won fight: a flinch, and a hop for joy)
+    const fallen = (side: string, self: string) => {
+      let m = 999;
+      for (const [k, r] of rigs) if (r.f.side === side && r.f.down && k !== self) m = Math.min(m, r.sh);
+      return m;
+    };
+    const won = foes.length > 0 && foes.every((x) => x.down) && party.some((x) => !x.down);
+    for (const [key, r] of rigs) {
+      const { f, real } = r;
+      const p = at.get(key)!;
+      seen.add(key);
       const g = this.fig(key);
-      const acting = f.sinceAction < 6 && !f.down;
-      // (they step out toward the foe to strike or cast)
-      const step = acting ? (f.side === 'party' ? -10 : 8) : 0;
-      this.pose(g.sprite, f, p[0] + step, p[1], acting, now);
-      g.sprite.zIndex = p[1];
-      g.sprite.alpha = f.down && f.side === 'enemy' ? Math.max(0, 1 - f.sinceHit / 20) : 1;
-      // (an elite wears its affix's colour; a boss its own)
-      g.sprite.tint = f.sinceHit < 3 && !f.down ? 0xff8080 : f.elite ? (ELITES[f.elite as EliteAffix]?.tint ?? 0xffffff) : (ENEMIES[f.kind]?.tint ?? 0xffffff);
-      // the number over them: damage white, healing green, rising and fading
-      const pop = real.pop && real.pop.age - popWait >= 0 && real.pop.age - popWait < 14 ? { ...real.pop, age: real.pop.age - popWait } : null;
+      const acting = r.sa < 8 && !f.down;
+      // the striking pop: its share of the target's health, and when it's a new one (a heavy blow shakes the screen, a
+      // townsperson's fall blinks it red)
+      const pop0 = real.pop;
+      const hard = pop0 && !pop0.heal && pop0.amount > 0 && pop0.age - r.popWait < 8 ? pop0.amount / Math.max(1, real.maxHp) : 0;
+      const before = this.popAge.get(key);
+      if (pop0 && pop0.age - r.popWait >= 0 && (before === undefined ? pop0.age - r.popWait <= 2 : pop0.age < before)) {
+        if (hard >= HEAVY) {
+          this.hitAt = now;
+          this.hitK = 4;
+          this.flashColour = 0xffffff;
+        }
+      }
+      if (pop0) this.popAge.set(key, pop0.age);
+      else this.popAge.delete(key);
+      if (f.down && !this.wasDown.has(key)) {
+        this.wasDown.add(key);
+        if (r.sh < 3 && f.side === 'party') {
+          this.hitAt = now;
+          this.hitK = 5;
+          this.flashColour = 0xc02030;
+        }
+      } else if (!f.down) this.wasDown.delete(key);
+      const toward = f.side === 'party' ? -1 : 1;
+      const fine: FighterView = { ...f, sinceAction: r.sa, sinceHit: r.sh };
+      const deadFrame = this.pose(g.sprite, fine, p[0], p[1], acting, now);
+      const wide = g.sprite.texture.width > g.sprite.texture.height * 1.1;
+      const m = motionOf({ toward, sinceAction: r.sa, sinceHit: r.sh, down: f.down, ranged: f.ranged, hard, friendDown: fallen(f.side, key), wide, cheering: won && !f.down && f.side === 'party', now, ref: f.ref });
+      // (the motion is only a lean and a shift of the picture's place: squash and lean about their feet)
+      moveSprite(g.sprite, p[0], p[1], m, 1, !(deadFrame && f.down));
+      g.sprite.zIndex = p[1] - (f.down ? 0.5 : 0);
+      g.sprite.alpha = f.down ? (f.side === 'enemy' ? corpseAlpha(r.sh - 2, 'enemy') : 1) : 1;
+      // (an elite wears its affix's colour; a boss its own; the struck flash white, then red)
+      const base = f.elite ? (ELITES[f.elite as EliteAffix]?.tint ?? 0xffffff) : (ENEMIES[f.kind]?.tint ?? 0xffffff);
+      g.sprite.blendMode = m.flash >= 0.9 ? 'add' : 'normal';
+      g.sprite.tint = f.down ? (f.side === 'enemy' ? 0xb0a0a0 : base) : m.flash >= 0.9 ? 0xffffff : m.flash > 0.1 ? 0xff9090 : base;
+      // the number over them: damage white, healing green, arcing up and away from the striker and fading
+      const pop = real.pop && real.pop.age - r.popWait >= 0 && real.pop.age - r.popWait < 14 ? { ...real.pop, age: real.pop.age - r.popWait } : null;
       g.pop.visible = !!pop && (pop.amount > 0 || !pop.heal);
       if (pop) {
         g.pop.text = pop.amount > 0 ? String(pop.amount) : 'Miss';
-        g.pop.style.fill = pop.heal ? 0x8aff9a : 0xffffff;
-        g.pop.position.set(p[0], p[1] - 22 - pop.age * 0.9);
+        g.pop.style.fill = pop.heal ? 0x8aff9a : hard >= HEAVY ? 0xffd060 : 0xffffff;
+        g.pop.scale.set(hard >= HEAVY ? 1.35 : 1);
+        g.pop.position.set(p[0] - toward * pop.age * 0.5, p[1] - 22 - (pop.age * 1.6 - pop.age * pop.age * 0.06));
         g.pop.alpha = Math.min(1, (14 - pop.age) / 5);
         g.pop.zIndex = 999;
       }
@@ -636,7 +707,7 @@ export class FightScene {
       const spark = f.sinceHit < 7 && !f.down ? (bloody ? splatFrame(f.sinceHit + 2) : impactFrame(f.sinceHit)) : null;
       g.spark.visible = !!spark;
       if (spark) {
-        const size = bloody ? SPLAT_SIZE * 0.6 : IMPACT_SIZE * 0.6;
+        const size = (bloody ? SPLAT_SIZE : IMPACT_SIZE) * (hard >= HEAVY ? 0.85 : 0.6);
         g.spark.texture = spark;
         g.spark.anchor.set(0.5, 0.5);
         g.spark.width = g.spark.height = size;
@@ -690,8 +761,36 @@ export class FightScene {
     for (const k of this.blows.keys()) if (!live.has(k)) this.blows.delete(k);
   }
 
+  /** Whether a spell or skill goes for foes (not friends or self: heals, wards). */
+  private strikesFoes(id: string): boolean {
+    const effects = SPELL_BY_ID[id]?.effects ?? ABILITY_BY_ID[id]?.active?.effects ?? [];
+    return effects.some((e) => FOE_TARGETS.includes(e.target) && e.kind !== 'heal' && e.kind !== 'revive');
+  }
+
+  /** The plain close blows: the foe that was struck (or missed) as the blow was made takes it when the lunge lands, so its
+   *  number, flinch and spark wait for that (as for a shot in the air). */
+  private plainBlows(fighters: FighterView[], v: ExpeditionView, flights: Map<string, Flight[]>): void {
+    for (const f of fighters) {
+      if (f.ranged || f.down || f.sinceAction > MELEE_LAND + 16) continue;
+      if (v.acts.some((a) => a.side === f.side && a.ref === f.ref && Math.abs(a.age - f.sinceAction) <= 2)) continue;
+      let best = 2;
+      let to: string | null = null;
+      for (const o of fighters) {
+        if (o.side === f.side) continue;
+        const hit = Math.min(o.sinceHit, o.pop && !o.pop.heal ? o.pop.age : 999);
+        const d = Math.abs(hit - f.sinceAction);
+        if (d < best) {
+          best = d;
+          to = `${o.side}:${o.ref}`;
+        }
+      }
+      if (to) flights.set(to, [...(flights.get(to) ?? []), { age: f.sinceAction, wait: MELEE_LAND }]);
+    }
+  }
+
   /** A fighter's picture: a townsperson (or a raised foe) as an LPC figure, a creature, a still or a machine. */
-  private pose(s: Sprite, f: FighterView, x: number, y: number, acting: boolean, now: number): void {
+  /** Returns whether the picture is already a dying one (a pack's own death frames), so no topple is added to it. */
+  private pose(s: Sprite, f: FighterView, x: number, y: number, acting: boolean, now: number): boolean {
     const unit = f.kind === 'person' ? null : ENEMIES[f.kind];
     // (some foes are recoloured: a dungeon's boss in its own colours)
     const filter = unit?.look ? lookFilter(unit.look) : null;
@@ -702,13 +801,14 @@ export class FightScene {
     if (unit && 'sheet' in unit.sprite) {
       const sp = unit.sprite as { sheet: CreatureSheet; block: number; scale: number };
       const facing = faceLeft ? 'left' : 'right';
-      s.texture = creatureFrame(sp.sheet, sp.block, facing, f.down ? 1 : Math.floor(now / 160 + f.ref), acting, f.down ? 'dead' : acting ? undefined : 'idle');
+      const dies = f.down && creaturePoseFrames(sp.sheet, 'dead') > 0;
+      s.texture = creatureFrame(sp.sheet, sp.block, facing, f.down ? 1 : Math.floor(now / 160 + f.ref), acting, f.down ? 'dead' : acting ? undefined : 'idle', dies ? (Math.max(0, f.sinceHit - 2) / FALL_TICKS) * creaturePoseFrames(sp.sheet, 'dead') : undefined);
       const size = creatureSize(sp.sheet);
       const flip = creatureFlip(sp.sheet, facing);
       const sc = sp.scale * k * 1.2;
       s.scale.set(sc * flip, sc);
       s.position.set(Math.round(x - ((size.w * sc) / 2) * flip), Math.round(y - size.h * sc));
-      return;
+      return dies;
     }
     if (unit && 'still' in unit.sprite) {
       const st = unit.sprite as StillSprite;
@@ -718,7 +818,7 @@ export class FightScene {
       s.scale.set(sc * flip, sc);
       const bob = st.hover && !f.down ? Math.round(Math.sin(now / 300 + f.ref) * 2) - 4 : 0;
       s.position.set(Math.round(x - ((s.texture.width * sc) / 2) * flip), Math.round(y - s.texture.height * sc + bob));
-      return;
+      return false;
     }
     if (unit && 'machine' in unit.sprite) {
       const ms = unit.sprite as MachineSprite;
@@ -728,7 +828,7 @@ export class FightScene {
       const flip = faceLeft ? -1 : 1;
       s.scale.set(sc * flip, sc);
       s.position.set(Math.round(x - (size / 2) * sc * flip), Math.round(y - size * sc));
-      return;
+      return false;
     }
     // a shapeshifter fights in their beast's shape (wolf to wyvern by stage)
     if (f.beast && !f.down) {
@@ -741,43 +841,44 @@ export class FightScene {
       s.anchor.set(0);
       s.scale.set(sc * flip, sc);
       s.position.set(Math.round(x - ((size.w * sc) / 2) * flip), Math.round(y - size.h * sc));
-      return;
+      return false;
     }
     // people
     const hs = unit ? (unit.sprite as HumanSprite) : null;
     const enemy = hs ? enemyLook(hs.people, f.ref) : null;
     const look = f.look ?? enemy?.look;
-    if (!look) return;
+    if (!look) return false;
     const wear = enemy ? enemy.wear : wornLayers(f.gear);
     // a townsperson in the Himeko look, as the map draws them (art/hkFolk.ts; the founders too): all but a werewolf,
     // who fights in wolf form
     if (!hs && !f.wolf && f.look) {
       const keys = hkLayers(hkWhoById(f.ref, f.look, f.gear), { fighting: true, activity: 'fight' });
       const [col, row] = hkPose({ facing: faceLeft ? 'left' : 'right', moving: false, walked: 0, working: false, sinceBlow: acting ? f.sinceAction : 999, sinceHit: f.sinceHit, down: f.down, ranged: f.ranged, now });
-      if (hkSprite(s, keys, col, row, x, y, HK_HEIGHT)) return;
+      if (hkSprite(s, keys, col, row, x, y, HK_HEIGHT)) return false;
       // (until the weapon's layer loads, the same person without it: never a stranger's figure)
       const bare = hkLayers(hkWhoById(f.ref, f.look, f.gear), { fighting: false, activity: 'idle' });
-      if (hkSprite(s, bare, col, row, x, y, HK_HEIGHT)) return;
+      if (hkSprite(s, bare, col, row, x, y, HK_HEIGHT)) return false;
     }
     // a party member of a fighting calling in their combat form (a Craftpix hero: art/combatPoses.ts)
     // (a werewolf fights in wolf form: the Craftpix werewolves, by who they are)
     const hero = !hs ? (f.wolf ? WOLF_FORMS[f.ref % WOLF_FORMS.length] : f.undead ? skeletonSheet(f.ranged, f.ref) : heroSheet(f.cls, f.ref)) : null;
     if (hero) {
       const facing = faceLeft ? 'left' : 'right';
-      s.texture = heroFrame(hero, { facing, moving: false, walked: 0, sinceBlow: acting ? f.sinceAction : 999, sinceHit: f.sinceHit, sinceBlock: 999, down: f.down, now, ref: f.ref });
+      s.texture = heroFrame(hero, { facing, moving: false, walked: 0, sinceBlow: acting ? f.sinceAction : 999, sinceHit: f.sinceHit, sinceBlock: 999, down: f.down, now, ref: f.ref, sinceDown: Math.max(0, f.sinceHit - 2) });
       const sc = heroScale(hero) * k; // (a wolf form at a hero's height: the rows are close on the fight screen)
       const flip = creatureFlip(hero, facing);
       s.anchor.set(0.5, 1);
       s.scale.set(sc * flip, sc);
       s.position.set(Math.round(x), Math.round(y));
-      return;
+      return f.down && creaturePoseFrames(hero, 'dead') > 0;
     }
     const weapon = hs ? hs.weapon : heldWeapon(f.gear, 'fight');
     let anim: LpcAnim = 'walk';
     let frame = 0;
     if (f.down) {
+      // (the pack's own fall, played through and held lying)
       anim = 'hurt';
-      frame = FRAME_COUNT.hurt - 1;
+      frame = Math.min(FRAME_COUNT.hurt - 1, Math.floor((Math.max(0, f.sinceHit - 2) / FALL_TICKS) * FRAME_COUNT.hurt));
     } else if (f.sinceHit < 3) {
       anim = 'hurt';
       frame = f.sinceHit < 2 ? 0 : 1;
@@ -790,6 +891,7 @@ export class FightScene {
     const flip = faceLeft ? -1 : 1;
     s.scale.set(k * flip, k);
     s.position.set(Math.round(x - (flip > 0 ? CENTRE_X : -CENTRE_X - 1) * k), Math.round(y - FEET_Y * k));
+    return f.down;
   }
 }
 

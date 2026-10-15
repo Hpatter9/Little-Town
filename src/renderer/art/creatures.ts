@@ -71,14 +71,15 @@ export type CreaturePose = 'idle' | 'hurt' | 'dead' | 'attack2' | 'defend';
 /** How many frames a sheet's row has (0: it has no such row). */
 export const creaturePoseFrames = (sheet: CreatureSheet, pose: CreaturePose | 'walk' | 'attack'): number => SHEETS[sheet].strip?.[pose]?.length ?? 0;
 
-export function creatureFrame(sheet: CreatureSheet, block: number, facing: 'left' | 'right', frame: number, attack = false, pose?: CreaturePose): Texture {
+export function creatureFrame(sheet: CreatureSheet, block: number, facing: 'left' | 'right', frame: number, attack = false, pose?: CreaturePose, dying?: number): Texture {
   const def = SHEETS[sheet];
   // (frame numbers keep counting up; wrap them before caching)
   const posed = pose && def.strip?.[pose];
   const seq = def.strip ? (posed || (attack ? def.strip.attack : def.strip.walk)) : null;
   const n = def.pairs ? 2 : seq ? seq.length : 3;
   // (the dying row is shown at its end: lying still)
-  const f = pose === 'dead' && posed ? n - 1 : ((Math.floor(frame) % n) + n) % n;
+  // (`dying`: how far through the death row, to play the fall; without it the row is shown at its end)
+  const f = pose === 'dead' && posed ? (dying === undefined ? n - 1 : Math.max(0, Math.min(n - 1, Math.floor(dying)))) : ((Math.floor(frame) % n) + n) % n;
   const key = `${sheet}|${block}|${facing}|${f}|${!!seq && attack}|${posed ? pose : ''}`;
   let t = frames.get(key);
   if (!t) {
