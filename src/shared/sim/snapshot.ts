@@ -26,6 +26,7 @@ import { faithView, type FaithView } from './faith';
 import { disasterView, type DisasterView } from './disasters';
 import { worldView, type WorldView } from './worldLife';
 import { marketView, type MarketView } from './markets';
+import { empireView, type EmpireView } from './tradeEmpire';
 import { heritageView, type HeritageView } from './heritage';
 import { cellsOf } from './prisoners';
 import { patientsIn, sickbedsIn } from './sickbeds';
@@ -158,6 +159,7 @@ import { guildsView, type GuildView } from './guilds';
 import { beastHome, ranchView, type RanchView } from './ranch';
 import { arenaTrip, arenaView, type ArenaView } from './arena';
 import { ARENA_AWAY } from '../data/arena';
+import { EMPIRE_AWAY } from '../data/tradeEmpire';
 import { portalDestinations, portalSummaries, portalView, type PortalSummary, type PortalView } from './portals';
 import { politicsView, type PoliticsView } from './politics';
 import { calamityView, heartDestinations, type CalamityView } from './calamity';
@@ -989,6 +991,8 @@ export interface Snapshot {
   arena: ArenaView | null;
   /** The trade economy: prices, booms and shortages, the trade house and its routes (sim/markets.ts). */
   markets: MarketView | null;
+  /** The trade empire: posts, caravans, deals, safety bought (sim/tradeEmpire.ts), for the Market menu's Trade empire tab. */
+  empire: EmpireView | null;
   /** A raid being skipped to its recap, and whether every raid is (sim/raidSkip.ts). */
   raidSkipping: boolean;
   skipRaids: boolean;
@@ -1371,6 +1375,7 @@ export function snapshot(s: GameState): Snapshot {
     ranchPens: slow(s, 'ranchPens', () => (s.ranch?.beasts ?? []).map((b) => ({ id: b.id, kind: b.kind, ...beastHome(s, b) }))),
     arena: slow(s, 'arena', () => arenaView(s)),
     markets: slow(s, 'markets', () => marketView(s)),
+    empire: slow(s, 'empire', () => empireView(s)),
     raidSkipping: !!s.raidSkip && !!s.raid,
     skipRaids: !!s.skipRaids,
     heritage: slow(s, 'heritage', () => heritageView(s)),
@@ -1890,7 +1895,7 @@ function personFast(s: GameState, p: Person): Pick<PersonView, FastPart> {
     rally: rallyState(s, p),
     bucket: p.task?.type === 'wander' && p.task.pastime === 'carry',
     indoors: (p.activity === 'mine' && p.task?.type === 'mine' && p.task.depth !== undefined) || (p.activity === 'sleep' && ((p.task?.type === 'sleep' && p.task.building !== null) || (p.task?.type === 'shelter' && p.bed !== null))) || (p.activity === 'drink' && p.task?.type === 'drink') || (p.activity === 'watch' && p.task?.type === 'relax'),
-    away: p.away === null ? null : p.away === ARENA_AWAY ? 'the arena' : p.away < 0 ? awayWithArmy(s, p) : (destinationOf(s, s.expeditions.find((e) => e.id === p.away)?.dest ?? '')?.name ?? 'expedition'),
+    away: p.away === null ? null : p.away === ARENA_AWAY ? 'the arena' : p.away === EMPIRE_AWAY ? 'on the trade roads' : p.away < 0 ? awayWithArmy(s, p) : (destinationOf(s, s.expeditions.find((e) => e.id === p.away)?.dest ?? '')?.name ?? 'expedition'),
     hp: p.hp,
     downed: !p.downed ? null : p.downed.bleedUntil === null ? 'recovering' : 'bleeding',
     bleedMinutes: p.downed?.bleedUntil != null ? Math.max(0, Math.ceil(((p.downed.bleedUntil - s.tick) / TICKS_PER_HOUR) * 60)) : null,

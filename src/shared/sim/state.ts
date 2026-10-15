@@ -1260,6 +1260,8 @@ export interface GameState {
    *  town come back (sim/ancestors.ts). Set at founding from the legend's data. */
   ancestry?: import('./ancestors').Ancestry;
   marches?: import('./worldLife').March[];
+  /** The trade empire: trading posts, caravans, the guilds' deals, hired swords (sim/tradeEmpire.ts). */
+  empire?: import('./tradeEmpire').EmpireState;
   lastDisaster?: { kind: import('./disasters').DisasterKind; tick: number; burnt?: [number, number][] };
   chronicles?: Chronicle[];
   yearStart?: YearStart;

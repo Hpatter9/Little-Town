@@ -11,6 +11,7 @@ import { faithHourly } from './faith';
 import { disastersTick } from './disasters';
 import { worldHourly } from './worldLife';
 import { marketsHourly, setRoute } from './markets';
+import { empireHourly, empireTick } from './tradeEmpire';
 import { groveHourly } from './grove';
 import { skipRaid, skipRaidsTick } from './raidSkip';
 import { courtHourly } from './bargains';
@@ -195,6 +196,7 @@ export class Sim {
     fightSpeedTick(s); // (every fight starts at 1×: sim/battle.ts)
     envoyTick(s);
     maybeStartRaid(s, this.rng);
+    empireTick(s); // (a raid bought off, or met by hired swords: sim/tradeEmpire.ts)
     lurkers(s, this.rng);
     prowlers(s, this.rng); // (and the night prowlers that slip in where the wall has gaps: sim/prowlers.ts)
     caveBear(s, this.rng);
@@ -248,6 +250,7 @@ export class Sim {
     faithHourly(s); // (the gods: sim/faith.ts)
     worldHourly(s); // (the realm beyond the town: sim/worldLife.ts)
     marketsHourly(s); // (prices, the trade house and its wagons: sim/markets.ts)
+    empireHourly(s); // (trading posts, far caravans, the guilds' deals: sim/tradeEmpire.ts)
     groveHourly(s); // (a druid town's grove: sim/grove.ts)
     courtHourly(s); // (a fae town's Court and its bargains: sim/bargains.ts)
     workHourly(s); // (an alchemists' town's Great Work: sim/greatWork.ts)

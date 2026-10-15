@@ -10,6 +10,7 @@ import { MAP_HOME } from '../data/worldMap';
 import { HOST_WARNING_HOURS } from '../data/factions';
 import { realm } from './factions';
 import { routesOnMap, wagonsOnMap } from './markets';
+import { empireOnMap } from './tradeEmpire';
 import { guardsOf } from './treasury';
 import { notify, type GameState } from './state';
 import { calendar, TICKS_PER_HOUR } from './time';
@@ -112,15 +113,22 @@ function arrive(s: GameState): void {
 
 /** What the world map shows moving: the marches, a host coming for the town, an envoy riding in; and the feuds. */
 export interface WorldView {
-  marches: { kind: 'feud' | 'trade' | 'host' | 'envoy' | 'wagon'; from: { x: number; y: number }; to: { x: number; y: number }; t: number; label: string; size: number }[];
+  marches: { kind: 'feud' | 'trade' | 'host' | 'envoy' | 'wagon' | 'caravan' | 'ship'; from: { x: number; y: number }; to: { x: number; y: number }; t: number; label: string; size: number }[];
   feuds: { a: string; b: string; at: { x: number; y: number } }[];
   /** The trade house's open routes (sim/markets.ts), drawn faintly from home. */
   routes: { to: { x: number; y: number }; name: string }[];
+  /** The trade empire's posts (sim/tradeEmpire.ts): drawn as markets with a road home; its caravans and ships are marches. */
+  posts: { id: string; name: string; x: number; y: number; level: number; sea: boolean }[];
 }
 
 export function worldView(s: GameState): WorldView {
   const spot = (id: string) => (id === 'home' ? MAP_HOME : STRONGHOLD_SPOTS[id]);
-  const out: WorldView = { marches: [], feuds: [], routes: routesOnMap(s) };
+  const out: WorldView = { marches: [], feuds: [], routes: routesOnMap(s), posts: [] };
+  const empire = empireOnMap(s);
+  if (empire) {
+    out.posts = empire.posts;
+    for (const m of empire.moves) out.marches.push({ ...m, size: 1 });
+  }
   for (const w of wagonsOnMap(s)) out.marches.push({ kind: 'wagon', from: w.from, to: w.to, t: w.t, label: w.label, size: 1 });
   for (const m of s.marches ?? []) {
     if (!known(s, m.from) || (m.to !== 'home' && !known(s, m.to))) continue;

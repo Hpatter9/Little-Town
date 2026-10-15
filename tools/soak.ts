@@ -41,7 +41,7 @@ for (const o of names) {
       const r = parseSave(gunzipSync(readFileSync('test/fixtures/late-town.json.gz')).toString('utf8'));
       if (!r.ok) throw new Error('fixture');
       s = r.save.state;
-      s.seed = `${s.seed}:${k}`;
+      s.seed = `${s.seed}:${k + Number(process.env.SEEDOFF ?? 0)}`;
       if (process.env.SKY) {
         // forced into the Industrial age; SKY=ship also builds an airship (the skies chat's experiment)
         s.era = 'industrial';
@@ -49,9 +49,13 @@ for (const o of names) {
         if (process.env.SKY === 'ship') { s.buildings.push({ id: s.nextId++, def: 'airship_mast', tile: s.land.camp.x + 4, row: s.land.camp.y + 3, status: 'done', delivered: {}, progress: 1, store: {} } as never); launchAirship(s, 'zeppelin'); }
       }
     } else s = newGame(`soak${k}`, { origin: o as never });
+    if (process.env.DIRECTION) s.direction = process.env.DIRECTION as never; // (DIRECTION=trade: the town's direction, set from the start)
     const r = run(s, DAYS);
     if (r.over) console.log(`  ${o} seed ${k} ended day ${r.end}: ${r.over}`);
     if (process.env.SKY) console.log(`  sky: pirates seen/last ${JSON.stringify(s.skies?.lastPirates ?? null)} fleet ${(s.airships ?? []).length} raidsDue ${s.nextRaidTick - s.tick}`);
+    if (process.env.EMPIRE) console.log(`  ${o} seed ${k}: coins ${s.coins ?? 0} posts ${s.empire?.posts.length ?? 0} founded ${s.empire?.founded ?? 0} lost ${s.empire?.lostPosts ?? 0} caravans ${s.empire?.sent ?? 0} lost ${s.empire?.lostCaravans ?? 0} tributes ${s.empire?.tributes ?? 0}/${s.empire?.tributePaid ?? 0} made ${s.empire?.made ?? 0} deals ${s.empire?.standing ?? 0} house ${s.market?.standing ?? 0} era ${s.era}`);
+    if (process.env.EMPIRE === '2') console.log((s.empire?.log ?? []).slice().reverse().map((l) => `    ${l}`).join('\n'));
+    if (process.env.EMPIRE) console.log(`  ${o} seed ${k}: people ${r.people} deaths ${r.deaths}`);
     pop += r.people; deaths += r.deaths; dead += r.dead ? 1 : 0; low += r.low;
   }
   rows.push(`${o.padEnd(11)} people ${(pop / SEEDS).toFixed(1).padStart(5)}  low ${(low / SEEDS).toFixed(1).padStart(5)}  deaths ${(deaths / SEEDS).toFixed(1).padStart(5)}  wiped ${dead}/${SEEDS}`);
