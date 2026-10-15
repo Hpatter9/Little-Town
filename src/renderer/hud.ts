@@ -6,6 +6,7 @@ import { applyTheme, panelLabel, type Theme } from './theme';
 import { ERA_NAMES } from '../shared/data/eras';
 import type { Material } from '../shared/data/materials';
 import { FOOD_VALUE } from '../shared/data/people';
+import { GAME_SPEEDS } from '../shared/sim/battle';
 import type { Snapshot } from '../shared/sim/snapshot';
 import { bleedLeft, expeditionFill, researchFill } from '../shared/format';
 import { FULL_MOON_PHASE } from '../shared/sim/monsters';
@@ -28,10 +29,10 @@ export function createHud(bridge: Bridge, onTheme?: (theme: Theme) => void): Hud
   const clockText = el('span', { class: 'clock-text' });
   const pause = el('button', { class: 'tab pause' });
   pause.addEventListener('click', togglePause);
-  // how fast the town runs: 1×, 2×, 3× (a raid's battle has its own button)
+  // how fast the town runs: 1×, 2×, 3×, 5×, 10× (a raid's battle has its own button)
   let speed = 1;
   const fast = el('button', { class: 'tab speed', title: 'Game speed' }, '1×');
-  fast.addEventListener('click', () => bridge.command({ type: 'gameSpeed', speed: (speed % 3) + 1 }));
+  fast.addEventListener('click', () => bridge.command({ type: 'gameSpeed', speed: GAME_SPEEDS[(GAME_SPEEDS.indexOf(speed as never) + 1) % GAME_SPEEDS.length] }));
   const stock = el('span', { class: 'stock' });
   const raid = el('span', { class: 'raid-badge', hidden: '' });
   const doom = el('span', { class: 'raid-badge doom-badge', hidden: '' });

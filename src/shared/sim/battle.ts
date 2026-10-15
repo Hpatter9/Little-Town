@@ -735,14 +735,17 @@ export function battleGo(s: GameState): void {
 /** The speeds a battle can be played at (the top bar's button cycles through them). */
 export const BATTLE_SPEEDS = [1, 2, 3] as const;
 
+/** The speeds the town itself can run at between battles (the clock bar's button cycles through them). */
+export const GAME_SPEEDS = [1, 2, 3, 5, 10] as const;
+
 /** The player sets how fast battles play (kept for later battles). */
 export function setBattleSpeed(s: GameState, speed: number): void {
   s.battleSpeed = (BATTLE_SPEEDS as readonly number[]).includes(speed) ? speed : 1;
 }
 
-/** The player sets how fast the town runs between battles (the clock bar's 1×/2×/3× button). */
+/** The player sets how fast the town runs between battles (the clock bar's 1×/2×/3×/5×/10× button). */
 export function setGameSpeed(s: GameState, speed: number): void {
-  s.gameSpeed = (BATTLE_SPEEDS as readonly number[]).includes(speed) ? speed : 1;
+  s.gameSpeed = (GAME_SPEEDS as readonly number[]).includes(speed) ? speed : 1;
 }
 
 /** How many times real time the game runs now: the battle speed while a battle is on, else the town's speed
