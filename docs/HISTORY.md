@@ -6393,3 +6393,13 @@ first wanted). Only with the autopilot on; the dice are the war's own side strea
   An earlier round showed orcs a third down; switching the war's hourly rules off brought them back, and the deserters
   and the fit-fighters rule were changed (above). `tools/perf-sim.mjs`: step 1.68 -> 1.73 ms, snapshot 7.99 -> 8.18 ms,
   two days' catch-up 32.8 -> 35.6 s.
+
+## The raid board's camera glides (a jerky-camera fix)
+
+The owner's report: the camera was very jerky when the board moved to a new character. Two causes in
+`tactics/tacticsView.ts`'s `render`. Between one unit's action and the next nobody was acting, so the camera's target fell
+back to the middle of the board and then whipped out to the next unit; the camera now keeps the last unit it followed
+(`cam.fx`, `cam.fy`) until the next one acts, and heads for the middle only before the first turn. And the easing was a
+tenth of the distance a frame, so on a phone drawing fewer frames it jumped in steps; the glide is now paced by the
+clock (`CAM_GLIDE_MS` 260, the time to close most of the distance), and the finger's pan fades by the clock too. Changes
+the HISTORY.md section "Tactics battles". Renderer only: the sim hashes are unchanged.
