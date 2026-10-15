@@ -58,6 +58,10 @@ export const CALL_WARMTH = 25;
 export const COMMON_FOE_WARMTH = -20;
 /** Any power not at war with the town calls it when the town thinks this much better of it than of its foe. */
 export const CALL_PREFER = 15;
+/** ...and that power may be this cold to the town (still worth the asking). */
+export const CALL_COLDEST = -25;
+/** A call blocked by another envoy at the gate is tried again each hour for so long (the strike's march is 12 h). */
+export const CALL_RETRY_HOURS = 10;
 /** A call no oftener than this many days apart (all the powers together). */
 export const CALL_GAP_DAYS = 6;
 /** How long a campaign waits for the town's party to set out (hours), and the most the town sends; the levy asked

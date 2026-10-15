@@ -14,7 +14,7 @@ import { RAID_KIND_BY_ID } from '../../data/raids';
 import type { Destination } from '../../data/expeditions';
 import type { Material } from '../../data/materials';
 import {
-  ALLY_HOST, CALL_GAP_DAYS, CALL_PREFER, CALL_WARMTH, COMMON_FOE_WARMTH, CAMPAIGN_COIN, CAMPAIGN_KEEP_HOME, CAMPAIGN_OPEN_HOURS, CAMPAIGN_WAVE_TROOPS, CAMPAIGN_WAVES_MOST, COIN_WARMTH, GRIEF_MORALE,
+  ALLY_HOST, CALL_GAP_DAYS, CALL_RETRY_HOURS, CALL_COLDEST, CALL_PREFER, CALL_WARMTH, COMMON_FOE_WARMTH, CAMPAIGN_COIN, CAMPAIGN_KEEP_HOME, CAMPAIGN_OPEN_HOURS, CAMPAIGN_WAVE_TROOPS, CAMPAIGN_WAVES_MOST, COIN_WARMTH, GRIEF_MORALE,
   LEVY_LEAST, LEVY_MOST, LEVY_PER, MARCHED_AGAINST, MARCHED_WARMTH, MORALE_HOURS, REFUSED_ALLY_COLD, REFUSED_COLD, SPOILS_FOOD, SPOILS_GOODS, SPOILS_LEAST, SPOILS_PER_TROOP, VICTORY_MORALE,
 } from '../../data/war';
 import { WAR_AT, ENVOY_HOURS } from '../../data/factions';
@@ -55,7 +55,7 @@ export function callTown(s: GameState, camp: Campaign): boolean {
   // (a sworn ally, a warm friend, or a power that shares a foe with the town: the enemy of its enemy)
   const common = foe.stance === 'war' && ally.stance !== 'war' && ally.attitude >= COMMON_FOE_WARMTH;
   // (or any power not at war with the town that it thinks better of than the one it marches on: worth the asking)
-  const better = ally.stance !== 'war' && ally.attitude >= 0 && foe.attitude <= ally.attitude - CALL_PREFER;
+  const better = ally.stance !== 'war' && ally.attitude >= CALL_COLDEST && foe.attitude <= ally.attitude - CALL_PREFER;
   if (!(ally.stance === 'alliance' || (['peace', 'trade'].includes(ally.stance) && ally.attitude >= CALL_WARMTH) || common || better)) return false;
   if (foe.stance === 'alliance' || foe.stance === 'vassal') return false;
   if (s.tick - (w.lastCall ?? -1e12) < CALL_GAP_DAYS * TICKS_PER_DAY) return false;
@@ -196,6 +196,8 @@ export function campaignsHourly(s: GameState): void {
   const w = s.war;
   if (!w?.campaigns.length) return;
   for (const camp of w.campaigns) {
+    // (a strike whose call couldn't be made, another envoy at the gate, tries again while its host is on the road)
+    if (!camp.call && !camp.done && !camp.harvest && camp.by !== 'town' && s.tick - camp.start < CALL_RETRY_HOURS * TICKS_PER_HOUR && warSeason(s) === 'march') callTown(s, camp);
     if (!camp.call || camp.done || camp.call.party !== undefined) continue;
     // (a party the player sent from the Board or the muster)
     const e = s.expeditions.find((x) => x.dest === campaignDest(camp.id));
