@@ -5,6 +5,7 @@ import { answerWays } from './heritage';
 import { answerEvolve } from './classes';
 import { answerWatch } from './watchAsk';
 import { answerDragon } from './dragon';
+import { answerEnemy } from './greatEnemy';
 import { answerEnvoy } from './factions';
 import { answerSecret } from './specials';
 import { answerSaga } from './sagas';
@@ -106,6 +107,7 @@ export function answerPrompt(s: GameState, id: number, option: number, rng: Rng)
   if (prompt.kind === 'envoy') return answerEnvoy(s, prompt, option, rng);
   if (prompt.kind === 'watch') return answerWatch(s, prompt, option);
   if (prompt.kind === 'dragon') return answerDragon(s, prompt, option);
+  if (prompt.kind === 'enemy') return answerEnemy(s, prompt, option);
   if (prompt.kind === 'evolve') return answerEvolve(s, prompt, option);
   if (prompt.kind === 'ways') return answerWays(s, prompt, option, rng);
   const e = s.expeditions.find((q) => q.id === prompt.expedition);

@@ -13,6 +13,7 @@
 // speeches, which go on; the villains, who are grand and petty and have staff problems.
 
 import type { BackdropId } from './backdrops';
+import { ENEMY_SCENES } from './greatEnemyScenes';
 
 /** The stage, in art px: the backdrop is drawn this size (16:9), the actors' feet on `FEET`. */
 export const STAGE_W = 320;
@@ -405,7 +406,7 @@ const SCENES: Cutscene[] = [
   },
 ];
 
-export const CUTSCENES: Readonly<Record<string, Cutscene>> = Object.fromEntries(SCENES.map((c) => [c.id, c]));
+export const CUTSCENES: Readonly<Record<string, Cutscene>> = Object.fromEntries([...SCENES, ...ENEMY_SCENES].map((c) => [c.id, c]));
 /** The scene the town's Calamity wakes with. */
 export const wakeSceneOf = (kind: string) => `calamity_wake_${kind}`;
 /** The scene for each stage the Calamity passes into (2 to 5). */
