@@ -255,6 +255,8 @@ export class MapWildlife {
       const near = (px: number, py: number) => px > x - KEEP_NEAR && px < x + w + KEEP_NEAR && py > y - KEEP_NEAR && py < y + h + KEEP_NEAR;
       const add = (id: string, n: number, cx: number, cy: number, kind: (i: number) => WildKind, pack: boolean, hungry: boolean) => {
         if (!near(cx, cy)) return;
+        // (nothing is shown on land the town has not yet seen)
+        if (this.land && visibility(this.land, Math.floor(cx / CELL), Math.floor(cy / CELL)) === 0) return;
         const spread = pack ? PACK_SPREAD : HERD_SPREAD;
         for (let i = 0; i < n; i++) {
           if (wanted.size >= MOST_KEPT) return;
