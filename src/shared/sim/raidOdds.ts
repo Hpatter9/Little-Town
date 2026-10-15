@@ -14,6 +14,7 @@ import { natureOf } from '../data/natures';
 import { RAID_KIND_BY_ID, ODDS_ASK_HOURS, GUILD_MERCY, ODDS_FAIR, ODDS_GATHER_CAP, ODDS_GATHER_MAX, ODDS_GATHER_STEP, ODDS_TOWER_HP, ODDS_TURN, ODDS_WALL_RATE, ODDS_WALL_SHARE, MERCY_MIN_RAIDERS, MERCY_STANDING, SLAUGHTER_STANDING, HUNT_CHANCE, HUNT_XP, GRUDGE_BIGGER, GRUDGE_CHANCE, GRUDGE_DAYS } from '../data/raids';
 import { Rng, hashSeed } from '../rng';
 import { hostOver, standWith } from './factions';
+import { alignPush } from './alignment';
 import { personFighter } from './combat';
 import { dist, maxHp, notify, type GameState, type Raid, type Raider } from './state';
 import { credit, raidRecap } from './raidRecap';
@@ -186,12 +187,16 @@ export function answerOdds(s: GameState, label: string): boolean {
   return true;
 }
 
-/** ALIGNMENT HOOK: the good or evil of a choice. sim/alignment.ts (another branch) will have `alignPush(s, 'good' | 'evil', n)`;
- *  until it does, the town keeps its own tally here, which only steers its default answer. */
+/** The good or evil of a choice: the town's alignment bar moves (sim/alignment.ts, `ODDS_ALIGN` a choice), and the book
+ *  keeps its own tally, which steers the default answer when nobody picks. */
 function alignHook(s: GameState, side: 'good' | 'evil', n: number): void {
   const b = bookOf(s);
   b.align = (b.align ?? 0) + (side === 'good' ? n : -n);
+  alignPush(s, (side === 'good' ? n : -n) * ODDS_ALIGN, side === 'good' ? 'Raiders let go' : 'Raiders hunted down');
 }
+
+/** How far the alignment bar moves for sparing or hunting a beaten band. */
+const ODDS_ALIGN = 3;
 
 /** The raiders turn about and go home: the raid ends with a recap saying so, and the next comes bigger. */
 function turnBack(s: GameState, r: Raid): void {
