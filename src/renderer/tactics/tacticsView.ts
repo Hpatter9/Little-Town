@@ -20,13 +20,16 @@ import type { Command } from '../../shared/sim/commands';
 import { MapPeople } from '../map/mapPeople';
 import { MapRaiders } from '../map/mapRaiders';
 import type { MapView } from '../map/mapView';
-import { sheetOf } from '../town/spellsView';
+import { pxFrames, sheetOf } from '../town/spellsView';
 import { actIdOf, actSprite } from '../fight/actLooks';
 import { loadDelveProps, propFrame } from '../art/delveProps';
 import type { SpriteFx } from '../town/spellLooks';
 import { areaTiles } from '../../shared/sim/tacticsArea';
 import { PROP_GROW } from '../art/props';
 import { BattleJuice } from '../battle/juice';
+import { ShotPainter, shotTicks } from '../battle/projectiles';
+import { BoardLife, logTexture } from './boardLife';
+import { actFx } from '../../shared/data/actFx';
 import { ghostStep } from '../battle/juiceRules';
 
 /** A tile's diamond (px), and a step of height. */
@@ -77,6 +80,9 @@ export class TacticsScene {
   private readonly fx = new Container();
   private readonly fxSprites = new Container();
   private readonly lines = new Graphics();
+  /** Arrows, bolts and spells in the air (battle/projectiles.ts), and the board's own life (birds, wind, water, torches). */
+  private readonly shots = new ShotPainter();
+  private readonly life = new BoardLife();
   private readonly people: MapPeople;
   private readonly raiders: MapRaiders;
   private readonly hud = new Container();
@@ -121,7 +127,7 @@ export class TacticsScene {
     this.people = new MapPeople(this.board);
     this.raiders = new MapRaiders(this.board);
     this.people.raid = true;
-    this.fx.addChild(this.lines, this.fxSprites);
+    this.fx.addChild(this.lines, this.fxSprites, this.shots.container, this.life.container);
     this.world.addChild(this.board, this.fx, this.juice.world);
     this.root.addChild(this.back, this.world, this.shade, this.juice.screen, this.hud, this.barsG);
     loadDelveProps();
@@ -175,8 +181,9 @@ export class TacticsScene {
       t.tiles.filter((x) => x.bld !== undefined && this.map.buildingPicture(x.bld)).length +
       t.tiles.filter((x) => x.wall && this.map.wallPicture(x.wall, x.gate ? 2 : 1, x.lx * 7 + x.ly, x.gate ? undefined : 'h')).length +
       t.tiles.filter((x) => (x.block === 'rock' || x.bush) && this.map.propKind(x.block === 'rock' ? 'rock' : 'bush', x.lx, x.ly)).length;
-    const key = `${t.w}x${t.h}:${t.tiles[0].lx},${t.tiles[0].ly}:${t.side}:${t.tiles.map((x) => x.h).join('')}:${pics}`;
+    const key = `${t.w}x${t.h}:${t.tiles[0].lx},${t.tiles[0].ly}:${t.side}:${t.tiles.map((x) => x.h).join('')}:${t.tiles.map((x) => (x.hill ? x.hill[1] : x.log ? 'l' : x.art ? 'w' : x.tree ? 't' : x.g[0])).join('')}:${pics}`;
     if (key !== this.key || this.tiles.length === 0) this.build(t, key);
+    this.life.track(t);
     // the townsfolk and the raiders, each on their tile
     const people: PersonView[] = [];
     const raiders: RaiderView[] = [];
@@ -217,6 +224,7 @@ export class TacticsScene {
     this.tiles = [];
     this.pictures = [];
     this.key = key;
+    this.life.reset();
     let missing = false;
     for (let v = 0; v < t.h; v++)
       for (let u = 0; u < t.w; u++) {
@@ -236,7 +244,7 @@ export class TacticsScene {
         c.addChild(mark);
         // a tree on the woods (the map's own)
         if (tile.tree) {
-          const tt = this.map.propOf(tile.lx, tile.ly);
+          const tt = this.map.propOf(tile.lx, tile.ly) ?? this.map.propKind('tree', tile.lx, tile.ly);
           if (tt) {
             const s = new Sprite(tt);
             s.anchor.set(0.5, 0.95);
@@ -244,7 +252,20 @@ export class TacticsScene {
             s.position.set(x + 6, y - 2);
             s.scale.set(0.95 / PROP_GROW.tree);
             c.addChild(s);
+            this.life.sway(s);
           }
+        }
+        // a fallen log (the wild set's own)
+        if (tile.log) {
+          const lt = logTexture(tile.lx, tile.ly);
+          if (lt) {
+            const s = new Sprite(lt);
+            s.anchor.set(0.5, 0.8);
+            const [x, y] = this.at(u, v, h);
+            s.position.set(x, y + 2);
+            s.scale.set(Math.min(1.1, (TW * 0.8) / lt.width));
+            c.addChild(s);
+          } else missing = true;
         }
         // a trap, as its picture, small on the tile
         if (tile.trap !== undefined) {
@@ -306,7 +327,9 @@ export class TacticsScene {
         sp.scale.set(kind === 'rock' ? 1.15 / PROP_GROW.rock : 0.9 / PROP_GROW.bush);
         sp.position.set(x, y + 2);
         this.tiles[v * t.w + u].c.addChild(sp);
+        if (kind === 'bush') this.life.sway(sp, 0.04);
       }
+    this.life.setBoard(t, (u, v) => this.at(u, v, this.tileH(u, v)), this.board);
     if (missing) this.key = ''; // (the ground isn't painted yet: try again on the next snapshot)
   }
 
@@ -331,7 +354,8 @@ export class TacticsScene {
     const g = c.getContext('2d')!;
     g.imageSmoothingEnabled = false;
     const blockTop = tile.block && tile.block !== 'rock' && !tile.wall && !underBuilding;
-    const [l, r, lip] = blockTop && tile.block === 'building' ? ['#b89a6a', '#97784c', '#7a3f2e'] : blockTop ? ['#8a857c', '#6e6a62', '#a39e94'] : (SIDES[tile.g] ?? SIDES.grass!);
+    // (a hill's top is cliff all round but its ramp: grey rock under a lip of turf; the ramp is bare earth)
+    const [l, r, lip] = blockTop && tile.block === 'building' ? ['#b89a6a', '#97784c', '#7a3f2e'] : blockTop ? ['#8a857c', '#6e6a62', '#a39e94'] : tile.hill === 'top' ? ['#8c867a', '#6f6a60', '#7e9a48'] : tile.hill === 'ramp' ? ['#9a7a52', '#7d6040', '#a88a5a'] : (SIDES[tile.g] ?? SIDES.grass!);
     const face = (pts: [number, number][], col: string) => {
       g.fillStyle = col;
       g.beginPath();
@@ -384,7 +408,8 @@ export class TacticsScene {
       g.fillStyle = tile.block === 'building' ? '#6e3424' : '#8b867a';
       for (let k = 4; k < TW; k += 8) g.fillRect(k, 0, 2, TH);
     } else {
-      const ground = this.map.clearGroundOf(tile.lx, tile.ly);
+      // (a pond laid on the field borrows the painted ground of a cell of the land's own water)
+      const ground = tile.art ? this.map.clearGroundOf(tile.art[0], tile.art[1]) : this.map.clearGroundOf(tile.lx, tile.ly);
       if (!ground) {
         g.restore();
         return null;
@@ -400,6 +425,11 @@ export class TacticsScene {
     }
     g.fillStyle = 'rgba(255,248,220,0.06)';
     g.fillRect(0, 0, TW, TH);
+    // (the ramp: a worn way)
+    if (tile.hill === 'ramp') {
+      g.fillStyle = 'rgba(176,138,84,0.45)';
+      g.fillRect(0, 0, TW, TH);
+    }
     g.restore();
     g.strokeStyle = 'rgba(20,14,8,0.35)';
     g.beginPath();
@@ -618,9 +648,58 @@ export class TacticsScene {
   }
   private barsAt = 0;
 
-  /** The arrows in flight, the slashes and the spells' sheets where they land. */
+  /** Where a shot or a spell leaves from and lands (world px): the shooter's chest, the mark's middle. */
+  private shotEnds(f: TacticsView['fx'][number], to: [number, number]): [[number, number], [number, number]] {
+    const lift = (u: number, v: number, up: number): [number, number] => {
+      const [x, y] = this.at(u, v, this.tileH(u, v));
+      return [x, y - up];
+    };
+    return [lift(f.from[0], f.from[1], f.kind === 'tower' ? 60 : 30), lift(to[0], to[1], 26)];
+  }
+
+  /** What flies for a spell or skill: an orb of its element from the caster to its first mark, when it is aimed at the
+   *  other side (a mending, a ward or a weapon art's slash goes nowhere); else nothing. */
+  private actShot(t: TacticsView, f: TacticsView['fx'][number]): { code: string; to: [number, number] } | null {
+    if (f.kind !== 'act' || !f.name || !f.to.length) return null;
+    const m = /^px:([a-z]+)-/.exec(actFx(actIdOf(f.name)));
+    if (!m || m[1] === 'white') return null;
+    const caster = t.units.find((q) => q.u === f.from[0] && q.v === f.from[1]);
+    const mark = t.units.find((q) => q.u === f.to[0][0] && q.v === f.to[0][1]);
+    if (!caster || !mark || caster.foe === mark.foe || (f.to[0][0] === f.from[0] && f.to[0][1] === f.from[1])) return null;
+    return { code: `orb:${m[1]}`, to: f.to[0] };
+  }
+
+  /** Ticks before a fx lands: the time its shot or spell is in the air (nothing flies for a blow). Its blows' numbers and
+   *  its sheets wait this long. */
+  private flightOf(t: TacticsView, f: TacticsView['fx'][number]): number {
+    if (f.kind === 'shot' || f.kind === 'tower') {
+      if (!f.to.length) return 0;
+      const [a, b] = this.shotEnds(f, f.to[0]);
+      return shotTicks(f.shot, a, b);
+    }
+    // (an area's tiles fall when its spell's orb arrives)
+    const act = f.kind === 'area' ? t.fx.find((x) => x.kind === 'act' && x.age === f.age && x.from[0] === f.from[0] && x.from[1] === f.from[1]) : f;
+    const flying = act && this.actShot(t, act);
+    if (!act || !flying) return 0;
+    const [a, b] = this.shotEnds(act, flying.to);
+    return shotTicks(flying.code, a, b);
+  }
+
+  /** The look of a shot's landing. */
+  private landing(code: string | undefined): SpriteFx {
+    const [ammo, el] = (code ?? 'arrow').split(':');
+    const px = (id: string): SpriteFx => (pxFrames(`px:${id}`) ? (`px:${id}` as SpriteFx) : 'mg_pop');
+    if (ammo === 'orb') return px(`${el ?? 'star'}-burst`);
+    if (ammo === 'ball') return px('fire-explosion');
+    if (ammo === 'beam') return px(`${el ?? 'lightning'}-hit`);
+    if (ammo === 'bullet') return 'mg_sparks';
+    return 'slash_gold';
+  }
+
+  /** The arrows and spells in flight, the slashes and the spells' sheets where they land. */
   private renderFx(t: TacticsView, now: number): void {
     this.lines.clear();
+    this.shots.begin();
     for (const c of this.fxSprites.removeChildren()) c.destroy();
     const since = (now - this.lastUpdate) / TICK;
     const lift = (u: number, v: number, up = 26): [number, number] => {
@@ -629,10 +708,11 @@ export class TacticsScene {
     };
     for (const f of t.fx) {
       const age = f.age + since;
-      // (the ground a spell or skill fell on lights up and fades)
+      // (the ground a spell or skill fell on lights up and fades, once its spell has come)
       if (f.kind === 'area') {
-        if (age > 12) continue;
-        const a = 1 - age / 12;
+        const at = age - this.flightOf(t, f);
+        if (at < 0 || at > 12) continue;
+        const a = 1 - at / 12;
         for (const [u, v] of f.to) {
           const [x, y] = this.at(u, v, this.tileH(u, v));
           const pts = [x, y - TH / 2 + 3, x + TW / 2 - 4, y, x, y + TH / 2 - 3, x - TW / 2 + 4, y];
@@ -640,29 +720,28 @@ export class TacticsScene {
         }
         continue;
       }
+      // (a shot: the arrow, bolt, bullet or orb flies from the shooter to the mark and lands there)
       if (f.kind === 'shot' || f.kind === 'tower') {
-        const from = lift(f.from[0], f.from[1], f.kind === 'tower' ? 60 : 30);
         for (const [u, v] of f.to) {
-          const to = lift(u, v);
-          const p = Math.min(1, age / 3);
-          if (p >= 1 && age > 4) continue;
-          const x = from[0] + (to[0] - from[0]) * p;
-          const arc = Math.sin(p * Math.PI) * (f.kind === 'tower' ? 10 : 22);
-          const y = from[1] + (to[1] - from[1]) * p - arc;
-          const back = Math.max(0, p - 0.12);
-          const bx = from[0] + (to[0] - from[0]) * back;
-          const by = from[1] + (to[1] - from[1]) * back - Math.sin(back * Math.PI) * (f.kind === 'tower' ? 10 : 22);
-          this.lines.moveTo(bx, by).lineTo(x, y).stroke({ color: f.kind === 'tower' ? 0xffe080 : 0xf0e6d0, width: f.kind === 'tower' ? 3 : 2 });
-          if (p >= 1) this.sheet('slash_gold', to[0], to[1] + 6, age - 3, 0.55);
+          const [from, to] = this.shotEnds(f, [u, v]);
+          const dur = shotTicks(f.shot, from, to);
+          const landed = this.shots.put(f.shot, from, to, age, dur);
+          if (landed && age < dur + 6) this.sheet(this.landing(f.shot), to[0], to[1] + 6, age - dur, 0.55);
         }
         continue;
+      }
+      const flying = this.actShot(t, f);
+      const delay = flying ? this.flightOf(t, f) : 0;
+      if (flying) {
+        const [from, to] = this.shotEnds(f, flying.to);
+        this.shots.put(flying.code, from, to, age, delay, 1.2);
       }
       const look: SpriteFx | null = f.kind === 'blow' ? 'slash_gold' : f.kind === 'act' && f.name ? actSprite(actIdOf(f.name)) : f.kind === 'tend' ? 'heal' : f.kind === 'chest' ? 'mg_sparks' : f.kind === 'lost' ? 'holy' : f.kind === 'trap' ? 'mg_spikes' : f.kind === 'stun' ? 'mg_sparks' : null;
       if (!look) continue;
       const at = f.to.length ? f.to : [f.from];
       at.forEach(([u, v], i) => {
         const [x, y] = lift(u, v, 20);
-        this.sheet(look, x, y, age - i * 0.8, f.kind === 'blow' ? 0.6 : 0.85);
+        this.sheet(look, x, y, age - delay - i * 0.8, f.kind === 'blow' ? 0.6 : 0.85);
       });
       // (a spell or skill: a ring of light under its caster as it goes off)
       if (f.kind === 'act' && age < 8) {
@@ -670,6 +749,7 @@ export class TacticsScene {
         this.lines.ellipse(x, y, 26, 13).stroke({ color: f.ult ? 0xffc040 : 0x9ad0ff, width: 2, alpha: 1 - age / 8 });
       }
     }
+    this.shots.end();
   }
 
   /** One frame of an effect sheet at an age in ticks. */
@@ -694,8 +774,11 @@ export class TacticsScene {
       const id = `${x.u},${x.v},${x.text},${Math.round((this.lastUpdate - x.age * TICK) / 400)}`;
       seen.add(id);
       if (this.hits.has(id)) continue;
+      // (a blow's number waits for its shot or spell to land)
+      const wait = t.fx.reduce((m, f) => (f.age === x.age && f.to.some(([fu, fv]) => fu === x.u && fv === x.v) ? Math.max(m, this.flightOf(t, f)) : m), 0);
+      if (x.age < wait) continue;
       this.hits.set(id, { born: now - x.age * TICK });
-      if (x.age > 8) continue; // (from before the board was seen)
+      if (x.age > 8 + wait) continue; // (from before the board was seen)
       // (the juice: an impact, a big popping number, the shake, the combo: battle/juice.ts)
       const [hx, hy] = this.at(x.u, x.v, this.tileH(x.u, x.v));
       const u = t.units.find((q) => q.u === x.u && q.v === x.v);

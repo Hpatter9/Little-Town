@@ -5092,3 +5092,125 @@ is smaller is the depth the walls take across the room, and the thickness of the
   tribute refused five times, the plan at 49.3 of 52 on day 161 (the siege about day 168), 171 dead in all. Forced on
   the late fixture (37 people), a siege of 57 cost 9 and 10 lives (the sack's 7 among them); the town's tactics board
   kills few of the town in any raid, as before.
+
+## Battle maps: varied boards, terrain rules, shots in the air
+
+Changes the HISTORY.md sections "Tactics battles", "Weapon range" and "Combat effects" (the raid board, shooters, the
+fight screens' arrows).
+
+**The board is laid per battle** (`makeBoard` in `sim/tactics.ts`, pieces in `sim/tacticsTerrain.ts`). After the land's
+own ground, the old lumps and boulders (`lieOfTheLand`) and a new `easeRelief` (no step over `CLIMB_MAX` 2 left by the
+relief), `layTerrain` strews the field (columns 2 to the wall less 2) from a **side stream**
+`new Rng(hashSeed(`${seed}:board:${tick}:${attempt}`))`; the town's stream is never drawn on. What and how much comes
+from the land's `LOOKS[biome]` (copses, hills, outcrops, thickets, logs, pond and stream odds) plus the share of the
+board the land itself makes wooded, hilly or wet. Pieces: **hills** (a flat top `HILL_RISE` 3 over flattened ground, a
+ramp two tiles wide up one side in steps of one, a cliff on every other side: `TacTile.hill` `'top'`/`'ramp'`), **copses**
+(`tree`), **boulder outcrops** (`block: 'rock'`), **thickets** (`bush`), **fallen logs** (`log`), a **pond** (deep middle,
+shallows round it) and a **stream** across the way with one or two fords. Water laid on the field carries
+`TacTile.art`, a land cell of real water whose painted ground the top borrows. `boardOk` checks every standable tile can
+be walked to from the gate and back over town rules (jump 2, no deep water), none in the raiders' edge columns lost and
+at most 3% strays; a layout that fails is laid again (attempt 2) and then the plain field stands. The town's own fences
+and fields are already on the board as the land's painted ground; nothing extra was laid for them.
+
+**Rules** (added to the existing ones, not beside them): `canStep` is the one step rule for `reachable` and the raiders'
+`wayIn` distance field: a climb over `min(jump, CLIMB_MAX)` is a cliff (so a hill is climbed from its ramp alone, by the
+town's fighters and the raiders alike, who go round), each step climbed costs `CLIMB_COST` more, a log `LOG_COST`; a drop
+of more than jump + 1 is too far. `sightClear` (shooters, and single-mark spells in `bestCast` and the player's orders):
+trees (2 high) and boulders (1.6) over the eye-to-mark line block a shot, hills' brows too, walls are shot over as before.
+`coverChance` replaces the flat `COVER` for shots: tree 0.3, bush 0.2, log 0.2 where the target stands, +0.15 for a tree,
+boulder or log beside it on the shooter's side, halved from a shooter 2+ steps above, capped 0.5 (melee keeps `COVER`
+0.2 for tree and bush). `shotReach`: `HIGH_REACH` 0.7 tile a step above the mark (a hill's top reaches two further).
+The defence bonus of height is the existing `blowMult` (10% a step up to three).
+
+**Every town's raid outcomes change** (new terrain in the rules, new draws): expected. Soak figures are in the
+coordinator's report.
+
+**Shots** (renderer only; the sim resolves as before): `TacFx.shot` names what flew (`data/projectiles.ts` `shotOf`:
+arrow, bolt, bullet, spear, stone, beam, ball, or `orb:<element>`), set for a shooter's blow and a tower's bolt.
+`battle/projectiles.ts` `ShotPainter` flies it (stateless: age in, sprite and trail out; DawnLike `items/Ammo.png`
+cells for missiles, the pixel-effects atlas `px:<element>-orb` for spells) over `flightTicks`. The tactics board
+(`TacticsScene.flightOf`) delays a blow's number, its landing sheet and an area's flash until the shot arrives; a spell
+at the other side flies an orb of its element (`actFx`) before its sheet plays. `fight/fightView.ts` (side view) and
+`map/mapBattle.ts` use the same painter (the side view finds a plain shot's target by matching the hit's age).
+
+**Life on the board** (`tactics/boardLife.ts`): birds (`art/birds.png`) startle from a copse when a fighter steps beside
+it, trees and thickets sway, leaves (autumn, summer and spring in woodland), snow (winter or snowing), dust (desert,
+steppe) or embers (ashlands) drift over, water glints, torches flicker at the gate by night, fallen logs from the wild
+prop set. No new art files; sources already in `CREDITS.md`.
+
+Tests: `test/tacticsTerrain.test.ts` (connected boards in every biome, same seed same board, hills climbed by the ramp
+alone, step costs, line of sight, cover, reach, shot names). Tools: `tools/probe-board.mjs [count] [show]`.
+
+**A stall found by the hold scenario, and fixed:** with the first rules a raider could drop three steps into a pond-bank pocket it
+could not climb out of, and a defender above it could not strike down three steps: the battle stood still for days. A
+cliff is now a cliff both ways (`canStep`: a step of more than `min(jump, CLIMB_MAX)` either way is refused), and a
+raider still on the field `STALL_TICKS` (2 hours) past its raid's leaving time slips away (`stepTactics`). The castle test
+'a Deep Hold grows its halls' now uses the seed 'hold-grows-b' (the old seed's town simply took a different course: rooms
+over ten seeds were 95 on this branch against 98 on main).
+
+## House intrigue (the owner's ask on the ruling house from 0.96.0: own the town, a mafia, bribes, blackmail and murder for the council)
+
+Extends HISTORY.md "Generations and dynasties" and "Town politics and law". New state `s.intrigue` (`IntrigueState`, optional, so
+old saves load; nothing is made until the autopilot is on and the town has `INTRIGUE_PEOPLE` grown-ups after `INTRIGUE_FROM_DAY`).
+Files: `sim/intrigue.ts` (rules and `intrigueView`), `data/intrigue.ts` (every number), the Families tab
+(`renderer/panel/familyPanel.ts` `intrigueBlocks`), test `test/intrigue.test.ts`. `intrigueHourly` runs once a day at 03:00
+(`INTRIGUE_HOUR`, after the night's crime and before the dynasty's dawn) from `sim.ts`, on its own side stream
+`${seed}:intrigue:${tick}`. It never draws from the town's stream.
+
+**Houses own the town.** A house is a dynasty house (`housesOf`). `IntrigueState.books[root]` (`HouseBook`) is its chest (`purse`),
+what it has drawn, its crimes and (maybe) its ring. `of` maps each person to their house's root (refreshed each night, so the
+sums between nights are deterministic). `houseCut(s, owner, n)` is called from `property.ts collectRent` and `ambition.ts
+takeSale`: `HOUSE_TITHE` (35%) of what a landlord or keeper takes in goes to their house's chest (the fraction of a coin is
+carried in `book.carry`; the founder's own takings are never tithed). Each night a house whose purse is `BUY_SPARE` x a price
+buys a building (`buyProperty`): the town's homes, shops, workshops and fields (not public works) at `TOWN_SELLS_AT`, or a
+neighbour's in debt (`FORCED_DEBT`) at `FORCED_PRICE`, which pays off what they owed. A house holds at most `OWN_SHARE_MOST` of the
+town's sellable buildings. The new owner is the house's steward (its adult with the fewest holdings, never the founder), so
+rent and takings keep flowing through `houseCut`. `dynasty.ts strengthOf` adds `wealthStrength` (the purse / `WEALTH_PER_STRENGTH`,
+capped), and `bestWay` counts it ("by its wealth").
+
+**A mafia** (`Mafia`, `foundMafia`/`mafiaDay`). A house with a purse of `MAFIA_PURSE` and a hard-natured member
+(`HARD_NATURES`, the boss) may turn to crime (`MAFIA_CHANCE` a night, `MAFIA_MOST` rings). It hires up to `MUSCLE_MOST` knives
+(paid `MUSCLE_WAGE` a day). Each night it calls on venues: shops pay `PROTECTION_SHARE` of yesterday's takings (taverns
+`TAVERN_SHARE`); a proud or stern keeper refuses (`REFUSE_CHANCE`) and gets an "accident": the shop damaged (`ACCIDENT_HP`) or a
+beating (`ACCIDENT_BEAT`, and `ACCIDENT_DEADLY` of it fatal). The treasury's own venues are skimmed (`TILL_SKIM`), and with muscle
+a share of yesterday's trade is smuggled off the caravans (`SMUGGLE_SHARE`). `Mafia.heat` rises with each take; the nightly
+chance of being found out is `EXPOSE_BASE + heat x EXPOSE_HEAT + guards x EXPOSE_GUARD` (+ `EXPOSE_HARSH` under harsh law).
+Found out (`exposeMafia`): a knife or the boss is tried (queued, see below), `ARREST_DEADLY` of the time the boss dies resisting,
+two of those who paid start a feud with the house, and the ring breaks up (`BREAK_UP`) or lies low `LIE_LOW_DAYS`.
+
+**Taking the council.** The four blocs' speakers (`speakers`: the best-spoken member of each) are the council's seats. A scheming
+house (`scheme`: `SCHEME_CHANCE` a night with `SCHEME_PURSE` or a ring, `SCHEME_GAP_DAYS` between, at most two a night) picks a
+rival speaker and a method by what it has: a **bribe** (`BRIBE_COST`; the taker's nature decides, an honest one throws the purse
+back in public), **blackmail** (needs a secret: `secretsAbout` = a crime nobody saw (`hideCrime`, from `politics.ts crime`), a big
+debt, a lover; a target that fights back airs the secret and names the blackmailer, and `CORNERED_KILLS` of the time kills them),
+**fear** (a ring's muscle; a beaten target who talks names the men) or **murder**. A successful hold (`Hold`, `HOLD_DAYS`) makes
+`politics.ts callVote` call `swingVote`: the held speaker's own vote goes and the house's position counts `SEAT_VOTES`
+(`housePosition`: a ring wants harsh law and curfew gone and the tax low, other houses follow their head's bloc). A house with
+more than half the seats is whispered of. `Method` weights are in `METHOD_WEIGHT`.
+
+**Murder** (`houseMurder`, `Plot`). A hard house with a ring or a hot feud may have a rival speaker or the ruling house's heir
+killed (never when `recentKill`). The knife (a hired man, else the schemer) succeeds at `MURDER_SUCCESS` less a guard's bite; a
+failed knife dies (`KNIFE_FALLS`) or is taken and may name its master (`KNIFE_NAMES`). A clean job (`ACCIDENT_SHARE`) is an
+"accident" (`ACCIDENTS`); otherwise a knife in the dark, and the house may pin it on a patsy (`FRAME_CHANCE`: an enemy of the dead,
+else the poorest hand; the patsy is tried for it). Each night a hidden plot is found out with `UNCOVER_BASE + guards x UNCOVER_GUARD`
+(`uncover`): the patsy is cleared, the real culprit is tried, a feud starts (`startFeud`, heat 60), the house is shamed (a morale
+mark), and the wronged house may swear revenge (`REVENGE_CHANCE`; `revengeDay` strikes openly some days later, which is itself a
+murder to be tried). A house with `BANISH_AT` known crimes has its head run out of town (`banishIfEnough`).
+
+**Trials.** The court takes one case at a time (`politics.ts trial` leaves a pending prompt alone), so intrigue queues its
+trials in `IntrigueState.trials` and `drainTrials` calls them when it is free. A trial of a house member goes through `trial` ->
+`blackSheep` -> `dynastyScandal`, so the ruling house's scandal works as before.
+
+**The owner's rule: the leader never changes by intrigue.** `slay` is the only place intrigue kills, and refuses `s.mainId`; the
+founder is also excluded from every target, culprit, patsy, steward, muscle and boss pool. A takeover of the ruling house
+(dynasty.ts) still does not change `s.mainId`. Jilting is untouched.
+
+**Visible.** Whispers (`Whisper`, `whisper`) hint at hidden deeds as non-key news; what comes to light is a key news item and goes in
+`IntrigueState.log`, which `dynastyYearLines` adds to the year's chronicle (`intrigueYearLines`). `snapshot.intrigue`
+(`IntrigueView`, slow) -> the Families tab: a card per rich or guilty house (holdings, chest, council seats, known ring,
+known crimes on tap, a whispered rumour while nothing is proved) and a Whispers card. The People panel's key
+(`townsfolkPanel.ts`) includes it.
+
+Not done / for the coordinator: the gossip lines (`sim/gossip.ts READS`) don't yet read the whispers (that file belongs to the
+town-culture chat); a `rumour` kind there could read `Folk say ...` / `They say ...` notices. `diary.ts` could call
+`secretsAbout` so a diary hints at a secret a person keeps.
