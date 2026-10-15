@@ -1,7 +1,7 @@
 // Townsfolk rules: needs, mood, work speed, skill growth, beds, and wanderers arriving at the edge of town.
 // All rates are starting values for tuning.
 
-import { alignScore } from './alignment';
+import { alignArrival, alignArrivalMult, alignScore } from './alignment';
 import { alignMood, homeOf } from '../data/alignment';
 import { darkPace } from './lighting';
 import { blocMood } from './politics';
@@ -415,7 +415,7 @@ export function maybeArrive(s: GameState, rng: Rng): void {
   // (unless the town was founded by the dead: then they're raised on joining anyway)
   // (and fewer come as a town fills: past POP_SOFT_CAP it grows only by its own children: data/pace.ts)
   const room = Math.max(0, 1 - s.people.length / POP_SOFT_CAP);
-  if (!rng.chance(chance * room * (undeadShare(s) >= 0.5 && rulesOf(s).kin !== 'undead' ? UNDEAD_TOWN_ARRIVALS : 1))) return;
+  if (!rng.chance(chance * room * (undeadShare(s) >= 0.5 && rulesOf(s).kin !== 'undead' ? UNDEAD_TOWN_ARRIVALS : 1) * alignArrivalMult(s))) return;
 
   const side: -1 | 1 = rng.chance(0.5) ? -1 : 1;
   const edge = edgeXY(s, side);
@@ -424,6 +424,7 @@ export function maybeArrive(s: GameState, rng: Rng): void {
   const type = monster ?? rng.weighted(ARRIVING_TYPES);
   const person = makePerson(rng, s.nextId++, type, edge, [...s.people.map((p) => p.name)], s.origin ?? 'settlers');
   if (monster) becomeMonster(s, person, monster);
+  else alignArrival(s, person); // (a good town draws the kind and pious, a dark one the grasping and stern: sim/alignment.ts)
   // a stranger of another people (sim/strangers.ts): their look and span are theirs; a xenophobic town turns them away
   const origin = monster ? null : strangerOrigin(s, rng);
   if (origin) {

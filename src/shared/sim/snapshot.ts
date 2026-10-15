@@ -149,7 +149,7 @@ import { dragonDestinations, dragonView, type DragonView } from './dragon';
 import { villageBuildings, villageDestinations, villageViews, type VillageView } from './villages';
 import { interiorView, type InteriorView } from './interiors';
 import { dynastyView, type DynastyView } from './dynasty';
-import { alignView } from './alignment';
+import { alignView, townTitle } from './alignment';
 import { intrigueView, type IntrigueView } from './intrigue';
 import { familiesView, type FamilyLine } from './lineage';
 import { guildsView, type GuildView } from './guilds';
@@ -850,6 +850,8 @@ export interface Snapshot {
   seed: string;
   /** The settlement's voted name, or its origin's default until the vote. */
   townName: string;
+  /** The town's alignment title ("the Merciful"), or null (sim/alignment.ts). */
+  townTitle: string | null;
   /** The town's coins (from selling to travellers), its shop (once one's planned), and the travellers in town. */
   coins: number;
   shop: ShopView | null;
@@ -1193,6 +1195,7 @@ export function snapshot(s: GameState): Snapshot {
   return {
     seed: s.seed,
     townName: s.townName ?? (s.lich ? ORIGIN_DEFS.lich.town : originOf(s).town),
+    townTitle: townTitle(s),
     coins: Math.floor(s.coins ?? 0),
     shop: venueView(s, 'shop'),
     tavern: venueView(s, 'tavern'),

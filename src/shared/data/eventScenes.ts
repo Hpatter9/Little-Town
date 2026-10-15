@@ -171,6 +171,10 @@ export const PICTURE_OF: Record<string, PictureTheme> = {
   // the alignment events' (alignEvents.ts)
   thieves_offer: 'hall',
   dark_bargain: 'dark_wood',
+  fall_reckoning: 'hall',
+  fall_exodus: 'village',
+  redemption_penance: 'village',
+  redemption_shadow: 'dark_wood',
   // the festivals' (festivalEvents.ts)
   fest_rival_stall: 'village',
   fest_lost_child: 'village',

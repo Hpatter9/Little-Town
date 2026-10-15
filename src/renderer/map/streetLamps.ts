@@ -41,6 +41,8 @@ export class StreetLamps {
   private t = 0;
   /** The age's kind of light (electric light holds steady). */
   private kind = 'torch';
+  private cast = 0;
+  private base = 0xffffff;
   calm = false;
   private last: { land: LandMap; era: Era; lights?: StreetLight[] | null } | null = null;
   /** Which of the town's lights burn (by id): a lamp unfed stands dark. */
@@ -100,10 +102,19 @@ export class StreetLamps {
       glow.anchor.set(0.5);
       glow.position.set(x, y - (look.kind === 'torch' ? 26 : 26));
       glow.width = glow.height = look.radius * 2;
-      glow.tint = look.light;
+      this.base = look.light;
+      glow.tint = this.cast === 0 ? look.light : mixTint(look.light, this.cast < 0 ? 0x9a60d0 : 0xffe8b0, Math.min(1, Math.abs(this.cast)) * 0.5);
       glow.visible = false;
       this.lamps.push({ post, glow, rank: rank / Math.max(1, cells.length), phase: (c.x * 7 + c.y * 13) % 10, id: c.id });
     });
+  }
+
+  /** The town's alignment as a cast on the lamps: a warmer light for the good, a cold violet one for the dark. */
+  setCast(cast: number): void {
+    const a = Math.min(1, Math.abs(cast)) * 0.5;
+    if (Math.abs(cast) < 0.15 ? 0 : cast === this.cast) return;
+    this.cast = Math.abs(cast) < 0.15 ? 0 : cast;
+    for (const l of this.lamps) l.glow.tint = this.cast === 0 ? this.base : mixTint(this.base, this.cast < 0 ? 0x9a60d0 : 0xffe8b0, a);
   }
 
   /** How dark it is (per snapshot): the lamps are lit in turn as dusk falls. */
@@ -125,3 +136,8 @@ export class StreetLamps {
     }
   }
 }
+
+const mixTint = (a: number, b: number, t: number): number => {
+  const ch = (s: number) => Math.round(((a >> s) & 255) + (((b >> s) & 255) - ((a >> s) & 255)) * t);
+  return (ch(16) << 16) | (ch(8) << 8) | ch(0);
+};

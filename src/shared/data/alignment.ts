@@ -71,4 +71,76 @@ export const ALIGN_EVENT_WEIGHTS: Record<string, readonly number[]> = {
   thieves_offer: [-3, -2, 2],
   dark_bargain: [-4, -2, 3],
   foes_treat: [-1, -1, 1],
+  fall_reckoning: [-4, -2, 3],
+  fall_exodus: [-2, 1, 2],
+  redemption_penance: [3, 2, -3],
+  redemption_shadow: [2, -1, -2],
+};
+
+/* ------------------------------------------------------------ the second axis: order to chaos */
+
+/** Past these the town is of order (law, drill, tradition) or of chaos (freedom, rowdiness, the gamble). */
+export const ORDER_AT = 35;
+export const CHAOS_AT = -35;
+/** Where each people's lore puts it on the second axis. */
+export const ORIGIN_ORDER_HOME: Partial<Record<OriginId, number>> = { knights: 35, robot: 40, dwarves: 25, lich: 20, vampire: 10, alchemists: 10, orcs: -20, fae: -30, werewolf: -10, nomads: -15, druid: -5 };
+export const orderHomeOf = (origin: OriginId | undefined): number => ORIGIN_ORDER_HOME[origin ?? 'settlers'] ?? 0;
+export const ORDER_LEAN: Partial<Record<NatureId, number>> = { stern: 0.6, proud: 0.35, pious: 0.3, shy: 0.1, greedy: 0.1, bold: -0.2, restless: -0.5, jolly: -0.3, dreamy: -0.3, curious: -0.2, cheerful: -0.1 };
+export const LAW_ORDER: Record<string, number> = { curfew: 4, conscription: 4, harsh_law: 5, rest_day: 2, temple_tithe: 2, market_charter: 1, poor_relief: 0 };
+export const SENTENCE_ORDER: readonly [RegExp, number][] = [
+  [/is hanged/, 4],
+  [/is exiled/, 2],
+  [/in the stocks|is fined/, 2],
+  [/is pardoned/, -2],
+];
+
+/* ------------------------------------------------------------ what the town is called */
+
+/** The title the town carries ("Ashford the Merciful"), from where it stands on both axes; null near the middle. */
+export function titleOf(good: number, order: number): string | null {
+  if (good >= DEEP_GOOD_AT) return order >= 25 ? 'the Righteous' : 'the Radiant';
+  if (good >= GOOD_AT) return order >= 25 ? 'the Just' : order <= -25 ? 'the Free' : 'the Merciful';
+  if (good <= DEEP_EVIL_AT) return order >= 25 ? 'the Iron' : order <= -25 ? 'the Dread' : 'the Cruel';
+  if (good <= EVIL_AT) return order >= 25 ? 'the Ruthless' : order <= -25 ? 'the Lawless' : 'the Hard';
+  if (order >= ORDER_AT) return 'the Steadfast';
+  if (order <= CHAOS_AT) return 'the Unruly';
+  return null;
+}
+export function orderBandName(order: number): string {
+  return order >= 60 ? 'Rigid' : order >= ORDER_AT ? 'Orderly' : order > 12 ? 'Ordered' : order >= -12 ? 'Balanced' : order > CHAOS_AT ? 'Loose' : order > -60 ? 'Unruly' : 'Anarchic';
+}
+
+/* ------------------------------------------------------------ the Great Enemy's pact (greatEnemy.ts hooks) */
+
+export const PACT_DAYS = 40;
+export const LIEUTENANT_DAYS = 90;
+/** The share of the treasury the Enemy's levy takes each day, by kind. */
+export const PACT_LEVY = 0.04;
+export const LIEUTENANT_LEVY = 0.08;
+/** Every so many days the lieutenant's host takes one of the town's grown-ups into its ranks. */
+export const LIEUTENANT_TAKES_EVERY = 12;
+/** Raids on a town in the Enemy's service are this much smaller. */
+export const LIEUTENANT_RAID_MULT = 0.7;
+/** A good town draws the Enemy's hate: its plan runs this much faster. */
+export function enemyHaste(score: number): number {
+  return score >= DEEP_GOOD_AT ? 0.15 : score >= GOOD_AT ? 0.08 : 0;
+}
+
+/* ------------------------------------------------------------ falls and redemptions */
+
+/** A swing this far, inside this many days, is a fall (good to evil) or a redemption (evil to good), once each. */
+export const ARC_DAYS = 60;
+export const ARC_FROM = 20;
+
+/** Order weights of the alignment events (the others are in eventOrder.ts). */
+export const ALIGN_EVENT_ORDER: Record<string, readonly number[]> = {
+  pilgrims_come: [1, 0, 1],
+  holy_order: [3, 1, -1],
+  thieves_offer: [-3, -1, 2],
+  dark_bargain: [-2, -1, 2],
+  foes_treat: [-1, 1, 2],
+  fall_reckoning: [-3, 1, 2],
+  fall_exodus: [-1, 2, 1],
+  redemption_penance: [3, 1, -2],
+  redemption_shadow: [2, -1, 0],
 };
