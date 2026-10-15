@@ -32,6 +32,7 @@ import { huntsHourly } from './hunts';
 import { dragonTick } from './dragon';
 import { holdForFight, openGate } from './raidWait';
 import { maybeEvent } from './events';
+import { alignmentHourly } from './alignment';
 import { rally } from './rally';
 import { battleGo, fightSpeedTick, placeFighter, setAutoBattle, setBattleSpeed, setGameSpeed } from './battle';
 import { castAt } from './powers';
@@ -69,12 +70,13 @@ import { delvesHourly } from './delves';
 import { placesHourly } from './places';
 import { nestsHourly } from './nests';
 import { wildHourly } from './wild';
-import { calamityHourly } from './calamity';
+import { greatEnemyHourly } from './greatEnemy';
 import { deepHourly } from './deep';
 import { portalsHourly } from './portals';
 import { ancestorsHourly } from './ancestors';
 import { lookInside } from './interiors';
 import { dynastyHourly } from './dynasty';
+import { intrigueHourly } from './intrigue';
 import { lineageHourly } from './lineage';
 import type { RealmId } from '../data/portals';
 import { giftVillage, villagesHourly } from './villages';
@@ -117,10 +119,12 @@ import { treasuryHourly } from './treasury';
 import { ambitionHourly } from './ambition';
 import { ceremoniesHourly } from './ceremonies';
 import { festivalsHourly } from './festivals';
+import { cultureHourly } from './culture';
 import { diaryTick } from './diary';
 import { injuriesHourly } from './injuries';
 import { partiesHourly, postBounty, setVeto, withdrawBounty } from './parties';
 import { boatsHourly } from './boats';
+import { seafaringHourly } from './seafaring';
 import { voteSettlementName } from './settlementName';
 
 /** How the town trades at its shop: the planner decides what's spare and what to buy. */
@@ -230,9 +234,11 @@ export class Sim {
     ambitionHourly(s);
     partiesHourly(s);
     boatsHourly(s, this.rng);
+    seafaringHourly(s); // (harbour, shoals, colonies, pirates and the sea's monsters: sim/seafaring.ts)
     skiesHourly(s); // (airships, sky pirates and the hunters of the sky: sim/skies.ts)
     ceremoniesHourly(s);
     festivalsHourly(s);
+    cultureHourly(s); // (the town's own customs, earned from its history: sim/culture.ts)
     annalsHourly(s);
     memorialsHourly(s); // (homes named, ruins cleared, statues to the famous dead: sim/statues.ts)
     injuriesHourly(s, this.rng);
@@ -259,7 +265,7 @@ export class Sim {
     placesHourly(s, this.rng);
     nestsHourly(s); // (monster nests on the land: sim/nests.ts)
     wildHourly(s); // (herds, predators and the woods spreading: sim/wild.ts)
-    calamityHourly(s); // (the Calamity: sim/calamity.ts)
+    greatEnemyHourly(s); // (the Great Enemy: sim/greatEnemy.ts)
     deepHourly(s); // (the Deep under the town: sim/deep.ts)
     portalsHourly(s); // (other worlds through an arch or a rift: sim/portals.ts)
     ancestorsHourly(s); // (a descendant's forebears: spirits, the heirloom, the Old House: sim/ancestors.ts)
@@ -268,6 +274,7 @@ export class Sim {
     villagesHourly(s); // (daughter villages: sim/villages.ts)
     politicsHourly(s); // (the town's politics and law: sim/politics.ts)
     dynastyHourly(s); // (upbringing, feuds, the ruling house, heirlooms: sim/dynasty.ts)
+    intrigueHourly(s); // (the houses' holdings, a ring, schemes on the council: sim/intrigue.ts)
     guildsHourly(s); // (guilds and squads formed to fill what the town lacks: sim/guilds.ts)
     ranchHourly(s); // (the monster ranch's day: sim/ranch.ts)
     arenaHourly(s); // (the arena's season, its card and its bout: sim/arena.ts)
@@ -300,6 +307,7 @@ export class Sim {
     updateAdvice(s);
     maybeArrive(s, this.rng);
     maybeEvent(s, this.rng);
+    alignmentHourly(s); // (the town's alignment: sim/alignment.ts)
     holdForFight(s); // (questions wait while a fight is on screen: sim/raidWait.ts)
     updateVisitor(s, (p: Person, to: Pt) => walkTo(s, p, to));
     // the town decides for itself what to research, make, build and gather

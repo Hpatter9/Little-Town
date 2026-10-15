@@ -32,7 +32,8 @@ export class MapWagons {
           this.sprites.set(w.id, sp);
         }
         sp.position.set(w.x, w.y);
-        sp.scale.set(w.dir < 0 ? -SCALE : SCALE, SCALE);
+        // (the cart's shafts are on its left in the sprite: flipped so they point at the lead, out front)
+        sp.scale.set(w.dir > 0 ? -SCALE : SCALE, SCALE);
         sp.zIndex = w.y;
       }
     for (const [id, sp] of this.sprites) {

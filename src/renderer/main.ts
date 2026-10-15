@@ -1,6 +1,7 @@
 // Strip renderer: draws the town and HUD, turns clicks into sim commands, and decides when the strip
 // should capture the mouse.
 
+import { guildsOf } from './art/guildMarks';
 import { withDeltas } from './deltaBridge';
 import { biomeById } from '../shared/data/biomes';
 import { hkCell, hkDraw, hkKnow, hkLayers, hkWhoOf, onHkLoad } from './art/hkFolk';
@@ -182,6 +183,9 @@ import { noTone, textureCanvas } from './art/pixelArt';
 import { MapCamera } from './map/mapCamera';
 import { MapView } from './map/mapView';
 import { MapPeople } from './map/mapPeople';
+import { setTownSayings } from './map/speech';
+import { setCultureColour } from './map/mapFestival';
+import { setCultureMotif } from './musicScore';
 import { MapTownLife } from './map/mapTownLife';
 import { darkHomes, LOOKOUT_TOWERS, snowballPairs, snowmanHomes, snowmanLeft } from './map/townLife';
 import { MapRaiders } from './map/mapRaiders';
@@ -653,6 +657,7 @@ async function start(): Promise<void> {
       theme: n.theme,
       gathering: n.gathering?.kind ?? null,
       biome: n.biome,
+      align: n.align?.score,
     });
   (window as unknown as { __music: typeof music }).__music = music;
   // the land's soundscape, on with the music (ambience.ts)
@@ -1218,7 +1223,7 @@ async function start(): Promise<void> {
       if (selectedPerson !== null && !p) selectedPerson = null;
       return personCard.hide();
     }
-    personCard.show(p, p.id === snap.mainId, map.screenOf(at.x, at.y).x);
+    personCard.show(p, p.id === snap.mainId, map.screenOf(at.x, at.y).x, guildsOf(snap, p.id));
   };
 
   const selectPerson = (id: number | null) => {
@@ -1619,7 +1624,7 @@ async function start(): Promise<void> {
     // (a raid's battle comes first: watching waits behind it)
     const watched = next.battle ? null : next.watch;
     // (the sea's looks for a shore town's trips, and for any party out in a boat)
-    fight.update(watched, next.biome, next.calendar.season, next.origin.id === 'merfolk' || (!!watched?.boat && watched.phase !== 'work'));
+    fight.update(watched, next.biome, next.calendar.season, next.origin.id === 'merfolk' || (!!watched?.boat && watched.phase !== 'work'), new Set(next.people.filter((p) => p.mer).map((p) => p.id)));
     fightHud.update(watched, next.fightSpeed);
     // (a mine gone into: the same screen, unless a fight or battle has it)
     const inMine = watched || next.battle ? null : next.mine;
@@ -1670,6 +1675,7 @@ async function start(): Promise<void> {
     lightMap.sync(next);
     map.realLight = lightMap.active;
     map.setDaylight(next.calendar.daylight * (1 - gloom), freeze);
+    map.setCast(next.align.cast);
     lightDaylight = next.calendar.daylight * (1 - gloom);
     map.setSun(next.calendar.hour + next.calendar.minute / 60, next.calendar.daylight * (1 - gloom));
     people.sunLean = Math.round(sunAt(next.calendar.hour + next.calendar.minute / 60, 1).skew * 5);
@@ -1816,7 +1822,7 @@ async function start(): Promise<void> {
     };
     const q = next.prompts[0];
     // (on the phone, a choice event has the whole screen: mobile/eventSheet.ts)
-    if (q && view.mode === 'full' && !next.fightOn && !next.tactics && !((q.kind === 'event' || q.kind === 'secret' || q.kind === 'saga' || q.kind === 'road' || q.kind === 'debrief' || q.kind === 'envoy' || q.kind === 'watch' || q.kind === 'dragon' || q.kind === 'evolve' || q.kind === 'refugees' || q.kind === 'village' || q.kind === 'council' || q.kind === 'trial' || q.kind === 'revolt' || q.kind === 'ways') && (window as unknown as { __eventSheet?: boolean }).__eventSheet)) promptCard.show(q);
+    if (q && view.mode === 'full' && !next.fightOn && !next.tactics && !((q.kind === 'event' || q.kind === 'secret' || q.kind === 'saga' || q.kind === 'road' || q.kind === 'debrief' || q.kind === 'envoy' || q.kind === 'watch' || q.kind === 'dragon' || q.kind === 'evolve' || q.kind === 'refugees' || q.kind === 'village' || q.kind === 'council' || q.kind === 'trial' || q.kind === 'revolt' || q.kind === 'ways' || q.kind === 'enemy') && (window as unknown as { __eventSheet?: boolean }).__eventSheet)) promptCard.show(q);
     else promptCard.hide();
     if (next.gameOver) gameOver.show(next.gameOver.text, next.gameOver.won);
     // a boss roars or sweeps: the strip shakes (only for fresh moments, not ones from before a reload)
@@ -1856,7 +1862,7 @@ async function start(): Promise<void> {
     map.workFx.sync(next.buildings, next.workingAt);
     map.workFx.syncBuilders(next.people.filter((p) => p.activity === 'build' && !p.indoors).map((p) => ({ id: p.id, x: p.x, y: p.y, dir: p.dir })));
     herds.update(next.buildings);
-    boats.update(next.fleet, next.mooring);
+    boats.update(next.fleet, next.mooring, next.land);
     airships.update(next.airships, next.mast, next.skyPirates);
     wagons.update(next.wagons);
     pools.sync(next.blood);
@@ -1877,6 +1883,7 @@ async function start(): Promise<void> {
     }), `${next.buildings.length}`);
     lamps.sync(next.land, next.era, next.lights ? next.lights.lights.filter((l) => l.room === null) : null);
     lamps.setDaylight(next.calendar.daylight);
+    lamps.setCast(next.align.cast);
     lamps.calm = map.calm;
     critters.sync(next, lamps.litGlows());
     critters.folk = birds.folk;
@@ -1898,6 +1905,10 @@ async function start(): Promise<void> {
       document.body.append(skipNote);
     }
     if (skipNote) skipNote.style.display = next.raidSkipping ? '' : 'none';
+    setTownSayings(next.culture?.sayings);
+    setCultureColour(next.culture?.colour ?? null);
+    setCultureMotif(next.culture?.song ?? null);
+    map.festival.syncProp(next.culture?.kit ?? null, next.culture?.at ?? null);
     map.festival.sync(next.gathering, next.festivals?.on && next.festivals.on.phase !== 'held' ? next.festivals.on : null);
     map.syncCastle(next.castle ?? null, next.buildings);
     map.syncPlaces(next.places);

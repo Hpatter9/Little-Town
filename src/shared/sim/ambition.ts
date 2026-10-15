@@ -11,6 +11,7 @@ import { natureOf } from '../data/natures';
 import { PURSE_SCALE } from '../data/shop';
 import { SKILLS } from '../data/skills';
 import { giveCoins, moneyTown, payFromTreasury } from './economy';
+import { houseCut } from './intrigue';
 import { landPrice, materialsPrice } from './property';
 import { earn, notify, remember, type Building, type GameState, type LedgerLine, type Person } from './state';
 import { TICKS_PER_DAY, TICKS_PER_HOUR } from './time';
@@ -73,7 +74,7 @@ export function takeSale(s: GameState, b: Building, spent: number, keeper: Perso
   const name = BUILDING_BY_ID[b.def].name;
   const cut = keeper && keeper !== owner ? Math.round(spent * KEEPER_CUT) : 0;
   if (owner) {
-    giveCoins(s, owner, spent - cut, `${name}'s takings: ${who} (${spent - cut} coins)`);
+    giveCoins(s, owner, spent - cut - houseCut(s, owner, spent - cut), `${name}'s takings: ${who} (${spent - cut} coins)`); // (a tithe to the owner's house: sim/intrigue.ts)
     if (cut && keeper) giveCoins(s, keeper, cut, `Kept the ${name} for ${owner.name}: a cut of ${who}'s ${spent} coins`);
     return;
   }

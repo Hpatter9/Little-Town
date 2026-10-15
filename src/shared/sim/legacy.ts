@@ -4,6 +4,7 @@
 // lists them, and a new town may be founded by a descendant of one (`inherit`): the heirloom comes down to them, with a
 // little of the old house's coin and renown, and the town remembers the line (`s.lineage`).
 
+import { titledName } from './alignment';
 import { ITEM_BY_ID } from '../data/items';
 import { levelOf, stageOf } from '../data/levels';
 import { callingName } from '../data/founderClasses';
@@ -85,7 +86,7 @@ export function legendOf(s: GameState, ended: number): Legend | null {
     ...(heirloom ? { heirloom, heirloomCarried: same?.carried ?? 0, heirloomGrade: gradeOf(q), ...(same?.cursed ? { cursed: true } : {}) } : {}),
     ...(s.lineage ? { parent: s.lineage.from } : {}),
     ...(anc ? { forebears: anc.forebears } : {}),
-    ...(s.townName ? { town: s.townName } : {}),
+    ...(s.townName ? { town: titledName(s) } : {}),
     ...(founder ? { founderCalling: callingName(founder, stageOf(founder)), founderLevel: levelOf(founder) } : {}),
     renown: Math.round(days * 2 + s.people.length * 3 + (s.uniques?.length ?? 0) * 10 + (s.delved ? Object.keys(s.delved).length * 8 : 0)),
     generation: (s.lineage?.generation ?? 0) + 1,

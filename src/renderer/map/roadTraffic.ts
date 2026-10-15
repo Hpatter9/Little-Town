@@ -99,7 +99,8 @@ export class RoadTraffic {
       c.horse.texture = creatureFrame('horse', c.coat, c.facing, Math.floor(c.walked / 8) % 3);
       c.horse.scale.set(HORSE_K);
       c.horse.position.set(Math.round(x + dir * 14), Math.round(y));
-      c.cart.scale.set(dir, 1);
+      // (the cart's shafts are on its left in the sprite: flipped so they point at the horse, out front)
+      c.cart.scale.set(-dir, 1);
       c.cart.position.set(Math.round(x - dir * 12), Math.round(y + 1));
       c.horse.alpha = c.cart.alpha = c.alpha;
       c.horse.zIndex = y + 0.1;

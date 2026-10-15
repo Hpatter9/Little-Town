@@ -153,7 +153,7 @@ export function mobileBridge(): Bridge {
       send({ t: 'debug', name, args });
   Object.assign(window, {
     __game: { sim: { step: (n = 1) => send({ t: 'step', n }) }, command: (c: Parameters<Bridge['command']>[0]) => send({ t: 'command', c }), snapshot: () => assembler.current },
-    ...Object.fromEntries(['saga', 'hunt', 'raid', 'disaster', 'festival', 'dragon', 'band', 'skirmish', 'cutscene', 'skies'].map((n) => [`__${n}`, debug(n)])),
+    ...Object.fromEntries(['saga', 'hunt', 'raid', 'disaster', 'festival', 'dragon', 'band', 'skirmish', 'cutscene', 'skies', 'enemy', 'align', 'event'].map((n) => [`__${n}`, debug(n)])),
   });
 
   // the strip's selection, shown in the card at the top of the page (and the card's buttons, back to the strip)

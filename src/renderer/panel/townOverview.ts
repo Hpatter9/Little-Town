@@ -19,6 +19,7 @@ import type { Snapshot } from '../../shared/sim/snapshot';
 import type { Building } from '../../shared/sim/state';
 import { button, el } from './dom';
 import { expandable, facts, type More } from './details';
+import { alignBar } from './alignBar';
 import { selectTab } from './subtabs';
 
 /** Go to a menu's tab: this menu redrawn, or another opened at it. */
@@ -98,7 +99,7 @@ export function glance(s: Snapshot, bridge: Bridge | undefined, rerender: () => 
     const worst = [...s.faith.gods].sort((a, b) => a.favour - b.favour)[0];
     if (worst) tile('Gods', worst.mood === 'wrathful' ? 'Wrathful' : worst.favour < 0 ? 'Uneasy' : 'At peace', worst.favour < 0 ? `${worst.name} is ${worst.mood}` : 'all four content', ['build', 'Faith'], worst.mood === 'wrathful');
   }
-  if (s.calamity) tile('The Calamity', s.calamity.beaten ? 'Beaten' : s.calamity.stageName, s.calamity.beaten ? s.calamity.name : `${s.calamity.name} · dread ${Math.round(s.calamity.dread)}`, ['expeditions', 'Places'], !s.calamity.beaten && s.calamity.stage >= 4);
+  if (s.greatEnemy && s.greatEnemy.stage !== 'dormant') tile('The Enemy', s.greatEnemy.stageName, s.greatEnemy.stage === 'peace' ? `${s.greatEnemy.short} is dead` : s.calamity && !s.calamity.beaten && s.calamity.stage >= 2 ? `${s.greatEnemy.name} · ${s.calamity.name.toLowerCase()}, dread ${Math.round(s.calamity.dread)}` : s.greatEnemy.name, ['expeditions', 'Out now'], s.greatEnemy.stage === 'march' || s.greatEnemy.stage === 'siege');
   // (the Deep under the town: a tap goes down into its deepest level, sim/deep.ts)
   if (s.deep) {
     const d = s.deep;
@@ -115,7 +116,7 @@ export function glance(s: Snapshot, bridge: Bridge | undefined, rerender: () => 
       bridge?.closePanel();
     }, pt.stir >= 0.75);
   tile('Age', ERA_NAMES[s.era], `Year ${c.year}, ${c.season} day ${c.dayOfSeason}`, ['research', 'Tech tree']);
-  return [el('h2', '', 'At a glance'), grid, el('div', 'hint', 'Tap a tile to go to it.')];
+  return [el('h2', '', 'At a glance'), alignBar(s), grid, el('div', 'hint', 'Tap a tile to go to it.')];
 }
 
 /** What a building is for, to group the town's: in the order they're listed. */

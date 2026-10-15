@@ -36,6 +36,7 @@ import { ruinsView, type RuinView } from './ruins';
 import { RECAP_HOURS, type RaidRecap } from './raidRecap';
 import { gatheringRadius, processing, processionHead } from './ceremonies';
 import { festivalsView, type FestivalsView } from './festivals';
+import { cultureView, type CultureView } from './culture';
 import { walkingHome } from './nightOut';
 import { realmView, type RealmView } from './factions';
 import { warView, type WarView } from './conquest/warView';
@@ -45,7 +46,8 @@ import { DESTINATION_BY_ID as DEST_BY_ID } from '../data/expeditions';
 import { musterView, type MusterView } from './muster';
 import { secretView, specialStory } from './specials';
 import { BOAT_BY_KIND, type BoatKind } from '../data/boats';
-import { boatLine, boatyardOf, fleet, mooring } from './boats';
+import { boatLine, fleet } from './boats';
+import { harbourReport, quay } from './seafaring';
 import { airfleet, airshipLine, mastOf } from './skies';
 import { AIRSHIP_BY_KIND, type AirshipKind } from '../data/skies';
 import { flyHeight } from './roamers';
@@ -150,6 +152,8 @@ import { dragonDestinations, dragonView, type DragonView } from './dragon';
 import { villageBuildings, villageDestinations, villageViews, type VillageView } from './villages';
 import { interiorView, type InteriorView } from './interiors';
 import { dynastyView, type DynastyView } from './dynasty';
+import { alignView, townTitle } from './alignment';
+import { intrigueView, type IntrigueView } from './intrigue';
 import { familiesView, type FamilyLine } from './lineage';
 import { guildsView, type GuildView } from './guilds';
 import { beastHome, ranchView, type RanchView } from './ranch';
@@ -159,6 +163,7 @@ import { EMPIRE_AWAY } from '../data/tradeEmpire';
 import { portalDestinations, portalSummaries, portalView, type PortalSummary, type PortalView } from './portals';
 import { politicsView, type PoliticsView } from './politics';
 import { calamityView, heartDestinations, type CalamityView } from './calamity';
+import { enemyDestinations, greatEnemyView, type GreatEnemyView } from './greatEnemy';
 import { sceneView } from './cutscenes';
 export type SceneView = NonNullable<ReturnType<typeof sceneView>>;
 import { nestPlaceName } from './nests';
@@ -490,6 +495,9 @@ export interface PromptView {
   text: string;
   options: string[];
   defaultOption: number;
+  /** A choice event's recommended answer and the reason (sim/alignment.ts), or null. */
+  recommended: number | null;
+  why: string | null;
   kind: string;
   /** A choice event's fuller telling, its picture (a backdrop id) and who it's about (the full-screen event box). */
   story: string | null;
@@ -846,6 +854,8 @@ export interface Snapshot {
   seed: string;
   /** The settlement's voted name, or its origin's default until the vote. */
   townName: string;
+  /** The town's alignment title ("the Merciful"), or null (sim/alignment.ts). */
+  townTitle: string | null;
   /** The town's coins (from selling to travellers), its shop (once one's planned), and the travellers in town. */
   coins: number;
   shop: ShopView | null;
@@ -915,6 +925,8 @@ export interface Snapshot {
    *  boatyard where those at home lie moored. */
   fleet: { id: number; kind: BoatKind; name: string; hull: number; max: number; away: string | null }[];
   mooring: { x: number; y: number } | null;
+  /** The Harbour tab (sim/seafaring.ts): the harbour, the shoals, the catch, losses, colonies and the sea's news. */
+  seafaring: ReturnType<typeof harbourReport>;
   /** The town's airships (sim/skies.ts): at home at the mast (away null) or the place they've flown for; `leg` while
    *  she's leaving or coming home over the town (the share of the way out or back, and the side the place lies); and
    *  the mast's footprint (cells) where those at home are moored. */
@@ -938,6 +950,8 @@ export interface Snapshot {
   gathering: { kind: 'funeral' | 'great_funeral' | 'wedding' | 'feast' | 'rite' | 'festival'; x: number; y: number; ring: number; key: number; fire: boolean; head?: { x: number; y: number } | null; bearers?: number[]; festival?: string } | null;
   /** The year's festivals and what's next (sim/festivals.ts). */
   festivals: FestivalsView;
+  /** The town's own customs, traits and sayings (sim/culture.ts). */
+  culture: CultureView;
   prompts: PromptView[];
   /** Seconds until the player can rally a defender again (0: now). */
   rallyIn: number;
@@ -965,6 +979,8 @@ export interface Snapshot {
   families: FamilyLine[];
   /** The ruling house, feuds, alliances and heirlooms (sim/dynasty.ts), shown on the Families tab. */
   dynasty: DynastyView | null;
+  /** The houses' holdings, wealth, known crimes and the town's whispers (sim/intrigue.ts), on the Families tab. */
+  intrigue: IntrigueView | null;
   /** The town's guilds and squads (sim/guilds.ts), for the People menu's Guilds tab. */
   guilds: GuildView[];
   /** The monster ranch and its beasts (sim/ranch.ts), for the Market menu's Ranch tab and the map's pens. */
@@ -1009,6 +1025,8 @@ export interface Snapshot {
   villageBuildings: Building[];
   /** The Calamity (sim/calamity.ts), and where the land is blighted (cells: round each nest and its heart). */
   calamity: CalamityView | null;
+  /** The Great Enemy (sim/greatEnemy.ts), once chosen. */
+  greatEnemy: GreatEnemyView | null;
   /** A cutscene waiting or playing (sim/cutscenes.ts), and those seen, to watch again. */
   scene: SceneView | null;
   scenesSeen: { key: number; id: string; title: string; tick: number }[];
@@ -1019,6 +1037,8 @@ export interface Snapshot {
   uniques: { id: string; holder: string | null }[];
   raid: RaidView | null;
   reputation: number;
+  /** The town's alignment: the bar, its label, and the cast the town is tinted by (sim/alignment.ts). */
+  align: ReturnType<typeof alignView>;
   gameOver: { text: string; won: boolean } | null;
   /** An epic boss in a fight right now (in town first, else on an expedition): its health bar. */
   bossBar: { name: string; hp: number; maxHp: number; enraged: boolean; where: string } | null;
@@ -1185,6 +1205,7 @@ export function snapshot(s: GameState): Snapshot {
   return {
     seed: s.seed,
     townName: s.townName ?? (s.lich ? ORIGIN_DEFS.lich.town : originOf(s).town),
+    townTitle: townTitle(s),
     coins: Math.floor(s.coins ?? 0),
     shop: venueView(s, 'shop'),
     tavern: venueView(s, 'tavern'),
@@ -1240,7 +1261,7 @@ export function snapshot(s: GameState): Snapshot {
       : null,
     housing: { beds: housingCapacity(s), people: s.people.length },
     expeditions: s.expeditions.map((e) => expeditionView(s, e)),
-    destinations: [...DESTINATIONS, ...placeDestinations(s), ...packDestinations(s), ...sagaDestinations(s), ...huntDestinations(s), ...dragonDestinations(s), ...heartDestinations(s), ...villageDestinations(s), ...portalDestinations(s)].map((d) => ({
+    destinations: [...DESTINATIONS, ...placeDestinations(s), ...packDestinations(s), ...sagaDestinations(s), ...huntDestinations(s), ...dragonDestinations(s), ...heartDestinations(s), ...enemyDestinations(s), ...villageDestinations(s), ...portalDestinations(s)].map((d) => ({
       id: d.id,
       unlocked: destinationUnlocked(s, d),
       scouted: s.scouted.includes(d.id),
@@ -1260,7 +1281,8 @@ export function snapshot(s: GameState): Snapshot {
     })),
     fleet: fleet(s).map((b) => ({ id: b.id, kind: b.kind, name: b.name, hull: Math.max(0, b.hull), max: BOAT_BY_KIND[b.kind].hull, away: b.away === null ? null : ((e) => (e ? destinationOf(s, e.dest)?.name ?? '' : ''))(s.expeditions.find((e) => e.id === b.away)) })),
     wall: s.ring && !s.ring.done ? ((w) => (w ? { gen: s.ring!.gen, ...w, shape: RING_SHAPE_NAMES[ringShapeOf(s)] } : null))(ringProgress(s)) : null,
-    mooring: ((y) => (y ? mooring(s.land, footprint(y)) : null))(boatyardOf(s)),
+    mooring: quay(s),
+    seafaring: harbourReport(s),
     airships: airshipsView(s),
     mast: ((m) => (m ? footprint(m) : null))(mastOf(s)),
     skyPirates: skyPiratesView(s),
@@ -1274,6 +1296,7 @@ export function snapshot(s: GameState): Snapshot {
     war: CONQUEST.on ? warView(s) : null,
     gathering: s.gathering && s.tick < s.gathering.until && !s.raid ? { kind: s.gathering.kind, x: s.gathering.x, y: s.gathering.y, ring: gatheringRadius(s.gathering), key: s.gathering.from ?? 0, fire: Math.hypot(s.gathering.x - campXY(s).x, s.gathering.y - campXY(s).y) > 40, head: processing(s.gathering, s.tick) ? processionHead(s.gathering, s.tick) : null, bearers: s.gathering.ids.slice(0, 2), festival: s.gathering.festival } : null,
     festivals: festivalsView(s),
+    culture: cultureView(s),
     debris: (s.debris ?? []).filter((m) => s.tick - m.tick < DEBRIS_LASTS).map((m) => ({ x: m.x, y: m.y, kind: m.kind, age: s.tick - m.tick, key: `${m.tick}:${m.x}:${m.y}:${m.kind}` })),
     blood: (s.blood ?? []).filter((m) => s.tick - m.tick < BLOOD_LASTS).map((m) => ({ x: m.x, y: m.y, from: m.from, age: s.tick - m.tick, key: `${m.tick}:${m.x}:${m.y}` })),
     rallyIn: Math.max(0, Math.ceil(((s.rallyReady ?? 0) - s.tick) / TICK_HZ)),
@@ -1309,6 +1332,7 @@ export function snapshot(s: GameState): Snapshot {
     politics: brief(s, 'politics', () => politicsView(s)),
     villageBuildings: villageBuildings(s),
     calamity: calamityView(s),
+    greatEnemy: greatEnemyView(s),
     scene: sceneView(s),
     scenesSeen: (s.scenesSeen ?? []).map((r) => ({ key: r.key, id: r.id, title: r.title, tick: r.tick })),
     blight: blightSources(s),
@@ -1345,6 +1369,7 @@ export function snapshot(s: GameState): Snapshot {
     interior: interiorView(s, (p) => describe(s, p)),
     families: slow(s, 'families', () => familiesView(s)),
     dynasty: slow(s, 'dynasty', () => dynastyView(s)),
+    intrigue: slow(s, 'intrigue', () => intrigueView(s)),
     guilds: slow(s, 'guilds', () => guildsView(s)),
     ranch: slow(s, 'ranch', () => ranchView(s)),
     ranchPens: slow(s, 'ranchPens', () => (s.ranch?.beasts ?? []).map((b) => ({ id: b.id, kind: b.kind, ...beastHome(s, b) }))),
@@ -1362,6 +1387,8 @@ export function snapshot(s: GameState): Snapshot {
       text: p.text,
       options: [...p.options],
       defaultOption: p.defaultOption,
+      recommended: p.recommended ?? null,
+      why: p.why ?? null,
       kind: p.kind,
       story: p.story ?? null,
       picture: p.picture ?? null,
@@ -1406,6 +1433,7 @@ export function snapshot(s: GameState): Snapshot {
         }
       : null,
     reputation: s.reputation,
+    align: alignView(s),
     gameOver: s.gameOver ? { text: s.gameOver.text, won: !!s.gameOver.won } : null,
     biome: s.biome ?? 'forest',
     turnable: turnable(s),

@@ -17,6 +17,7 @@ import { heldWeapon, wardrobe, wornLayers } from '../art/held';
 import { FOOD_VALUE, JOB_NAMES, JOBS, PRIORITY_NAMES, type Priority } from '../../shared/data/people';
 import { itemIcon } from '../art/icons';
 import { emblemCanvas } from '../art/emblems';
+import { guildBadge, guildMark, guildsOf } from '../art/guildMarks';
 import { CLASS_DEFS, STAGE_LEVELS } from '../../shared/data/classes';
 import { ATTR_ABOUT, ATTR_KEYS, ATTR_NAMES } from '../../shared/data/attributes';
 import { WEIGHT_NAMES } from '../../shared/data/armour';
@@ -51,6 +52,7 @@ export const townsfolkKey = (s: Snapshot) => {
     s.prisoners.map((p) => [p.id, Math.floor(p.conviction * 20), p.hungry]),
     s.families.map((f) => [f.root, f.members.length, f.living, f.renown, f.blackSheep.length, f.members.map((m) => m.master).join()]),
     s.dynasty && [s.dynasty.ruling?.root, s.dynasty.ruling?.stage, Math.round((s.dynasty.ruling?.strength ?? 0) / 5), s.dynasty.ruling?.heir, s.dynasty.ruling?.crisis, s.dynasty.feuds.map((f) => [f.aRoot, f.bRoot, Math.round(f.heat / 10), !!f.ended]), s.dynasty.bonds.length, s.dynasty.heirlooms.map((l) => [l.item, l.holder, !!l.lost, l.story.length]), s.dynasty.log.length],
+    s.intrigue && [s.intrigue.houses.map((x) => [x.root, Math.round(x.wealth / 20), x.seats, x.holdings.homes, x.holdings.shops, x.holdings.works, x.holdings.fields, x.crimes.length, x.ring, !!x.rumour]), s.intrigue.whispers.length, s.intrigue.log.length],
     s.guilds.map((g) => [g.id, g.name, g.leader?.id, g.members.map((m) => [m.id, m.level]), g.log[0]]),
     s.turnable,
     confirmTurn,
@@ -198,6 +200,8 @@ function folkRow(p: PersonView, s: Snapshot, open: () => void): HTMLElement {
   race.title = ORIGIN_DEFS[origin].name;
   race.setAttribute('aria-label', ORIGIN_DEFS[origin].name);
   name.append(race);
+  const gm = guildMark(s, p.id);
+  if (gm) name.append(gm);
   mid.append(name, el('span', 'folk-class'), el('span', 'folk-doing'));
   const right = el('span', 'folk-right');
   right.append(miniBar(p.hp / p.maxHp, 'hp'), miniBar(p.morale / 100, 'mood'), el('span', 'folk-flag'));
@@ -270,7 +274,18 @@ function inspectView(p: PersonView, s: Snapshot, bridge: Bridge | undefined, rer
   const card = el('div', 'card person inspect');
   const top = el('div', 'card-top');
   top.append(el('span', 'card-name', `${p.name}${p.id === s.mainId ? ' (you)' : ''}`), el('span', 'card-size', `${p.typeName} · ${p.bed ? `bed: ${p.bed}` : 'no bed'}`));
-  card.append(top, el('div', 'lock inspect-doing', p.away !== null ? `Away on an expedition: ${p.away}` : p.doing));
+  card.append(top);
+  const mine = guildsOf(s, p.id);
+  if (mine.length) {
+    const row = el('div', 'inspect-guilds');
+    for (const g of mine) {
+      const chip = el('span', 'guild-chip');
+      chip.append(guildBadge(g.role, 16), el('span', '', `${g.lead ? '★ ' : ''}${g.name}`));
+      row.append(chip);
+    }
+    card.append(row);
+  }
+  card.append(el('div', 'lock inspect-doing', p.away !== null ? `Away on an expedition: ${p.away}` : p.doing));
   card.append(classRow(p, bridge, rerender));
   // (the same marks as the list's rows: points to spend, an evolution to choose; each a tap to where it's done)
   const asking = !!p.road && p.road.promptId !== null;

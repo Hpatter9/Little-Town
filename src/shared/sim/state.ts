@@ -1,5 +1,6 @@
 import type { NightOut } from './nightOut';
 import type { FestivalLogEntry, FestivalRun } from './festivals';
+import type { CultureState } from './culture';
 import type { CalamityState } from './calamity';
 import type { DeepState } from './deep';
 import type { Portal } from './portals';
@@ -416,10 +417,16 @@ export interface SagaRun {
 
 export interface Raid {
   id: number;
+  /** A pirate crew landed on the beach from the sea (sim/seafaring.ts). */
+  landing?: boolean;
   /** A saga's raid: the run it belongs to (sim/sagas.ts). */
   saga?: number;
-  /** One of the Calamity's raids: its army, or the last siege (sim/calamity.ts). */
+  /** (Old saves: one of the Calamity's own raids, from before it was the Great Enemy's stage: sim/greatEnemy.ts `bindCalamity` hands them over.) */
   calamity?: 'army' | 'siege';
+  /** One of the Great Enemy's raids (sim/greatEnemy.ts): bearing its mark, a host led by a lieutenant (which), or the
+   *  last siege. */
+  enemy?: 'mark' | 'host' | 'siege';
+  enemyLt?: number;
   /** Fallen raiders raised by necromancers this raid, and when a Beast Tamer can tame again. */
   raised?: number;
   nextTame?: number;
@@ -744,7 +751,7 @@ export interface Secret {
 /** A question waiting for the player, answered by default when the timer runs out. */
 export interface Prompt {
   id: number;
-  kind: 'strangers' | 'raid' | 'rite' | 'lich' | 'gate' | 'event' | 'thirst' | 'visitor' | 'secret' | 'saga' | 'road' | 'debrief' | 'envoy' | 'watch' | 'dragon' | 'evolve' | 'refugees' | 'village' | 'council' | 'trial' | 'revolt' | 'ways';
+  kind: 'strangers' | 'raid' | 'rite' | 'lich' | 'gate' | 'event' | 'thirst' | 'visitor' | 'secret' | 'saga' | 'road' | 'debrief' | 'envoy' | 'watch' | 'dragon' | 'evolve' | 'refugees' | 'village' | 'council' | 'trial' | 'revolt' | 'ways' | 'enemy';
   /** A people's own question (the origins made deeper: sim/heritage.ts `answerWays`): whose, and about what. */
   ways?: { system: string; about: string; id?: number };
   /** A question of the town's politics (sim/politics.ts): a council vote, a trial or a revolt. */
@@ -765,6 +772,9 @@ export interface Prompt {
   text: string;
   options: string[];
   defaultOption: number;
+  /** A choice event's recommended answer (what the town would pick: sim/alignment.ts) and the reason said under it. */
+  recommended?: number;
+  why?: string;
   expiresTick: number;
   /** A choice event's fuller telling (the scene, the event, more of it), its picture (a painted background, data/
    *  eventScenes.ts), and who it's about: for the full-screen event box. */
@@ -836,6 +846,8 @@ export interface Boat {
   hull: number;
   /** The expedition she's away with, or null at home. */
   away: number | null;
+  /** The tick she was launched (sim/seafaring.ts: ships wear with age). */
+  built?: number;
 }
 
 /** An airship of the town's fleet (data/skies.ts, sim/skies.ts). */
@@ -1135,6 +1147,9 @@ export interface GameState {
   boats?: Boat[];
   /** Boats built so far (for their names, in turn). */
   boatsBuilt?: number;
+  /** Island colonies and the sea book (sim/seafaring.ts). */
+  colonies?: import('./seafaring').Colony[];
+  sea?: import('./seafaring').SeaBook;
   /** The town's airships (data/skies.ts, sim/skies.ts): built at the airship mast, moored there or away with a party. */
   airships?: Airship[];
   /** Airships built so far (for their names, in turn). */
@@ -1186,6 +1201,8 @@ export interface GameState {
   /** The season's festival under way or being made ready, and those of the years before (sim/festivals.ts). */
   festival?: FestivalRun;
   festivalLog?: FestivalLogEntry[];
+  /** The town's own customs, earned from its history (sim/culture.ts). */
+  culture?: CultureState;
   /** The evening at the tavern under way (sim/nightOut.ts). */
   nightOut?: NightOut;
   lastFeast?: number;
@@ -1293,8 +1310,10 @@ export interface GameState {
   wild?: import('./wild').Wild;
   roamers?: Roamer[];
   skirmishes?: Skirmish[];
-  /** The Calamity (sim/calamity.ts): what it is, how far its dread has risen, its heart and sieges. */
+  /** The Calamity (sim/calamity.ts): the Great Enemy's stirring made manifest: what it is, its dread, its heart. */
   calamity?: CalamityState;
+  /** The Great Enemy: one villain a town and the long arc of the game (sim/greatEnemy.ts). */
+  greatEnemy?: import('./greatEnemy').GreatEnemyState;
   /** The Deep under the town (sim/deep.ts), once a shaft is sunk; and the level the player is looking at, if any. */
   deep?: DeepState;
   watchingDeep?: number;
@@ -1304,6 +1323,8 @@ export interface GameState {
   kin?: Record<number, import('./lineage').KinRecord>;
   /** Generations and dynasties (sim/dynasty.ts): upbringing, feuds, bonds, the ruling house, heirlooms. */
   dynasty?: import('./dynasty').DynastyState;
+  /** House intrigue (sim/intrigue.ts): the houses' purses, a ring, holds on the council, killings, whispers. */
+  intrigue?: import('./intrigue').IntrigueState;
   /** The trade economy: prices, booms and shortages, the trade house, its routes and wagons (sim/markets.ts). */
   market?: import('./markets').MarketState;
   /** A druid town's grove (sim/grove.ts). */
@@ -1342,6 +1363,8 @@ export interface GameState {
   nextEventTick?: number;
   /** When the last fateful event (data/fatefulEvents.ts) came. */
   lastFateful?: number;
+  /** The town's alignment, good to evil (sim/alignment.ts). */
+  align?: import('./alignment').AlignState;
   /** When a wanderer last came to the gate (arrivals are a question to the player, and come no oftener than
    *  VISIT_GAP_HOURS apart). */
   lastVisit?: number;

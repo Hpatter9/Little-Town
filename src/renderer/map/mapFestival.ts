@@ -131,6 +131,12 @@ interface Burst {
   glow: Sprite;
 }
 
+/** The town's culture colour (sim/culture.ts): a pennant at every gathering. */
+let cultureColour: number | null = null;
+export function setCultureColour(c: number | null): void {
+  cultureColour = c;
+}
+
 export class MapFestival {
   private key = '';
   private g: Gathering | null = null;
@@ -169,13 +175,13 @@ export class MapFestival {
   sync(g: Gathering | null, prep: FestivalPrep | null = null): void {
     const p = g ? null : prep;
     const n = [...textures.values()].filter(Boolean).length;
-    const key = g ? `${g.kind}|${g.x}|${g.y}|${g.ring}|${g.key}|${g.fire}|${g.festival}|${n}|${campfirePack() ? 1 : 0}` : p ? `prep|${p.id}|${p.x}|${p.y}|${n}` : '';
+    const key = g ? `${g.kind}|${g.x}|${g.y}|${g.ring}|${g.key}|${g.fire}|${g.festival}|${n}|${campfirePack() ? 1 : 0}|${cultureColour}` : p ? `prep|${p.id}|${p.x}|${p.y}|${n}` : '';
     if (key === this.key) return;
     this.key = key;
     this.clear();
     const fest = FESTIVAL_BY_ID[(g ? g.festival : p?.id) ?? ''];
     this.festival = !!fest;
-    this.colours = fest ? fest.colours : PENNANTS;
+    this.colours = fest ? (cultureColour ? [...fest.colours, cultureColour] : fest.colours) : PENNANTS;
     this.lantern = fest ? [fest.lantern] : LANTERN;
     if (p && fest) {
       // (made ready: the ring of poles and the things go up round the fire, nobody dancing yet)
@@ -205,6 +211,32 @@ export class MapFestival {
       s.position.set(p.x, p.y);
       s.zIndex = p.y;
       this.standing.push(s);
+    }
+  }
+
+  /** The town's own prop (a few of a festival kit's things standing by the camp: sim/culture.ts); null takes it down. */
+  private propKey = '';
+  private propStanding: Sprite[] = [];
+  syncProp(kit: DecorKit | null, at: { x: number; y: number } | null): void {
+    const n = [...textures.values()].filter(Boolean).length;
+    const key = kit && at ? `${kit}|${at.x}|${at.y}|${n}` : '';
+    if (key === this.propKey) return;
+    this.propKey = key;
+    for (const s of this.propStanding) s.destroy();
+    this.propStanding = [];
+    if (!kit || !at) return;
+    const props = KITS[kit];
+    for (let i = 0; i < 3; i++) {
+      const [url, scale, foot] = props[i % props.length];
+      const t = tex(url);
+      if (!t) continue;
+      const s = this.things.addChild(new Sprite(t));
+      s.anchor.set(0.5, foot);
+      s.scale.set(scale);
+      const x = Math.round(at.x + 70 + i * 14), y = Math.round(at.y + 34 + (i % 2) * 10);
+      s.position.set(x, y);
+      s.zIndex = y;
+      this.propStanding.push(s);
     }
   }
 

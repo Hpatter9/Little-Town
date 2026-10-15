@@ -16,6 +16,10 @@ import { cleanNewGameOptions } from './data/founding';
 import { BIOMES } from './data/biomes';
 import { TICKS_PER_HOUR } from './sim/time';
 import { inherit, legendOf, type Legend } from './sim/legacy';
+import type { EnemyKind } from './data/greatEnemy';
+import { startEvent } from './sim/events';
+import { EVENT_BY_ID } from './data/events';
+import { enemyLegend, forceEnemy, inheritEnemy, type EnemyLegend } from './sim/greatEnemy';
 import { queueScene } from './sim/cutscenes';
 import { spawnBand } from './sim/bands';
 import type { BandKind } from './data/bands';
@@ -153,6 +157,9 @@ export function startSimHost(post: (m: FromHost) => void): (m: ToHost) => void {
       (s.roamers ??= []).push(r);
       s.watching = startSkirmish(s, r, p).id;
     },
+    align: (score: number, order: number) => { const s = stateOf(); s.align = { ...(s.align ?? { log: [] }), score, order, log: s.align?.log ?? [] }; }, // (for previews: set the town's alignment)
+    event: (id: string) => { const s = stateOf(); if (EVENT_BY_ID[id]) startEvent(s, EVENT_BY_ID[id], new Rng(1)); }, // (for previews: put a choice event)
+    enemy: (to?: 'omens' | 'stirring' | 'march' | 'siege', kind?: EnemyKind) => forceEnemy(stateOf(), to, kind),
     cutscene: (id: string, vars: Record<string, string> = {}, foes: Record<string, string> = {}) => queueScene(stateOf(), id, { vars, foes }),
   };
 
@@ -213,9 +220,13 @@ export function startSimHost(post: (m: FromHost) => void): (m: ToHost) => void {
         const opts = cleanNewGameOptions(m.opts);
         if (!opts || !game) return post({ t: 'reply', id: m.id, value: null });
         const old = game.state;
-        const legend = game.catchingUp ? null : legendOf(old, m.now);
+        const legend: (Legend & { enemy?: EnemyLegend }) | null = game.catchingUp ? null : legendOf(old, m.now);
+        // (the Great Enemy goes on the legend: a descendant whose forebears it broke meets it again)
+        const foe = legend ? enemyLegend(old) : undefined;
+        if (legend && foe) legend.enemy = foe;
         const town = newGame(randomSeed(), opts);
         if (m.heir) inherit(town, m.heir);
+        if (m.heir) inheritEnemy(town, (m.heir as Legend & { enemy?: EnemyLegend }).enemy, m.heir.founder);
         leaving = true; // (nothing saves the old town over the new one now)
         const value: NewTown = {
           legend,

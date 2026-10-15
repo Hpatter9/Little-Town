@@ -157,7 +157,8 @@ export function createEventSheet(onAnswer: (prompt: number, option: number) => v
     if (!evolve) p.options.forEach((label, i) => {
       const b = document.createElement('button');
       b.className = i === p.defaultOption ? 'event-option default' : 'event-option';
-      b.textContent = label;
+      if (i === p.recommended) b.classList.add('recommended');
+      b.textContent = i === p.recommended ? `★ ${label}` : label;
       b.addEventListener('click', () => {
         if (answered) return;
         onAnswer(p.id, i);
@@ -175,7 +176,11 @@ export function createEventSheet(onAnswer: (prompt: number, option: number) => v
     });
     count = document.createElement('div');
     count.className = 'event-count';
-    body.append(title, text, options, count);
+    // the town's own pick and why (sim/alignment.ts), under the answers
+    const advice = document.createElement('div');
+    advice.className = 'event-advice';
+    if (p.recommended != null && p.why && !evolve) advice.textContent = `★ The town recommends "${p.options[p.recommended]}": ${p.why}.`;
+    body.append(title, text, options, advice, count);
     el.replaceChildren(art, body);
     el.scrollTop = 0;
   };
@@ -243,7 +248,7 @@ export function createEventSheet(onAnswer: (prompt: number, option: number) => v
         tell(snap);
         return;
       }
-      const p = snap.prompts.find((q) => !read.has(q.id) && (q.kind === 'event' || q.kind === 'secret' || q.kind === 'saga' || q.kind === 'road' || q.kind === 'debrief' || q.kind === 'envoy' || q.kind === 'watch' || q.kind === 'dragon' || q.kind === 'evolve' || q.kind === 'refugees' || q.kind === 'village' || q.kind === 'council' || q.kind === 'trial' || q.kind === 'revolt' || q.kind === 'ways'));
+      const p = snap.prompts.find((q) => !read.has(q.id) && (q.kind === 'event' || q.kind === 'secret' || q.kind === 'saga' || q.kind === 'road' || q.kind === 'debrief' || q.kind === 'envoy' || q.kind === 'watch' || q.kind === 'dragon' || q.kind === 'evolve' || q.kind === 'refugees' || q.kind === 'village' || q.kind === 'council' || q.kind === 'trial' || q.kind === 'revolt' || q.kind === 'ways' || q.kind === 'enemy'));
       const on = !!p && !away;
       el.hidden = !on;
       document.body.classList.toggle('event-open', on);

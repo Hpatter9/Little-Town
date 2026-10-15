@@ -9,6 +9,7 @@ import { awardDeedTitles } from './deeds';
 import { ERA_NAMES } from '../data/eras';
 import { callingName } from '../data/founderClasses';
 import { levelOf, stageOf } from '../data/levels';
+import { GREAT_ENEMIES } from '../data/greatEnemy';
 import { BUILDING_BY_ID } from '../data/buildings';
 import { eventPicture } from '../data/eventScenes';
 import { calendar, DAYS_PER_SEASON, TICKS_PER_HOUR } from './time';
@@ -18,6 +19,7 @@ import { notify, type GameState, type Person, type Prompt } from './state';
 import { honour } from './memorials';
 import { empireYearLines } from './empireYear';
 import { dynastyYearLines } from './dynasty';
+import { alignmentYearLines } from './alignment';
 import { topicName } from '../data/originResearch';
 
 /** Midwinter: the middle day of winter, of an evening. */
@@ -179,7 +181,13 @@ export function writeChronicle(s: GameState): Chronicle {
   const uniques = (s.uniques ?? []).length - y.uniques;
   if (uniques > 0) lines.push(`${uniques === 1 ? 'A treasure of legend was' : `${uniques} treasures of legend were`} won.`);
   lines.push(...empireYearLines(s)); // (the trade empire's year: sim/empireYear.ts)
+  lines.push(...alignmentYearLines(s, y.tick)); // (the town's swings toward good or evil: sim/alignment.ts)
   lines.push(...dynastyYearLines(s, y.tick)); // (the houses' year: feuds, the ruling house, heirlooms: sim/dynasty.ts)
+  // the Great Enemy's turns this year (sim/greatEnemy.ts)
+  const foe = s.greatEnemy && s.greatEnemy.chosen >= 0 ? s.greatEnemy : null;
+  const turns = (foe?.log ?? []).filter((l) => l.day >= calendar(y.tick).day).map((l) => l.text);
+  if (foe && turns.length) lines.push(`Of ${GREAT_ENEMIES[foe.kind].name}: ${some(turns, 3)}.`);
+  else if (foe && foe.stage !== 'dormant' && foe.stage !== 'peace' && foe.stage !== 'fallen') lines.push(`Far off, ${GREAT_ENEMIES[foe.kind].name} went on with its plans.`);
   lines.push(lost.length > (r.came ? 2 : 1) ? 'It was a hard year. May the next be kinder.' : born.length + came.length > lost.length ? 'The town grows. May the next year be as kind.' : 'The fires are banked for winter, and the town waits on the spring.');
   const c: Chronicle = { year: cal.year, day: cal.day, title: `The chronicle of Year ${cal.year}`, lines };
   (s.chronicles ??= []).push(c);

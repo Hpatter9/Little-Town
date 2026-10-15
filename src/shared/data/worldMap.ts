@@ -10,6 +10,7 @@ import { DUNGEON_SPOTS } from './dungeons';
 import { ISLAND_SPOTS } from './boats';
 import { SKY_SPOTS } from './skies';
 import { STRONGHOLD_SPOTS } from './factions';
+import { ENEMY_SPOTS } from './greatEnemy';
 
 export const MAP_SIZE = 768;
 
@@ -25,6 +26,8 @@ export const MAP_SPOTS: Readonly<Record<string, { x: number; y: number }>> = {
   ...DUNGEON_SPOTS,
   ...ISLAND_SPOTS,
   ...SKY_SPOTS,
+  // (the Great Enemy's seat and outposts: data/greatEnemy.ts)
+  ...ENEMY_SPOTS,
   // (assaults: a power's stronghold, a dungeon stormed where it lies: data/factions.ts)
   ...Object.fromEntries(Object.entries(STRONGHOLD_SPOTS).map(([id, at]) => [`assault:${id}`, at])),
   ...Object.fromEntries(Object.entries(DUNGEON_SPOTS).map(([id, at]) => [`assault:dungeon:${id}`, at])),

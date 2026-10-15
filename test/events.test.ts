@@ -23,7 +23,7 @@ function town(): GameState {
 }
 
 test('the events: five hundred and the fateful ones, each with two or three answers and exactly one default', () => {
-  assert.equal(EVENTS.length, 553); // (500, the 25 fateful ones, the fire's follow-up, the Calamity's ten, and the festivals' seventeen)
+  assert.equal(EVENTS.length, 562); // (500, the 25 fateful ones, the fire's follow-up, the Calamity's ten, the festivals' seventeen, and the nine of alignment: data/alignEvents.ts)
   assert.equal(new Set(EVENTS.map((e) => e.id)).size, EVENTS.length);
   for (const e of EVENTS) {
     assert.ok(e.options.length >= 2 && e.options.length <= 3, e.id);
