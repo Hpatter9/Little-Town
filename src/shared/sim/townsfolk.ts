@@ -1,6 +1,8 @@
 // Townsfolk rules: needs, mood, work speed, skill growth, beds, and wanderers arriving at the edge of town.
 // All rates are starting values for tuning.
 
+import { alignScore } from './alignment';
+import { alignMood, homeOf } from '../data/alignment';
 import { darkPace } from './lighting';
 import { blocMood } from './politics';
 import { guildMood, guildWork } from './guildPerks';
@@ -256,7 +258,7 @@ export function driftMorale(s: GameState, p: Person): void {
   // (their nature nudges where their spirits settle: data/natures.ts)
   // (what's alike for everyone is worked out once a tick: the townsfolk's moods are all drifted together, sim.ts)
   if (lastTown?.s !== s || lastTown.mood.tick !== s.tick) lastTown = { s, mood: townMood(s) };
-  const target = Math.max(0, Math.min(100, mood(s, p, lastTown.mood).target + natureOf(p).mood));
+  const target = Math.max(0, Math.min(100, mood(s, p, lastTown.mood).target + natureOf(p).mood + (s.autopilot !== false ? alignMood(alignScore(s), homeOf(s.origin)) : 0)));
   const step = (MORALE_DRIFT_PER_HOUR / TICKS_PER_HOUR) * MORALE_EVERY;
   p.morale = p.morale < target ? Math.min(target, p.morale + step) : Math.max(target, p.morale - step);
   // (some origins' folk never sink too low: thralls, the fair folk)

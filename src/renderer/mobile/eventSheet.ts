@@ -157,7 +157,8 @@ export function createEventSheet(onAnswer: (prompt: number, option: number) => v
     if (!evolve) p.options.forEach((label, i) => {
       const b = document.createElement('button');
       b.className = i === p.defaultOption ? 'event-option default' : 'event-option';
-      b.textContent = label;
+      if (i === p.recommended) b.classList.add('recommended');
+      b.textContent = i === p.recommended ? `★ ${label}` : label;
       b.addEventListener('click', () => {
         if (answered) return;
         onAnswer(p.id, i);
@@ -175,7 +176,11 @@ export function createEventSheet(onAnswer: (prompt: number, option: number) => v
     });
     count = document.createElement('div');
     count.className = 'event-count';
-    body.append(title, text, options, count);
+    // the town's own pick and why (sim/alignment.ts), under the answers
+    const advice = document.createElement('div');
+    advice.className = 'event-advice';
+    if (p.recommended != null && p.why && !evolve) advice.textContent = `★ The town recommends "${p.options[p.recommended]}": ${p.why}.`;
+    body.append(title, text, options, advice, count);
     el.replaceChildren(art, body);
     el.scrollTop = 0;
   };

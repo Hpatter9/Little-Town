@@ -653,6 +653,7 @@ async function start(): Promise<void> {
       theme: n.theme,
       gathering: n.gathering?.kind ?? null,
       biome: n.biome,
+      align: n.align?.score,
     });
   (window as unknown as { __music: typeof music }).__music = music;
   // the land's soundscape, on with the music (ambience.ts)

@@ -271,7 +271,13 @@ bridge.onSnapshot((snap) => {
 let skyKey = '';
 bridge.onSnapshot((snap) => {
   const c = snap.calendar;
-  const { top } = skyColors(c.hour + c.minute / 60, c.daylight, weatherCover(snap.weather));
+  const cast = snap.align?.cast ?? 0;
+  // (the town's alignment tints the sky a little: a cold violet-red for the dark, a warm gold for the light)
+  const sky = skyColors(c.hour + c.minute / 60, c.daylight, weatherCover(snap.weather)).top;
+  const top = mix(sky, cast < 0 ? 0x5a1a30 : 0xf0d890, Math.abs(cast) * 0.18);
+  // (and a soft vignette at the edges of the screen, never over the middle: the land stays readable)
+  const veil = document.getElementById('align-cast');
+  if (veil) veil.style.background = Math.abs(cast) < 0.15 ? 'none' : `radial-gradient(ellipse at center, transparent 62%, ${cast < 0 ? `rgba(60, 10, 30, ${(Math.abs(cast) * 0.3).toFixed(2)})` : `rgba(255, 224, 140, ${(cast * 0.22).toFixed(2)})`} 100%)`;
   const key = css(top);
   if (key === skyKey) return;
   skyKey = key;

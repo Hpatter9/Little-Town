@@ -2,6 +2,7 @@
 // powers), what's being built and what stands, the stores (craftingPanel.ts renderStores), the treasury, and a book of
 // every building it knows. The town builds for itself.
 
+import { alignBar } from './alignBar';
 import { faithSection } from './faithPanel';
 import { villagesSection } from './villagesPanel';
 import { politicsSection } from './politicsPanel';
@@ -37,7 +38,7 @@ import { topicName } from '../../shared/data/originResearch';
 
 /** Changes whenever something this panel shows changes. */
 export const buildKey = (s: Snapshot) =>
-  JSON.stringify([hide.key, s.powers.map((p) => [p.id, Math.ceil(p.readyHours), Math.ceil(p.activeHours), p.held, p.affordable]), s.powerLog[0], s.nomad && [s.nomad.site, s.nomad.settled, Math.ceil((s.nomad.nextMoveDays ?? 0) * 24)], s.lichOffer, s.theme, s.coins, s.ledger, !!s.shop, !!s.tavern, s.era, s.research.revealed, s.buildSlots, s.stock, s.unlockAll, s.research.done, s.storageCapacity, s.housing, s.direction, s.plan, s.villages.map((v) => [v.pop, v.loyalty, v.rebel, v.beset, v.helpers, v.cartOut, v.goods, v.news[0], v.canGift]), s.politics && [s.politics.blocs.map((b) => [b.sat, b.members.length, b.wants, b.striking]), s.politics.laws.map((l) => l.on), s.politics.log[0], s.politics.crimes, s.politics.strike, s.politics.tax, s.politics.edictWait], s.buildings.map((b) => [b.def, b.status, Math.floor(b.progress * 20)]), heritageKey(s), s.skipRaids, s.pins.map((p) => [p.def, p.building, Math.floor(p.progress * 20), p.why])]);
+  JSON.stringify([hide.key, s.powers.map((p) => [p.id, Math.ceil(p.readyHours), Math.ceil(p.activeHours), p.held, p.affordable]), s.powerLog[0], s.nomad && [s.nomad.site, s.nomad.settled, Math.ceil((s.nomad.nextMoveDays ?? 0) * 24)], s.lichOffer, s.theme, s.coins, s.ledger, !!s.shop, !!s.tavern, s.era, s.research.revealed, s.buildSlots, s.stock, s.unlockAll, s.research.done, s.storageCapacity, s.housing, s.direction, s.plan, Math.round(s.align.score / 2), s.align.swings[0], s.villages.map((v) => [v.pop, v.loyalty, v.rebel, v.beset, v.helpers, v.cartOut, v.goods, v.news[0], v.canGift]), s.politics && [s.politics.blocs.map((b) => [b.sat, b.members.length, b.wants, b.striking]), s.politics.laws.map((l) => l.on), s.politics.log[0], s.politics.crimes, s.politics.strike, s.politics.tax, s.politics.edictWait], s.buildings.map((b) => [b.def, b.status, Math.floor(b.progress * 20)]), heritageKey(s), s.skipRaids, s.pins.map((p) => [p.def, p.building, Math.floor(p.progress * 20), p.why])]);
 
 export function renderBuild(s: Snapshot, bridge: Bridge | undefined, rerender: () => void = () => {}): HTMLElement[] {
   const used = blueprintCount(s);
@@ -97,7 +98,7 @@ export function renderBuild(s: Snapshot, bridge: Bridge | undefined, rerender: (
       }),
     );
   }
-  out.push(dirs, el('div', 'hint', DIRECTION_DEFS[s.direction].description));
+  out.push(dirs, el('div', 'hint', DIRECTION_DEFS[s.direction].description), alignBar(s));
 
   // how raids are fought: down the trail (tower defence) or on a tactics board (sim/tactics.ts; a trial)
   out.push(el('h2', '', 'Raid battles'));

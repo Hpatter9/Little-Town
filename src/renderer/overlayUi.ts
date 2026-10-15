@@ -272,7 +272,8 @@ export function createPromptCard(onAnswer: (prompt: number, option: number) => v
         p.options.forEach((label, i) => {
           const b = document.createElement('button');
           b.className = i === p.defaultOption ? 'tab default' : 'tab';
-          b.textContent = label;
+          b.textContent = i === p.recommended ? `★ ${label}` : label;
+          if (i === p.recommended && p.why) b.title = `The town recommends this: ${p.why}`;
           b.addEventListener('click', () => onAnswer(p.id, i));
           row.append(b);
         });
