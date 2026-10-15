@@ -254,7 +254,7 @@ function refreshBooks(s: GameState, h: Houses): void {
 
 /** An undetected crime is a secret its culprit's neighbours may come to know (politics.ts `crime`). */
 export function hideCrime(s: GameState, culprit: Person, what: string): void {
-  if (off(s)) return;
+  if (off(s) || day(s) < INTRIGUE_FROM_DAY) return;
   const st = intrigueOf(s);
   st.secrets.push({ about: culprit.id, what: `${what}, and nobody knows`, day: day(s) });
   if (st.secrets.length > 20) st.secrets.shift();
@@ -871,10 +871,10 @@ export function intrigueHourly(s: GameState): void {
   if (s.tick % TICKS_PER_HOUR !== 0 || off(s) || s.gameOver || calendar(s.tick).hour !== INTRIGUE_HOUR) return;
   if (grownAtHome(s).length < INTRIGUE_PEOPLE) return;
   const rng = new Rng(hashSeed(`${s.seed}:intrigue:${s.tick}`));
+  if (day(s) < INTRIGUE_FROM_DAY) return; // (a young town keeps its state as it was)
   const h = housesOf(s);
   refreshBooks(s, h);
   drainTrials(s);
-  if (day(s) < INTRIGUE_FROM_DAY) return;
   const st = intrigueOf(s);
   const roots = Object.keys(st.books).map(Number).sort((a, b) => (st.books[b].purse - st.books[a].purse) || a - b);
   for (const root of roots) {
