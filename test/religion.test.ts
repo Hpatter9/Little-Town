@@ -142,9 +142,13 @@ test('a wrathful god sends an omen first, and only then its greater wrath', () =
 test('the greater wraths bite: a cursed harvest rots the stores, a plague kills, the war god sends wolves', () => {
   const s = town('rel-wrath', 10);
   const camp0 = s.buildings.find((b) => b.def === 'campfire')!;
-  camp0.store = { grain: 100 };
+  camp0.store = { grain: 1000 };
   greatWrath(s, 'harvest', new Rng(1));
-  assert.ok((totalStock(s).grain ?? 0) <= 66, `rotted: ${totalStock(s).grain}`);
+  assert.ok((totalStock(s).grain ?? 0) <= 700, `rotted: ${totalStock(s).grain}`);
+  // (a thin store is left alone: the curse takes the plenty, not the last crust)
+  camp0.store = { grain: 20 };
+  greatWrath(s, 'harvest', new Rng(1));
+  assert.equal(totalStock(s).grain, 20);
   const before = s.people.length;
   greatWrath(s, 'hearth', new Rng(2));
   assert.equal(s.people.length, before - 1, 'the plague took someone');

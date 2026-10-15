@@ -24,7 +24,7 @@ import { MAX_EXPEDITIONS, type Destination } from '../data/expeditions';
 import type { Material } from '../data/materials';
 import {
   BLOOD_RITES, CONVERT_CHANCE, CULT_ALTAR, CULT_CHANCE, CULT_FAVOUR, CULT_NAMES, CULT_PEOPLE, CULT_RECRUIT, CULT_RITE_DAYS, CULT_RITE_MORALE,
-  CURSED_ROTS, DEMAND_MOST, DEMAND_PER_HEAD, DENOUNCE_CHANCE, DOUBTING, FAITH_LINES, FAMINE_AT, FAMINE_CHANCE, FAMINE_DAYS, FEAST_DAYS, FEAST_FOOD, FEAST_KEPT, FEAST_MISSED,
+  CURSED_ROTS, CURSE_SPARES_DAYS, DEMAND_MOST, DEMAND_PER_HEAD, DENOUNCE_CHANCE, DOUBTING, FAITH_LINES, FAMINE_AT, FAMINE_CHANCE, FAMINE_DAYS, FEAST_DAYS, FEAST_FOOD, FEAST_KEPT, FEAST_MISSED,
   FEAST_MORALE, FOLLOWER_FAVOUR, FUNERAL_RITES_EASE, FUNERAL_RITES_FAVOUR, GOD_IDOL, GREAT_WRATH_AT, GREAT_WRATH_CHANCE, GREAT_WRATH_PEOPLE, GREAT_WRATH_SPENDS, HERETICAL,
   HOLY_PLACES, IDOLS_MOST, IDOL_FAVOUR, LAPSE_CHANCE, LAPSE_UNDER, MIRACLE_AT, MIRACLE_CONVERTS, MIRACLE_GAP_DAYS, NATURE_ACTS, NONE_SHARE, OMENS,
   OMEN_AT, OMEN_GAP_DAYS, ORIGIN_CULT, PILGRIM_DEST, PILGRIM_EVERY_DAYS, PILGRIM_FAVOUR, PILGRIM_PARTY, PILGRIM_PEOPLE, PILGRIM_RELIC, PLAGUE_SHARE,
@@ -268,7 +268,9 @@ function dawn(s: GameState): void {
     const v = f.favour[d];
     if (v > OMEN_AT) break;
     const last = rel.omens[d];
-    if (v <= GREAT_WRATH_AT && last !== undefined && home.length >= GREAT_WRATH_PEOPLE && rng.chance(GREAT_WRATH_CHANCE)) {
+    // (a camp too small, or a starving town for the harvest god, is spared the worst: its omens still come)
+    const spared = home.length < GREAT_WRATH_PEOPLE || (d === 'harvest' && home.some((p) => p.starving));
+    if (v <= GREAT_WRATH_AT && last !== undefined && !spared && rng.chance(GREAT_WRATH_CHANCE)) {
       greatWrath(s, d, rng);
       break;
     }
@@ -388,9 +390,11 @@ export function greatWrath(s: GameState, d: Domain, rng: Rng): void {
   let text = '';
   if (d === 'harvest') {
     // a cursed harvest: a share of every food in store rots, and the fields sicken
+    // (the plenty, not the last of it: `CURSE_SPARES_DAYS` of food are left)
     const stock = totalStock(s);
+    const share = CURSED_ROTS * Math.max(0, 1 - CURSE_SPARES_DAYS / Math.max(1e-6, foodDays(s)));
     let lost = 0;
-    for (const m of Object.keys(FOOD_VALUE) as Material[]) lost += takeFromStorage(s, m, Math.floor((stock[m] ?? 0) * CURSED_ROTS));
+    for (const m of Object.keys(FOOD_VALUE) as Material[]) lost += takeFromStorage(s, m, Math.floor((stock[m] ?? 0) * share));
     (s.marks ??= []).push({ lever: 'crops', value: 0.5, until: s.tick + 3 * TICKS_PER_DAY, text: `${name}'s curse` });
     castSpellFx(s, 'god:blight', holyPlace(s), [], 4);
     text = `⚡ ${name}, ${title}, curses the harvest: ${lost} stores rot in the granary, and the fields sicken.`;

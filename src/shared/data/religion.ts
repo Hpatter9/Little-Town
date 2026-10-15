@@ -97,6 +97,8 @@ export const GREAT_WRATH_SPENDS = 45;
 /** The greater wraths: the share of food that rots, of the town that sickens, the strikes of the storm and the chance
  *  each kills whoever it finds out of doors. */
 export const CURSED_ROTS = 0.35;
+/** A cursed harvest spares this many days of food (it takes the plenty, not the last crust). */
+export const CURSE_SPARES_DAYS = 4;
 export const PLAGUE_SHARE = 0.25;
 export const STORM_STRIKES = 3;
 export const STORM_KILLS = 0.5;
