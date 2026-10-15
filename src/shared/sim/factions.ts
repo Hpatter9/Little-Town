@@ -665,10 +665,25 @@ export function hostOver(s: GameState, r: Raid): void {
     f.folk = Math.round((f.folk ?? FOLK_START[0]) * FOLK_HOST_LOST); // (the fallen were their own)
     f.lastEnvoy = undefined; // (an envoy may come at once)
     notify(s, `The war host of ${defOf(f).name} is broken${lord?.down ? `, and ${lordName(f)} carried from the field` : ''}. They have ${Math.round(f.troops)} left under arms.`, true);
+  } else if (r.mercy === 'spared' || r.turned) {
+    notify(s, `The war host of ${defOf(f).name} withdraws. They will be back.`, true);
   } else {
     warm(f, -5);
     notify(s, `The war host of ${defOf(f).name} pulls back, ${fell} fewer. They will come again.`, true);
   }
+}
+
+/** The power a raid was sent by, if any: the host's own, or the one whose raid kind it is. */
+export function raidFaction(s: GameState, r: Raid): Faction | undefined {
+  if (r.host) return factionOf(s, r.host);
+  const rising = risingOfRaid(r.kind);
+  return s.factions?.find((x) => (rising ? x.id === rising.id : defOf(x).raid === r.kind));
+}
+
+/** The town's mercy or slaughter moves the attitude of the power the raid came from (sim/raidOdds.ts). */
+export function standWith(s: GameState, r: Raid, n: number): void {
+  const f = raidFaction(s, r);
+  if (f && f.known) warm(f, n);
 }
 
 /** How likely a rival's ordinary raid is (raids.ts): only from a power the town has no peace with. */

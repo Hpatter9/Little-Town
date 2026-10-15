@@ -107,6 +107,7 @@ import { groveAllies, groveRaidOver } from './grove';
 import { mountFight, ranchAllies, ranchRaidOver } from './ranch';
 import { ancestorAllies } from './ancestors';
 import { raidSkipOver } from './raidSkip';
+import { answerOdds, askMercy, gatherRaid, heldForMercy, huntDown, oddsOver, ripeGrudge, weighArrival } from './raidOdds';
 import { fireAt, speedOf, tickBurns } from './defenses';
 import { rustle } from './livestock';
 import { circleWagons } from './nomads';
@@ -188,7 +189,9 @@ export function maybeStartRaid(s: GameState, rng: Rng): void {
   // (a rival never comes to a town founded its own way)
   const weights = Object.fromEntries(kinds.map((k) => [k.id, k.origin === (s.origin ?? 'settlers') ? 0 : k.weight * (odds[k.id] ?? 1) * (own[k.id] ?? 1) * rivalRaidOdds(s, k.id)]));
   const any = Object.values(weights).some((w) => w > 0);
-  const kind = RAID_KIND_BY_ID[rng.weighted(any ? weights : Object.fromEntries(kinds.map((k) => [k.id, k.origin === (s.origin ?? 'settlers') ? 0 : k.weight])))];
+  // (a band the town hunted down that left a survivor comes back, bigger: sim/raidOdds.ts)
+  const vengeance = s.autopilot !== false ? ripeGrudge(s) : null;
+  const kind = vengeance ? RAID_KIND_BY_ID[vengeance] : RAID_KIND_BY_ID[rng.weighted(any ? weights : Object.fromEntries(kinds.map((k) => [k.id, k.origin === (s.origin ?? 'settlers') ? 0 : k.weight])))];
   const raid = startRaid(s, kind, raidBudget(s), rng);
   // now and then the era's boss leads a raid of people (not beasts or the dead)
   const bosses = ERA_BOSS[s.era];
@@ -294,6 +297,8 @@ export function startRaid(s: GameState, kind: RaidKind, budget: number, rng: Rng
   const warn = Math.round((((lookout ? BUILDING_BY_ID[lookout.def].warningMinutes! : WARNING_MINUTES) + patrol) / 60) * TICKS_PER_HOUR);
   const raid: Raid = { id: s.nextId++, kind: kind.id, side, phase: 'warning', arrivesTick: s.tick + warn, leavesTick: s.tick + warn + RAID_MAX_HOURS * TICKS_PER_HOUR, raiders, prompt: null };
   if (host) raid.host = host.host;
+  // (each band that turned back at the sight of the town makes the next bigger: sim/raidOdds.ts)
+  if (inside === undefined) gatherRaid(s, raid, !host);
   // the town's allies send some of their own (to a host always, now and then to any raid: sim/factions.ts)
   if (inside === undefined) alliesFor(s, raid, rng, (k) => ally(s, k, townEdgeX(s, side), side < 0 ? -1 : 1));
   // (and its loyal daughter villages: sim/villages.ts)
@@ -321,6 +326,8 @@ export function startRaid(s: GameState, kind: RaidKind, budget: number, rng: Rng
   const options = ['Sound the alarm'];
   if (kind.bribable) options.push(`Pay them off (${bribeCost(raid)} food)`);
   if (s.expeditions.length) options.push('Recall expeditions');
+  // (the town fights it out at once, and the recap shows: sim/raidSkip.ts)
+  options.push('Skip the battle');
   const where = side < 0 ? 'west' : 'east';
   const prompt = {
     id: s.nextId++,
@@ -359,6 +366,7 @@ export function startGuildRaid(s: GameState, target: Person, rng: Rng): void {
 export function answerRaidPrompt(s: GameState, label: string, rng: Rng): void {
   const r = s.raid;
   if (!r) return;
+  if (answerOdds(s, label)) return;
   r.prompt = null;
   if (r.kind === 'hunters') {
     if (answerGuild(s, label, rng)) {
@@ -374,6 +382,8 @@ export function answerRaidPrompt(s: GameState, label: string, rng: Rng): void {
       return;
     }
     notify(s, 'Not enough food to pay them off. Sound the alarm!');
+  } else if (label.startsWith('Skip')) {
+    r.skipIt = true; // (fought out at once when they arrive: sim/raidSkip.ts)
   } else if (label.startsWith('Recall')) {
     for (const e of s.expeditions) recallExpedition(s, e.id);
     notify(s, 'Expeditions recalled. They are a long way off, though.');
@@ -444,6 +454,11 @@ export function updateRaid(s: GameState, rng: Rng): void {
   const kind = RAID_KIND_BY_ID[r.kind];
   if (r.phase === 'warning') {
     if (s.tick < r.arrivesTick) return;
+    // (outmatched, they hold at the edge while the town says what becomes of them: sim/raidOdds.ts)
+    if (weighArrival(s, r) === 'wait') {
+      r.leavesTick++;
+      return;
+    }
     r.phase = 'active';
     noteRoll(s, r);
     notify(s, `The ${theName(kind.name)} ${kind.plural ? 'are' : 'is'} here!`);
@@ -488,6 +503,8 @@ export function updateRaid(s: GameState, rng: Rng): void {
     if (!rd.fleeing && (coward || s.tick >= r.leavesTick || poolSize(rd.carrying) >= RAIDER_CARRY)) rd.fleeing = true;
     const edge = offMap(s, rd.side ?? r.side); // (each back the way it came)
     if (rd.fleeing) {
+      if (heldForMercy(r)) continue; // (cornered while the town decides)
+      if (huntDown(s, r, rd)) continue; // (the town said to hunt them)
       // (a lame runner may be run down by a defender close by: sim/raiderWounds.ts)
       if (rd.lame && tryRunDown(s, rd, s.people.find((p) => p.away === null && !p.downed && p.task?.type === 'defend' && dist(p, rd) <= RUN_DOWN_PX))) continue;
       if (moveToward(s, rd, { x: edge.x, y: rd.y }, step * (rd.captive ? 0.8 : 1.2))) {
@@ -574,6 +591,7 @@ export function updateRaid(s: GameState, rng: Rng): void {
   }
 
   if (r.raiders.every((rd) => rd.down || rd.gone || rd.ally)) endRaid(s, rng);
+  else askMercy(s, r, battling); // (the town has won: let them go or hunt them down)
 }
 
 /** Fires one arsonist sets before running. */
@@ -929,6 +947,7 @@ function endRaid(s: GameState, rng: Rng): void {
     stolen,
     spoils,
   });
+  oddsOver(s, r); // (mercy or the hunt, told in the recap; a survivor's grudge: sim/raidOdds.ts)
   // (a deed for everyone who stood and lived, when the town held: sim/deeds.ts)
   if (s.raidRecap.outcome !== 'pillaged') for (const row of s.raidRecap.rows) if (!row.died) addDeed(s.people.find((q) => q.id === row.id), 'defended');
   tallyRaid(s, s.raidRecap.outcome); // (the year's chronicle: sim/annals.ts)
