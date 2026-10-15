@@ -1,12 +1,13 @@
 // The Town menu's "Our ways" tab (sim/heritage.ts): each people's own system, for the town that has one. The town runs
 // it itself; this is to watch: the druids' grove (its favour, guardians and rites), and the others as they come.
 
+import { magicKey } from './magicPanel';
 import type { HeritageView } from '../../shared/sim/heritage';
 import type { Snapshot } from '../../shared/sim/snapshot';
 import { expandable, facts } from './details';
 import { el } from './dom';
 
-export const heritageKey = (s: Snapshot) => JSON.stringify(s.heritage);
+export const heritageKey = (s: Snapshot) => JSON.stringify(s.heritage) + magicKey(s); // (and the Magic tab's: magicPanel.ts)
 
 /** A bar from the middle: favour (−100..100) left in red, right in green. */
 export function favourBar(v: number): HTMLElement {

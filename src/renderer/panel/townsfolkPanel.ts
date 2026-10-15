@@ -46,6 +46,8 @@ export const townsfolkKey = (s: Snapshot) => {
       who.body, who.growsUpIn !== null && Math.ceil(who.growsUpIn / 24), Math.round(who.hp / 5), who.downed, who.bleedMinutes !== null, Math.round(who.morale / 5), Math.round(who.moodTarget / 5),
       Math.round(who.needs.food * 10), Math.round(who.needs.rest * 10), who.bed, SKILLS.map((k) => [who.skills[k].level, Math.floor(who.skills[k].progress * 4)]),
       who.cls, who.monster, who.clsName, who.stage, who.level, Math.floor(who.levelProgress * 4), who.away, who.battle, who.kit.length, who.carrying, who.recent, who.freePts, who.autoStats, who.road, who.coins, who.income, who.traits.length, who.titles, who.deeds.map((d) => d.n),
+      who.arcana,
+      who.mana,
     ],
     s.visitor && [s.visitor.id, s.visitor.leaving],
     s.housing.beds <= s.housing.people,
@@ -349,6 +351,8 @@ function characterTab(p: PersonView, bridge: Bridge | undefined, rerender: () =>
   const bars = el('div', 'bars');
   bars.append(
     bar('Health', p.hp / p.maxHp, p.downed ? (p.downed === 'bleeding' ? `bleeding out: ${bleedLeft(p.bleedMinutes)} left!` : 'down, recovering') : `${Math.round(Math.min(p.hp, p.maxHp))}/${p.maxHp}`),
+    // (a caster's mana, under their health: sim/mana.ts)
+    ...(p.mana ? [manaBar(p.mana)] : []),
     bar('Morale', p.morale / 100, `${Math.round(p.morale)} → ${Math.round(p.moodTarget)}`),
     // (the dead and machines have no hunger or weariness to show)
     ...(p.tireless ? [] : [bar('Food', p.needs.food, ''), bar('Rest', p.needs.rest, '')]),
@@ -470,7 +474,21 @@ function skillsTab(p: PersonView, rerender: () => void, out: HTMLElement): void 
     if (ps) fc.append(infoCard(ps.name, `Passive · learned at level ${ps.level}`, ps.text));
   } else fc.append(el('div', 'hint', p.cls ? 'No spells or skills learned yet: they come with levels.' : 'No calling yet, so no spells or fighting skills.'));
   right.append(fc);
+  right.append(...spellbook(p));
   out.append(left, right);
+}
+
+/** A caster's spellbook (sim/magic.ts): every spell they know, those learned by study marked, what they study now, and
+ *  how their mind is holding up. */
+function spellbook(p: PersonView): HTMLElement[] {
+  const a = p.arcana;
+  if (!a) return [];
+  const card = el('div', 'card person');
+  const list = el('div', 'kit');
+  for (const sp of a.spells) list.append(el('span', `chip spell${sp.learned ? ' on' : ''}`, `${sp.learned ? '📖' : '✦'} ${sp.name} · ${sp.level}`));
+  card.append(el('div', 'hint', `${a.spells.length} spells known (📖 learned by study). Mastery ${Math.round(a.mastery * 100)}% · ${a.rites} rites cast, ${a.miscasts} gone wrong${a.madness > 0.05 ? ` · madness ${Math.round(a.madness * 100)}%` : ''}.`), list);
+  if (a.studying) card.append(el('div', 'hint', `Studying ${a.studying}: ${Math.round(a.progress * 100)}% learned.`));
+  return [el('h2', '', 'Spellbook'), card];
 }
 
 function pick(id: string, rerender: () => void): void {
@@ -976,6 +994,13 @@ function traitsList(p: Pick<PersonView, 'traits'>, rerender: () => void = () => 
     d.append(s);
   }
   return d;
+}
+
+/** A caster's mana, in blue. */
+function manaBar([now, most]: [number, number]): HTMLElement {
+  const r = bar('Mana', now / Math.max(1, most), `${now}/${most}`);
+  (r.querySelector('.bar-fill') as HTMLElement).style.background = '#5a8cff';
+  return r;
 }
 
 function bar(label: string, value: number, text: string): HTMLElement {

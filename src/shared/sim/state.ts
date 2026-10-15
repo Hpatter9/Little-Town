@@ -613,6 +613,10 @@ export interface Person {
   ptsSince?: number;
   /** They spend their own stat points as they come (the player's choice, remembered: a checkbox on the Character tab). */
   autoStats?: boolean;
+  /** A caster's magic (sim/magic.ts): spells learned by study, the one being studied, practice, madness. */
+  arcana?: import('./magic').Arcana;
+  /** A caster's mana now (sim/mana.ts), left out while full. */
+  mana?: number;
   /** In a fight on the land with a roaming band (a skirmish's id: sim/roamers.ts): they stand and fight. */
   skirmish?: number;
   /** Lured into the Calamity's cult (sim/calamity.ts), and whether the town knows it. */
@@ -1383,6 +1387,8 @@ export interface GameState {
   frontier?: import('./frontier').FrontierState;
   /** Realms opened through an arch or a rift (sim/portals.ts), and the one the player is looking into. */
   portals?: Portal[];
+  /** The town's magic (sim/magic.ts): mana, the wild magic, rites cast, servants, what it has found. */
+  magic?: import('./magic').MagicState;
   watchingPortal?: RealmId;
   /** Cutscenes waiting to be watched, those seen (to watch again), the one playing, and whether the town was paused
    *  before it began (sim/cutscenes.ts). */
