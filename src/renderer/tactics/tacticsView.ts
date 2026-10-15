@@ -33,6 +33,8 @@ import { actFx } from '../../shared/data/actFx';
 import { ghostStep } from '../battle/juiceRules';
 
 /** A tile's diamond (px), and a step of height. */
+/** How long the board's camera takes to glide most of the way to the unit whose turn it is (ms). */
+const CAM_GLIDE_MS = 260;
 const TW = 64;
 const TH = 32;
 const HH = 12;
@@ -95,7 +97,9 @@ export class TacticsScene {
   private hits = new Map<string, { born: number }>();
   private marks: Text[] = [];
   private chestSprites: Sprite[] = [];
-  private cam = { x: 0, y: 0, k: 1, set: false, panX: 0, panY: 0 };
+  /** The camera: where it looks (x, y), its scale, the finger's pan, the last unit it followed (fx, fy: kept between
+   *  one unit's turn and the next, so it never swings back to the middle of the board), and the last frame's time. */
+  private cam = { x: 0, y: 0, k: 1, set: false, panX: 0, panY: 0, fx: NaN, fy: NaN, t: 0 };
   private w = 400;
   private h = 400;
   private buttons: Button[] = [];
@@ -172,6 +176,7 @@ export class TacticsScene {
         this.people.update([], null, performance.now());
         this.raiders.update([], performance.now());
         this.cam.set = false;
+        this.cam.fx = this.cam.fy = NaN;
         this.selected = null;
       }
       return;
@@ -555,16 +560,25 @@ export class TacticsScene {
     const maxY = (t.w + t.h - 2) * (TH / 2) + TH / 2 + FOOT + HH;
     const activeKey = t.act?.key ?? t.orders?.key;
     const me = activeKey ? t.units.find((x) => x.key === activeKey) : undefined;
-    const [mx, my] = me ? this.at(me.u, me.v, this.tileH(me.u, me.v)) : this.at((t.w - 1) / 2, (t.h - 1) / 2, 1);
+    // (between one unit's action and the next nobody acts: the camera stays where it was rather than heading back to
+    // the middle of the board and whipping out again; the middle only before the first turn)
+    if (me) [this.cam.fx, this.cam.fy] = this.at(me.u, me.v, this.tileH(me.u, me.v));
+    else if (!Number.isFinite(this.cam.fx)) [this.cam.fx, this.cam.fy] = this.at((t.w - 1) / 2, (t.h - 1) / 2, 1);
+    const [mx, my] = [this.cam.fx, this.cam.fy];
     const roomW = (w - 16) / k;
     const roomH = (h - top - bottom) / k;
     const axis = (want: number, lo: number, hi: number, room: number) => (hi - lo <= room ? (lo + hi) / 2 : Math.max(lo + room / 2, Math.min(hi - room / 2, want)));
     const fx = axis(mx + this.cam.panX, minX, maxX, roomW);
     const fy = axis(my + this.cam.panY, minY, maxY, roomH);
     // (the pan is let go of as the turn passes, so the next one is seen)
-    this.cam.panX *= 0.985;
-    this.cam.panY *= 0.985;
-    const ease = this.cam.set ? 0.1 : 1;
+    // (the glide is paced by the clock, not the frame: the same smooth swing to the next unit whether the phone draws
+    // 60 frames a second or 20; CAM_GLIDE_MS is the time it takes to close most of the distance)
+    const dt = this.cam.set ? Math.min(100, Math.max(0, now - this.cam.t)) : 0;
+    this.cam.t = now;
+    const slide = 1 - Math.exp(-dt / CAM_GLIDE_MS);
+    this.cam.panX *= Math.pow(0.985, dt / 16);
+    this.cam.panY *= Math.pow(0.985, dt / 16);
+    const ease = this.cam.set ? slide : 1;
     this.cam.x += (fx - this.cam.x) * ease;
     this.cam.y += (fy - this.cam.y) * ease;
     this.cam.k = k;
