@@ -150,6 +150,7 @@ import { dragonDestinations, dragonView, type DragonView } from './dragon';
 import { villageBuildings, villageDestinations, villageViews, type VillageView } from './villages';
 import { interiorView, type InteriorView } from './interiors';
 import { dynastyView, type DynastyView } from './dynasty';
+import { intrigueView, type IntrigueView } from './intrigue';
 import { familiesView, type FamilyLine } from './lineage';
 import { guildsView, type GuildView } from './guilds';
 import { beastHome, ranchView, type RanchView } from './ranch';
@@ -967,6 +968,8 @@ export interface Snapshot {
   families: FamilyLine[];
   /** The ruling house, feuds, alliances and heirlooms (sim/dynasty.ts), shown on the Families tab. */
   dynasty: DynastyView | null;
+  /** The houses' holdings, wealth, known crimes and the town's whispers (sim/intrigue.ts), on the Families tab. */
+  intrigue: IntrigueView | null;
   /** The town's guilds and squads (sim/guilds.ts), for the People menu's Guilds tab. */
   guilds: GuildView[];
   /** The monster ranch and its beasts (sim/ranch.ts), for the Market menu's Ranch tab and the map's pens. */
@@ -1349,6 +1352,7 @@ export function snapshot(s: GameState): Snapshot {
     interior: interiorView(s, (p) => describe(s, p)),
     families: slow(s, 'families', () => familiesView(s)),
     dynasty: slow(s, 'dynasty', () => dynastyView(s)),
+    intrigue: slow(s, 'intrigue', () => intrigueView(s)),
     guilds: slow(s, 'guilds', () => guildsView(s)),
     ranch: slow(s, 'ranch', () => ranchView(s)),
     ranchPens: slow(s, 'ranchPens', () => (s.ranch?.beasts ?? []).map((b) => ({ id: b.id, kind: b.kind, ...beastHome(s, b) }))),

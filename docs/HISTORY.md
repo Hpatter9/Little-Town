@@ -5147,3 +5147,127 @@ cliff is now a cliff both ways (`canStep`: a step of more than `min(jump, CLIMB_
 raider still on the field `STALL_TICKS` (2 hours) past its raid's leaving time slips away (`stepTactics`). The castle test
 'a Deep Hold grows its halls' now uses the seed 'hold-grows-b' (the old seed's town simply took a different course: rooms
 over ten seeds were 95 on this branch against 98 on main).
+
+## House intrigue (the owner's ask on the ruling house from 0.96.0: own the town, a mafia, bribes, blackmail and murder for the council)
+
+Extends HISTORY.md "Generations and dynasties" and "Town politics and law". New state `s.intrigue` (`IntrigueState`, optional, so
+old saves load; nothing is made until the autopilot is on and the town has `INTRIGUE_PEOPLE` grown-ups after `INTRIGUE_FROM_DAY`).
+Files: `sim/intrigue.ts` (rules and `intrigueView`), `data/intrigue.ts` (every number), the Families tab
+(`renderer/panel/familyPanel.ts` `intrigueBlocks`), test `test/intrigue.test.ts`. `intrigueHourly` runs once a day at 03:00
+(`INTRIGUE_HOUR`, after the night's crime and before the dynasty's dawn) from `sim.ts`, on its own side stream
+`${seed}:intrigue:${tick}`. It never draws from the town's stream.
+
+**Houses own the town.** A house is a dynasty house (`housesOf`). `IntrigueState.books[root]` (`HouseBook`) is its chest (`purse`),
+what it has drawn, its crimes and (maybe) its ring. `of` maps each person to their house's root (refreshed each night, so the
+sums between nights are deterministic). `houseCut(s, owner, n)` is called from `property.ts collectRent` and `ambition.ts
+takeSale`: `HOUSE_TITHE` (35%) of what a landlord or keeper takes in goes to their house's chest (the fraction of a coin is
+carried in `book.carry`; the founder's own takings are never tithed). Each night a house whose purse is `BUY_SPARE` x a price
+buys a building (`buyProperty`): the town's homes, shops, workshops and fields (not public works) at `TOWN_SELLS_AT`, or a
+neighbour's in debt (`FORCED_DEBT`) at `FORCED_PRICE`, which pays off what they owed. A house holds at most `OWN_SHARE_MOST` of the
+town's sellable buildings. The new owner is the house's steward (its adult with the fewest holdings, never the founder), so
+rent and takings keep flowing through `houseCut`. `dynasty.ts strengthOf` adds `wealthStrength` (the purse / `WEALTH_PER_STRENGTH`,
+capped), and `bestWay` counts it ("by its wealth").
+
+**A mafia** (`Mafia`, `foundMafia`/`mafiaDay`). A house with a purse of `MAFIA_PURSE` and a hard-natured member
+(`HARD_NATURES`, the boss) may turn to crime (`MAFIA_CHANCE` a night, `MAFIA_MOST` rings). It hires up to `MUSCLE_MOST` knives
+(paid `MUSCLE_WAGE` a day). Each night it calls on venues: shops pay `PROTECTION_SHARE` of yesterday's takings (taverns
+`TAVERN_SHARE`); a proud or stern keeper refuses (`REFUSE_CHANCE`) and gets an "accident": the shop damaged (`ACCIDENT_HP`) or a
+beating (`ACCIDENT_BEAT`, and `ACCIDENT_DEADLY` of it fatal). The treasury's own venues are skimmed (`TILL_SKIM`), and with muscle
+a share of yesterday's trade is smuggled off the caravans (`SMUGGLE_SHARE`). `Mafia.heat` rises with each take; the nightly
+chance of being found out is `EXPOSE_BASE + heat x EXPOSE_HEAT + guards x EXPOSE_GUARD` (+ `EXPOSE_HARSH` under harsh law).
+Found out (`exposeMafia`): a knife or the boss is tried (queued, see below), `ARREST_DEADLY` of the time the boss dies resisting,
+two of those who paid start a feud with the house, and the ring breaks up (`BREAK_UP`) or lies low `LIE_LOW_DAYS`.
+
+**Taking the council.** The four blocs' speakers (`speakers`: the best-spoken member of each) are the council's seats. A scheming
+house (`scheme`: `SCHEME_CHANCE` a night with `SCHEME_PURSE` or a ring, `SCHEME_GAP_DAYS` between, at most two a night) picks a
+rival speaker and a method by what it has: a **bribe** (`BRIBE_COST`; the taker's nature decides, an honest one throws the purse
+back in public), **blackmail** (needs a secret: `secretsAbout` = a crime nobody saw (`hideCrime`, from `politics.ts crime`), a big
+debt, a lover; a target that fights back airs the secret and names the blackmailer, and `CORNERED_KILLS` of the time kills them),
+**fear** (a ring's muscle; a beaten target who talks names the men) or **murder**. A successful hold (`Hold`, `HOLD_DAYS`) makes
+`politics.ts callVote` call `swingVote`: the held speaker's own vote goes and the house's position counts `SEAT_VOTES`
+(`housePosition`: a ring wants harsh law and curfew gone and the tax low, other houses follow their head's bloc). A house with
+more than half the seats is whispered of. `Method` weights are in `METHOD_WEIGHT`.
+
+**Murder** (`houseMurder`, `Plot`). A hard house with a ring or a hot feud may have a rival speaker or the ruling house's heir
+killed (never when `recentKill`). The knife (a hired man, else the schemer) succeeds at `MURDER_SUCCESS` less a guard's bite; a
+failed knife dies (`KNIFE_FALLS`) or is taken and may name its master (`KNIFE_NAMES`). A clean job (`ACCIDENT_SHARE`) is an
+"accident" (`ACCIDENTS`); otherwise a knife in the dark, and the house may pin it on a patsy (`FRAME_CHANCE`: an enemy of the dead,
+else the poorest hand; the patsy is tried for it). Each night a hidden plot is found out with `UNCOVER_BASE + guards x UNCOVER_GUARD`
+(`uncover`): the patsy is cleared, the real culprit is tried, a feud starts (`startFeud`, heat 60), the house is shamed (a morale
+mark), and the wronged house may swear revenge (`REVENGE_CHANCE`; `revengeDay` strikes openly some days later, which is itself a
+murder to be tried). A house with `BANISH_AT` known crimes has its head run out of town (`banishIfEnough`).
+
+**Trials.** The court takes one case at a time (`politics.ts trial` leaves a pending prompt alone), so intrigue queues its
+trials in `IntrigueState.trials` and `drainTrials` calls them when it is free. A trial of a house member goes through `trial` ->
+`blackSheep` -> `dynastyScandal`, so the ruling house's scandal works as before.
+
+**The owner's rule: the leader never changes by intrigue.** `slay` is the only place intrigue kills, and refuses `s.mainId`; the
+founder is also excluded from every target, culprit, patsy, steward, muscle and boss pool. A takeover of the ruling house
+(dynasty.ts) still does not change `s.mainId`. Jilting is untouched.
+
+**Visible.** Whispers (`Whisper`, `whisper`) hint at hidden deeds as non-key news; what comes to light is a key news item and goes in
+`IntrigueState.log`, which `dynastyYearLines` adds to the year's chronicle (`intrigueYearLines`). `snapshot.intrigue`
+(`IntrigueView`, slow) -> the Families tab: a card per rich or guilty house (holdings, chest, council seats, known ring,
+known crimes on tap, a whispered rumour while nothing is proved) and a Whispers card. The People panel's key
+(`townsfolkPanel.ts`) includes it.
+
+Not done / for the coordinator: the gossip lines (`sim/gossip.ts READS`) don't yet read the whispers (that file belongs to the
+town-culture chat); a `rumour` kind there could read `Folk say ...` / `They say ...` notices. `diary.ts` could call
+`secretsAbout` so a diary hints at a secret a person keeps.
+
+## The carts face the way they go
+
+Renderer fix only; the sim is unchanged. The owner saw a horse-drawn cart with the cart out in front of the horse.
+
+The Village pack's `cart.png` (48x26) has its shafts on its left and its wheel on the right, so it is drawn facing
+left. The horse sheet's left row faces left and its right row faces right (`creatureFrame`), so the horse needed no
+change. The two places that flip the cart had the sign backwards: it was flipped the wrong way for the direction of
+travel, so the shafts pointed away from the horse or the lead.
+
+- `src/renderer/map/roadTraffic.ts` (`RoadTraffic.render`): the carter's horse sits ahead of the cart (`x + dir * 14`)
+  and the cart trails (`x - dir * 12`). The cart is now flipped with `scale.set(-dir, 1)` so its shafts point at the
+  horse.
+- `src/renderer/map/mapWagons.ts` (`MapWagons.update`): a caravan's wagon trails the lead merchant (`bands.ts`
+  `rollWagon`). It is now flipped with `w.dir > 0 ? -SCALE : SCALE`, so its shafts point at the lead.
+
+The couriers (`mapCourier.ts`) and the people's horses (`mapPeople.ts`) draw no cart, so they were not changed.
+
+## Fights that move (fight-anim)
+
+Extends HISTORY.md "Watching a party's fights", "Combat actions", "The flashier raid screen". Renderer only: the sim and
+snapshot are unchanged (`tools/sim-hash.mjs` matches main).
+
+**What was weak (before).** Looked at with `__skirmish` and a raid at 393x852 and 852x393: a blow was a 10 px step
+for 6 ticks and a pose swap, so no wind-up and no recoil; the struck one only turned red for 3 ticks; a foe's death was
+a 2 second fade to nothing and a townsperson just lay on the hurt frame; nothing flinched when a friend fell; idle
+figures stood dead still; a close blow's number, flash and spark came the instant the blow began, before any lunge could
+land; all motion stepped at the sim's 10 Hz.
+
+**What it does now.** All of it is code-tweened *motion* of the packs' own frames (no new art, nothing to credit):
+
+- `fight/fightMotion.ts` (pure, no Pixi; `test/fightMotion.test.ts`): `motionOf` turns a fighter's tick counts (since its
+  action, since it was hit, down) into an offset, a lean, a squash, a flash and the corpse's alpha. A close blow:
+  wind-up (step back, lean) ticks 0-1.5, lunge to its peak at `MELEE_LAND` (3), back in place by `LUNGE_TICKS` (9). A
+  bow or spell: a draw (lean back, rise) then a kick as it's loosed. Struck: white flash on the first 2 ticks, red tint
+  after, a knock-back away from the striker that settles over `RECOIL_TICKS` (7), a squash; a blow worth `HEAVY` (25%) of
+  max health knocks harder. Down: a 2-tick hold (the death registers), then a topple away from the foes over
+  `FALL_TICKS` (6) and lying; a long low body (wolf, boar: width over 1.1 x height) flattens instead. Idle: a breath and a
+  weight shift, out of step by ref. A friend falling: a flinch back and dip for 6 ticks. A won fight: the party hops.
+- `TickClock` smooths the sim's whole-tick counters into fractions of a tick from the wall-clock time they last changed
+  and an average of how long ticks have taken, so motion is 60 fps smooth and runs at the battle speed (a faster speed
+  plays it faster; it never outlasts the turn, since a new action just restarts it).
+- `fight/fightView.ts`: the above applied through `moveSprite` (squash and lean about the feet). Close blows (plain ones
+  by matching the striker's `sinceAction` to a foe's `sinceHit`, as `plainShots` does; skills that strike foes up close)
+  make their number, flinch, spark and spell effect wait `MELEE_LAND` ticks for the lunge to land, using the existing
+  `Flight` machinery. A cast gathers a glow of the spell's colour round the caster. Heavy blows pop a larger gold
+  number and shake the screen a little (`hitAt`/`hitK`, smaller than an ultimate's shake); a townsperson falling shakes
+  it and blinks the screen red. Numbers arc up and away from the striker. Foe corpses stay (alpha dims to 0.45 and holds,
+  `corpseAlpha`) instead of vanishing; the party's lie solid. Packs' own death rows are played through, not shown at
+  their end (`creatureFrame`'s new `dying` argument, `HeroState.sinceDown`, the LPC hurt row stepped by the fall).
+- `map/mapRaiders.ts` (also the tactics board's raiders) and `map/mapPeople.ts` (the people of the map and the board):
+  the same vocabulary at 0.6 of the size (`MOTION_K`): lunge and recoil, flash, topple, dimmed corpse (raiders). People on
+  the map get only the lunge/recoil offset, not a topple (their marks and props hang off their position).
+
+Not done / design calls: a real slow-motion "pause" on a townsperson's death is not possible without the sim (the
+renderer cannot stop the ticks), so it is a 2-tick hold on the hit frame, a red blink and a shake. A guard stance when a
+foe approaches is not drawn (the sim has no approach: foes stand in place); the victory hop is the end-of-fight pose.

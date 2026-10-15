@@ -80,11 +80,15 @@ export interface HeroState {
   /** For the idle breathing (ms) and to offset one hero from the next. */
   now: number;
   ref: number;
+  /** Ticks since they fell, to play the dying row through (the fight screen); else it shows at its end. */
+  sinceDown?: number;
 }
 /** How long a hero's blow, flinch and guard show (ticks). */
 const HERO_BLOW = 8;
 const HERO_HURT = 5;
 const HERO_GUARD = 10;
+/** How long a hero's dying row takes to play on the fight screen (ticks). */
+const HERO_DEATH = 6;
 
 /** The hero sheet's frame for someone's state: dying when down, hurt just after a hit, a blow (the first or the
  *  second, by turns) just after striking, the guard just after turning a blow, the walk on the move, else idle. */
@@ -94,7 +98,7 @@ export function heroFrame(sheet: PackSheetId, st: HeroState): Texture {
     const f = Math.min(n - 1, Math.floor((since / span) * n));
     return pose === 'attack' ? creatureFrame(sheet, 0, st.facing, f, true) : creatureFrame(sheet, 0, st.facing, f, false, pose);
   };
-  if (st.down) return creatureFrame(sheet, 0, st.facing, 0, false, 'dead');
+  if (st.down) return creatureFrame(sheet, 0, st.facing, 0, false, 'dead', st.sinceDown === undefined ? undefined : (st.sinceDown / HERO_DEATH) * creaturePoseFrames(sheet, 'dead'));
   if (st.sinceHit < HERO_HURT && creaturePoseFrames(sheet, 'hurt')) return play('hurt', st.sinceHit, HERO_HURT);
   if (st.sinceBlow < HERO_BLOW) {
     // (the blow's start, in whole seconds, picks which attack: steady while it plays, varying blow to blow)
