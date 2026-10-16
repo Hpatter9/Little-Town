@@ -7,7 +7,7 @@ import { RATIONS, MOST_EXTRA_TORCHES, type Rations } from '../../shared/data/mus
 import type { Bridge } from '../../shared/ipc';
 import type { MusterPerson, MusterView } from '../../shared/sim/muster';
 import type { Snapshot } from '../../shared/sim/snapshot';
-import { button, el } from './dom';
+import { button, duration, el } from './dom';
 import { face } from './townsfolkPanel';
 
 const STAKES_TEXT = {
@@ -31,6 +31,7 @@ export function renderMuster(m: MusterView, s: Snapshot, bridge: Bridge | undefi
   said.append(el('div', 'muster-leader', leader ? `${leader.name} will lead` : 'Nobody to lead'), el('div', 'muster-odds', `“${m.odds}”`));
   brief.append(said);
   sheet.append(brief);
+  sheet.append(stakeCard(m, s));
 
   // the party
   sheet.append(el('div', 'muster-h', `The party (${m.members.length} of up to ${m.most})`));
@@ -108,4 +109,31 @@ function personRow(p: MusterPerson, s: Snapshot): HTMLElement {
   who.append(bar);
   row.append(who);
   return row;
+}
+
+/** The stake card (sim/stakes.ts): the odds in words, who goes, what they seek, what the town risks, how long, and a
+ *  warning if the founder, a favourite or the leader goes. */
+function stakeCard(m: MusterView, s: Snapshot): HTMLElement {
+  const k = m.stake;
+  const card = el('div', `stake-card stake-${k.tone}`);
+  card.append(el('div', 'stake-word', k.word));
+  const faces = el('div', 'stake-faces');
+  for (const p of m.members) {
+    const pv = s.people.find((q) => q.id === p.id);
+    const one = el('div', p.id === m.leader ? 'stake-one lead' : 'stake-one');
+    if (pv) one.append(face(pv, s));
+    one.append(el('span', 'stake-name', p.name.split(' ')[0]));
+    faces.append(one);
+  }
+  card.append(faces);
+  const rows = (head: string, lines: string[]) => {
+    if (!lines.length) return;
+    card.append(el('div', 'stake-h', head));
+    for (const l of lines) card.append(el('div', 'stake-line', l));
+  };
+  rows('They seek', k.seeks);
+  rows('The town risks', k.risks);
+  card.append(el('div', 'stake-line stake-time', `Gone about ${duration(k.seconds)}.`));
+  if (k.warning) card.append(el('div', 'stake-warning', k.warning));
+  return card;
 }

@@ -775,6 +775,8 @@ function comeHome(s: GameState, e: Expedition, d: Destination, members: Person[]
   payBounty(s, e, party); // (a bounty the treasury posted on the place, if they did the job)
   if (!e.recalled) findRelic(s, e, d, rng);
   debrief(s, e, d); // (a party the player sent: what it cost and won, sim/muster.ts)
+  // (a party the player sent, or was watching, comes in through the gate: the camera goes to meet them, once)
+  if (e.ordered || s.watching === e.id) s.homecoming = { tick: s.tick, x: at.x, y: at.y, expedition: e.id };
 }
 
 /** Relics (DESIGN §9 special items): rare finds on the hardest trips. */

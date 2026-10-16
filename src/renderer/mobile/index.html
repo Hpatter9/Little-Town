@@ -1051,6 +1051,95 @@
         font-size: 13px;
         color: #a89878;
       }
+      /* a party's homecoming: who came home, who did not, then the haul (eventSheet.ts `debriefBlock`) */
+      .debrief-head {
+        margin: 12px 0 6px;
+        font-family: var(--font-display);
+        font-size: 14px;
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+        color: #9fd98a;
+      }
+      .debrief-head.lost {
+        color: #f09a8a;
+      }
+      .debrief-row {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+      }
+      .debrief-one {
+        width: 78px;
+        text-align: center;
+      }
+      .debrief-one canvas {
+        width: 56px;
+        height: 56px;
+      }
+      .debrief-name {
+        font-size: 13px;
+      }
+      .debrief-note {
+        font-size: 11px;
+        color: #a89878;
+      }
+      .debrief-lost {
+        padding: 8px 12px;
+        font-size: 16px;
+        background: #2a1614;
+        border-left: 4px solid #d4574a;
+        border-radius: 4px;
+      }
+      .debrief-haul {
+        padding: 8px 12px;
+        font-size: 16px;
+        background: #1f2a1c;
+        border-left: 4px solid #c79a55;
+        border-radius: 4px;
+      }
+      .debrief-cleared {
+        margin-top: 8px;
+        font-style: italic;
+        color: #ffe08a;
+      }
+      /* a fateful event: a heavier frame and a slower reveal (eventSheet.ts; each step under 400 ms, none with reduced motion) */
+      #event-sheet.fateful .event-body {
+        --ui-cut-px: calc(var(--ui-cut, 9) * 2.4px);
+        box-shadow: 0 0 0 1px #c79a55aa, 0 0 22px #ffe08a33;
+      }
+      #event-sheet.fateful .event-art {
+        border-bottom-width: 4px;
+        box-shadow: inset 0 0 60px #000c;
+      }
+      #event-sheet.fateful .event-title {
+        text-align: center;
+        letter-spacing: 0.04em;
+        text-shadow: 0 0 12px #ffe08a66;
+      }
+      #event-sheet.fateful .reveal {
+        opacity: 0;
+        animation: fate-in 380ms ease-out forwards;
+        animation-delay: var(--d, 0ms);
+      }
+      #event-sheet.fateful .event-options.holding {
+        pointer-events: none;
+      }
+      @keyframes fate-in {
+        from {
+          opacity: 0;
+          transform: translateY(6px);
+        }
+        to {
+          opacity: 1;
+          transform: none;
+        }
+      }
+      @media (prefers-reduced-motion: reduce) {
+        #event-sheet.fateful .reveal {
+          opacity: 1;
+          animation: none;
+        }
+      }
       /* an evolution: the fork told as a scene, then each road as an illuminated card with its emblem */
       #event-sheet.evolve {
         background: radial-gradient(ellipse at 50% 30%, #2a1f12 0%, #16110c 60%);

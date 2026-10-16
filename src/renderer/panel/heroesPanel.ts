@@ -58,6 +58,20 @@ export function renderHeroes(a: AnnalsView, guildMark?: (personId: number) => HT
     if (t) c.append(t);
     out.push(c);
   }
+  // the fateful choices the town has made, and what came of each (sim/fates.ts); a section of its own once there's one
+  if (a.fates?.length) {
+    out.push(el('h2', '', 'Fateful choices'));
+    for (const f of a.fates) {
+      const c = el('div', 'card hall-card fate-card');
+      const top = el('div', 'card-top');
+      top.append(el('span', 'card-name', `Day ${f.day}: ${f.title[0].toLowerCase()}${f.title.slice(1)}`));
+      c.append(top, el('div', 'hint', `You chose: ${f.choice}`));
+      if (f.result) c.append(el('p', 'hall-line', f.result));
+      if (f.later) c.append(el('p', 'hall-line fate-later', `Later: ${f.later}`));
+      if (f.pending) c.append(el('p', 'hall-line fate-pending', 'More is still to come of it.'));
+      out.push(c);
+    }
+  }
   out.push(el('h2', '', 'Chronicles'));
   if (!a.chronicles.length) out.push(el('p', 'empty', 'The first chronicle is written at midwinter.'));
   a.chronicles.forEach((ch, i) => {
