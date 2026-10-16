@@ -6,6 +6,7 @@
 import { ERA_NAMES } from '../data/eras';
 import { ITEM_BY_ID } from '../data/items';
 import { PLACE_DEFS } from '../data/places';
+import { openThreads } from './foreshadow';
 import type { RaidRecap } from './raidRecap';
 import type { GameState } from './state';
 import { favouriteAwayLines, favouritesOf } from './favourites';
@@ -24,7 +25,7 @@ export interface AwayBefore {
   favourites?: { id: number; name: string }[];
 }
 
-export type AwayTone = 'bad' | 'good' | 'ask' | 'news';
+export type AwayTone = 'bad' | 'good' | 'ask' | 'news' | 'next';
 export interface AwayLine {
   tone: AwayTone;
   text: string;
@@ -92,5 +93,8 @@ export function awaySummary(s: GameState, b: AwayBefore): AwayLine[] {
   const asks = s.prompts.length;
   if (asks) out.push({ tone: 'ask', text: asks === 1 ? `A question waits: ${s.prompts[0].title}.` : `${asks} questions wait for you.` });
   // (a favourite who is simply well is no reason for the card by itself)
-  return out.length || favs.some((l) => l.tone !== 'good') ? [...favs, ...out] : [];
+  if (!out.length && !favs.some((l) => l.tone !== 'good')) return [];
+  // the open threads to end on (sim/foreshadow.ts), after the recap
+  const threads: AwayLine[] = openThreads(s).map((text) => ({ tone: 'next', text }));
+  return [...favs, ...out, ...threads];
 }
