@@ -15,21 +15,25 @@
 import {
   CAVE_DRIFT, CAVE_ENVOY_DAYS, CAVE_FRIEND, CAVE_PEOPLE_BY_ID, CAVE_PEOPLES, CAVE_RAID, CAVE_RAID_PER_TROOP, CAVE_RAID_SHARE, CAVE_REST, CAVE_TOWNS, CAVE_TRADE_DAYS, CAVE_TROOPS,
   CAVE_TROOPS_MOST, CAVE_TROOPS_PER_DAY, CAVE_WAR, DANGER_DAY, DANGER_PEOPLE, DARK_RISE, DARK_SHARE, DEEP_ORE_ODDS, DEEP_ORES, DIG_PER_LOAD, EXPLORE_PER_HOUR, FEUD_CHANCE, FEUD_END, FEUD_LOSS, FLOOD, FLOOD_HOURS,
-  FLOOD_KILLS, GALLERY_MOST, GIFT_COINS, GIFT_WARMTH, isUnderOpen, NIGHT_FROM, NIGHT_TO, RISE_GAP_HOURS, RUIN_COINS, RUIN_STUDY, SITE_CLEAR, SITE_COUNTS, SITE_NAMES, SITE_SIZES, SITE_TRIPS,
+  FLOOD_KILLS, GALLERY_MOST, DAY_DANGER, UPPER_LOST, GIFT_COINS, GIFT_WARMTH, isUnderOpen, NIGHT_FROM, NIGHT_TO, RISE_GAP_HOURS, RUIN_COINS, RUIN_STUDY, SITE_CLEAR, SITE_COUNTS, SITE_NAMES, SITE_SIZES, SITE_TRIPS,
   SITE_YIELD, SNUB, TAKEN, TRADE_WARMTH, TRIP_OUT_SECONDS, TRIP_WORK_SECONDS, UD_CAVE_IN, UD_CAVE_IN_KILLS, UD_H, UD_W, UNDER_ENTRIES, UNDER_VILLAGE_DAY, UNDER_VILLAGE_NAMES, UNDER_VILLAGE_PEOPLE,
   UNDER_VILLAGE_PEOPLE_DWARVES, type UnderCell, type UnderSiteKind,
+  DEEP_ONCE, DEEP_PEOPLE, DEEP_SITE_CELL, DEEP_TRIP_OUT, DEEP_TRIPS, DEEP_YIELD, DEN_GOODS, DEPTH_BY_N, DESCEND_HOURS, HEARTVEIN, MARK_HOURS, MARKS_KEPT, SEARCH_DEN, SEARCH_HOURS, TAKERS, UNDER_DEPTHS,
+  type DeepSiteKind, type UnderTally,
 } from '../data/underdark';
 import type { Destination } from '../data/expeditions';
 import type { Material, Stock } from '../data/materials';
+import { ENEMIES } from '../data/enemies';
 import { RAID_KIND_BY_ID } from '../data/raids';
 import { hashSeed, Rng } from '../rng';
 import { buildingCentre, depositNear, footprint } from './buildings';
 import { holdOf } from './castle';
 import { killPerson } from './health';
+import { isChild } from './social';
 import { woundPerson } from './injuries';
 import { raidBudget, startRaid } from './raids';
 import { askWays } from './telling';
-import { foundVillage, pickSettlers } from './villages';
+import { foundVillage, pickSettlers, villageById } from './villages';
 import { addStock, earn, maxHp, notify, type Building, type GameState, type Person, type Prompt } from './state';
 import { calendar, paceDay, TICKS_PER_DAY, TICKS_PER_HOUR } from './time';
 
@@ -84,6 +88,40 @@ export interface Underdark {
   village?: number;
   /** What's happened below, newest last (for the view): a few words each. */
   finds: string[];
+  /** (The second pass, claude/underdark-2; all optional, for towns made before it.) The deepest depth opened (0 or
+   *  missing: the upper caves only), each deeper depth's state (`deeps[n - 1]`), the hours the scouts have spent
+   *  seeking the stair under the ruins, what's happened lately for the view to show (`marks`), a search party out after
+   *  someone taken, and the tally of what the Underdark has given and taken. */
+  depth?: number;
+  deeps?: DeepState[];
+  descend?: number;
+  marks?: UnderMark[];
+  search?: { at: number; who: string; cell: number; foe: string };
+  tally?: UnderTally;
+}
+
+/** A deeper depth's state: what's been seen and found of it (its map is made from the seed: `depthMap`), when it was
+ *  opened, and when its dweller was slain. */
+export interface DeepState {
+  seen: string;
+  found: number[];
+  opened: number;
+  slain?: number;
+}
+
+/** Something that happened below, kept a few hours so the view can show it: a train of goods or an envoy walking up
+ *  from a cave town to the shaft, a cave-in, a flood, someone dragged off and the search for them, things rising up
+ *  the shaft, a cave town fallen, a scout lost. `cell` is where it happened (or set out from), `to` where it went. */
+export interface UnderMark {
+  kind: 'trade' | 'envoy' | 'cavein' | 'flood' | 'taken' | 'search' | 'rise' | 'fall' | 'lost' | 'slain';
+  at: number;
+  cell: number;
+  to?: number;
+  depth?: number;
+  who?: string;
+  /** The creature (an enemy id), or the cave people. */
+  foe?: string;
+  people?: string;
 }
 
 export const udIndex = (x: number, y: number) => y * UD_W + x;
@@ -300,13 +338,35 @@ export function openEntry(s: GameState, u: Underdark, b: Building): void {
   checkThrough(s, u);
 }
 
-/** The nearest cave that was always there, from a cell. */
+/** The open ground joined to the caves' places (the network the tunnels make). A pocket of open ground off it (a
+ *  shore across the lake from the rest, say) isn't the way in: the first pass let a hold's hallway or a mine break into
+ *  such a pocket, and the scouts never found anything. */
+export function caveNetwork(u: Pick<Underdark, 'cells' | 'sites'>): Uint8Array {
+  const out = new Uint8Array(u.cells.length);
+  const q = u.sites.map((x) => x.at).filter((i) => isUnderOpen(u.cells[i]));
+  for (const i of q) out[i] = 1;
+  for (let k = 0; k < q.length; k++) {
+    const { x, y } = udXY(q[k]);
+    for (const [dx, dy] of FOUR) {
+      if (!inside(x + dx, y + dy)) continue;
+      const j = udIndex(x + dx, y + dy);
+      if (!out[j] && isUnderOpen(u.cells[j])) {
+        out[j] = 1;
+        q.push(j);
+      }
+    }
+  }
+  return out;
+}
+
+/** The nearest cave that was always there, from a cell (on the caves' network). */
 function nearestNatural(u: Underdark, from: number): number {
   const { x, y } = udXY(from);
+  const net = caveNetwork(u);
   let best = -1;
   let bd = Infinity;
   for (let j = 0; j < u.cells.length; j++) {
-    if (!natural(u.cells[j])) continue;
+    if (!natural(u.cells[j]) || !net[j]) continue;
     const d = Math.abs(udXY(j).x - x) + Math.abs(udXY(j).y - y);
     if (d < bd) {
       bd = d;
@@ -348,12 +408,27 @@ const findLine = (u: Underdark, text: string) => {
   if (u.finds.length > 12) u.finds.splice(0, u.finds.length - 12);
 };
 
+/** The tally (made the first time it's needed). */
+export const tallyOf = (u: Underdark): UnderTally => (u.tally ??= { goods: 0, coins: 0, trades: 0, deaths: 0, caveIns: 0, floods: 0, rises: 0, dwellers: 0 });
+const goodsCount = (g: Stock) => Object.values(g).reduce((a, n) => a + (n ?? 0), 0);
+/** Something for the view to show (kept `MARKS_KEPT`). */
+function mark(s: GameState, u: Underdark, m: Omit<UnderMark, 'at'>): void {
+  (u.marks ??= []).push({ ...m, at: s.tick });
+  if (u.marks.length > MARKS_KEPT) u.marks.splice(0, u.marks.length - MARKS_KEPT);
+}
+/** Someone of the town lost below: killed, counted. */
+function lostBelow(s: GameState, u: Underdark, p: Person, cause: string): void {
+  killPerson(s, p, cause);
+  tallyOf(u).deaths++;
+}
+
 /** Whether the town's tunnels have reached the caves: told once. */
 function checkThrough(s: GameState, u: Underdark): void {
   if (u.through !== undefined) return;
   const r = reached(u);
+  const net = caveNetwork(u);
   for (let i = 0; i < r.length; i++)
-    if (r[i] && natural(u.cells[i])) {
+    if (r[i] && natural(u.cells[i]) && net[i]) {
       u.through = s.tick;
       const line = s.origin === 'dwarves' ? 'The hold breaks into the Underdark, the dwarves\' old home ground: tunnels running off into the dark, the smell of water and mushrooms, and far off, lamps.' : 'The miners break through into the Underdark: a cave that goes on and on, a draught from somewhere far below, and in the dark, faint lights that are not theirs.';
       findLine(u, 'The town broke through into the Underdark.');
@@ -419,14 +494,17 @@ export function underDug(s: GameState, p: Person, b: Building): void {
   if (g.chance(DEEP_ORE_ODDS)) addStock(got, g.weighted(DEEP_ORES as Record<Material, number>), 2);
   depositNear(s, buildingCentre(b), got);
   checkThrough(s, u);
-  if (g.chance(UD_CAVE_IN)) caveIn(s, p, g);
+  if (g.chance(UD_CAVE_IN)) caveIn(s, p, g, i);
 }
 
 /** The roof comes down on someone cutting below: buried, or dragged out broken. */
-export function caveIn(s: GameState, p: Person, g: Rng): void {
-  findLine(s.underdark!, `The roof came down on ${p.name}.`);
+export function caveIn(s: GameState, p: Person, g: Rng, cell?: number): void {
+  const u = s.underdark!;
+  findLine(u, `The roof came down on ${p.name}.`);
+  tallyOf(u).caveIns++;
+  mark(s, u, { kind: 'cavein', cell: cell ?? u.entries[0] ?? 0, who: p.name });
   if (g.chance(UD_CAVE_IN_KILLS)) {
-    killPerson(s, p, 'was buried in a cave-in below the town');
+    lostBelow(s, u, p, 'was buried in a cave-in below the town');
     notify(s, `The rock comes down in the tunnels below: ${p.name} is buried under it.`, true);
     return;
   }
@@ -449,16 +527,23 @@ export function underdarkHourly(s: GameState): void {
   if (!u) return;
   for (const b of entryBuildings(s)) if (!u.from.includes(b.id)) openEntry(s, u, b);
   if (u.through === undefined) return;
-  const r = reached(u);
+  let r = reached(u);
+  if (reconnect(s, u, r)) r = reached(u);
   explore(s, u, r);
+  depthsHourly(s, u, r);
+  searchHome(s, u, r);
   const hour = calendar(s.tick).hour;
   if (hour === 6) {
     underDawn(s, u, r);
+    deepDawn(s, u);
     for (const t of u.towns) caveDay(s, u, t, r);
     feuds(s, u);
     underVillage(s, u);
   }
-  if (isNight(hour) && paceDay(s.tick) >= DANGER_DAY && s.people.length >= DANGER_PEOPLE) night(s, u, r);
+  if (paceDay(s.tick) >= DANGER_DAY && s.people.length >= DANGER_PEOPLE) {
+    if (isNight(hour)) night(s, u);
+    dangers(s, u, r, isNight(hour));
+  }
 }
 
 /** The scouts see a little more of the caves each hour, outward from the town's tunnels; a place seen is found. */
@@ -502,6 +587,7 @@ function foundSite(s: GameState, u: Underdark, site: UnderSite): void {
   if (site.kind === 'ruins') {
     s.coins = (s.coins ?? 0) + RUIN_COINS;
     earn(s, 'goods', RUIN_COINS);
+    tallyOf(u).coins += RUIN_COINS;
     const topic = s.research.queue[0];
     if (topic) s.research.progress[topic] = (s.research.progress[topic] ?? 0) + RUIN_STUDY;
   }
@@ -524,7 +610,10 @@ function underDawn(s: GameState, u: Underdark, r: Uint8Array): void {
     if (!y || !u.found.includes(site.id) || !r[site.at]) continue;
     for (const [m, n] of Object.entries(y) as [Material, number][]) addStock(got, m, n);
   }
-  if (Object.keys(got).length) depositNear(s, buildingCentre(entry), got);
+  if (Object.keys(got).length) {
+    depositNear(s, buildingCentre(entry), got);
+    tallyOf(u).goods += goodsCount(got);
+  }
 }
 
 /* ------------------------------------------------------------ the cave towns */
@@ -567,6 +656,10 @@ function caveDay(s: GameState, u: Underdark, t: CaveTown, r: Uint8Array): void {
       s.coins = (s.coins ?? 0) - d.price;
       earn(s, 'goods', -d.price);
       depositNear(s, buildingCentre(entry), { ...d.goods });
+      const tl = tallyOf(u);
+      tl.trades++;
+      tl.goods += goodsCount(d.goods);
+      mark(s, u, { kind: 'trade', cell: site.at, to: u.entries[0], people: t.people });
       t.attitude = clamp(t.attitude + TRADE_WARMTH);
       findLine(u, `${cap(d.name)} traded ${d.goodsWords}.`);
       notify(s, `A train from ${d.name} comes up the shaft with ${d.goodsWords}, for ${d.price} coins.`, true);
@@ -575,7 +668,7 @@ function caveDay(s: GameState, u: Underdark, t: CaveTown, r: Uint8Array): void {
   // an envoy
   if (!s.prompts.some((p) => p.ways?.system === 'underdark') && (t.envoyAt === undefined || day - t.envoyAt >= CAVE_ENVOY_DAYS)) {
     t.envoyAt = day;
-    envoy(s, t);
+    if (envoy(s, t) && r[site.at]) mark(s, u, { kind: 'envoy', cell: site.at, to: u.entries[0], people: t.people });
   }
 }
 
@@ -657,6 +750,7 @@ function feuds(s: GameState, u: Underdark): void {
       foe.feud = undefined;
       const line = `${cap(peopleOf(t).name)} have fallen to ${peopleOf(foe).name}, down in the dark. Their lamps are out.`;
       findLine(u, line);
+      mark(s, u, { kind: 'fall', cell: u.sites[t.site].at, people: t.people, foe: foe.people });
       if (t.known || foe.known) notify(s, line, true);
     }
   }
@@ -682,7 +776,7 @@ function feuds(s: GameState, u: Underdark): void {
 
 /** At night, things come up: what lives in the dark (a raid up the main way down), someone at work below taken, the
  *  river in flood, and a cave town at war raiding. */
-function night(s: GameState, u: Underdark, r: Uint8Array): void {
+function night(s: GameState, u: Underdark): void {
   const entry = mainEntry(s);
   if (!entry) return;
   const g = roll(s, 'night');
@@ -695,48 +789,104 @@ function night(s: GameState, u: Underdark, r: Uint8Array): void {
     if (!kind) continue;
     startRaid(s, kind, Math.max(8, raidBudget(s) * (CAVE_RAID_SHARE + CAVE_RAID_PER_TROOP * t.troops)), g, buildingCentre(entry));
     u.rose = s.tick;
+    tallyOf(u).rises++;
+    mark(s, u, { kind: 'rise', cell: u.sites[t.site].at, to: u.entries[0], people: t.people });
     t.troops = Math.max(0, t.troops - 3);
     findLine(u, `${cap(peopleOf(t).name)} raided up the shaft.`);
     notify(s, `${cap(peopleOf(t).name)} come up out of the shaft in the night: ${kind.name.toLowerCase()}!`, true);
     return;
   }
-  // what lives in the dark
+  // a dweller of a depth opened and not yet slain comes up itself
+  for (let n = 1; n <= (u.depth ?? 0); n++) {
+    const d = DEPTH_BY_N[n];
+    const ds = u.deeps?.[n - 1];
+    if (!d || !ds || ds.slain !== undefined || s.raid || !gapOk || !g.chance(d.stir)) continue;
+    const base = RAID_KIND_BY_ID[d.rise];
+    if (!base || !Object.keys(base.enemies).length) continue;
+    startRaid(s, { ...base, leader: d.dweller }, Math.max(10, raidBudget(s) * d.riseShare), g, buildingCentre(entry));
+    u.rose = s.tick;
+    const tl = tallyOf(u);
+    tl.rises++;
+    tl.dwellers++;
+    mark(s, u, { kind: 'rise', cell: u.entries[0], foe: d.dweller, depth: n });
+    findLine(u, `${ENEMY_NAME(d.dweller)} came up the shaft.`);
+    notify(s, `The ground shakes in the night, and up out of the shaft comes ${enemyMid(d.dweller)}, up from ${d.name}, with what lives there at its heels!`, true);
+    return;
+  }
+  // what lives in the dark (from the deepest depth open: worse the deeper the town has gone)
+  const deep = DEPTH_BY_N[u.depth ?? 0];
   if (!s.raid && gapOk && g.chance(DARK_RISE)) {
-    const kind = RAID_KIND_BY_ID.under_dark;
+    const kind = RAID_KIND_BY_ID[deep?.rise ?? 'under_dark'];
     if (kind && Object.keys(kind.enemies).length) {
-      startRaid(s, kind, Math.max(6, raidBudget(s) * DARK_SHARE), g, buildingCentre(entry));
+      startRaid(s, kind, Math.max(6, raidBudget(s) * (deep?.riseShare ?? DARK_SHARE)), g, buildingCentre(entry));
       u.rose = s.tick;
-      findLine(u, 'Things came up out of the dark.');
-      notify(s, 'Something comes up out of the Underdark in the night: things from the dark pour out of the shaft!', true);
+      tallyOf(u).rises++;
+      mark(s, u, { kind: 'rise', cell: u.entries[0], foe: kind.id });
+      findLine(u, deep ? `Things came up from ${deep.name}.` : 'Things came up out of the dark.');
+      notify(s, deep ? `Something comes up from ${deep.name} in the night: ${kind.name.toLowerCase()} pour out of the shaft!` : 'Something comes up out of the Underdark in the night: things from the dark pour out of the shaft!', true);
       return;
     }
   }
+}
+
+/** Every hour, by day or night (the tunnels are dark either way, but worse at night): one at work below taken by
+ *  something in the dark, the river breaking into the town's tunnels, and a scout lost in the upper caves while there's
+ *  still dark to scout. */
+function dangers(s: GameState, u: Underdark, r: Uint8Array, dark: boolean): void {
+  const g = roll(s, 'danger');
+  const odds = dark ? 1 : DAY_DANGER;
   const work = below(s, u);
+  // a scout lost in the upper caves
+  if (u.seen.length && g.chance(UPPER_LOST * odds) && unscouted(u, r)) {
+    const pool = s.people.filter((p) => p.id !== s.mainId && p.away === null && !p.downed && !isChild(p));
+    if (pool.length) {
+      const p = pool[g.int(0, pool.length - 1)];
+      findLine(u, `${p.name} was lost scouting the caves.`);
+      mark(s, u, { kind: 'lost', cell: u.entries[0] ?? 0, who: p.name });
+      lostBelow(s, u, p, 'was lost scouting the caves under the town');
+      notify(s, `${p.name} went scouting into the caves below with a lamp and a rope, and has not come back up.`, true);
+      return;
+    }
+  }
   // someone taken
-  if (work.length && g.chance(TAKEN)) {
+  if (work.length && g.chance(TAKEN * odds)) {
     const p = work[g.int(0, work.length - 1)];
+    const foe = TAKERS[g.int(0, TAKERS.length - 1)];
+    const cell = u.entries[0] ?? 0;
     findLine(u, `${p.name} was taken in the dark.`);
-    killPerson(s, p, 'was dragged off into the dark below the town');
-    notify(s, `A scream from the tunnels below, then nothing. ${p.name} is gone, taken by something in the dark.`, true);
+    mark(s, u, { kind: 'taken', cell, who: p.name, foe, to: darkCellNear(u, r, cell, g) });
+    lostBelow(s, u, p, 'was dragged off into the dark below the town');
+    // (the search party goes after them with torches: sim `searchHome` says what it found)
+    u.search = { at: s.tick + SEARCH_HOURS * TICKS_PER_HOUR, who: p.name, cell, foe };
+    mark(s, u, { kind: 'search', cell, who: p.name });
+    notify(s, `A scream from the tunnels below, then nothing. ${p.name} is gone, dragged off by something in the dark. A search party goes down after them with torches.`, true);
     return;
   }
   // the river floods the town's tunnels
-  if (wetReached(u, r) && (u.floodUntil === undefined || s.tick >= u.floodUntil) && g.chance(FLOOD)) {
+  if (wetReached(u, r) && (u.floodUntil === undefined || s.tick >= u.floodUntil) && g.chance(FLOOD * odds)) {
     u.floodUntil = s.tick + FLOOD_HOURS * TICKS_PER_HOUR;
     findLine(u, 'The river flooded the tunnels.');
+    tallyOf(u).floods++;
+    mark(s, u, { kind: 'flood', cell: u.entries[0] ?? 0 });
     const lost: string[] = [];
     for (const p of work.slice(0, 2)) {
       if (g.chance(FLOOD_KILLS)) {
         lost.push(p.name);
-        killPerson(s, p, 'drowned when the underground river flooded the tunnels');
+        lostBelow(s, u, p, 'drowned when the underground river flooded the tunnels');
       } else {
         const hurt = maxHp(p) * 0.35;
         p.hp = Math.max(1, p.hp - hurt);
         woundPerson(s, p, hurt, 'bruise', g);
       }
     }
-    notify(s, `The underground river breaks into the town's tunnels and floods the shaft${lost.length ? `: ${lost.join(' and ')} drowned` : ''}. The digging stops until it drains.`, true);
+    notify(s, `The underground river breaks into the town's tunnels and floods the shaft${lost.length ? `: ${lost.join(' and ')} drowned` : ''}. The miners are driven out, and nobody works the ways down until it drains.`, true);
   }
+}
+
+/** Whether the reached caves have cells the scouts haven't seen yet. */
+function unscouted(u: Underdark, r: Uint8Array): boolean {
+  for (let i = 0; i < r.length; i++) if (r[i] && u.seen[i] !== '1') return true;
+  return false;
 }
 
 /** Whether the town's tunnels touch the river or the lake. */
@@ -747,6 +897,378 @@ function wetReached(u: Underdark, r: Uint8Array): boolean {
     for (const [dx, dy] of EIGHT) if (inside(x + dx, y + dy) && u.cells[udIndex(x + dx, y + dy)] === '~') return true;
   }
   return false;
+}
+
+/* ------------------------------------------------------------ the second pass: repair, the taken, the depths */
+
+const ENEMY_NAME = (id: string) => ENEMIES[id]?.name ?? 'something from below';
+/** The same, mid-sentence ("the lair of the Warden"). */
+const enemyMid = (id: string) => ENEMY_NAME(id).replace(/^The /, 'the ');
+
+/** A town whose ways down broke into a pocket off the caves' network (the first pass's hallway or mine could) gets
+ *  its passage on: a cut straight from the nearest of its own ground to the nearest of the network. Told once. */
+function reconnect(s: GameState, u: Underdark, r: Uint8Array): boolean {
+  if (u.sites.some((x) => r[x.at])) return false;
+  const net = caveNetwork(u);
+  let best: [number, number] | null = null;
+  let bd = Infinity;
+  for (let i = 0; i < r.length; i++) {
+    if (!r[i]) continue;
+    const a = udXY(i);
+    for (let j = 0; j < net.length; j++) {
+      if (!net[j]) continue;
+      const b = udXY(j);
+      const d = Math.abs(a.x - b.x) + Math.abs(a.y - b.y);
+      if (d < bd) {
+        bd = d;
+        best = [i, j];
+      }
+    }
+  }
+  if (!best) return false;
+  let p = udXY(best[0]);
+  const q = udXY(best[1]);
+  while (p.x !== q.x || p.y !== q.y) {
+    if (p.x !== q.x) p = { x: p.x + Math.sign(q.x - p.x), y: p.y };
+    else p = { x: p.x, y: p.y + Math.sign(q.y - p.y) };
+    const i = udIndex(p.x, p.y);
+    if (!isUnderOpen(u.cells[i])) u.cells = setAt(u.cells, i, 'd');
+  }
+  findLine(u, 'The miners found the way on into the caves.');
+  notify(s, 'The cave the town broke into was a pocket, walled off by water. The miners cut on from it, and find the way into the caves proper.', true);
+  return true;
+}
+
+/** A dark cell of the reached caves a few cells from one (where a thing drags its prey). */
+function darkCellNear(u: Underdark, r: Uint8Array, from: number, g: Rng): number {
+  const { x, y } = udXY(from);
+  const near: number[] = [];
+  for (let i = 0; i < r.length; i++) {
+    if (!r[i] || ownCell(u.cells[i])) continue;
+    const d = dist(i, x, y);
+    if (d >= 4 && d <= 12) near.push(i);
+  }
+  return near.length ? near[g.int(0, near.length - 1)] : from;
+}
+
+/** The search party back: what it found of the one taken, and now and then the thing's den. */
+function searchHome(s: GameState, u: Underdark, r: Uint8Array): void {
+  const sr = u.search;
+  if (!sr || s.tick < sr.at) return;
+  u.search = undefined;
+  const g = roll(s, 'search');
+  const foe = ENEMY_NAME(sr.foe).toLowerCase();
+  if (g.chance(SEARCH_DEN)) {
+    const entry = mainEntry(s);
+    if (entry) depositNear(s, buildingCentre(entry), { ...DEN_GOODS });
+    tallyOf(u).goods += goodsCount(DEN_GOODS);
+    const den = darkCellNear(u, r, sr.cell, g);
+    see(u, den, 3);
+    findLine(u, `The search party found the den of the ${foe} that took ${sr.who}.`);
+    notify(s, `The search party comes back up with ${sr.who}'s lamp, and no ${sr.who}. They found the den of the ${foe} that took them, and what it had dragged there before: some gems, some old iron.`, true);
+  } else {
+    findLine(u, `The search for ${sr.who} found nothing.`);
+    notify(s, `The search party comes back up out of the dark with torches burnt low. Of ${sr.who} they found only a boot, and the tracks of a ${foe}.`, true);
+  }
+}
+
+/** Whether the ways down from a building are flooded: its miners driven out, nobody works it until it drains. */
+export function underFlooded(s: GameState, b: Building): boolean {
+  const u = s.underdark;
+  return !!u && u.floodUntil !== undefined && s.tick < u.floodUntil && u.from.includes(b.id) && u.through !== undefined;
+}
+
+/* ------------------------------------------------------------ the deeper depths */
+
+export interface DeepSite {
+  id: number;
+  kind: DeepSiteKind;
+  name: string;
+  x: number;
+  y: number;
+  at: number;
+}
+export interface DepthMap {
+  n: number;
+  cells: string;
+  sites: DeepSite[];
+  /** Where the stair from above comes down. */
+  arrive: number;
+}
+
+const depthCache = new Map<string, DepthMap>();
+/** A deeper depth's map, made from the seed (never stored: the same seed makes the same caves). Each depth has its own
+ *  look: the Deep Roads straight-cut roads between square halls, the Sunless Sea a great black water with its shores,
+ *  the Magma Deep rivers of fire through black rock. */
+export function depthMap(seed: string | number, n: number): DepthMap {
+  const key = `${seed}:${n}`;
+  const had = depthCache.get(key);
+  if (had) return had;
+  const d = DEPTH_BY_N[n];
+  const g = new Rng(hashSeed(`${seed}:under:depth:${n}`));
+  const cells: string[] = new Array(UD_W * UD_H).fill('#');
+  const set = (x: number, y: number, c: string) => {
+    if (x >= 1 && y >= 1 && x <= UD_W - 2 && y <= UD_H - 2) cells[udIndex(x, y)] = c;
+  };
+  // the arrival, near a corner
+  const ax = g.chance(0.5) ? g.int(4, 9) : g.int(UD_W - 10, UD_W - 5);
+  const ay = g.int(4, 9);
+  for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) set(ax + dx, ay + dy, '.');
+  const arrive = udIndex(ax, ay);
+  cells[arrive] = 'e';
+  if (d?.id === 'sea') {
+    // a great black water, its shores round it
+    const cx = UD_W / 2 + g.int(-3, 3);
+    const cy = UD_H / 2 + g.int(0, 5);
+    for (let y = 1; y < UD_H - 1; y++)
+      for (let x = 1; x < UD_W - 1; x++) {
+        const q = Math.hypot((x - cx) / 15, (y - cy) / 11) + Math.sin(x * 0.7 + y * 0.3) * 0.06;
+        if (q < 1) set(x, y, '~');
+        else if (q < 1.2) set(x, y, '.');
+      }
+  } else if (d?.id === 'magma') {
+    // rivers of fire running down through the rock
+    for (let k = 0; k < 3; k++) {
+      let x = g.int(10, UD_W - 10);
+      for (let y = 1; y < UD_H - 1; y++) {
+        if (g.chance(0.4)) x = Math.max(3, Math.min(UD_W - 4, x + (g.chance(0.5) ? 1 : -1)));
+        set(x, y, 'v');
+        if (g.chance(0.5)) set(x + 1, y, 'v');
+      }
+    }
+  }
+  const kinds: { kind: DeepSiteKind; name: string }[] = [...(d?.sites ?? []), { kind: 'lair', name: d?.lairName ?? 'a lair' }, ...(n < UNDER_DEPTHS.length ? [{ kind: 'stair' as const, name: 'the stair down' }] : [])];
+  const sites: DeepSite[] = [];
+  for (const { kind, name } of kinds) {
+    let cx = 0;
+    let cy = 0;
+    for (let tries = 0, gap = 12; tries < 160; tries++) {
+      if (tries % 40 === 39) gap -= 2;
+      cx = g.int(5, UD_W - 6);
+      cy = g.int(5, UD_H - 6);
+      if (Math.hypot(cx - ax, cy - ay) < 8) continue;
+      // (the lair and the stair lie far from the arrival)
+      if ((kind === 'lair' || kind === 'stair') && Math.hypot(cx - ax, cy - ay) < 22 && tries < 120) continue;
+      if (cells[udIndex(cx, cy)] === '~' || cells[udIndex(cx, cy)] === 'v') continue;
+      if (sites.some((o) => Math.hypot(o.x - cx, o.y - cy) < gap)) continue;
+      break;
+    }
+    const ch = DEEP_SITE_CELL[kind];
+    // (the roads' halls are square; elsewhere a rounded blob)
+    const rw = kind === 'stair' ? 1 : d?.id === 'roads' ? g.int(2, 3) : g.int(2, 3);
+    for (let dy = -rw; dy <= rw; dy++)
+      for (let dx = -rw; dx <= rw; dx++) {
+        if (d?.id !== 'roads' && Math.hypot(dx, dy) > rw + 0.4) continue;
+        set(cx + dx, cy + dy, ch === 'x' ? '.' : ch);
+      }
+    set(cx, cy, ch);
+    sites.push({ id: sites.length, kind, name, x: cx, y: cy, at: udIndex(cx, cy) });
+  }
+  // the roads and tunnels between: from the arrival to each place, the roads straight, the rest winding
+  const straight = d?.id === 'roads';
+  const mid = { x: -99, y: -99 };
+  const order = [...sites].sort((a, b) => Math.hypot(a.x - ax, a.y - ay) - Math.hypot(b.x - ax, b.y - ay));
+  const joined: { x: number; y: number }[] = [{ x: ax, y: ay }];
+  for (const site of order) {
+    const to = joined.reduce((a, b) => (Math.hypot(b.x - site.x, b.y - site.y) < Math.hypot(a.x - site.x, a.y - site.y) ? b : a));
+    if (straight) {
+      // (a road: along, then down, two cells wide)
+      let x = to.x;
+      let y = to.y;
+      while (x !== site.x) {
+        x += Math.sign(site.x - x);
+        for (const yy of [y, y + 1]) if (cells[udIndex(x, Math.min(UD_H - 2, yy))] === '#') set(x, yy, '.');
+      }
+      while (y !== site.y) {
+        y += Math.sign(site.y - y);
+        for (const xx of [x, x + 1]) if (cells[udIndex(Math.min(UD_W - 2, xx), y)] === '#') set(xx, y, '.');
+      }
+    } else tunnel(cells, g, { x: site.x, y: site.y }, to, mid);
+    joined.push({ x: site.x, y: site.y });
+  }
+  for (let k = 0; k < 5; k++) {
+    const from = g.pick(sites);
+    tunnel(cells, g, { x: from.x, y: from.y }, { x: g.int(2, UD_W - 3), y: g.int(2, UD_H - 3) }, mid, g.int(6, 12));
+  }
+  // (each place's own cell stays its own, whatever a tunnel made of it)
+  for (const x of sites) cells[x.at] = DEEP_SITE_CELL[x.kind];
+  const out: DepthMap = { n, cells: cells.join(''), sites, arrive };
+  depthCache.set(key, out);
+  return out;
+}
+
+/** The open ground of a depth joined to its arrival. */
+function depthReached(m: DepthMap): Uint8Array {
+  const out = new Uint8Array(m.cells.length);
+  const q = [m.arrive];
+  out[m.arrive] = 1;
+  for (let k = 0; k < q.length; k++) {
+    const { x, y } = udXY(q[k]);
+    for (const [dx, dy] of FOUR) {
+      if (!inside(x + dx, y + dy)) continue;
+      const j = udIndex(x + dx, y + dy);
+      if (!out[j] && isUnderOpen(m.cells[j])) {
+        out[j] = 1;
+        q.push(j);
+      }
+    }
+  }
+  return out;
+}
+
+/** Open the next depth down: told, its arrival seen. */
+function openDepth(s: GameState, u: Underdark, n: number): void {
+  const d = DEPTH_BY_N[n];
+  if (!d) return;
+  const m = depthMap(s.seed, n);
+  u.deeps ??= [];
+  u.deeps[n - 1] = { seen: '0'.repeat(UD_W * UD_H), found: [], opened: s.tick };
+  u.depth = n;
+  seeDeep(u.deeps[n - 1], m.arrive, 2);
+  findLine(u, `Found the way down to ${d.name}.`);
+  notify(s, d.opened, true);
+}
+
+function seeDeep(ds: DeepState, i: number, r: number): void {
+  const { x, y } = udXY(i);
+  let seen = ds.seen;
+  for (let dy = -r; dy <= r; dy++) for (let dx = -r; dx <= r; dx++) if (inside(x + dx, y + dy) && seen[udIndex(x + dx, y + dy)] !== '1') seen = setAt(seen, udIndex(x + dx, y + dy), '1');
+  ds.seen = seen;
+}
+
+/** Each hour: the scouts seek the stair under the ruins (until the Deep Roads are open), explore the depths opened
+ *  (losing one of them now and then: the deeper, the likelier), find their places, and take the stair on down once
+ *  a depth's dweller is slain. */
+function depthsHourly(s: GameState, u: Underdark, r: Uint8Array): void {
+  const depth = u.depth ?? 0;
+  if (s.people.length < DEEP_PEOPLE) return;
+  if (depth === 0) {
+    const ruins = u.sites.find((x) => x.kind === 'ruins' && u.found.includes(x.id) && r[x.at]);
+    if (!ruins) return;
+    u.descend = (u.descend ?? 0) + 1;
+    if (u.descend >= DESCEND_HOURS) openDepth(s, u, 1);
+    return;
+  }
+  for (let n = 1; n <= depth; n++) {
+    const ds = u.deeps?.[n - 1];
+    const d = DEPTH_BY_N[n];
+    if (!ds || !d) continue;
+    const m = depthMap(s.seed, n);
+    const dr = depthReached(m);
+    let left = d.explore;
+    let unseen = false;
+    const q = [m.arrive];
+    const done = new Uint8Array(m.cells.length);
+    done[m.arrive] = 1;
+    for (let k = 0; k < q.length; k++) {
+      const i = q[k];
+      if (ds.seen[i] !== '1') {
+        if (left > 0) {
+          seeDeep(ds, i, 1);
+          left--;
+        } else unseen = true;
+      }
+      const { x, y } = udXY(i);
+      for (const [dx, dy] of FOUR) {
+        if (!inside(x + dx, y + dy)) continue;
+        const j = udIndex(x + dx, y + dy);
+        if (!done[j] && dr[j]) {
+          done[j] = 1;
+          q.push(j);
+        }
+      }
+    }
+    for (const site of m.sites) if (!ds.found.includes(site.id) && ds.seen[site.at] === '1') foundDeep(s, u, n, site);
+    // (a scout lost, while there's still dark to scout)
+    if (unseen && left <= 0) {
+      const g = roll(s, 'scout', n);
+      if (g.chance(d.lost)) {
+        const pool = s.people.filter((p) => p.id !== s.mainId && p.away === null && !p.downed && !isChild(p));
+        if (pool.length) {
+          const p = pool[g.int(0, pool.length - 1)];
+          findLine(u, `${p.name} was lost in ${d.name}.`);
+          mark(s, u, { kind: 'lost', cell: m.arrive, depth: n, who: p.name });
+          lostBelow(s, u, p, `was lost scouting ${d.name}`);
+          notify(s, `A scout's rope comes back up cut. ${p.name}, scouting ${d.name}, will not be coming home.`, true);
+        }
+      }
+    }
+  }
+  // the stair on down, once the dweller that guards it is slain
+  const last = u.deeps?.[depth - 1];
+  if (last && last.slain !== undefined && depth < UNDER_DEPTHS.length) {
+    const m = depthMap(s.seed, depth);
+    const stair = m.sites.find((x) => x.kind === 'stair');
+    if (stair && last.found.includes(stair.id)) openDepth(s, u, depth + 1);
+  }
+}
+
+const DEEP_FOUND: Record<DeepSiteKind, (n: string, d: string) => string> = {
+  hall: (n, d) => `Scouts in ${d} find ${n}: a hall of the road-builders, its doors broken in. They bring back old coins, and carvings nobody above can read.`,
+  forge: (n, d) => `Scouts in ${d} find ${n}: forges gone cold, and ore heaped round them for the taking.`,
+  shore: (n, d) => `Scouts on ${d} find ${n}, where blind white fish crowd the shallows. Pearls lie among the stones.`,
+  grotto: (n, d) => `Scouts in ${d} find ${n}, its rock shot through with crystal and silver.`,
+  vein: (n, d) => `Scouts in ${d} find ${n}: gold, in the hot rock, enough to make a king weep.`,
+  hold: (n) => `Scouts at the bottom of the world find ${n} of the First Delvers: gates as tall as a house, halls of gold, and its dead still at their posts. They come back up laden.`,
+  lair: (n, d) => `Scouts in ${d} come on ${n}, and what sleeps there. They do not stay to look.`,
+  stair: (_n, d) => `Scouts in ${d} find a stair going on down, behind the lair.`,
+};
+
+function foundDeep(s: GameState, u: Underdark, n: number, site: DeepSite): void {
+  const ds = u.deeps![n - 1];
+  const d = DEPTH_BY_N[n];
+  ds.found.push(site.id);
+  findLine(u, `Found ${site.name}.`);
+  notify(s, DEEP_FOUND[site.kind](site.name, d.name), true);
+  const once = DEEP_ONCE[site.kind];
+  if (once) {
+    s.coins = (s.coins ?? 0) + once.coins;
+    earn(s, 'goods', once.coins);
+    const topic = s.research.queue[0];
+    if (topic) s.research.progress[topic] = (s.research.progress[topic] ?? 0) + once.study;
+    const entry = mainEntry(s);
+    if (entry) depositNear(s, buildingCentre(entry), { ...once.goods });
+    const tl = tallyOf(u);
+    tl.coins += once.coins;
+    tl.goods += goodsCount(once.goods);
+  }
+}
+
+/** Each dawn: the deeper places found give up the shaft, and the Heartvein once the Wyrm is slain. */
+function deepDawn(s: GameState, u: Underdark): void {
+  const entry = mainEntry(s);
+  if (!entry || !u.deeps?.length) return;
+  const got: Stock = {};
+  u.deeps.forEach((ds, k) => {
+    if (!ds) return;
+    const m = depthMap(s.seed, k + 1);
+    for (const site of m.sites) {
+      const y = DEEP_YIELD[site.kind];
+      if (!y || !ds.found.includes(site.id)) continue;
+      for (const [mat, n] of Object.entries(y) as [Material, number][]) addStock(got, mat, n);
+    }
+    if (k + 1 === UNDER_DEPTHS.length && ds.slain !== undefined) for (const [mat, n] of Object.entries(HEARTVEIN) as [Material, number][]) addStock(got, mat, n);
+  });
+  if (!Object.keys(got).length) return;
+  depositNear(s, buildingCentre(entry), got);
+  tallyOf(u).goods += goodsCount(got);
+}
+
+/** A party home from a trip below: from a dweller's lair, cleared, the dweller is slain and its hoard comes up. */
+export function underHome(s: GameState, dest: string, cleared: boolean, at: { x: number; y: number }): void {
+  const u = s.underdark;
+  const deep = parseDeepDest(dest);
+  if (!u || !deep || !cleared) return;
+  const ds = u.deeps?.[deep.n - 1];
+  const d = DEPTH_BY_N[deep.n];
+  const site = depthMap(s.seed, deep.n).sites[deep.site];
+  if (!ds || !d || !site || site.kind !== 'lair' || ds.slain !== undefined) return;
+  ds.slain = s.tick;
+  depositNear(s, at, { ...d.hoard });
+  tallyOf(u).goods += goodsCount(d.hoard);
+  mark(s, u, { kind: 'slain', cell: site.at, depth: deep.n, foe: d.dweller });
+  findLine(u, `${ENEMY_NAME(d.dweller)} was slain.`);
+  notify(s, `${d.slain} The party brings up its hoard: ${Object.entries(d.hoard).map(([m, n]) => `${n} ${m.replace(/_/g, ' ')}`).join(', ')}.`, true);
 }
 
 /* ------------------------------------------------------------ the under-village */
@@ -784,8 +1306,11 @@ export const isUnderDest = (id: string) => id.startsWith(UNDER_DEST);
 export function underDestination(s: GameState, id: string): Destination | undefined {
   const u = s.underdark;
   if (!u || !isUnderDest(id)) return undefined;
+  const deep = parseDeepDest(id);
+  if (deep) return deepDestination(s, u, deep.n, deep.site);
   const site = u.sites.find((x) => x.id === Number(id.slice(UNDER_DEST.length)));
   if (!site || !u.found.includes(site.id)) return undefined;
+  if (site.kind === 'town') return fallenTownDestination(u, site);
   const trip = SITE_TRIPS[site.kind];
   if (!trip) return undefined;
   return {
@@ -803,63 +1328,355 @@ export function underDestination(s: GameState, id: string): Destination | undefi
     description: `In the Underdark. ${trip.description}`,
   };
 }
-export const underDestinations = (s: GameState): Destination[] => (s.underdark?.sites ?? []).map((x) => underDestination(s, `${UNDER_DEST}${x.id}`)).filter((d): d is Destination => !!d);
+export const underDestinations = (s: GameState): Destination[] => {
+  const u = s.underdark;
+  if (!u) return [];
+  const ids = u.sites.map((x) => `${UNDER_DEST}${x.id}`);
+  (u.deeps ?? []).forEach((ds, k) => {
+    if (ds) for (const id of ds.found) ids.push(`${UNDER_DEST}d${k + 1}:${id}`);
+  });
+  return ids.map((id) => underDestination(s, id)).filter((d): d is Destination => !!d);
+};
+
+/** A deeper place's destination id, read: `under:d<depth>:<site>`. */
+export function parseDeepDest(id: string): { n: number; site: number } | null {
+  const m = /^under:d(\d+):(\d+)$/.exec(id);
+  return m ? { n: Number(m[1]), site: Number(m[2]) } : null;
+}
+
+/** A trip to a place found in a deeper depth: its own foes and loot, a longer walk down; the dweller's lair a
+ *  fight with the dweller itself (until it's slain). */
+function deepDestination(s: GameState, u: Underdark, n: number, siteId: number): Destination | undefined {
+  const ds = u.deeps?.[n - 1];
+  const d = DEPTH_BY_N[n];
+  if (!ds || !d || !ds.found.includes(siteId)) return undefined;
+  const site = depthMap(s.seed, n).sites[siteId];
+  if (!site) return undefined;
+  const base = { id: `${UNDER_DEST}d${n}:${siteId}`, outSeconds: TRIP_OUT_SECONDS + DEEP_TRIP_OUT * n, workSeconds: TRIP_WORK_SECONDS, scenery: 'cave' as const };
+  if (site.kind === 'lair') {
+    if (ds.slain !== undefined) return undefined;
+    return {
+      ...base,
+      name: `${cap(site.name.replace(/^the /, ''))} (${d.name.replace(/^the /, '')})`,
+      type: 'clear',
+      secondsPerUnit: 12,
+      loot: { gold: 2 },
+      threats: `${ENEMY_NAME(d.dweller)}, and what serves it`,
+      encounters: { arrival: 1, ambush: 0.3, groups: [{ enemies: { [d.dweller]: 1, ...d.lairFoes }, weight: 1 }] },
+      recommendedParty: 6,
+      description: `Deep below, in ${d.name}. ${ENEMY_NAME(d.dweller)} guards the way on down. Slay it, and its hoard is the town's.`,
+    };
+  }
+  const trip = DEEP_TRIPS[site.kind];
+  if (!trip) return undefined;
+  return {
+    ...base,
+    name: `${cap(site.name.replace(/^the /, ''))} (${d.name.replace(/^the /, '')})`,
+    type: trip.type,
+    secondsPerUnit: trip.secondsPerUnit,
+    loot: trip.loot,
+    threats: trip.threats,
+    encounters: { arrival: trip.arrival, ambush: 0.3, groups: [{ enemies: trip.foes, weight: 1 }] },
+    recommendedParty: 3 + n,
+    description: `Deep below, in ${d.name}. ${trip.description}`,
+  };
+}
+
+/** A fallen cave town: its ruins, picked over by what lives in the dark now. */
+function fallenTownDestination(u: Underdark, site: UnderSite): Destination | undefined {
+  const t = u.towns.find((o) => o.site === site.id);
+  if (!t || t.stance !== 'fallen') return undefined;
+  const d = peopleOf(t);
+  const loot: Stock = {};
+  for (const [m, n] of Object.entries(d.goods) as [Material, number][]) loot[m] = Math.ceil(n * 1.5);
+  return {
+    id: `${UNDER_DEST}${site.id}`,
+    name: `The ruins of ${d.name.replace(/^the /, '')} (below)`,
+    type: 'salvage',
+    outSeconds: TRIP_OUT_SECONDS,
+    workSeconds: TRIP_WORK_SECONDS,
+    secondsPerUnit: 8,
+    loot,
+    threats: 'Whatever took it, and the scavengers since',
+    encounters: { arrival: 0.5, ambush: 0.3, groups: [{ enemies: { ghoul: 2, dire_rat: 2 }, weight: 1 }] },
+    recommendedParty: 4,
+    scenery: 'cave',
+    description: `In the Underdark. The town of ${d.kind} that was ${d.name}, its lamps out and its doors broken. What they left is still there, and so is what killed them.`,
+  };
+}
 
 /* ------------------------------------------------------------ seen */
+
+/** What a place below gives and what lives there, in a few words each (the tap card, the Trips section). */
+const SITE_WORDS: Record<string, { gives: string; lives: string }> = {
+  fungus: { gives: 'cave mushrooms and glowmoss each dawn', lives: 'giant spiders and dire rats' },
+  lake: { gives: 'blind cave fish each dawn', lives: 'black eels, giant toads, and something bigger' },
+  crystal: { gives: 'a crystal each dawn', lives: 'crystal spiders and jewel beetles' },
+  magma: { gives: 'sulphur and gold, to a party that braves it', lives: 'black drakes and boulder beasts' },
+  ruins: { gives: 'old coins and carvings (once), and the stair down', lives: 'the dead who kept it, and a troll' },
+  hall: { gives: 'old coins and lore (once); salvage', lives: 'ratfolk and a bugbear' },
+  forge: { gives: 'iron ore and coal each dawn', lives: 'iron beetles' },
+  shore: { gives: 'cave fish and pearls each dawn', lives: 'black eels and giant toads' },
+  grotto: { gives: 'gems and silver each dawn', lives: 'crystal spiders' },
+  vein: { gives: 'gold and rare minerals each dawn', lives: 'fire spiders and magma slimes' },
+  hold: { gives: 'the First Delvers\' gold (once); salvage', lives: 'their dead, still on guard' },
+  stair: { gives: 'the way on down, behind the lair', lives: 'nothing that lets you pass' },
+};
+
+export interface UnderTownSeen {
+  id: string;
+  name: string;
+  kind: string;
+  stance: CaveStance;
+  attitude: number;
+  troops: number;
+  feud: string | null;
+  goods: string;
+  price: number;
+  mats: Material[];
+}
+
+export interface UnderDepthSeen {
+  n: number;
+  name: string;
+  blurb: string;
+  /** Places found there, its dweller's name and whether it's slain, how much of it is scouted. */
+  found: { name: string; kind: string; gives: string; mats: Material[] }[];
+  dweller: string;
+  slain: boolean;
+  scouted: number;
+}
 
 export interface UnderSummary {
   through: boolean;
   dug: number;
-  found: { name: string; kind: UnderSiteKind }[];
-  towns: { id: string; name: string; kind: string; stance: CaveStance; attitude: number; troops: number; feud: string | null }[];
+  found: { name: string; kind: UnderSiteKind; gives: string; mats: Material[] }[];
+  towns: UnderTownSeen[];
   finds: string[];
   /** The trips below a party may take (the Trips tab's cards). */
   dests: Destination[];
+  /** The deeper depths opened, and the hours left seeking the first stair (once the ruins are found). */
+  depths: UnderDepthSeen[];
+  seeking: number | null;
+  tally: UnderTally;
+  village: { name: string; pop: number } | null;
+  flooded: boolean;
+  searching: string | null;
 }
+
+const townSeen = (t: CaveTown): UnderTownSeen => {
+  const d = peopleOf(t);
+  return { id: t.people, name: d.name, kind: d.kind, stance: t.stance, attitude: Math.round(t.attitude), troops: Math.round(t.troops), feud: t.feud ? CAVE_PEOPLE_BY_ID[t.feud].name : null, goods: d.goodsWords, price: d.price, mats: Object.keys(d.goods) as Material[] };
+};
 
 /** What the menus show of the Underdark (known towns only). */
 export function underSummary(s: GameState): UnderSummary | null {
   const u = s.underdark;
   if (!u) return null;
+  const ruinsFound = u.sites.some((x) => x.kind === 'ruins' && u.found.includes(x.id));
+  const v = u.village !== undefined ? villageById(s, u.village) : undefined;
   return {
     through: u.through !== undefined,
     dug: u.dug,
-    found: u.sites.filter((x) => u.found.includes(x.id)).map((x) => ({ name: x.name, kind: x.kind })),
-    towns: u.towns.filter((t) => t.known).map((t) => ({ id: t.people, name: peopleOf(t).name, kind: peopleOf(t).kind, stance: t.stance, attitude: Math.round(t.attitude), troops: Math.round(t.troops), feud: t.feud ? CAVE_PEOPLE_BY_ID[t.feud].name : null })),
+    found: u.sites.filter((x) => u.found.includes(x.id) && x.kind !== 'town').map((x) => ({ name: x.name, kind: x.kind, gives: SITE_WORDS[x.kind]?.gives ?? '', mats: Object.keys(SITE_YIELD[x.kind] ?? SITE_TRIPS[x.kind]?.loot ?? {}) as Material[] })),
+    towns: u.towns.filter((t) => t.known).map(townSeen),
     finds: [...u.finds],
     dests: underDestinations(s),
+    depths: (u.deeps ?? []).map((ds, k) => {
+      const d = DEPTH_BY_N[k + 1];
+      const m = depthMap(s.seed, k + 1);
+      const r = depthReached(m);
+      let open = 0;
+      let seen = 0;
+      for (let i = 0; i < r.length; i++)
+        if (r[i]) {
+          open++;
+          if (ds?.seen[i] === '1') seen++;
+        }
+      return {
+        n: k + 1,
+        name: d.name,
+        blurb: d.blurb,
+        found: m.sites.filter((x) => ds?.found.includes(x.id) && x.kind !== 'stair').map((x) => ({ name: x.name, kind: x.kind, gives: x.kind === 'lair' ? `the lair of ${enemyMid(d.dweller)}` : SITE_WORDS[x.kind]?.gives ?? '', mats: Object.keys(x.kind === 'lair' ? d.hoard : DEEP_YIELD[x.kind] ?? DEEP_ONCE[x.kind]?.goods ?? {}) as Material[] })),
+        dweller: ENEMY_NAME(d.dweller),
+        slain: ds?.slain !== undefined,
+        scouted: open ? Math.round((seen / open) * 100) : 100,
+      };
+    }),
+    // (the hours left seeking the stair; 0 while the town is too small to send scouts down it)
+    seeking: (u.depth ?? 0) === 0 && ruinsFound ? (s.people.length < DEEP_PEOPLE ? 0 : Math.max(1, DESCEND_HOURS - (u.descend ?? 0))) : null,
+    tally: { ...tallyOf(u) },
+    village: v ? { name: v.name, pop: v.pop } : null,
+    flooded: u.floodUntil !== undefined && s.tick < u.floodUntil,
+    searching: u.search && s.tick < u.search.at ? u.search.who : null,
   };
+}
+
+/** A person drawn below (the view's paper dolls). */
+export interface UnderFolk {
+  id: number;
+  look: Person['look'];
+  gear: Person['gear'];
+}
+const folkOf = (p: Person): UnderFolk => ({ id: p.id, look: p.look, gear: p.gear });
+
+export interface UnderSiteSeen {
+  id: number;
+  name: string;
+  kind: string;
+  at: number;
+  x: number;
+  y: number;
+  /** The tap card's lines: what it gives, what lives there. */
+  gives: string;
+  lives: string;
+  /** A cave town's people, stance, warriors, and the cell of the town it's feuding with. */
+  people?: string;
+  stance?: CaveStance;
+  troops?: number;
+  feudAt?: number;
+  /** A dweller's lair: the dweller (an enemy id) and whether it's slain. */
+  dweller?: string;
+  slain?: boolean;
 }
 
 export interface UnderView {
   w: number;
   h: number;
-  /** The cells, with those not yet seen as `?`. */
+  /** Which depth is shown (0: the upper caves) and the depths there are to look at. */
+  depth: number;
+  depths: { n: number; name: string }[];
+  name: string;
+  /** The cells, with those not yet seen as `?` (and the open ground beyond what's seen as `,`, drawn as a faint
+   *  outline in the dark). */
   cells: string;
+  /** The town's ways down (the upper caves) or the stair's foot (a deeper depth), and which building each way down is. */
   entries: number[];
-  sites: { name: string; kind: UnderSiteKind; at: number; x: number; y: number; stance?: CaveStance }[];
-  /** Miners at work below, and whether the river's in flood. */
+  ways: { cell: number; def: string }[];
+  sites: UnderSiteSeen[];
+  /** Miners at work below (and some of them, to draw), and whether the river's in flood. */
   miners: number;
+  workers: UnderFolk[];
   flooded: boolean;
   through: boolean;
   finds: string[];
+  /** What's happened here lately (for the view to show), the tick, and the hour (the shaft's daylight). */
+  marks: UnderMark[];
+  tick: number;
+  hour: number;
+  /** A raid up the shaft from below going on now. */
+  rising: boolean;
+  /** The under-village: where it stands below, and some of its folk. */
+  village: { name: string; cell: number; pop: number; folk: UnderFolk[] } | null;
+  /** The creatures that roam this depth (enemy ids, for the lurkers in the dark). */
+  creatures: string[];
 }
 
-/** The Underdark view's picture (while it's watched). */
+const UNDER_RAID_KINDS = new Set(['under_dark', 'under_roads', 'under_sea', 'under_magma', ...CAVE_PEOPLES.map((p) => p.raid)]);
+const ROAMERS: Record<number, string[]> = {
+  0: ['giant_spider', 'dire_rat', 'cave_bat', 'mole', 'jewel_beetle'],
+  1: ['ratfolk', 'iron_beetle', 'bugbear', 'rock_worm', 'giant_bat'],
+  2: ['black_eel', 'giant_toad', 'abyss_naga', 'gloomfish', 'drift_jelly'],
+  3: ['fire_spider', 'magma_slime', 'ember_sprite', 'hell_hound', 'fire_bat'],
+};
+
+/** Where the under-village stands below: the open ground nearest between the fungus and the water. */
+function villageCell(u: Underdark, r: Uint8Array): number {
+  const f = u.sites.find((x) => x.kind === 'fungus' && u.found.includes(x.id));
+  const l = u.sites.find((x) => x.kind === 'lake' && u.found.includes(x.id));
+  const tx = f && l ? (f.x + l.x) / 2 : (f ?? l ?? u.sites[0]).x;
+  const ty = f && l ? (f.y + l.y) / 2 : (f ?? l ?? u.sites[0]).y;
+  let best = u.entries[0] ?? 0;
+  let bd = Infinity;
+  for (let i = 0; i < r.length; i++) {
+    if (!r[i] || !natural(u.cells[i]) || u.cells[i] === 't') continue;
+    const d = dist(i, tx, ty);
+    if (d < bd) {
+      bd = d;
+      best = i;
+    }
+  }
+  return best;
+}
+
+/** The Underdark view's picture (while it's watched): the upper caves, or a deeper depth. */
 export function underView(s: GameState): UnderView | null {
   const u = s.underdark;
   if (!u || !s.watchingUnder) return null;
-  let cells = '';
-  for (let i = 0; i < u.cells.length; i++) cells += u.seen[i] === '1' ? u.cells[i] : '?';
+  const opened = (u.deeps ?? []).map((ds, k) => (ds ? k + 1 : 0)).filter((n) => n > 0);
+  const depth = opened.includes(s.watchingUnderDepth ?? 0) ? (s.watchingUnderDepth ?? 0) : 0;
+  const depths = [{ n: 0, name: 'the upper caves' }, ...opened.map((n) => ({ n, name: DEPTH_BY_N[n].name }))];
+  const recent = (u.marks ?? []).filter((m) => s.tick - m.at < MARK_HOURS * TICKS_PER_HOUR && (m.depth ?? 0) === depth);
+  const raid = s.raid;
+  const rising = !!raid && UNDER_RAID_KINDS.has(raid.kind);
+  const work = below(s, u);
+  const base = { w: UD_W, h: UD_H, depth, depths, miners: work.length, workers: work.slice(0, 6).map(folkOf), flooded: u.floodUntil !== undefined && s.tick < u.floodUntil, through: u.through !== undefined, finds: u.finds.slice(-5), marks: recent, tick: s.tick, hour: calendar(s.tick).hour, rising };
+  const outline = (cells: string, seen: string, net: Uint8Array) => {
+    let out = '';
+    for (let i = 0; i < cells.length; i++) out += seen[i] === '1' ? cells[i] : net[i] ? ',' : '?';
+    return out;
+  };
+  if (depth > 0) {
+    const ds = u.deeps![depth - 1];
+    const d = DEPTH_BY_N[depth];
+    const m = depthMap(s.seed, depth);
+    return {
+      ...base,
+      name: d.name,
+      cells: outline(m.cells, ds.seen, depthReached(m)),
+      entries: [m.arrive],
+      ways: [],
+      sites: m.sites.filter((x) => ds.found.includes(x.id)).map((x) => ({
+        id: x.id,
+        name: x.kind === 'stair' ? `The stair down` : x.name,
+        kind: x.kind,
+        at: x.at,
+        x: x.x,
+        y: x.y,
+        gives: x.kind === 'lair' ? (ds.slain !== undefined ? 'nothing now: its dweller is dead, its hoard taken' : `a hoard, to the party that slays ${enemyMid(d.dweller)}`) : SITE_WORDS[x.kind]?.gives ?? '',
+        lives: x.kind === 'lair' ? (ds.slain !== undefined ? 'nothing; the bones of its dweller' : ENEMY_NAME(d.dweller)) : DEEP_TRIPS[x.kind]?.threats ?? SITE_WORDS[x.kind]?.lives ?? '',
+        ...(x.kind === 'lair' ? { dweller: d.dweller, slain: ds.slain !== undefined } : {}),
+      })),
+      workers: [],
+      miners: 0,
+      village: null,
+      creatures: ROAMERS[depth] ?? [],
+    };
+  }
+  const r = reached(u);
+  const v = u.village !== undefined ? villageById(s, u.village) : undefined;
   return {
-    w: UD_W,
-    h: UD_H,
-    cells,
+    ...base,
+    name: 'the Underdark',
+    cells: outline(u.cells, u.seen, caveNetwork(u)),
     entries: [...u.entries],
-    sites: u.sites.filter((x) => u.found.includes(x.id)).map((x) => ({ name: x.name, kind: x.kind, at: x.at, x: x.x, y: x.y, ...(x.people ? { stance: caveTownById(s, x.people)?.stance } : {}) })),
-    miners: below(s, u).length,
-    flooded: u.floodUntil !== undefined && s.tick < u.floodUntil,
-    through: u.through !== undefined,
-    finds: u.finds.slice(-5),
+    ways: entryBuildings(s)
+      .filter((b) => u.from.includes(b.id))
+      .map((b) => {
+        const f = footprint(b);
+        let cell = underCellOf(s, f.x + f.w / 2, f.y + f.h / 2);
+        if (!u.entries.includes(cell)) cell = u.entries.reduce((a, e) => (dist(e, udXY(cell).x, udXY(cell).y) < dist(a, udXY(cell).x, udXY(cell).y) ? e : a), u.entries[0]);
+        return { cell, def: b.def };
+      }),
+    sites: u.sites
+      .filter((x) => u.found.includes(x.id))
+      .map((x) => {
+        const t = x.people ? caveTownById(s, x.people) : undefined;
+        const foe = t?.feud ? caveTownById(s, t.feud) : undefined;
+        const d = t ? peopleOf(t) : undefined;
+        return {
+          id: x.id,
+          name: x.name,
+          kind: x.kind,
+          at: x.at,
+          x: x.x,
+          y: x.y,
+          gives: d ? (t!.stance === 'fallen' ? 'nothing now: its ruins, to a party that will pick them over' : `${d.goodsWords} up the shaft, for ${d.price} coins, when they're friends`) : SITE_WORDS[x.kind]?.gives ?? '',
+          lives: d ? (t!.stance === 'fallen' ? 'ghouls and rats, in the ruins' : `${d.kind}, ${Math.round(t!.troops)} warriors`) : SITE_WORDS[x.kind]?.lives ?? '',
+          ...(t ? { people: t.people, stance: t.stance, troops: Math.round(t.troops), ...(foe && foe.stance !== 'fallen' ? { feudAt: u.sites[foe.site].at } : {}) } : {}),
+        };
+      }),
+    village: v ? { name: v.name, cell: villageCell(u, r), pop: v.pop, folk: v.folk.slice(0, 5).map(folkOf) } : null,
+    creatures: ROAMERS[0],
   };
 }

@@ -544,6 +544,8 @@ export class Sim {
         // (the Underdark's view: sim/underdark.ts; it takes the Deep's place)
         s.watchingUnder = c.on && s.underdark ? true : undefined;
         if (s.watchingUnder) s.watchingDeep = undefined;
+        // (which depth: the upper caves unless asked for one; the view keeps to the depths opened)
+        s.watchingUnderDepth = s.watchingUnder && c.depth ? c.depth : undefined;
         break;
       case 'watchMine':
         s.watchingMine = c.place !== null && (s.places ?? []).some((p) => p.id === c.place && p.mine) ? c.place : undefined;

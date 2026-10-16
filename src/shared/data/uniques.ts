@@ -63,6 +63,10 @@ const ROWS: Row[] = [
   ['umbral_kiss', 'The Umbral Kiss', 'dg', 7, M, { lifesteal: 0.12, crit: 0.15 }, 'The Matron\'s knife. It is cold, and it is thirsty.', ['ud_umbral_matron']],
   ['sporestaff', 'The Sporestaff', 'st', 6, M, { stun: 0.3, lifesteal: 0.06 }, 'A living stalk of the Spore Elder. Where it strikes, the air turns sweet and thick.', ['ud_spore_elder']],
   ['greymaul', 'Greymaul', 'mc', 7, M, { stun: 0.3, pierce: 0.4 }, 'The Grey Thane\'s maul, older than the town above it.', ['ud_grey_thane']],
+  // the dwellers of the Underdark's deeper depths (data/underdark.ts DWELLERS)
+  ['wardens_fist', 'The Warden\'s Fist', 'mc', 8, M, { stun: 0.35, pierce: 0.3 }, 'A stone fist broken off the Warden of the Deep Roads, hafted by whoever was brave enough to carry it up.', ['ud_road_warden']],
+  ['sunless_tine', 'The Sunless Tine', 'sp', 8, M, { lifesteal: 0.1, pierce: 0.4 }, 'Cut from the beak of the Thing in the Sunless Sea. It is always wet, and always cold.', ['ud_sea_thing']],
+  ['wyrmheart_blade', 'Wyrmheart', 'gs', 9, M, { cleave: 0.5, crit: 0.15 }, 'Forged in the Sleeping Wyrm\'s own fire, from the gold of its bed. It is warm to hold.', ['ud_sleeping_wyrm']],
   ['tidecaller', 'Tidecaller', 'sp', 6, M, { crit: 0.1, lifesteal: 0.06 }, 'The Tide Queen\'s trident. Holding it, you hear the sea.', ['tide_queen']],
   ['horizon_bow', 'Horizon', 'bw', 7, M, { crit: 0.2, speed: 0.85 }, 'The Khan\'s horn bow. It reaches as far as the eye.', ['the_khan']],
   ['judgement', 'Judgement', 'sw', 8, M, { undeadDamage: 10, crit: 0.1 }, 'The Grand Master\'s blade, blessed against the dark.', ['grand_master']],

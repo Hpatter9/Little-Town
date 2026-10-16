@@ -17,6 +17,7 @@ import type { DestinationView, ExpeditionView, Snapshot } from '../../shared/sim
 import { bleedLeft, tripProgress } from '../../shared/format';
 import { button, duration, el } from './dom';
 import { WorldMapView } from './worldMapView';
+import { underKey, underSection } from './underSection';
 import { ITEM_BY_ID } from '../../shared/data/items';
 import { ENEMIES } from '../../shared/data/enemies';
 import { SAGA, UNIQUE_FROM, UNIQUES } from '../../shared/data/uniques';
@@ -67,6 +68,7 @@ export const expeditionsKey = (s: Snapshot) =>
     s.uniques,
     s.regions,
     s.underdark?.towns, // (the cave towns' marks on the map: sim/underdark.ts)
+    underKey(s), // (the Underdark's section: panel/underSection.ts)
     s.quests.map((q) => [q.id, q.accepted, q.hoursLeft]),
     s.hunts.hunts.map((h) => [h.id, h.accepted, h.hoursLeft]),
     s.hunts.forge.map((f) => [f.made, f.ready, f.holder]),
@@ -145,14 +147,8 @@ export function renderExpeditions(s: Snapshot, bridge: Bridge | undefined, reren
     for (const d of nearby) near.append(destinationCard(d, s.destinations.find((v) => v.id === d.id)!, s, bridge));
     out.push(near);
   }
-  // the places found in the Underdark, under the land (sim/underdark.ts)
-  const deep = (s.underdark?.dests ?? []).filter((d) => s.destinations.some((v) => v.id === d.id));
-  if (deep.length) {
-    out.push(el('h2', '', 'Below the town'));
-    const box = el('div', 'cards wide');
-    for (const d of deep) box.append(destinationCard(d, s.destinations.find((v) => v.id === d.id)!, s, bridge));
-    out.push(box);
-  }
+  // the Underdark, under the land: its depths, cave towns, tally, and the trips below (panel/underSection.ts)
+  out.push(...underSection(s, bridge, destinationCard));
   // the Moon Pack: its renown, the moon, the rival packs' lairs a war party can break (sim/pack.ts)
   if (s.pack) out.push(...packSection(s, bridge));
   const open = shown.filter((d) => s.destinations.find((v) => v.id === d.id)?.unlocked);

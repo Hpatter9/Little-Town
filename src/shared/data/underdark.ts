@@ -18,11 +18,12 @@ export const UD_H = 48;
 
 /** What a cell is: rock (`#`, dug by the town's miners), a natural tunnel (`.`), the town's own dug cells (`d`), the
  *  foot of a shaft (`e`), a fungus forest (`g`), water (`~`: the river and the lake), a crystal cavern (`c`), magma
- *  (`v`), lost ruins (`r`) and a cave town's ground (`t`). */
-export type UnderCell = '#' | '.' | 'd' | 'e' | 'g' | '~' | 'c' | 'v' | 'r' | 't';
+ *  (`v`), lost ruins (`r`) and a cave town's ground (`t`); in the deeper depths, a dweller's lair (`l`) and the stair on
+ *  down (`x`). */
+export type UnderCell = '#' | '.' | 'd' | 'e' | 'g' | '~' | 'c' | 'v' | 'r' | 't' | 'l' | 'x';
 
 /** Open ground: walked, seen, and worked. Water and magma are not. */
-export const isUnderOpen = (c: string) => c === '.' || c === 'd' || c === 'e' || c === 'g' || c === 'c' || c === 'r' || c === 't';
+export const isUnderOpen = (c: string) => c === '.' || c === 'd' || c === 'e' || c === 'g' || c === 'c' || c === 'r' || c === 't' || c === 'l' || c === 'x';
 
 /** The kinds of place below (each a blob of cells: `UnderSite`). */
 export type UnderSiteKind = 'fungus' | 'lake' | 'crystal' | 'magma' | 'ruins' | 'town';
@@ -79,9 +80,14 @@ export const DANGER_PEOPLE = 6;
 export const DARK_RISE = 0.012;
 export const DARK_SHARE = 0.5;
 export const RISE_GAP_HOURS = 36;
-/** Each night hour: the chance one working an entry is taken by something in the dark (killed). */
-export const TAKEN = 0.004;
-/** The river reached: each night hour the chance it floods the town's tunnels (drowning or hurting those at the
+/** Each hour: the chance one working an entry is taken by something in the dark (killed); by day only this share of
+ *  it (the second pass: the first only took people at night, when nobody is down the mines, so nobody was ever
+ *  taken). */
+export const TAKEN = 0.006;
+export const DAY_DANGER = 0.4;
+/** Each hour while the reached caves still hold dark the scouts haven't seen: the chance one of them is lost. */
+export const UPPER_LOST = 0.003;
+/** The river reached: each hour (by day, `DAY_DANGER` of it) the chance it floods the town's tunnels (drowning or hurting those at the
  *  entries, and stopping the digging a while). */
 export const FLOOD = 0.003;
 export const FLOOD_KILLS = 0.5;
@@ -263,3 +269,185 @@ export const SITE_TRIPS: Partial<Record<UnderSiteKind, Pick<Destination, 'type' 
 /** How far below each trip goes (the walk down and through the caves), and how long they work. */
 export const TRIP_OUT_SECONDS = 140;
 export const TRIP_WORK_SECONDS = 60;
+
+/* ------------------------------------------------------------ the deeper depths (claude/underdark-2) */
+
+/** The town's tally of what the Underdark has given and taken (the Trips section, and tools/under-soak.mjs). */
+export interface UnderTally {
+  /** Units of goods come up the shaft (each dawn's yield and the cave towns' trains), coins found, trains bought. */
+  goods: number;
+  coins: number;
+  trades: number;
+  /** The town's people lost below (cave-ins, the taken, the drowned, scouts lost in the depths). */
+  deaths: number;
+  caveIns: number;
+  floods: number;
+  /** Raids up the shaft: things from the dark, the cave towns at war, and the dwellers. */
+  rises: number;
+  dwellers: number;
+}
+
+/** The places of the deeper depths: each kind's ground, what it gives each dawn once found (or once, when found), and
+ *  its trip. `lair` is the depth's dweller's; `stair` the way on down. */
+export type DeepSiteKind = 'hall' | 'forge' | 'shore' | 'grotto' | 'vein' | 'hold' | 'lair' | 'stair';
+export const DEEP_SITE_CELL: Record<DeepSiteKind, UnderCell> = { hall: 'r', forge: 'r', shore: '.', grotto: 'c', vein: 'c', hold: 'r', lair: 'l', stair: 'x' };
+/** What a place below the upper caves gives each dawn once found. */
+export const DEEP_YIELD: Partial<Record<DeepSiteKind, Stock>> = { forge: { iron_ore: 3, coal: 2 }, shore: { fish: 4, pearls: 1 }, grotto: { gems: 1, silver_ore: 2 }, vein: { gold: 2, rare_minerals: 1 } };
+/** What a place gives once, when the scouts first find it: an old dwarf-hall's coins and lore, and the Lost Hold. */
+export const DEEP_ONCE: Partial<Record<DeepSiteKind, { coins: number; study: number; goods: Stock }>> = {
+  hall: { coins: 90, study: 300, goods: { iron: 4 } },
+  hold: { coins: 400, study: 900, goods: { gold: 25, gems: 12, rare_minerals: 6 } },
+};
+
+export interface UnderDepth {
+  /** 1, 2, 3: below the upper caves (0). */
+  n: number;
+  id: 'roads' | 'sea' | 'magma';
+  name: string;
+  /** How it looks, a line (the tap card and the Trips section). */
+  blurb: string;
+  /** Cells the scouts see an hour there, and the chance an hour of scouting loses one of them. */
+  explore: number;
+  lost: number;
+  /** Its places (besides the lair and the stair), with their names. */
+  sites: { kind: DeepSiteKind; name: string }[];
+  /** What comes up from it at night once it's open (a raid kind, below), and the share of a raid's budget. */
+  rise: string;
+  riseShare: number;
+  /** Its dweller (a boss, below): what guards the way on down. Until it's slain, each night hour this chance it comes
+   *  up the shaft itself (the `rise` kind, led by it). */
+  dweller: string;
+  stir: number;
+  /** The lair's name, and the trip there (the town's parties go the usual way). */
+  lairName: string;
+  lairFoes: Record<string, number>;
+  /** What the dweller's hoard gives when it's slain (besides what the party carries). */
+  hoard: Stock;
+  /** How the lines read: found the way down to it, and its dweller slain. */
+  opened: string;
+  slain: string;
+}
+
+/** Hours of the scouts' searching the ruins of the upper caves before they find the stair down to the Deep Roads. */
+export const DESCEND_HOURS = 72;
+/** The deeper depths are sought, and their scouts lost, only by a town of this many (a hamlet has nobody to spare). */
+export const DEEP_PEOPLE = 8;
+/** Each depth's places' trips: how far down the walk is (on top of `TRIP_OUT_SECONDS`, a depth). */
+export const DEEP_TRIP_OUT = 50;
+
+export const UNDER_DEPTHS: readonly UnderDepth[] = [
+  {
+    n: 1,
+    id: 'roads',
+    name: 'the Deep Roads',
+    blurb: 'Roads cut straight through the rock by a people long gone: halls, forges gone cold, and things that use the roads now.',
+    explore: 4,
+    lost: 0.004,
+    sites: [
+      { kind: 'hall', name: 'the Hall of Echoes' },
+      { kind: 'forge', name: 'the Cold Forges' },
+      { kind: 'grotto', name: 'the Silver Seep' },
+      { kind: 'hall', name: 'the Waystation' },
+    ],
+    rise: 'under_roads',
+    riseShare: 0.6,
+    dweller: 'ud_road_warden',
+    stir: 0.0012,
+    lairName: 'the Warden\'s Gate',
+    lairFoes: { iron_beetle: 2, ratfolk: 2 },
+    hoard: { iron: 10, gold: 6, gems: 3 },
+    opened: 'Under the ruins the scouts find a stair going down and down, and at its foot a road: straight, paved, older than anything above. The Deep Roads are open.',
+    slain: 'The Warden of the Deep Roads falls in its own gate, and the stone of it cracks. Behind it, a way down that smells of salt.',
+  },
+  {
+    n: 2,
+    id: 'sea',
+    name: 'the Sunless Sea',
+    blurb: 'Black water under a roof nobody can see, with pale shores and grottoes, and something very big that lives in it.',
+    explore: 3,
+    lost: 0.006,
+    sites: [
+      { kind: 'shore', name: 'the Pale Strand' },
+      { kind: 'grotto', name: 'the Pearl Grotto' },
+      { kind: 'shore', name: 'the Drowned Quay' },
+    ],
+    rise: 'under_sea',
+    riseShare: 0.7,
+    dweller: 'ud_sea_thing',
+    stir: 0.0012,
+    lairName: 'the Deepwater Lair',
+    lairFoes: { black_eel: 2, abyss_naga: 1 },
+    hoard: { pearls: 10, gold: 8, monster_heart: 1 },
+    opened: 'Past the Warden\'s gate the roads end at a shore. Black water, a roof too high for any lamp, and far out, a sound like breathing. The Sunless Sea.',
+    slain: 'The Thing in the Sunless Sea is dead, its bulk drifting in the black water. On the far shore, steps go down toward a red glow.',
+  },
+  {
+    n: 3,
+    id: 'magma',
+    name: 'the Magma Deep',
+    blurb: 'The bottom of the world: rivers of fire, veins of gold, the Lost Hold of the First Delvers, and the thing asleep on its hoard.',
+    explore: 2.5,
+    lost: 0.008,
+    sites: [
+      { kind: 'vein', name: 'the Gold Vein' },
+      { kind: 'hold', name: 'the Lost Hold' },
+      { kind: 'vein', name: 'the Ember Seam' },
+    ],
+    rise: 'under_magma',
+    riseShare: 0.8,
+    dweller: 'ud_sleeping_wyrm',
+    stir: 0.0008,
+    lairName: 'the Wyrm\'s Bed',
+    lairFoes: { magma_slime: 2, fire_spider: 2 },
+    hoard: { gold: 40, gems: 15, wyrm_scale: 4, dragon_heart: 1 },
+    opened: 'Down past the sea, the steps end where the rock runs red. The air shakes with heat, and somewhere ahead, something vast breathes in its sleep. The Magma Deep.',
+    slain: 'The Sleeping Wyrm will never wake again. Its bed was gold, and under the gold, a vein that runs down into the heart of the world: the Heartvein.',
+  },
+];
+export const DEPTH_BY_N: Readonly<Record<number, UnderDepth>> = Object.fromEntries(UNDER_DEPTHS.map((d) => [d.n, d]));
+/** What the Heartvein gives each dawn once the Wyrm is slain: the bottom's prize. */
+export const HEARTVEIN: Stock = { gold: 3, gems: 2, rare_minerals: 1 };
+
+/** A miner taken: the search party goes after them, and comes back this many hours later; at these odds it finds
+ *  the thing's den (some of what it had dragged there before). */
+export const SEARCH_HOURS = 3;
+export const SEARCH_DEN = 0.35;
+export const DEN_GOODS: Stock = { gems: 2, iron: 3 };
+/** The things that take people in the dark (the view shows one of them dragging someone off). */
+export const TAKERS = ['giant_spider', 'rock_worm', 'dire_rat', 'basilisk', 'bugbear'] as const;
+/** What's happened below that the view shows, kept this long (game hours), and how many at most. */
+export const MARK_HOURS = 6;
+export const MARKS_KEPT = 16;
+
+/** The dwellers: the bosses that guard each depth's way on down. */
+export const DWELLERS: Record<string, EnemyDef> = {
+  ud_road_warden: like('ud_road_warden', 'living_statue', 'The Warden of the Deep Roads', {
+    boss: true, hp: 460, damage: [13, 20], accuracy: 0.74, dodge: 0.02, interval: 1.8, loot: { iron: 6, stone: 8, gems: 1 }, tint: 0xb8b0a0,
+    kit: { roar: 'Stone grinds on stone. The Warden of the Deep Roads steps down from its plinth, as it has for every trespasser for a thousand years.', enrage: 'Cracks run through the Warden, and light shows in them!', area: { every: 3, targets: 2, name: 'brings its stone fists down', fx: 'quake' }, summon: { kind: 'iron_beetle', count: 2, text: 'Iron beetles pour out of the walls at the Warden\'s tread!' } },
+  }),
+  ud_sea_thing: like('ud_sea_thing', 'bog_kraken', 'The Thing in the Sunless Sea', {
+    boss: true, hp: 560, damage: [14, 22], accuracy: 0.72, dodge: 0.04, interval: 1.7, loot: { pearls: 4, fish: 10 }, tint: 0x8090b8,
+    kit: { roar: 'The black water heaves. Arms as thick as trees come up out of the Sunless Sea, and then the rest of it.', enrage: 'The Thing thrashes, and the sea comes over the shore!', area: { every: 3, targets: 3, name: 'sweeps the shore with its arms', fx: 'frost' }, summon: { kind: 'black_eel', count: 2, text: 'Eels boil up out of the water round it!' } },
+  }),
+  ud_sleeping_wyrm: like('ud_sleeping_wyrm', 'copper_dragon', 'The Sleeping Wyrm', {
+    boss: true, hp: 780, damage: [17, 27], accuracy: 0.78, dodge: 0.06, interval: 2, ranged: true, loot: { gold: 10, wyrm_scale: 2 }, tint: 0xe08a60,
+    kit: { roar: 'An eye opens, as big as a door. The Sleeping Wyrm lifts its head from its bed of gold.', enrage: 'Roused at last, the Wyrm fills the deep with fire!', area: { every: 3, targets: 3, name: 'breathes the fire of the deep', burns: true, fx: 'fire' }, summon: { kind: 'magma_slime', count: 2, text: 'The magma itself crawls up to defend its sleeper!' } },
+  }),
+};
+
+/** What comes up from the deeper depths at night (never rolled at random: sim/underdark.ts sends them). */
+export const DEPTH_RAIDS: readonly RaidKind[] = [
+  habitatRaid('under_roads', 'Things from the Deep Roads', ['cave', 'crypt'], [3, 6], { weight: 0, fromDay: 0 }),
+  habitatRaid('under_sea', 'Things out of the Sunless Sea', ['sea', 'swamp'], [3, 6], { weight: 0, fromDay: 0 }),
+  habitatRaid('under_magma', 'Fire out of the Magma Deep', ['fire'], [3, 7], { weight: 0, fromDay: 0 }),
+];
+
+/** A deeper place's trip (the destination `under:d<depth>:<site>`). */
+export const DEEP_TRIPS: Partial<Record<DeepSiteKind, { type: Destination['type']; loot: Stock; secondsPerUnit: number; threats: string; foes: Record<string, number>; arrival: number; description: string }>> = {
+  hall: { type: 'salvage', loot: { iron: 4, gold: 2, gems: 1 }, secondsPerUnit: 9, threats: 'Ratfolk, and what they keep', foes: { ratfolk: 3, bugbear: 1 }, arrival: 0.5, description: 'A hall of the road-builders, its doors broken in. Ratfolk nest in it now, among what they could not carry off.' },
+  forge: { type: 'gather', loot: { iron_ore: 6, coal: 4, iron: 2 }, secondsPerUnit: 7, threats: 'Iron beetles that eat the slag', foes: { iron_beetle: 2 }, arrival: 0.4, description: 'Forges gone cold a thousand years, slag and ore heaped round them, and beetles that eat iron.' },
+  shore: { type: 'gather', loot: { fish: 8, pearls: 2 }, secondsPerUnit: 6, threats: 'Eels, and what comes out of the water', foes: { black_eel: 2, giant_toad: 2 }, arrival: 0.45, description: 'A pale shore on the Sunless Sea, where blind fish crowd the shallows. Mind the water.' },
+  grotto: { type: 'gather', loot: { gems: 3, silver_ore: 3, pearls: 1 }, secondsPerUnit: 9, threats: 'Crystal spiders', foes: { crystal_spider: 3 }, arrival: 0.5, description: 'A grotto where the rock is shot through with crystal and silver, dripping and humming.' },
+  vein: { type: 'gather', loot: { gold: 4, rare_minerals: 2, sulphur: 3 }, secondsPerUnit: 11, threats: 'Fire things, and the heat', foes: { fire_spider: 2, magma_slime: 2 }, arrival: 0.6, description: 'A seam of gold in the hot rock by the magma rivers. Rich, and nothing down here wants to share it.' },
+  hold: { type: 'salvage', loot: { gold: 6, gems: 3, iron: 6 }, secondsPerUnit: 10, threats: 'The First Delvers\' dead, still on guard', foes: { bone_knight: 2, skeleton_mage: 1 }, arrival: 0.6, description: 'The Lost Hold of the First Delvers, who dug too deep: its gates, its halls, its dead still at their posts.' },
+};

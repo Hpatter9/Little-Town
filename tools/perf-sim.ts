@@ -12,13 +12,15 @@ import { SnapDiffer } from '../src/shared/snapDelta';
 import { MAX_OFFLINE_MS, startCatchUp } from '../src/shared/sim/offline';
 import { TICKS_PER_DAY } from '../src/shared/sim/time';
 
+// (SAVE=<file.json>: another save instead, e.g. tools/under-saves.mjs's; UNDER=1: with the Underdark's view open)
 const load = () => {
-  const r = parseSave(gunzipSync(readFileSync('test/fixtures/late-town.json.gz')).toString('utf8'));
+  const r = parseSave(process.env.SAVE ? readFileSync(process.env.SAVE, 'utf8') : gunzipSync(readFileSync('test/fixtures/late-town.json.gz')).toString('utf8'));
   if (!r.ok) throw new Error('the fixture would not load');
   return r.save.state;
 };
 const N = Number(process.argv[2] ?? 3000);
 const s = load();
+if (process.env.UNDER) s.watchingUnder = true;
 const sim = new Sim(s);
 const differ = new SnapDiffer();
 let step = 0, snap = 0, diff = 0, clone = 0, bytes = 0, full = 0, fulls = 0, hitches = 0;
