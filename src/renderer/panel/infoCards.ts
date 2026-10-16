@@ -45,7 +45,7 @@ registerCard('building', (ref, s) => {
     kind: 'A building',
     title: def.name,
     lore: def.purpose,
-    art: () => thumb(def.id, 76),
+    art: () => thumb(def.id, 76, s),
     body: () => {
       const out: HTMLElement[] = [];
       out.push(
