@@ -34,6 +34,7 @@ import { bleedLeft } from '../../shared/format';
 import { button, el } from './dom';
 import { itemStats } from './details';
 import { personSheet, personSheetKey } from './personCard';
+import { FAVOURITES_MOST } from '../../shared/sim/favourites';
 
 /** Changes whenever the panel's shape changes: who is listed, who is inspected and what they have (gear, skills,
  *  relations, wounds...). The list's live details (what each is doing, their health and spirits, their coins, a
@@ -66,6 +67,8 @@ export const townsfolkKey = (s: Snapshot) => {
     inspectTab, // (the inspect page's own tabs: a tap must redraw)
     sheetOn,
     personSheetKey(), // (the character sheet's tabs)
+    s.favourites, // (the ♥ and the followed at the top: sim/favourites.ts)
+    who?.shaken,
     who?.diary.length,
     who?.sick,
     chosenSkill, // (a tapped skill, spell or trait opens its card: the tap must redraw)
@@ -132,6 +135,12 @@ export function renderTownsfolk(s: Snapshot, bridge: Bridge | undefined, rerende
   }
   if (s.visitor) out.push(visitorCard(s.visitor, s, bridge));
 
+  out.push(...followedRow(s, (id) => {
+    inspecting = id;
+    chosenSlot = null;
+    listScroll = scroller()?.scrollTop ?? 0;
+    rerender();
+  }));
   out.push(el('h2', '', 'People'));
   if (s.turnable.length) out.push(turningRow(s, bridge));
   const list = el('div', 'folk-list');
@@ -182,6 +191,35 @@ export function renderTownsfolk(s: Snapshot, bridge: Bridge | undefined, rerende
   }
   out.push(...arenaSection(s, bridge));
   return out;
+}
+
+/** The tip on following someone, shown in one sitting only (`littletown.favouriteTip`), till someone is followed. */
+const FAV_TIP = 'littletown.favouriteTip';
+let favTipNow: boolean | null = null;
+function favTipShown(): boolean {
+  if (favTipNow !== null) return favTipNow;
+  try {
+    favTipNow = !localStorage.getItem(FAV_TIP);
+    localStorage.setItem(FAV_TIP, '1');
+  } catch {
+    favTipNow = false;
+  }
+  return favTipNow;
+}
+
+/** The followed at the top of the People tab (sim/favourites.ts): their faces, a tap to open each; with nobody
+ *  followed yet, a one-line tip, once. */
+function followedRow(s: Snapshot, open: (id: number) => void): HTMLElement[] {
+  const folk = s.favourites.map((id) => s.people.find((p) => p.id === id)).filter((p): p is PersonView => !!p);
+  if (!folk.length) return favTipShown() ? [el('div', 'hint fav-tip', 'Tap ♥ on someone to follow them.')] : [];
+  const row = el('div', 'fav-row');
+  for (const p of folk) {
+    const b = el('button', 'fav-pick');
+    b.append(face(p, s), el('span', 'fav-name', `♥ ${p.name}`), el('small', '', p.away !== null ? 'Away' : p.downed ? 'Down!' : p.shaken ? 'Shaken' : p.doing));
+    b.addEventListener('click', () => open(p.id));
+    row.append(b);
+  }
+  return [row];
 }
 
 /** The menu's scrolling body, and where the list was scrolled to before someone was inspected. */
@@ -286,7 +324,8 @@ function inspectView(p: PersonView, s: Snapshot, bridge: Bridge | undefined, rer
     const box = scroller();
     if (box) box.scrollTop = listScroll;
   }, { cls: 'place small quiet back-btn' });
-  if (sheetOn) return [back, personSheet(p, s, { face, rerender, open: (id) => ((inspecting = id), rerender()), more: () => ((sheetOn = false), rerender()) })];
+  const favourite = bridge ? { on: s.favourites.includes(p.id), full: s.favourites.length >= FAVOURITES_MOST, toggle: () => bridge.command({ type: 'favourite', id: p.id, on: !s.favourites.includes(p.id) }) } : undefined;
+  if (sheetOn) return [back, personSheet(p, s, { face, rerender, favourite, open: (id) => ((inspecting = id), rerender()), more: () => ((sheetOn = false), rerender()) })];
   const sheetBtn = button('Character sheet', () => ((sheetOn = true), rerender()), { cls: 'place small quiet' });
 
   // who they are, over every tab

@@ -4,14 +4,14 @@
 
 import type { Bridge } from '../../shared/ipc';
 import type { Snapshot } from '../../shared/sim/snapshot';
-import { showReveal, type RevealCard } from './revealStub';
+import { showReveal, type RevealCard } from './revealCard';
 
 /** The cards a snapshot holds, by key: the firsts (oldest first) and the latest rank change. */
 export function cardsOf(s: Snapshot): { key: string; card: RevealCard }[] {
   const out: { key: string; card: RevealCard }[] = [];
-  for (const m of [...(s.annals.milestones ?? [])].reverse()) out.push({ key: `m:${m.id}`, card: { kind: 'first', icon: m.icon, title: m.title, line: m.line, foot: `Day ${m.day}` } });
+  for (const m of [...(s.annals.milestones ?? [])].reverse()) out.push({ key: `m:${m.id}`, card: { kind: `A first · day ${m.day}`, icon: m.icon, title: m.title, lore: m.line, tone: 'gold', key: `m:${m.id}` } });
   const r = s.rank.last;
-  if (r) out.push({ key: r.key, card: { kind: r.kind, icon: r.kind === 'rise' ? 'good' : 'loss', title: r.kind === 'rise' ? `${r.to}` : `Fallen to ${r.to}`, line: r.kind === 'rise' ? `${r.from} no longer. ${r.line}` : r.line, aside: r.memory, foot: `Day ${r.day}` } });
+  if (r) out.push({ key: r.key, card: { kind: `${r.kind === 'rise' ? 'The town grows' : 'The town shrinks'} · day ${r.day}`, icon: r.kind === 'rise' ? 'good' : 'loss', title: r.kind === 'rise' ? r.to : `Fallen to ${r.to}`, lore: r.memory ? `${r.line} ${r.memory}` : r.line, tone: 'gold', key: r.key } });
   return out;
 }
 

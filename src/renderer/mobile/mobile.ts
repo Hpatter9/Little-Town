@@ -5,7 +5,9 @@
 import { readLevel, saveLevel, type VolumeKind } from '../volume';
 import { readVibrate, saveVibrate } from '../vibration';
 import { startNotices } from './notices';
+import { watchFavourites } from './obituaryReveal';
 import { createEventSheet } from './eventSheet';
+import { revealsOn, setRevealsOn, showReveal, startReveals } from './revealCard';
 import { buildingCard, buildingCardKey, type BuildingArt } from '../panel/buildingCard';
 import { PANELS, type StripState } from '../../shared/ipc';
 import { mobileBridge } from './mobileBridge';
@@ -246,6 +248,9 @@ const tabButtons = PANELS.map((p) => {
   const sheet = createEventSheet((prompt, option) => bridge.command?.({ type: 'answerPrompt', prompt, option }), strip);
   bridge.onSnapshot((snap) => sheet.update(snap));
 }
+// the rare things, and a party's haul, revealed card by card (revealCard.ts)
+startReveals(bridge, strip);
+(window as unknown as { __reveal?: typeof showReveal }).__reveal = showReveal; // (for previews)
 // the necropolis look, once the founder is a lich (and the menus' new names)
 bridge.onSnapshot((snap) => {
   // (watching a party away takes the screen the same way)
@@ -329,6 +334,9 @@ void bridge.getState().then(applyState); // (a first run opens on the New town p
   const { bubble, sheet: news } = startNotices(bridge, strip);
   document.body.append(bubble, news);
 }
+
+// (a favourite's death: their obituary card, once: mobile/obituaryReveal.ts)
+bridge.onSnapshot(watchFavourites(strip));
 
 /* ------------------------------------------------------------ the selected thing's card */
 
@@ -463,6 +471,7 @@ function drawMenu(): void {
       // (the phone buzzes softly at the big moments: vibration.ts; its own setting, not the sound's)
       ...('vibrate' in navigator ? [item(`Vibration: ${readVibrate() ? 'on' : 'off'}`, () => (saveVibrate(!readVibrate()), drawMenu()))] : []),
       item(`Tips: ${tipsOn() ? 'on' : 'off'}`, () => (setTipsOn(!tipsOn()), drawMenu())),
+      item(`Reveal cards: ${revealsOn() ? 'on' : 'off'}`, () => (setRevealsOn(!revealsOn()), drawMenu())),
       item('Phone alerts…', () => bridge.openPanel('alerts')),
       label('Zoom, or pinch the town with two fingers'),
       zooms,

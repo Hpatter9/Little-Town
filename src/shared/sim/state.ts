@@ -630,6 +630,8 @@ export interface Person {
   felled?: number;
   /** Deeds counted toward titles (sim/deeds.ts, data/deeds.ts). */
   deeds?: Partial<Record<import('../data/deeds').DeedKind, number>>;
+  /** Their last close calls (sim/closeCalls.ts): for their diary, and "Shaken" on their card for a while. */
+  closeCalls?: { tick: number; text: string }[];
   /** A knight of the Order who has kept a vow (sim/chivalry.ts): worthy of being dubbed. */
   keptVow?: boolean;
   /** The class stage last announced (an evolution is told once). */
@@ -1246,6 +1248,12 @@ export interface GameState {
    *  from there), a wedding where the couple set out from and who they are; a gathering's `walk` is its procession
    *  (from where, till when: sim/ceremonies.ts). */
   funeralsDue?: { name: string; close: number[]; tick: number; x?: number; y?: number }[];
+  /** The townsfolk the player follows (sim/favourites.ts): a view preference only, no rule reads it. */
+  favourites?: number[];
+  /** Favourites who died, for their last card (the newest last). */
+  favouritesGone?: number[];
+  /** The town's close calls, for the Journal and the raid's recap (sim/closeCalls.ts). */
+  closeCalls?: import('./closeCalls').CloseCall[];
   feastDue?: { kind: 'wedding' | 'feast'; text: string; x?: number; y?: number; lead?: number[] };
   gathering?: { kind: 'funeral' | 'great_funeral' | 'wedding' | 'feast' | 'rite' | 'festival'; ids: number[]; until: number; text: string; x: number; y: number; from?: number; walk?: { x: number; y: number; until: number }; festival?: string };
   /** The season's festival under way or being made ready, and those of the years before (sim/festivals.ts). */
@@ -1324,6 +1332,10 @@ export interface GameState {
   /** The mythic callings the town has seen (data/mythic.ts): who, which, the line told, and when; and an omen after
    *  an ascension, spent on the next to take a calling (sim/classes.ts `mythicRoll`). */
   mythics?: { id: number; road: string; line: string; tick: number }[];
+  /** The rare things the town has seen that nothing else keeps, for the legends shelf (panel/shelfPanel.ts): the bosses
+   *  slain (by enemy id), the top deed titles won, the special newcomers found out (by kind). Each id once, in the order
+   *  seen; filled where the thing already happens (sim/seen.ts). */
+  seen?: { bosses?: string[]; deeds?: string[]; specials?: string[] };
   mythicOmen?: boolean;
   yearStart?: YearStart;
   yearRaids?: { came: number; won: number; pillaged: number; watched?: number };

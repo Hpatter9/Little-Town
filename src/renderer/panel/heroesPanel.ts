@@ -4,10 +4,25 @@
 
 import type { AnnalsView } from '../../shared/sim/snapshot';
 import { el } from './dom';
-import { foldedSection } from './structure';
-import { icon } from '../ui/icon';
-import { MILESTONES } from '../../shared/data/tiers';
 import { fallenGuildMark } from '../art/guildMarks';
+import { fallenFace } from '../art/fallenFace';
+import { obituaryLines } from '../../shared/sim/obituary';
+import type { Fallen } from '../../shared/sim/annals';
+
+/** The fallen whose obituary is open. */
+const openFallen = new Set<number>();
+
+/** Someone's obituary: their face and a few lines (sim/obituary.ts). */
+export function obituaryBox(f: Fallen): HTMLElement {
+  const box = el('div', 'obit');
+  const face = fallenFace(f, 56);
+  if (face) box.append(face);
+  const words = el('div', 'obit-words');
+  for (const line of obituaryLines(f).slice(1)) words.append(el('p', line.startsWith('“') ? 'obit-line said' : 'obit-line', line));
+  if (!f.obit) words.append(el('p', 'obit-line', 'Their story was not written down.'));
+  box.append(words);
+  return box;
+}
 
 const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`;
 
@@ -29,26 +44,6 @@ function titles(list: string[]): HTMLElement | null {
  *  fell in on their record). */
 export function renderHeroes(a: AnnalsView, guildMark?: (personId: number) => HTMLElement | null): HTMLElement[] {
   const out: HTMLElement[] = [];
-  // the generations and the firsts (sim/tiers.ts, sim/milestones.ts)
-  if (a.generations?.length) {
-    out.push(el('h2', '', 'The generations'));
-    for (const g of a.generations) out.push(el('p', 'hall-line', g));
-  }
-  const firsts: HTMLElement[] = [];
-  if (a.milestonesFrom && a.milestonesFrom > 1) firsts.push(el('p', 'hint', `The town’s firsts are kept from day ${a.milestonesFrom}; older ones were not written down.`));
-  if (!a.milestones?.length) firsts.push(el('p', 'empty', 'The town’s firsts are written here as they happen.'));
-  for (const m of a.milestones ?? []) {
-    const c = el('div', 'card hall-card milestone');
-    const top = el('div', 'card-top');
-    const name = el('span', 'card-name');
-    const mark = icon(m.icon);
-    if (mark) name.append(mark, ' ');
-    name.append(m.title);
-    top.append(name, el('span', 'card-size', `Day ${m.day}`));
-    c.append(top, el('div', 'hint', m.line));
-    firsts.push(c);
-  }
-  out.push(foldedSection('journal', 'Milestones', firsts, `${a.milestones?.length ?? 0} of ${MILESTONES.length}`));
   out.push(el('h2', '', 'The famous'));
   if (!a.famous.length) out.push(el('p', 'empty', 'Nobody has made a name for themselves yet.'));
   for (const f of a.famous) {
@@ -76,8 +71,11 @@ export function renderHeroes(a: AnnalsView, guildMark?: (personId: number) => HT
   out.push(el('h2', '', 'The fallen'));
   if (!a.fallen.length) out.push(el('p', 'empty', 'Nobody has died. Yet.'));
   for (const f of a.fallen) {
-    const c = el('div', 'card hall-card fallen');
-    const top = el('div', 'card-top');
+    // (tap for their obituary: sim/obituary.ts; kept open across the menu's redraws)
+    const c = el('details', 'card hall-card fallen') as HTMLDetailsElement;
+    c.open = openFallen.has(f.id);
+    c.addEventListener('toggle', () => (c.open ? openFallen.add(f.id) : openFallen.delete(f.id)));
+    const top = el('summary', 'card-top');
     const fname = el('span', 'card-name', `${f.founder ? '★ ' : ''}${f.name}`);
     const fgm = fallenGuildMark(f);
     if (fgm) fname.append(' ', fgm);
@@ -85,6 +83,7 @@ export function renderHeroes(a: AnnalsView, guildMark?: (personId: number) => HT
     c.append(top, el('div', 'hall-cause', `Died ${f.cause}.`), el('div', 'hint', deeds(f)));
     const t = titles(f.titles);
     if (t) c.append(t);
+    c.append(obituaryBox(f));
     out.push(c);
   }
   return out;

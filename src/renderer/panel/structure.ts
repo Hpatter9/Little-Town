@@ -79,18 +79,13 @@ export function foldSections(menu: string, els: HTMLElement[], countFor?: CountF
   return out;
 }
 
-/** One section folded on its own, in a tab that is not folded as a whole (the Chronicle's Milestones). Starts closed. */
-export function foldedSection(menu: string, heading: string, body: HTMLElement[], count?: string): HTMLElement {
-  return sectionOf(menu, el('h2', '', heading), body, 2, count ? () => count : undefined, true);
-}
-
-function sectionOf(menu: string, h2: HTMLElement, body: HTMLElement[], heads: number, countFor?: CountFor, closed = false): HTMLElement {
+function sectionOf(menu: string, h2: HTMLElement, body: HTMLElement[], heads: number, countFor?: CountFor): HTMLElement {
   const title = h2.textContent ?? '';
   const key = headKey(title);
   // (an empty section, or one a card inside is open in, is not shut on the reader)
   const big = body.length > BIG || body.some((b) => b.querySelectorAll('.card, .queue-row, .folk-row').length > BIG);
   const hasOpenCard = body.some((b) => [...b.querySelectorAll<HTMLElement>('.card.open')].length > 0 || b.classList.contains('open'));
-  let open = readFold(menu, key) ?? (closed ? false : QUIET.test(key) || (heads >= 3 && big) ? false : true);
+  let open = readFold(menu, key) ?? (QUIET.test(key) || (heads >= 3 && big) ? false : true);
   if (hasOpenCard) open = true;
   const sec = el('section', `section${open ? ' open' : ''}`);
   sec.dataset.fold = key;

@@ -30,15 +30,13 @@ off with the autopilot (`s.autopilot === false` returns), and none of it draws a
   those living with no parents when the rank is first reckoned (`rank.founders`); "None who founded the town still live."
   is the `generation` milestone and a Chronicle line.
 - **Cards** (renderer): `mobile/milestoneCards.ts` reads the snapshot (`annals.milestones`, `rank.last`), takes the first
-  snapshot's cards as seen, and shows each new key once through `showReveal(card)`. **`mobile/revealStub.ts` is a stand-in
-  for claude/reveals' `mobile/revealCard.ts`** (same call; the card shape here is `{ kind, icon, title, line, aside?,
-  foot }`): the coordinator points `milestoneCards.ts` at the real one and deletes the stub. Icons are DawnLike/GUI
-  marks by name (`ui/icon.ts`).
-- **Chronicle tab** (Heroes): "The generations" lines and a folded "Milestones" section (`panel/heroesPanel.ts`, a new
-  `foldedSection` in `panel/structure.ts`, starts closed, count "n of 13"). The journal panel's redraw key
-  (`panel/panel.ts`) now includes the milestones count and the generation lines.
+  snapshot's cards as seen, and shows each new key once through `showReveal` (`mobile/revealCard.ts`, tone `gold`, key
+  `m:<id>` or the rank change's key). Icons are DawnLike/GUI marks by name (`ui/icon.ts`).
+- **Chronicle tab:** a "Milestones" filter (`panel/milestonesPanel.ts`, wired in `panel/journalPanel.ts`) lists the
+  generation lines and the firsts, "n of 13". The journal panel's redraw key (`panel/panel.ts`) includes the milestones
+  count and the generation lines.
 - Tests: `test/tiers.test.ts`. Sim-hash: with the new fields, notices and journal stripped, all four towns and the late-town
   fixture hash the same as before.
 - Changes sections of HISTORY.md: "The annals" (annals.ts now notes the first raid won/lost), "Phase 4, more farming"
   (the harvest home notes the first), "The phone made smoother" (top bar title), "Every menu in sub-tabs"/"The menus
-  redone" (Chronicle Heroes tab).
+  redone" (the Chronicle's filter row).
