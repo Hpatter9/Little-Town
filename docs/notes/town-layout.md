@@ -97,7 +97,7 @@ alive at day 40 / deaths / the day the first ring stood):
 | dwarves (no ring) | 9, 2, 8 (19) / 6, 1, 5 | 3, 6, 8 (17) / 8, 6, 1 |
 | orcs | 11, 25, 20 (56) / 12, 6, 8 / 29, 16.1, 18.2 | 17, 17, 8 (42) / 10, 7, 8 / 18.1, 23.3, 14.9 |
 
-All told 143 people and 74 deaths before, 132 and 73 after; the ring stood on day 19.7 on average before, 17.0 after.
+All told 143 people and 84 deaths before, 132 and 73 after; the ring stood on day 19.4 on average before, 17.3 after.
 The towns run chaotically apart (an earlier run of the same orc seeds with the plan ended at 29, 13 and 9), so the
 people column is noise at three seeds; ten-day starts on eight settlers seeds ('lone-1'..'lone-8') averaged 3.4 people
 after against 3.0 before. A planned town paves more (the square, the main streets, the side streets: 240 to 310 cells
