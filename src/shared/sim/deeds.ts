@@ -2,6 +2,10 @@
 import { DEED_KINDS, DEED_TITLES, type DeedKind } from '../data/deeds';
 import type { GameState, Person } from './state';
 import { notify } from './state';
+import { noteSeen } from './seen';
+
+/** Each ladder's top title (a legendary deed, kept on the legends shelf). */
+export const TOP_DEED_TITLES: ReadonlySet<string> = new Set(DEED_KINDS.map((k) => DEED_TITLES[k].steps[DEED_TITLES[k].steps.length - 1][1]));
 
 /** Count a deed for someone. */
 export function addDeed(p: Person | undefined, kind: DeedKind, n = 1): void {
@@ -27,6 +31,7 @@ export function awardDeedTitles(s: GameState): void {
     for (const title of deedTitles(p)) {
       if ((p.titles ??= []).includes(title)) continue;
       p.titles.push(title);
+      if (TOP_DEED_TITLES.has(title)) noteSeen(s, 'deeds', title);
       notify(s, `${p.name} is now called ${p.name} ${title}.`, true);
     }
   }

@@ -12,6 +12,7 @@ import { buildingCentreX } from './buildings';
 import { BOSS_RAGE } from './combat';
 import { setFire } from './fire';
 import { knockDown } from './health';
+import { noteSeen } from './seen';
 import { addItems } from './crafting';
 import { earn, notify, type GameState, type Person, type Raid, type Raider } from './state';
 import { TICK_HZ, TICKS_PER_HOUR } from './time';
@@ -114,6 +115,7 @@ export function dropLoot(s: GameState, kind: string): string | null {
 export function bossSlain(s: GameState, kind: string): void {
   dropLoot(s, kind);
   packBossSlain(s, kind);
+  noteSeen(s, 'bosses', kind); // (the legends shelf: sim/seen.ts)
   const kit = kitOf(kind);
   if (!kit) return;
   if (kit.trophy) s.items[kit.trophy] = (s.items[kit.trophy] ?? 0) + 1;

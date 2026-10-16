@@ -18,21 +18,14 @@ export function showObituary(snap: Snapshot, id: number, strip: HTMLIFrameElemen
   const w = strip.contentWindow as StripWindow | null;
   const face = w?.__picture?.({ fallen: id }) ?? null;
   const lines = obituaryLines(f);
-  // (the card takes a copy of their face: wait a little for its layers to load, then show it all the same)
-  const show = (tries: number) => {
-    if (face && !face.dataset.ready && tries > 0) return void setTimeout(() => show(tries - 1), 150);
-    reveal();
-  };
-  const reveal = () => showReveal({
-    kind: favourite ? 'In memory' : 'Obituary',
-    icon: favourite ? '♥' : '✝',
+  showReveal({
+    kind: favourite ? '♥ In memory' : 'In memory',
     title: f.name,
-    lore: (favourite ? [...lines, 'Your place among the followed is free. Watch their funeral from the news.'] : lines).join('\n'),
-    img: face?.toDataURL(),
+    lore: (favourite ? [...lines, 'Your place among the followed is free. Watch their funeral from the news.'] : lines).join(' '),
+    art: face, // (their portrait canvas, painted as its layers load)
     tone: 'dark',
-    key: String(id),
+    ...(favourite ? { key: `obit:${id}` } : {}), // (a tap in the news may open it again; the favourite's own card shows once)
   });
-  show(20);
   return true;
 }
 

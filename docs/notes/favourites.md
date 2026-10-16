@@ -36,17 +36,14 @@ felled, trips; "leading the town" for the leader), and their `look`, `gear`, `cl
 obituary shows there too.
 - The portrait of the dead: `art/fallenFace.ts` `fallenFace(f, size)`, from the kept look (Himeko layers); the strip's
   `__picture({ fallen })` draws it for the page.
-- Shown as a card (`mobile/obituaryReveal.ts` `showObituary`, through `showReveal` with tone `dark`, the portrait as a
-  data URL once painted, key the person's id): for favourites, by itself; for anyone, from the news line's "Obituary";
+- Shown as a card (`mobile/obituaryReveal.ts` `showObituary`, through claude/reveals' `showReveal` with tone `dark`, the
+  portrait canvas as `art`, and a key for a favourite's card only, so the news can open anyone's again): for favourites, by itself; for anyone, from the news line's "Obituary";
   and in the Chronicle's Heroes tab, where each of the fallen now opens on a tap to show it (`panel/heroesPanel.ts`
   `obituaryBox`, open ones kept in `openFallen` across redraws).
 - "Watch": the reveal card has no buttons (one tap closes it), so "Watch" is on the news line of a favourite's funeral:
   the strip's `__showOnMap({ funeral: id })` (`main.ts`) takes the camera to a funeral under way, else their grave
   (`graves.posOf`), else the graveyard. Read-only. Funerals themselves are unchanged ("Step 7, life's ceremonies"):
   every funeral is already announced in the Journal, naming the dead; a favourite's gets the ♥ and "Watch".
-- `mobile/revealCard.ts` here is a stand-in with claude/reveals' exact API (`RevealCard`: kind, title, lore, rarity,
-  img, icon, tone, key; `showReveal(card)`), so the merge takes theirs.
-
 **Close calls** (`sim/closeCalls.ts`). `closeCall(s, p, text)` where someone nearly died and did not, at events that
 already fire:
 - bleeding stopped by a townsperson (`sim/people.ts` `doTend`): "Bram nearly bled out in the raid; Osric stopped the
