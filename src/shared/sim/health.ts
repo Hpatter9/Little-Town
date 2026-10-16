@@ -99,7 +99,7 @@ export function heirOf(s: GameState, dead: Person): Person | undefined {
   const grown = s.people.filter((q) => q !== dead && !isChild(q));
   if (!grown.length) return undefined;
   const rank = (q: Person) =>
-    (q.away === null ? 1000 : 0) + (q.id === dead.partner ? 500 : 0) + ((q.parents ?? []).includes(dead.id) ? 300 : 0) + q.skills.social.level * 3 + q.skills.research.level;
+    (q.id === s.heirId ? 2000 : 0) + (q.away === null ? 1000 : 0) + (q.id === dead.partner ? 500 : 0) + ((q.parents ?? []).includes(dead.id) ? 300 : 0) + q.skills.social.level * 3 + q.skills.research.level;
   return [...grown].sort((a, b) => rank(b) - rank(a))[0];
 }
 

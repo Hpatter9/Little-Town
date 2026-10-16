@@ -78,7 +78,12 @@ export type EventEffect =
   /** A building's blueprint laid down with its makings delivered: it only wants building (else the makings). */
   | { build: string }
   /** The Calamity's dread, up or down (sim/calamity.ts). */
-  | { dread: number };
+  | { dread: number }
+  /* ---- the fateful events' lasting turns (fatefulEvents.ts, sim/events.ts) */
+  /** A stranger of this type joins and is named the founder's heir (`s.heirId`: sim/health.ts `heirOf`). */
+  | { adopt: string }
+  /** A god's favour moved (or every god's): a shrine that changes the faith (sim/faith.ts). */
+  | { favour: 'harvest' | 'hearth' | 'war' | 'sky' | 'all'; by: number };
 
 export interface EventOption {
   label: string;
@@ -93,6 +98,8 @@ export interface EventDef {
   /** A townsperson is picked for it ({who}). */
   who?: boolean;
   weight?: number;
+  /** How the Chronicle remembers a fateful choice ("the night you let the stranger in"); the title if left out. */
+  remember?: string;
   /** One of the fateful events: rare, and it turns the town's course (fatefulEvents.ts). */
   fateful?: boolean;
   /** When it can happen (always, if left out). */
@@ -122,6 +129,8 @@ export const calm = (h: number): EventEffect => ({ calm: h });
 export const raidIn = (h: number): EventEffect => ({ raid: h });
 export const study = (seconds: number): EventEffect => ({ research: seconds });
 export const dread = (n: number): EventEffect => ({ dread: n });
+export const adopt = (type: string): EventEffect => ({ adopt: type });
+export const favour = (god: 'harvest' | 'hearth' | 'war' | 'sky' | 'all', by: number): EventEffect => ({ favour: god, by });
 export const opt = (label: string, ...effects: EventEffect[]): EventOption => ({ label, effects });
 export const dflt = (label: string, ...effects: EventEffect[]): EventOption => ({ label, default: true, effects });
 

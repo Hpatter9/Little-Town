@@ -536,4 +536,9 @@ export const EVENT_MORE: Readonly<Record<string, string>> = {
   alchemists_gift: "The jar is heavy, sealed with green wax, and warm to the touch. The recipe is in a careful, spidery hand.",
   wolf_winter: "Their howling fills the night, close and hungry, and in the morning there are great tracks in the snow round every door.",
   golden_age: "There is music in the streets every evening now, the children are fat and the old are laughing, and nobody wants it ever to end.",
+  stranger_at_the_gate: "The rain runs off the hood in ropes. Behind the stranger's shoulder the road is empty, and that is somehow worse.",
+  hollow_tithe: "The grass in the hollow grows in rings, and nothing has ever been seen to graze it. {who} came back at dawn unharmed and very quiet.",
+  shrine_in_the_wood: "The ring of trees is black as if burned, but the moss on the stone is deep and green, and somebody's candle stub is still warm.",
+  warlords_oath: "His banner is a rag on a spear, and his men do not look at the town at all, which is how you know they are good.",
+  the_deep_well: "The bucket comes up warm, and a faint sweet smell with it. The children dare each other to lean over and listen.",
 };
