@@ -9,6 +9,7 @@ import { renderBestiary } from './bestiaryPanel';
 import { renderHeroes } from './heroesPanel';
 import { renderLegends } from './legendsPanel';
 import { renderShelf } from './shelfPanel';
+import { renderMilestones } from './milestonesPanel';
 import type { RareView } from '../../shared/sim/rare';
 import type { AnnalsView } from '../../shared/sim/snapshot';
 import type { FestivalsView } from '../../shared/sim/festivals';
@@ -17,7 +18,7 @@ import { renderCulture } from './culturePanel';
 import type { CultureView } from '../../shared/sim/culture';
 import { timelineStrip } from './timelineStrip';
 
-type Filter = 'all' | 'key' | 'deaths' | 'festivals' | 'culture' | 'heroes' | 'legends' | 'shelf' | 'bestiary' | 'scenes';
+type Filter = 'all' | 'key' | 'deaths' | 'festivals' | 'culture' | 'heroes' | 'milestones' | 'legends' | 'shelf' | 'bestiary' | 'scenes';
 const FILTERS: [Filter, string][] = [
   ['all', 'All'],
   ['key', 'Key events'],
@@ -25,6 +26,7 @@ const FILTERS: [Filter, string][] = [
   ['festivals', 'Festivals'],
   ['culture', 'Culture'],
   ['heroes', 'Heroes'],
+  ['milestones', 'Milestones'],
   ['legends', 'Legends'],
   ['shelf', 'Shelf'],
   ['bestiary', 'Bestiary'],
@@ -56,6 +58,11 @@ export function renderJournal(entries: JournalEntryView[], met: readonly string[
     }
     if (filter === 'culture') {
       list.replaceChildren(...renderCulture(culture));
+      return;
+    }
+    // (the generations and the town's firsts: milestonesPanel.ts)
+    if (filter === 'milestones') {
+      list.replaceChildren(...renderMilestones(annals ?? { fallen: [], chronicles: [], famous: [] }));
       return;
     }
     // (every rare thing the town has seen: shelfPanel.ts)

@@ -23,6 +23,7 @@ import { foundryHourly } from './foundry';
 import { frontierHourly } from './frontier';
 import { lightingHourly } from './lighting';
 import { annalsHourly } from './annals';
+import { tiersHourly } from './tiers';
 import { memorialsHourly } from './statues';
 import { envoyTick, factionsHourly, realmCommand } from './factions';
 import { risingHourly } from './risingPowers';
@@ -131,6 +132,7 @@ import { boatsHourly } from './boats';
 import { seafaringHourly } from './seafaring';
 import { oddsHourly } from './raidOdds';
 import { voteSettlementName } from './settlementName';
+import { setFavourite } from './favourites';
 
 /** How the town trades at its shop: the planner decides what's spare and what to buy. */
 const SHOP_TOWN: ShopTown = { forSale, wants: shoppingList };
@@ -249,6 +251,7 @@ export class Sim {
     festivalsHourly(s);
     cultureHourly(s); // (the town's own customs, earned from its history: sim/culture.ts)
     annalsHourly(s);
+    tiersHourly(s); // (the town's rank, the firsts it sees, its generations: sim/tiers.ts)
     memorialsHourly(s); // (homes named, ruins cleared, statues to the famous dead: sim/statues.ts)
     injuriesHourly(s, this.rng);
     if (s.tick % TICKS_PER_HOUR === 0) for (const p of s.people) if (p.autoPriorities) p.priorities = autoPriorities(p.skills, p.id === s.mainId);
@@ -514,6 +517,9 @@ export class Sim {
         break;
       case 'battleCast':
         castAt(s, c.power, this.rng, [c.x, c.y]);
+        break;
+      case 'favourite':
+        setFavourite(s, c.id, c.on);
         break;
       case 'watch':
         s.watching = c.expedition !== null && (s.expeditions.some((e) => e.id === c.expedition) || !!skirmishTrip(s, c.expedition) || !!arenaTrip(s, c.expedition)) ? c.expedition : undefined;

@@ -2,6 +2,7 @@
 // powers), what's being built and what stands, the stores (craftingPanel.ts renderStores), the treasury, and a book of
 // every building it knows. The town builds for itself.
 
+import { calendarKey, renderCalendar } from './calendarStrip';
 import { faithKey, faithSection } from './faithPanel';
 import { villagesSection } from './villagesPanel';
 import { politicsSection } from './politicsPanel';
@@ -68,6 +69,7 @@ export const buildKey = (s: Snapshot, tab: string | null = null) => {
     s.theme,
     on(['Overview'], () => [s.powers.map((p) => [p.id, Math.ceil(p.readyHours), Math.ceil(p.activeHours), p.held, p.affordable]), s.powerLog[0], s.nomad && [s.nomad.site, s.nomad.settled, Math.ceil((s.nomad.nextMoveDays ?? 0) * 24)], s.lichOffer, heritageTiles()]),
     on(['Overview'], () => [dashboardKey(s), s.why?.research, s.why?.craft]),
+    on(['Overview'], () => calendarKey(s)),
     on(['Overview', 'Treasury'], () => s.coins),
     on(['Treasury'], () => ledgerKey(s)),
     s.guards.n, s.guards.watch, !!s.shop, !!s.tavern, s.era, s.research.revealed, s.buildSlots, s.unlockAll, s.research.done, s.storageCapacity, s.housing, s.direction, s.plan,
@@ -128,6 +130,9 @@ export function renderBuild(s: Snapshot, bridge: Bridge | undefined, rerender: (
       ),
     );
   }
+
+  // the coming days the town knows of (panel/calendarStrip.ts)
+  out.push(...renderCalendar(s));
 
   // the one thing the player decides: where the town puts its effort
   out.push(el('h2', '', 'Direction'));

@@ -13,6 +13,7 @@ import { BUILDING_BY_ID } from '../../shared/data/buildings';
 import { CHATTER } from '../chatter';
 import type { JournalEntryView, Snapshot } from '../../shared/sim/snapshot';
 import { loadMet, meet, saveMet, tipsDue, tipsOn, type Tip } from './tips';
+import { showObituary } from './obituaryReveal';
 
 export type Tone = 'red' | 'gold' | 'blue';
 const RANK: Record<Tone, number> = { red: 3, gold: 2, blue: 1 };
@@ -21,7 +22,9 @@ export const worst = (tones: Tone[]): Tone | null => tones.reduce<Tone | null>((
 
 export interface NoticeAction {
   label: string;
-  kind: 'watch' | 'panel' | 'recap' | 'map' | 'question' | 'under';
+  kind: 'watch' | 'panel' | 'recap' | 'map' | 'question' | 'under' | 'obit' | 'funeral';
+  /** Whose obituary, or whose funeral (sim/obituary.ts). */
+  fallen?: number;
   watch?: number;
   panel?: string;
   /** The tab to open the menu at (panel/subtabs.ts). */
@@ -169,7 +172,28 @@ export function situationNotices(s: Snapshot): Notice[] {
   // (stat points waiting to be spent: the People menu's Character tab)
   const pts = s.people.filter((p) => p.freePts > 0);
   if (pts.length && s.statsAsk) out.push({ key: `pts:${pts.map((p) => `${p.id}:${p.freePts}`).join(',')}`, tone: 'gold', mark: '+', title: pts.length === 1 ? `${pts[0].name} has ${pts[0].freePts} stat ${pts[0].freePts === 1 ? 'point' : 'points'} to spend` : `${pts.length} townsfolk have stat points to spend`, text: 'Strength, Dexterity, Vitality, Intellect, Wisdom or Charisma: on their Character tab. Left two days, they spend them their own way.', action: { label: 'People', kind: 'panel', panel: 'townsfolk' } });
+  out.push(...hintNotices(s));
   return out;
+}
+
+// ---- what the town senses coming (sim/foreshadow.ts; the anticipation): blue, marked ⏳, no numbers
+const HINT_AFTER: Record<string, string> = {
+  raid: 'Perhaps nothing. Perhaps not.',
+  party: 'Their beds are made up.',
+  birth: 'Nobody has said anything outright.',
+  wedding: 'The town has its hopes.',
+  trial: 'The town will have to decide.',
+  dweller: 'Nobody goes near the shaft after dark.',
+  envoy: 'What they want, nobody knows yet.',
+  season: 'The town feels it turning.',
+  festival: 'The town is making ready.',
+  sickness: 'The healers are watching.',
+  stores: 'The cooks are counting.',
+  caravan: 'Merchants, if the dust tells true.',
+};
+/** The hints as notices, keyed so each counts as new once. */
+export function hintNotices(s: Snapshot): Notice[] {
+  return (s.foreshadow ?? []).map((h) => ({ key: `hint:${h.key}`, tone: 'blue' as const, mark: '⏳', title: h.text, text: HINT_AFTER[h.kind] ?? '' }));
 }
 
 /** A tip as a notice (gold, with a way to where it lives). */
@@ -194,6 +218,41 @@ export function journalNotices(entries: JournalEntryView[], snap: Snapshot | nul
       about: about ?? undefined,
       ...(BELOW.test(e.text) && snap?.underdark ? { action: { label: 'Look below', kind: 'under' as const } } : onMap ? { action: { label: about!.person != null || about!.traveller != null ? 'Show them' : 'Show it', kind: 'map' as const, target: about! } } : {}),
     };
+  });
+}
+
+/* ---- favourites, obituaries and close calls (sim/favourites.ts, sim/obituary.ts, sim/closeCalls.ts) ---- */
+
+const nameRe = (name: string) => new RegExp(`\\b${name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`);
+
+/** The Journal's lines marked for the player's stakes: a close call is gold with who it befell; a death opens the
+ *  obituary; a favourite's funeral can be watched; any line naming a favourite (living, or died since) gets a ♥. */
+export function stakeNotices(ns: Notice[], entries: readonly JournalEntryView[], snap: Snapshot | null): Notice[] {
+  if (!snap) return ns;
+  const byId = new Map(entries.map((e) => [e.id, e]));
+  const fallen = snap.annals.fallen;
+  const gone = (snap.favouritesGone ?? []).map((id) => fallen.find((f) => f.id === id)).filter((f) => !!f);
+  const favNames = [...(snap.favourites ?? []).map((id) => snap.people.find((p) => p.id === id)?.name), ...gone.map((f) => f.name)].filter((n): n is string => !!n);
+  return ns.map((n) => {
+    const e = n.entry !== undefined ? byId.get(n.entry) : undefined;
+    if (!e) return n;
+    const m: Notice = { ...n };
+    if (e.close !== undefined) {
+      m.tone = 'gold';
+      m.mark = '✚';
+      if (snap.people.some((p) => p.id === e.close)) m.about = { person: e.close };
+    }
+    const died = /^(.+?)(?:, who founded the town,)? has died /.exec(e.text);
+    const f = died ? fallen.find((q) => q.name === died[1]) : undefined;
+    if (f) m.action = { label: 'Obituary', kind: 'obit', fallen: f.id };
+    const rest = /lay (.+) to rest\.$|bury its dead: (.+)\.$/.exec(e.text);
+    const mourned = rest ? gone.find((g) => nameRe(g.name).test(rest[1] ?? rest[2])) : undefined;
+    if (mourned) m.action = { label: 'Watch', kind: 'funeral', fallen: mourned.id };
+    if (favNames.some((name) => nameRe(name).test(e.text))) {
+      m.title = `♥ ${m.title}`;
+      m.mark = '♥';
+    }
+    return m;
   });
 }
 
@@ -344,13 +403,19 @@ export function startNotices(bridge: NoticeBridge, strip: HTMLIFrameElement): { 
       case 'under':
         bridge.command?.({ type: 'watchUnder', on: true }); // (the Underdark's view: renderer/underdark/underdarkView.ts)
         break;
+      case 'obit':
+        if (snap) showObituary(snap, a.fallen!, strip); // (mobile/obituaryReveal.ts)
+        break;
+      case 'funeral':
+        (w as { __showOnMap?: (x: { funeral: number }) => boolean } | null)?.__showOnMap?.({ funeral: a.fallen! });
+        break;
     }
   };
 
   // the first hour's tips (mobile/tips.ts): each met once, shown at the top till read
   let met = loadMet();
   const tips = (): Notice[] => (tipsOn() ? tipsDue(met, (k) => read.has(k)).map(tipNotice) : []);
-  const all = (): Notice[] => (snap ? [...tips(), ...situationNotices(snap), ...journalNotices(entries, snap)] : []);
+  const all = (): Notice[] => (snap ? [...tips(), ...situationNotices(snap), ...stakeNotices(journalNotices(entries, snap), entries, snap)] : []);
   const unread = (ns: Notice[]) => ns.filter((n) => !read.has(n.key));
 
   // (the "While you were away" card closed, in the strip: everything from the absence is read; Journal lines fetched
