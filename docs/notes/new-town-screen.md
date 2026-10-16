@@ -55,3 +55,11 @@ tiles' round land symbols still use a still backdrop slice, `sceneSymbol`).
 - Sideways, the sheet's scene is 62% of the panel so the text and Choose button stay in view.
 - Checks: typecheck, full `npm test`, `npm run web`, `tools/sim-hash.mjs` before and after identical (renderer-only change), CSS
   braces balanced in panel.html. Founding a town from the page works (Deep Hold picked, found: "Chronos Hold").
+
+## Own styles, and a generic scene player
+
+The New Town tile and sheet styles are no longer in panel.html's shared block: `newTownStyles.ts` holds them (`NEW_TOWN_CSS`,
+added once as a `<style data-for="new-town">` by `addNewTownStyles`, called from `tileGrid` and `openSheet`), so a restyle of
+the shared look doesn't touch them. `scenePlayer.ts` also exports `playScene(container, script | name, dolls, scripts)`, which plays a
+`SceneScript` (or one named in a table the caller gives) into any container, for reuse by other screens (the event box, the
+raid recap); `animScene` is what it wraps. Scripts for other screens are just more `SceneScript` data.
