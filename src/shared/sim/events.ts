@@ -25,7 +25,8 @@ import { adjust } from './social';
 import { setFire } from './fire';
 import { minorWound } from './injuries';
 import { canQueue } from './research';
-import type { Rng } from '../rng';
+import { Rng, hashSeed } from '../rng';
+import { fateLanded, recordFate } from './fates';
 import { depositNear, storages } from './buildings';
 import { sicken } from './doom';
 import { killPerson } from './health';
@@ -42,6 +43,8 @@ import { isChild } from './social';
 import { topicName } from '../data/originResearch';
 import { alignAnswered, recommend } from './alignment';
 import { shiftDread } from './calamity';
+import { faithOf, godOf } from './faith';
+import { DOMAINS, FAVOUR_MOST } from '../data/gods';
 
 /** Game hours an event waits for an answer before the default is taken (in play; it waits while you're away). */
 export const EVENT_HOURS = 3;
@@ -63,10 +66,16 @@ export function maybeEvent(s: GameState, rng: Rng): void {
     if (l.tick > s.tick) continue;
     s.eventLater = s.eventLater!.filter((q) => q !== l);
     const out: string[] = [];
-    if (l.effects) apply(s, l.effects, rng, l.who, out);
-    else {
-      const e = EVENT_BY_ID[l.event]?.options[l.option]?.effects[l.index];
-      if (e && 'later' in e) apply(s, e.effects, rng, l.who, out);
+    heard = l.fate !== undefined ? [] : null;
+    try {
+      if (l.effects) apply(s, l.effects, l.fate !== undefined ? fateRng(s) : rng, l.who, out, l.fate);
+      else {
+        const e = EVENT_BY_ID[l.event]?.options[l.option]?.effects[l.index];
+        if (e && 'later' in e) apply(s, e.effects, l.fate !== undefined ? fateRng(s) : rng, l.who, out, l.fate);
+      }
+      if (l.fate !== undefined) fateLanded(s, l.fate, [...heard!, ...out]);
+    } finally {
+      heard = null;
     }
     tell(s, EVENT_BY_ID[l.event]?.title, out);
   }
@@ -113,6 +122,7 @@ export function startEvent(s: GameState, def: EventDef, rng: Rng): void {
     kind: 'event',
     expedition: null,
     title: `${def.fateful ? '⚡ ' : ''}${fill(s, def.title, who)}`,
+    ...(def.fateful ? { fateful: true } : {}),
     text: fill(s, def.text, who) + coinsLine(s, def),
     options: def.options.map((o) => fill(s, o.label, who) + costOf(s, o)),
     defaultOption: s.autopilot !== false ? rec.option : usual,
@@ -156,21 +166,36 @@ export function answerEvent(s: GameState, option: number, rng: Rng): void {
   const def = EVENT_BY_ID[ev.def];
   const o = def?.options[option];
   if (!o) return;
+  // (a fateful answer is resolved on a stream of its own, and written down: sim/fates.ts)
+  const fate = def.fateful ? s.tick : undefined;
+  const dice = fate !== undefined ? fateRng(s) : rng;
   o.effects.forEach((e, i) => {
-    if ('later' in e) (s.eventLater ??= []).push({ tick: s.tick + hours(e.later), event: def.id, option, index: i, who: ev.who });
+    if ('later' in e) (s.eventLater ??= []).push({ tick: s.tick + hours(e.later), event: def.id, option, index: i, who: ev.who, ...(fate !== undefined ? { fate } : {}) });
   });
   alignAnswered(s, def, option);
   const out: string[] = [];
-  apply(
-    s,
-    o.effects.filter((e) => !('later' in e)),
-    rng,
-    ev.who,
-    out,
-  );
+  heard = fate !== undefined ? [] : null;
+  try {
+    apply(
+      s,
+      o.effects.filter((e) => !('later' in e)),
+      dice,
+      ev.who,
+      out,
+      fate,
+    );
+    if (fate !== undefined) recordFate(s, def.id, fill(s, def.remember ?? def.title, undefined), fill(s, o.label, undefined), [...heard!, ...out]);
+  } finally {
+    heard = null;
+  }
   if (o.effects.some((e) => 'later' in e)) out.push('more to come');
   tell(s, def.title, out, o.label);
 }
+
+/** The stream a fateful choice is resolved on: its own, so the town's draws are left as they were. */
+const fateRng = (s: GameState) => new Rng(hashSeed(`${s.seed}:fates:${s.tick}`));
+/** Lines a fateful choice's notes and deaths say as it resolves, for the Chronicle (sim/fates.ts); null otherwise. */
+let heard: string[] | null = null;
 
 /** What came of an answer, said in one line under its title, so every choice is seen to do something. */
 function tell(s: GameState, title: string | undefined, out: string[], choice?: string): void {
@@ -218,11 +243,14 @@ function target(s: GameState, which: 'who' | 'random', whoId: number | undefined
   return pool.length ? rng.pick(pool) : undefined;
 }
 
-export function apply(s: GameState, effects: readonly EventEffect[], rng: Rng, whoId: number | undefined, out: string[] = []): void {
+export function apply(s: GameState, effects: readonly EventEffect[], rng: Rng, whoId: number | undefined, out: string[] = [], fate?: number): void {
   const who = s.people.find((p) => p.id === whoId);
   const say = (x: string) => out.push(x);
   for (const e of effects) {
-    if ('note' in e) notify(s, fill(s, e.note, who), true);
+    if ('note' in e) {
+      notify(s, fill(s, e.note, who), true);
+      heard?.push(fill(s, e.note, who));
+    }
     else if ('mood' in e) {
       (s.marks ??= []).push({ lever: 'morale', value: e.mood, until: s.tick + hours(e.hours), text: fill(s, e.text, who) });
       say(`morale ${signed(e.mood)} for ${span(e.hours)}`);
@@ -305,7 +333,10 @@ export function apply(s: GameState, effects: readonly EventEffect[], rng: Rng, w
       }
     } else if ('kill' in e) {
       const p = target(s, e.kill, whoId, rng);
-      if (p && rng.chance(e.chance ?? 1)) killPerson(s, p, fill(s, e.cause, who));
+      if (p && rng.chance(e.chance ?? 1)) {
+        killPerson(s, p, fill(s, e.cause, who));
+        heard?.push(`${p.name} died ${fill(s, e.cause, who)}`);
+      }
     } else if ('wound' in e) {
       const hurt = e.wound === 'all' ? grownUps(s) : [target(s, e.wound, whoId, rng, false)].filter((p): p is Person => !!p);
       for (const p of hurt) {
@@ -328,6 +359,20 @@ export function apply(s: GameState, effects: readonly EventEffect[], rng: Rng, w
         say(`the Calamity's dread ${signed(e.dread)}`);
       }
     }
+    else if ('adopt' in e) {
+      const p = newcomer(s, rng, e.adopt);
+      const founder = s.people.find((q) => q.id === s.mainId);
+      if (p) {
+        s.heirId = p.id;
+        if (founder) adjust(s, p.id, founder.id, 60);
+        notify(s, `${p.name} is named heir to ${founder?.name ?? 'the founder'}: the town's leadership will pass to them.`, true);
+        say(`${p.name} named heir`);
+      }
+    } else if ('favour' in e) {
+      const f = faithOf(s);
+      for (const d of e.favour === 'all' ? DOMAINS : [e.favour]) f.favour[d] = Math.max(-FAVOUR_MOST, Math.min(FAVOUR_MOST, f.favour[d] + e.by));
+      say(e.favour === 'all' ? `the gods' favour ${signed(e.by)}` : `${godOf(s, e.favour)[0]}'s favour ${signed(e.by)}`);
+    }
     else if ('research' in e) {
       const topic = s.research.queue[0];
       const t = topic ? TOPIC_BY_ID[topic] : undefined;
@@ -336,7 +381,7 @@ export function apply(s: GameState, effects: readonly EventEffect[], rng: Rng, w
         say(`study of ${topicName(t.id, s.origin)} ${e.research > 0 ? 'forward' : 'set back'}`);
       }
     } else if ('occult' in e) revealOccult(s, e.occult);
-    else if ('chance' in e) apply(s, rng.chance(e.chance) ? e.then : (e.else ?? []), rng, whoId, out);
+    else if ('chance' in e) apply(s, rng.chance(e.chance) ? e.then : (e.else ?? []), rng, whoId, out, fate);
     // the fateful events' (data/fatefulEvents.ts)
     else if ('burn' in e) {
       const can = s.buildings.filter((b) => b.status === 'done' && b.fire === undefined && b.def !== 'campfire' && !isSeat(b.def));
@@ -389,7 +434,7 @@ export function apply(s: GameState, effects: readonly EventEffect[], rng: Rng, w
       notify(s, `${ids.length === grownUps(s).length ? 'The whole town' : `${ids.length} of the town`} ${ids.length === 1 ? 'is' : 'are'} at it for the next ${e.busy} hours: ${e.text.toLowerCase()}.`, true);
     } else if ('follow' in e) s.eventNext = e.follow;
     // (a later met inside a chance: kept with its effects)
-    else if ('later' in e) (s.eventLater ??= []).push({ tick: s.tick + hours(e.later), event: '', option: 0, index: 0, who: whoId, effects: e.effects });
+    else if ('later' in e) (s.eventLater ??= []).push({ tick: s.tick + hours(e.later), event: '', option: 0, index: 0, who: whoId, effects: e.effects, ...(fate !== undefined ? { fate } : {}) });
   }
 }
 
@@ -417,10 +462,10 @@ export function take(s: GameState, what: 'food' | 'stores' | 'coins', share: num
 }
 
 /** Someone takes up the town's offer and joins (a bed is found if there's one). */
-function newcomer(s: GameState, rng: Rng, type?: string): void {
+function newcomer(s: GameState, rng: Rng, type?: string): Person | undefined {
   if (townFull(s)) {
     notify(s, 'Someone would have stayed, but the town is as big as you want it: they go on their way.');
-    return;
+    return undefined;
   }
   const p = makePerson(rng, s.nextId++, type ?? rng.weighted(ARRIVING_TYPES), campXY(s), s.people.map((q) => q.name), s.origin ?? 'settlers');
   s.people.push(p);
@@ -428,5 +473,6 @@ function newcomer(s: GameState, rng: Rng, type?: string): void {
   assignBeds(s);
   equipAll(s);
   notify(s, `${p.name} joined the town.`, true);
+  return p;
 }
 

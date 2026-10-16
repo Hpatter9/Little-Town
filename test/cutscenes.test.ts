@@ -22,13 +22,15 @@ test('every scene is well made: its speakers, actors, backdrops and words are al
   for (const id of Object.values(STAGE_SCENES)) assert.ok(CUTSCENES[id], id);
   for (const c of Object.values(CUTSCENES)) {
     const cast = new Set(Object.keys(c.cast));
+    // (the camera may look at a prop too; prop acts are checked in test/sceneProps.test.ts)
+    const props = new Set([...(c.props ?? []), ...c.shots.flatMap((s) => s.props ?? [])].map((p) => p.id));
     assert.ok(c.shots.length >= 4, `${c.id}: shots`);
     assert.ok(c.shots[0].look, `${c.id}: the first shot sets the scene`);
     for (const m of Object.values(c.cast)) if (m.role.startsWith('foe:') && !m.role.includes('{')) assert.ok(ENEMIES[m.role.slice(4)], `${c.id}: ${m.role}`);
     for (const s of c.shots) {
       if (s.look && s.look !== 'town') assert.ok(s.look in manifest, `${c.id}: ${s.look}`);
-      for (const cam of [s.cam, s.to]) for (const on of cam?.on === undefined ? [] : [cam.on].flat()) assert.ok(cast.has(on), `${c.id}: camera on ${on}`);
-      for (const a of s.acts ?? []) assert.ok(cast.has(a.who), `${c.id}: ${a.who} acts`);
+      for (const cam of [s.cam, s.to]) for (const on of cam?.on === undefined ? [] : [cam.on].flat()) assert.ok(cast.has(on) || props.has(on), `${c.id}: camera on ${on}`);
+      for (const a of s.acts ?? []) if ('who' in a) assert.ok(cast.has(a.who), `${c.id}: ${a.who} acts`);
       if (s.burst) assert.ok(cast.has(s.burst.on), `${c.id}: burst on ${s.burst.on}`);
       for (const l of s.lines ?? []) {
         assert.ok(l.who === 'narrator' || l.who === 'everyone' || cast.has(l.who), `${c.id}: ${l.who} speaks`);

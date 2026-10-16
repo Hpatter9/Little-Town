@@ -172,7 +172,28 @@ export function situationNotices(s: Snapshot): Notice[] {
   // (stat points waiting to be spent: the People menu's Character tab)
   const pts = s.people.filter((p) => p.freePts > 0);
   if (pts.length && s.statsAsk) out.push({ key: `pts:${pts.map((p) => `${p.id}:${p.freePts}`).join(',')}`, tone: 'gold', mark: '+', title: pts.length === 1 ? `${pts[0].name} has ${pts[0].freePts} stat ${pts[0].freePts === 1 ? 'point' : 'points'} to spend` : `${pts.length} townsfolk have stat points to spend`, text: 'Strength, Dexterity, Vitality, Intellect, Wisdom or Charisma: on their Character tab. Left two days, they spend them their own way.', action: { label: 'People', kind: 'panel', panel: 'townsfolk' } });
+  out.push(...hintNotices(s));
   return out;
+}
+
+// ---- what the town senses coming (sim/foreshadow.ts; the anticipation): blue, marked ⏳, no numbers
+const HINT_AFTER: Record<string, string> = {
+  raid: 'Perhaps nothing. Perhaps not.',
+  party: 'Their beds are made up.',
+  birth: 'Nobody has said anything outright.',
+  wedding: 'The town has its hopes.',
+  trial: 'The town will have to decide.',
+  dweller: 'Nobody goes near the shaft after dark.',
+  envoy: 'What they want, nobody knows yet.',
+  season: 'The town feels it turning.',
+  festival: 'The town is making ready.',
+  sickness: 'The healers are watching.',
+  stores: 'The cooks are counting.',
+  caravan: 'Merchants, if the dust tells true.',
+};
+/** The hints as notices, keyed so each counts as new once. */
+export function hintNotices(s: Snapshot): Notice[] {
+  return (s.foreshadow ?? []).map((h) => ({ key: `hint:${h.key}`, tone: 'blue' as const, mark: '⏳', title: h.text, text: HINT_AFTER[h.kind] ?? '' }));
 }
 
 /** A tip as a notice (gold, with a way to where it lives). */

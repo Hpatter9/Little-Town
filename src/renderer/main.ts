@@ -554,6 +554,7 @@ async function start(): Promise<void> {
   // a cutscene (cutscene/cutsceneView.ts): over everything, offered first, then played full screen
   const cutscene = new CutsceneScene((c) => bridge.command(c), document.body);
   app.stage.addChild(cutscene.root);
+  Object.assign(window, { __scenePerf: () => cutscene.perf(), __sceneSeek: (shot: number, beat?: number, sec?: number) => cutscene.seek(shot, beat, sec) });
   const fightHud = createFightHud({
     back: () => {
       bridge.command({ type: 'watch', expedition: null });
@@ -1597,6 +1598,7 @@ async function start(): Promise<void> {
 
   // Each notice is shown once; ones from before this page loaded are skipped.
   let lastNotice = first.notices.at(-1)?.id ?? 0;
+  let homecomingSeen = first.homecoming?.tick ?? -1;
   const heldToasts: string[] = [];
   const HELD_TOASTS = 3;
   const showNotices = (next: Snapshot) => {
@@ -1724,6 +1726,11 @@ async function start(): Promise<void> {
     // (what rose and what was finished since the last snapshot: map/workSeen.ts)
     const gained = map.root.visible && !view.hidden ? gainsBetween(snap, next) : [];
     const finished = map.root.visible && !view.hidden ? finishedBetween(snap, next) : [];
+    // (a party the player sent, or watched, has come home through the gate: the camera goes to meet them, once)
+    if (next.homecoming && next.homecoming.tick !== homecomingSeen && next.catchingUp == null && !next.watch) {
+      homecomingSeen = next.homecoming.tick;
+      camera.centreOn({ x: next.homecoming.x, y: next.homecoming.y }, app.screen.width, app.screen.height);
+    }
     snap = next;
     hud.update(next);
     music.update(view.music && !view.hidden, musicMood(next), festivalSong(next));

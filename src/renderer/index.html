@@ -1136,6 +1136,19 @@
       #away-card li.ask {
         border-color: #e0b040;
       }
+      /* the open threads it ends on (sim/foreshadow.ts) */
+      #away-card li.next {
+        border-left-style: dashed;
+        border-color: #a890d0;
+        font-style: italic;
+      }
+      #away-card li.next::before {
+        content: '⏳ ';
+        font-style: normal;
+      }
+      #away-card li:not(.next) + li.next {
+        margin-top: 10px;
+      }
       #away-card button {
         display: block;
         width: 100%;

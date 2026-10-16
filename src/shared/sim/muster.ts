@@ -36,8 +36,9 @@ import { giveCoins } from './economy';
 import { destinationOf, destinationUnlocked, partyCarry, planParty, rolesFor, sendExpedition, STAKES, type SendCheck, type Stakes } from './expeditions';
 import { dangerOf, fitToGo, mostFor, partRole, recruit, strengthOf } from './parties';
 import { seaTown } from './sea';
+import { stakeCard, type StakeCard } from './stakes';
 import { isChild, opinion } from './social';
-import { addStock, earn, maxHp, notify, poolSize, setOutcome, type Expedition, type GameState, type Muster, type Person, type Prompt } from './state';
+import { addStock, earn, maxHp, notify, poolSize, setOutcome, type Debrief, type Expedition, type GameState, type Muster, type Person, type Prompt } from './state';
 import { calendar, TICKS_PER_DAY, TICKS_PER_HOUR } from './time';
 import { weatherAt } from './weather';
 import { BUILDING_BY_ID } from '../data/buildings';
@@ -434,28 +435,43 @@ export function debrief(s: GameState, e: Expedition, d: Destination): void {
   lines.push(`${leaderName}'s party is home from ${the(d.name)} after ${days < 1 ? 'less than a day' : days < 1.5 ? 'a day' : `${Math.round(days)} days`}${e.recalled ? ', called back' : ''}.`);
   lines.push(e.crashed ? 'Their airship came down; what they found was lost with her.' : e.wrecked ? 'Their boat went down; what they found went with her.' : took ? `They bring home ${took}.` : 'They come home empty-handed.');
   if (e.cleared) lines.push(`${The(d.name)} is cleared.`);
+  const back: Debrief['back'] = [];
+  const lost: Debrief['lost'] = [];
   for (const id of ids) {
     const p = byId(s, id);
     const name = e.start.names[id];
     if (!p) {
       lines.push(`${name} did not come back.`);
+      lost.push({ name, level: e.start.level[id] ?? 1 });
       continue;
     }
     const up = levelOf(p) - (e.start.level[id] ?? levelOf(p));
     const hurt = (p.wounds?.length ?? 0) - (e.start.wounds[id] ?? 0);
     const bits = [up > 0 ? `rose to level ${levelOf(p)}` : '', hurt > 0 ? `came home with ${hurt === 1 ? 'a wound' : `${hurt} wounds`}` : '', p.downed ? 'was carried in' : ''].filter(Boolean);
     if (bits.length) lines.push(`${name} ${bits.join(', and ')}.`);
+    back.push({ id, name, note: bits.join(', ') });
   }
   if (e.rations === 'plenty') lines.push('Well fed all the way, they come home in good heart.');
   if (e.rations === 'lean') lines.push('The packs ran thin by the end.');
   const leader = byId(s, e.leader ?? ids[0]);
+  const lostWord = !lost.length ? '' : back.length ? `${back.length} of ${ids.length} came home` : 'None came home';
   const prompt: Prompt = {
     id: s.nextId++,
     kind: 'debrief',
     expedition: null,
-    title: `Home from ${the(d.name)}`,
+    title: lostWord ? `${The(d.name)}: ${lostWord}` : `Home from ${the(d.name)}`,
     text: lines[0],
     story: lines.join(' '),
+    debrief: {
+      place: d.name,
+      days: Math.floor(days),
+      ...(e.recalled ? { recalled: true } : {}),
+      ...(e.cleared ? { cleared: true } : {}),
+      back,
+      lost,
+      haul: e.crashed || e.wrecked ? [] : (Object.entries(e.loot) as [Material, number][]).filter(([, n]) => n > 0).map(([m, n]) => `${n} ${MATERIAL_NAMES[m]?.toLowerCase() ?? m}`),
+      ending: e.crashed ? 'Their airship came down; what they found was lost with her.' : e.wrecked ? 'Their boat went down; what they found went with her.' : null,
+    },
     picture: eventPicture(`debrief:${d.id}`, 'town home square welcome', { hour: calendar(s.tick).hour, season: calendar(s.tick).season, weather: weatherAt(s.seed, s.tick, null).kind, biome: s.biome ?? 'forest', era: s.era, sea: seaTown(s) }),
     ...(leader ? { who: leader.id } : {}),
     options: ['Welcome them home'],
@@ -492,6 +508,8 @@ export interface MusterView {
   type: string;
   leader: number;
   odds: string;
+  /** The stake card: the odds in words, what they seek, what the town risks, how long (sim/stakes.ts). */
+  stake: StakeCard;
   members: MusterPerson[];
   others: MusterPerson[];
   most: number;
@@ -524,6 +542,7 @@ export function musterView(s: GameState, calling: (p: Person) => string | null):
     type: d.type,
     leader: m.leader,
     odds: oddsLine(s, m),
+    stake: stakeCard(s, m, d),
     members,
     others,
     most: mostFor(s, d),

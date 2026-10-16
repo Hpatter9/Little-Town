@@ -51,6 +51,8 @@ export function topLines(s: Snapshot): { urgent: string | null; turn: string[] }
               ? `Lift-off in ${Math.ceil(s.launchHours)}h`
               : null;
   const turn: string[] = [];
+  // what the town senses coming (sim/foreshadow.ts): ahead of the news, behind anything urgent
+  for (const h of s.foreshadow ?? []) turn.push(`⏳ ${h.text}`);
   if (s.news) turn.push(s.news.text);
   const study = researchFill(s.research);
   if (study) turn.push(study.title.replace(/^Researching /, 'Studying '));
@@ -77,6 +79,12 @@ export function createTopBar(top: HTMLElement, bridge: Bridge): TopBar {
   const title = top.querySelector<HTMLElement>('#top-title') ?? el('span', '', '');
   const menuBtn = top.querySelector<HTMLElement>('#menu-btn');
   title.classList.add('top-name');
+  const nameEl = el('span', 'top-town');
+  const rankEl = el('span', 'top-rank');
+  Object.assign(title.style, { display: 'flex', minWidth: '0' });
+  Object.assign(nameEl.style, { minWidth: '0', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'pre' });
+  Object.assign(rankEl.style, { flex: 'none', whiteSpace: 'pre', opacity: '0.8', fontSize: '0.8em', alignSelf: 'baseline' });
+  title.replaceChildren(nameEl, rankEl);
   const mark = el('span', 'top-mark');
   tipFor(mark, 'people');
   const main = el('div', 'top-main');
@@ -132,13 +140,15 @@ export function createTopBar(top: HTMLElement, bridge: Bridge): TopBar {
     update(s) {
       snap = s;
       const look = lookOf(s.theme);
-      const name = s.townTitle ? `${s.townName} ${s.townTitle}` : s.townName;
-      if (title.textContent !== name) title.textContent = name;
+      // ("Willowmere, a Market Town": sim/tiers.ts; a long name is cut, the rank after it is not)
+      const rank = `, ${s.rank.phrase}`;
+      if (nameEl.textContent !== s.townName) nameEl.textContent = s.townName;
+      if (rankEl.textContent !== rank) rankEl.textContent = rank;
       if (markKey !== s.theme) {
         markKey = s.theme;
         mark.textContent = look.mark;
       }
-      mark.dataset.tip = `${s.townName}|${s.housing.people} living here, ${s.housing.beds} beds.${s.align?.label ? ` The town is ${s.align.label.toLowerCase()}.` : ''}`;
+      mark.dataset.tip = `${s.townName}${s.townTitle ? ` ${s.townTitle}` : ''}|${s.housing.people} living here, ${s.housing.beds} beds.${s.align?.label ? ` The town is ${s.align.label.toLowerCase()}.` : ''}`;
       const c = s.calendar;
       const season = c.season[0].toUpperCase() + c.season.slice(1);
       const dayText = `Day ${c.day} · ${season}${c.year > 1 ? ` Y${c.year}` : ''}`;
