@@ -31,6 +31,9 @@ cpSync('src/renderer/art/himeko', 'out/renderer/himeko', { recursive: true });
 // and the raid map's scenery atlases (tools/compose-props.cjs)
 cpSync('src/renderer/art/props', 'out/renderer/props', { recursive: true });
 cpSync('src/renderer/art/scenery', 'out/renderer/scenery', { recursive: true });
+// the event cards' props and sets (tools/compose-event-props.cjs)
+cpSync('src/renderer/art/eventprops', 'out/renderer/eventprops', { recursive: true });
+cpSync('src/renderer/art/scene', 'out/renderer/scene', { recursive: true }); // (the cutscenes' props the event cards share)
 mkdirSync('out/renderer/fx', { recursive: true });
 copyFileSync('src/renderer/art/effects/pixelfx.png', 'out/renderer/fx/pixelfx.png'); // (the fights' pixel effects atlas: tools/compose-pixelfx.cjs) // (the town's trees, bushes and rocks: tools/compose-scenery.cjs)
 copyFileSync('src/renderer/art/lpc/lpcFaces.json', 'out/renderer/lpcFaces.json'); // (the townsfolk's up- and down-facing walk rows: tools/import-lpc-faces.mjs)

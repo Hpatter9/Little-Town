@@ -432,3 +432,16 @@ the goat is **whtdragon**'s RPG Maker MV white goat (`animals/goats.png`, walkin
 its terms). Already in the game and shared: the burning warren (`nests/warren.png`), the bones (`deep/skeleton.png`),
 the skulls (`nests/skulls.png`), the chest and gold (`clutter/`), the birds (`birds.png`), and the flames and smoke over
 whatever burns (the **5000 Pixel Effects** flame and the pvfx smoke; see Effects).
+
+## The event cards' scenes
+
+The props and sets of the event box's scenes (`src/renderer/art/eventprops/`, cut by `tools/compose-event-props.cjs`) are
+from **Craftpix.net**'s free Medieval Field Work 2D tileset (the banners, tub, bench, fence, haystack, crops, plough,
+notice board, sign, small trestle table, crate, tree, market stall, handmill, door, well, window and tools; the house front, the gate and the hall's and cottage's walls, windows, columns and floor put together
+from its building pieces), under Craftpix's free licence (use in the game; the raw files are not redistributed):
+https://craftpix.net/file-licenses/. The bed, sickbed, cot, coffin, candles, cross, tables, chair, throne and shelf
+are cells of **DawnLike**'s `Objects/Decor0.png`, the bowl of `Items/Food.png`, and the cow, goat, sheep, horse and boar
+of `Characters/Quadraped0.png`: **DragonDePlatino**, on **DawnBringer**'s palette, **CC-BY 4.0**. Shared with the
+cutscenes (`src/renderer/art/scene/`, see the cutscenes' props): the barrel, cart, wagon, picnic table, rock, hay,
+bucket, gravestone, bread, apple and lantern. The fire is the game's own flame (`src/renderer/art/effects/flame.png`,
+see Effects).

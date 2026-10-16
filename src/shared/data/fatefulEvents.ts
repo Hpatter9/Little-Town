@@ -22,7 +22,7 @@ const fate = (def: Omit<EventDef, 'fateful' | 'weight'> & { when?: (s: GameState
 
 export const FATEFUL_EVENTS: readonly EventDef[] = [ // (twenty-five, and the five of the stakes' update below)
   fate({
-    id: 'great_fire', title: 'Fire in the night', text: 'A spark from a hearth takes a roof, and the wind is up. By the time the alarm is raised, the roof is gone and the next is smoking.',
+    id: 'great_fire', scene: 'fire', title: 'Fire in the night', text: 'A spark from a hearth takes a roof, and the wind is up. By the time the alarm is raised, the roof is gone and the next is smoking.',
     when: (s) => s.buildings.filter((b) => b.status === 'done').length >= 6,
     options: [
       // (the fireline: the whole town at it for a day, and little lost)
@@ -43,7 +43,7 @@ export const FATEFUL_EVENTS: readonly EventDef[] = [ // (twenty-five, and the fi
   }),
   // (never by chance: only when a fire left to burn reaches the town)
   fate({
-    id: 'fire_spreads', title: 'The fire reaches the town', text: 'The fire left to burn has jumped the lane on the wind. Sparks are coming down on the thatch all along the street.',
+    id: 'fire_spreads', scene: 'fire', title: 'The fire reaches the town', text: 'The fire left to burn has jumped the lane on the wind. Sparks are coming down on the thatch all along the street.',
     when: () => false,
     options: [
       dflt('A bucket line from the well', { burn: 2 }, { wound: 'all', hp: 12 }, { kill: 'random', chance: 0.35, cause: 'in the smoke of the bucket line' }, busy(12, 1, 'Fighting the fire', 'build', 'camp')),
@@ -52,7 +52,7 @@ export const FATEFUL_EVENTS: readonly EventDef[] = [ // (twenty-five, and the fi
     ],
   }),
   fate({
-    id: 'black_fever', title: 'The black fever', text: 'A trader came through with a cough. Now a third of the town is abed, and the healer has no name for it.',
+    id: 'black_fever', scene: 'plague', title: 'The black fever', text: 'A trader came through with a cough. Now a third of the town is abed, and the healer has no name for it.',
     when: (s) => people(s, 6),
     options: [
       opt('Shut the gates and quarantine the sick', { sickShare: 0.25 }, mod('work', 0.65, 96, 'Half the town nursing the other half'), { calm: 96 }, note('No one comes or goes for four days.')),
@@ -61,7 +61,7 @@ export const FATEFUL_EVENTS: readonly EventDef[] = [ // (twenty-five, and the fi
     ],
   }),
   fate({
-    id: 'royal_patron', title: 'A royal patron', text: 'A lord of the old blood stops in the town, is well served, and takes a liking to the place. He offers his patronage: his coin and his name.',
+    id: 'royal_patron', scene: 'envoy', title: 'A royal patron', text: 'A lord of the old blood stops in the town, is well served, and takes a liking to the place. He offers his patronage: his coin and his name.',
     when: (s) => s.buildings.some((b) => !!b.shop) && people(s, 8),
     options: [
       dflt('Accept his patronage', { coins: 300 }, { renown: 40 }, mod('prices', 1.3, 240, "A lord's name over the door"), { reputation: 4 }, later(72, { raid: 6 }, note("The lord's enemies have heard the town is his now."))),
@@ -69,7 +69,7 @@ export const FATEFUL_EVENTS: readonly EventDef[] = [ // (twenty-five, and the fi
     ],
   }),
   fate({
-    id: 'river_gold', title: 'Gold in the river', text: 'A child comes running from the ford with a fist of yellow pebbles. There is gold in the gravel, and everyone has seen it.',
+    id: 'river_gold', scene: 'wilds', title: 'Gold in the river', text: 'A child comes running from the ford with a fist of yellow pebbles. There is gold in the gravel, and everyone has seen it.',
     options: [
       dflt('Pan it, all hands', gain({ gold: 24 }), mod('work', 0.7, 72, 'Everyone is at the river'), later(48, { raid: 12 }, note('Word of the gold has got out: raiders are on the road.'))),
       opt('Pan it quietly, a few at a time', gain({ gold: 12 }), note('The gold comes in slowly, and nobody is the wiser.')),
@@ -77,7 +77,7 @@ export const FATEFUL_EVENTS: readonly EventDef[] = [ // (twenty-five, and the fi
     ],
   }),
   fate({
-    id: 'prophet', title: 'The prophet', text: 'A ragged preacher has been at the well for three days, and a third of the town now hangs on every word. Tonight he says they must follow him into the wilderness.',
+    id: 'prophet', scene: 'cult', title: 'The prophet', text: 'A ragged preacher has been at the well for three days, and a third of the town now hangs on every word. Tonight he says they must follow him into the wilderness.',
     when: (s) => people(s, 9),
     options: [
       dflt('Let them go who will', { exodus: 0.33 }, mood(-6, 96, 'Friends gone into the wilderness')),
@@ -86,7 +86,7 @@ export const FATEFUL_EVENTS: readonly EventDef[] = [ // (twenty-five, and the fi
     ],
   }),
   fate({
-    id: 'blight_famine', title: 'The great blight', text: 'The crops are black in the field overnight, every one. There will be no harvest this season, and the stores will not last.',
+    id: 'blight_famine', scene: 'famine', title: 'The great blight', text: 'The crops are black in the field overnight, every one. There will be no harvest this season, and the stores will not last.',
     when: (s) => has(s, 'garden_plot', 'open_field', 'estate_farm', 'vegetable_patch'),
     options: [
       dflt('Tighten belts and ride it out', take('food', 0.6), mod('crops', 0.4, 240, 'The blighted fields'), mood(-6, 120, 'The hungry season')),
@@ -95,7 +95,7 @@ export const FATEFUL_EVENTS: readonly EventDef[] = [ // (twenty-five, and the fi
     ],
   }),
   fate({
-    id: 'lost_library', title: 'The lost library', text: 'Diggers for a new cellar break into a vault of old stone. Shelves of scrolls, dry as the day they were sealed.',
+    id: 'lost_library', scene: 'study', title: 'The lost library', text: 'Diggers for a new cellar break into a vault of old stone. Shelves of scrolls, dry as the day they were sealed.',
     when: (s) => people(s, 5),
     options: [
       dflt('Set the scholars to reading', { learn: 2 }, mood(4, 72, 'The lost library')),
@@ -104,7 +104,7 @@ export const FATEFUL_EVENTS: readonly EventDef[] = [ // (twenty-five, and the fi
     ],
   }),
   fate({
-    id: 'lost_legion', title: 'The lost legion', text: 'Soldiers of a fallen lord, a dozen of them, come to the gate with their spears and their wounds. They ask for bread and a place.',
+    id: 'lost_legion', scene: 'refugees', title: 'The lost legion', text: 'Soldiers of a fallen lord, a dozen of them, come to the gate with their spears and their wounds. They ask for bread and a place.',
     when: (s) => people(s, 6),
     options: [
       opt('Take them all in', { join: 6, type: 'hunter' }, mod('work', 0.9, 48, 'More mouths than bread'), later(48, { raid: 12 }, note('Whoever beat their lord has come looking for the rest.'))),
@@ -113,7 +113,7 @@ export const FATEFUL_EVENTS: readonly EventDef[] = [ // (twenty-five, and the fi
     ],
   }),
   fate({
-    id: 'earthquake', title: 'The ground shakes', text: 'The earth heaves in the small hours. Walls crack, roofs fall, and the well runs muddy.',
+    id: 'earthquake', scene: 'quake', title: 'The ground shakes', text: 'The earth heaves in the small hours. Walls crack, roofs fall, and the well runs muddy.',
     when: (s) => s.buildings.filter((b) => b.status === 'done').length >= 5,
     options: [
       dflt('Dig out whoever is trapped', { ruin: 2 }, { wound: 'all', hp: 10 }, mood(-5, 72, 'The night the ground shook')),
@@ -121,7 +121,7 @@ export const FATEFUL_EVENTS: readonly EventDef[] = [ // (twenty-five, and the fi
     ],
   }),
   fate({
-    id: 'f_comet', title: 'A comet', text: 'A new star hangs over the town for three nights, its tail across half the sky. The old folk say it means a change of fortune. Which way, they will not say.',
+    id: 'f_comet', scene: 'omen', title: 'A comet', text: 'A new star hangs over the town for three nights, its tail across half the sky. The old folk say it means a change of fortune. Which way, they will not say.',
     options: [
       dflt('A sign of better days', mood(10, 240, 'The comet'), { research: 900 }),
       opt('A warning: double the watch', mod('guard', 1.4, 240, 'The watch doubled under the comet'), { raid: 36 }, note('Something is coming, and the town will be ready.')),
@@ -129,7 +129,7 @@ export const FATEFUL_EVENTS: readonly EventDef[] = [ // (twenty-five, and the fi
     ],
   }),
   fate({
-    id: 'bandit_king', title: "The bandit king's tribute", text: 'A rider under a black flag reads a demand at the gate: half the town\'s coin by sundown, or the bandit king comes himself.',
+    id: 'bandit_king', scene: 'envoy', title: "The bandit king's tribute", text: 'A rider under a black flag reads a demand at the gate: half the town\'s coin by sundown, or the bandit king comes himself.',
     when: (s) => coins(s, 60),
     options: [
       opt('Pay the tribute', take('coins', 0.5), { calm: 240 }, mood(-3, 48, 'We paid the bandit king')),
@@ -137,14 +137,14 @@ export const FATEFUL_EVENTS: readonly EventDef[] = [ // (twenty-five, and the fi
     ],
   }),
   fate({
-    id: 'bountiful_years', title: 'The fat years', text: 'The rains come right, the frosts come late, and every seed sown comes up double. The old folk have never seen the like.',
+    id: 'bountiful_years', scene: 'harvest', title: 'The fat years', text: 'The rains come right, the frosts come late, and every seed sown comes up double. The old folk have never seen the like.',
     options: [
       dflt('Store it all against the lean years', mod('crops', 1.6, 360, 'The fat years'), mood(6, 240, 'Full barns')),
       opt('Sell the surplus while prices hold', mod('crops', 1.6, 360, 'The fat years'), { coins: 150 }, { renown: 10 }),
     ],
   }),
   fate({
-    id: 'barrow_curse', title: 'The curse of the barrow', text: 'Since the hunters broke open the old mound for its stones, the milk sours, the tools break, and three have taken to their beds.',
+    id: 'barrow_curse', scene: 'ghost', title: 'The curse of the barrow', text: 'Since the hunters broke open the old mound for its stones, the milk sours, the tools break, and three have taken to their beds.',
     when: (s) => people(s, 6),
     options: [
       dflt('Put the stones back and seal the mound', mod('work', 0.75, 120, 'The curse of the barrow'), { sick: 2 }, note('The curse fades over the days that follow.')),
@@ -154,14 +154,14 @@ export const FATEFUL_EVENTS: readonly EventDef[] = [ // (twenty-five, and the fi
     who: true,
   }),
   fate({
-    id: 'founders_vision', title: "The founder's vision", text: 'For three nights the founder has not slept, and on the fourth they come down with a light in their eyes and a plan the town has never heard the like of.',
+    id: 'founders_vision', scene: 'omen', title: "The founder's vision", text: 'For three nights the founder has not slept, and on the fourth they come down with a light in their eyes and a plan the town has never heard the like of.',
     options: [
       dflt('Follow the vision', { learn: 1 }, mood(6, 120, "The founder's vision"), mod('build', 1.3, 240, 'Building the vision')),
       opt('Talk them down: it is only tiredness', mood(-2, 48, 'A vision set aside'), { wound: 'who', hp: 5 }),
     ],
   }),
   fate({
-    id: 'dragon_hoard', title: 'The hoard', text: 'A dying traveller presses a map into the keeper\'s hand: a cave in the hills, and in it the hoard of something that sleeps.',
+    id: 'dragon_hoard', scene: 'dragon', title: 'The hoard', text: 'A dying traveller presses a map into the keeper\'s hand: a cave in the hills, and in it the hoard of something that sleeps.',
     when: (s) => people(s, 6),
     options: [
       opt('Send the boldest for it', chance(0.45, [{ coins: 500 }, gain({ gold: 20, gems: 6 }), { renown: 30 }, note('They come back laden, and will not say what they saw.')], [{ kill: 'random', cause: 'in the hoard cave' }, { kill: 'random', chance: 0.6, cause: 'in the hoard cave' }, note('Two went in. One came back, and the hoard stays where it is.')])),
@@ -169,7 +169,7 @@ export const FATEFUL_EVENTS: readonly EventDef[] = [ // (twenty-five, and the fi
     ],
   }),
   fate({
-    id: 'f_rats', title: 'Rats', text: 'The stores are alive with them: a plague of rats that has eaten through the sacks and fouled the rest.',
+    id: 'f_rats', scene: 'famine', title: 'Rats', text: 'The stores are alive with them: a plague of rats that has eaten through the sacks and fouled the rest.',
     when: (s) => has(s, 'stockpile', 'granary', 'warehouse'),
     options: [
       dflt('Clear the stores and start again', take('stores', 0.5), mood(-3, 48, 'The rats')),
@@ -177,7 +177,7 @@ export const FATEFUL_EVENTS: readonly EventDef[] = [ // (twenty-five, and the fi
     ],
   }),
   fate({
-    id: 'merchant_princes', title: 'The merchant princes', text: 'A fleet of wagons under silk banners draws up outside the town: the merchant princes of the far cities, come to see if the place is worth their trade.',
+    id: 'merchant_princes', scene: 'caravan', title: 'The merchant princes', text: 'A fleet of wagons under silk banners draws up outside the town: the merchant princes of the far cities, come to see if the place is worth their trade.',
     when: (s) => s.buildings.some((b) => !!b.shop),
     options: [
       dflt('Feast them', take('food', 0.3), { renown: 50 }, { coins: 150 }, mod('travellers', 1.5, 240, 'The merchant princes came')),
@@ -185,7 +185,7 @@ export const FATEFUL_EVENTS: readonly EventDef[] = [ // (twenty-five, and the fi
     ],
   }),
   fate({
-    id: 'secession', title: 'The town divides', text: 'Half the town has had enough of the other half. They mean to found a place of their own across the river, and take their tools with them.',
+    id: 'secession', scene: 'council', title: 'The town divides', text: 'Half the town has had enough of the other half. They mean to found a place of their own across the river, and take their tools with them.',
     when: (s) => people(s, 10),
     options: [
       dflt('Let them go in peace', { exodus: 0.4 }, take('stores', 0.3), mood(-4, 96, 'The town divided')),
@@ -194,25 +194,25 @@ export const FATEFUL_EVENTS: readonly EventDef[] = [ // (twenty-five, and the fi
     ],
   }),
   fate({
-    id: 'miracle', title: 'A miracle at the well', text: 'The sick child who was given up for dead rises and walks. By evening the lame are at the well too, and some of them walk home.',
+    id: 'miracle', scene: 'miracle', title: 'A miracle at the well', text: 'The sick child who was given up for dead rises and walks. By evening the lame are at the well too, and some of them walk home.',
     options: [
       dflt('Give thanks', { heal: 1 }, mood(12, 240, 'The miracle at the well'), { renown: 20 }),
       opt('Keep it quiet, before the pilgrims come', { heal: 1 }, mood(6, 120, 'The miracle at the well')),
     ],
   }),
   fate({
-    id: 'long_winter', title: 'The long winter', text: 'The snow that should have gone in a week is still on the ground a month on, and the seed in the furrows is dead.',
+    id: 'long_winter', scene: 'famine', title: 'The long winter', text: 'The snow that should have gone in a week is still on the ground a month on, and the seed in the furrows is dead.',
     options: [
       dflt('Ration everything', take('food', 0.5), mod('crops', 0.3, 240, 'The long winter'), mood(-6, 240, 'The long winter')),
       opt('Hunt the deep woods, whatever the risk', take('food', 0.3), mod('forage', 1.5, 240, 'Hunting the deep woods'), { kill: 'random', chance: 0.4, cause: 'in the deep woods, in the long winter' }, mod('crops', 0.3, 240, 'The long winter')),
     ],
   }),
   fate({
-    id: 'hearth_treasure', title: 'Under the hearth', text: 'Relaying the hearthstone, a mason finds a box: coin of an old mint, and stones that catch the light.',
+    id: 'hearth_treasure', scene: 'home', title: 'Under the hearth', text: 'Relaying the hearthstone, a mason finds a box: coin of an old mint, and stones that catch the light.',
     options: [dflt('Into the town\'s chest', { coins: 250 }, gain({ gems: 5 })), opt('Share it out among everyone', mood(10, 240, 'A share of the hearth treasure'), { coins: 60 })],
   }),
   fate({
-    id: 'war_comes', title: 'War comes', text: 'A host is on the march across the valley, burning as it goes. Scouts say it will be at the gate within the day, and again, and again.',
+    id: 'war_comes', scene: 'battle', title: 'War comes', text: 'A host is on the march across the valley, burning as it goes. Scouts say it will be at the gate within the day, and again, and again.',
     when: (s) => people(s, 8) && eraAt(s, 'neolithic'),
     options: [
       dflt('Stand and fight', { raid: 3 }, later(24, { raid: 2 }), later(60, { raid: 2 }), mood(3, 72, 'We stand')),
@@ -220,19 +220,19 @@ export const FATEFUL_EVENTS: readonly EventDef[] = [ // (twenty-five, and the fi
     ],
   }),
   fate({
-    id: 'alchemists_gift', title: "The wanderer's gift", text: 'A traveller in a stained coat leaves a sealed jar in payment for a night\'s lodging. In it: a powder that turns iron bright, and a recipe.',
+    id: 'alchemists_gift', scene: 'magic', title: "The wanderer's gift", text: 'A traveller in a stained coat leaves a sealed jar in payment for a night\'s lodging. In it: a powder that turns iron bright, and a recipe.',
     when: (s) => eraAt(s, 'medieval'),
     options: [dflt('Try the recipe', { learn: 1 }, chance(0.3, [{ burn: 1 }, note('The first batch goes up in flames.')])), opt('Sell the jar', { coins: 120 })],
   }),
   fate({
-    id: 'wolf_winter', title: 'The wolves come down', text: 'The deep cold has driven the wolves out of the mountains, and they are in the streets at night. Three dogs are gone, and a child nearly.',
+    id: 'wolf_winter', scene: 'beast', title: 'The wolves come down', text: 'The deep cold has driven the wolves out of the mountains, and they are in the streets at night. Three dogs are gone, and a child nearly.',
     options: [
       dflt('Hunt them to the last', { raid: 2 }, mod('guard', 1.3, 120, 'Wolf watch'), gain({ hide: 10, meat: 12 })),
       opt('Bar the doors and wait for the thaw', mod('work', 0.7, 120, 'Wolves in the streets'), { kill: 'random', chance: 0.3, cause: 'to the wolves, in the night' }),
     ],
   }),
   fate({
-    id: 'golden_age', title: 'A golden age', text: 'Everything goes right at once: the fields, the forge, the markets. Travellers speak of the town in the far cities, and the young folk walk tall.',
+    id: 'golden_age', scene: 'festival', title: 'A golden age', text: 'Everything goes right at once: the fields, the forge, the markets. Travellers speak of the town in the far cities, and the young folk walk tall.',
     when: (s) => people(s, 12),
     options: [
       dflt('Make the most of it', mod('work', 1.3, 360, 'A golden age'), mod('travellers', 1.5, 360, 'A golden age'), mood(10, 360, 'A golden age'), { renown: 40 }),
@@ -242,7 +242,7 @@ export const FATEFUL_EVENTS: readonly EventDef[] = [ // (twenty-five, and the fi
 
   // ---- the stakes' update: choices that stay (each lands a consequence later, which the Chronicle writes beside it)
   fate({
-    id: 'stranger_at_the_gate', title: 'A stranger at the gate', remember: 'the night you let the stranger in',
+    id: 'stranger_at_the_gate', scene: 'gate', title: 'A stranger at the gate', remember: 'the night you let the stranger in',
     text: 'Rain at midnight, and a knocking at the gate that will not stop. A stranger in a good cloak gone to ruin stands there with a wound badly bound and a signet ring they keep turning. They say their house is fallen and they want only a roof. They say a good many things.',
     when: (s) => people(s, 5) && s.heirId === undefined,
     options: [
@@ -255,7 +255,7 @@ export const FATEFUL_EVENTS: readonly EventDef[] = [ // (twenty-five, and the fi
     ],
   }),
   fate({
-    id: 'hollow_tithe', title: 'The tithe of the hollow', remember: 'the bargain you struck at the hollow', who: true,
+    id: 'hollow_tithe', scene: 'cult', title: 'The tithe of the hollow', remember: 'the bargain you struck at the hollow', who: true,
     text: 'In the hollow beyond the fields something old keeps its own counsel. Tonight it has spoken to {who}, and what it offers is plain: good years, for as long as the town keeps faith. Its price it will name only at the end.',
     when: (s) => people(s, 6),
     options: [
@@ -268,7 +268,7 @@ export const FATEFUL_EVENTS: readonly EventDef[] = [ // (twenty-five, and the fi
     ],
   }),
   fate({
-    id: 'shrine_in_the_wood', title: 'The nameless shrine', remember: 'the shrine you gave a name',
+    id: 'shrine_in_the_wood', scene: 'miracle', title: 'The nameless shrine', remember: 'the shrine you gave a name',
     text: 'Hunters in the deep wood have found a shrine older than the town: a flat stone, a ring of blackened trees, and no god\'s name on it. Offerings have been left there, and lately. The town must decide whose it will be.',
     when: (s) => people(s, 4),
     options: [
@@ -281,7 +281,7 @@ export const FATEFUL_EVENTS: readonly EventDef[] = [ // (twenty-five, and the fi
     ],
   }),
   fate({
-    id: 'warlords_oath', title: "The warlord's oath", remember: 'the oath you swore to the warlord',
+    id: 'warlords_oath', scene: 'envoy', title: "The warlord's oath", remember: 'the oath you swore to the warlord',
     text: 'A warlord with a hundred spears at his back sits his horse at the edge of the fields and asks for little: an oath, spoken before the town, that you will answer when he calls. In return no spear of his, nor of any he can hold back, will trouble you.',
     when: (s) => people(s, 8),
     options: [
@@ -294,7 +294,7 @@ export const FATEFUL_EVENTS: readonly EventDef[] = [ // (twenty-five, and the fi
     ],
   }),
   fate({
-    id: 'the_deep_well', title: 'The well that does not end', remember: 'the night you dug the deep well',
+    id: 'the_deep_well', scene: 'well', title: 'The well that does not end', remember: 'the night you dug the deep well',
     text: 'The well has been losing water for a week, and when the diggers went down to deepen it their rope ran out before the bottom did. Something down there is warm, and on still nights the town can hear it breathe.',
     options: [
       dflt('Send the diggers down', { wound: 'random', hp: 20 },

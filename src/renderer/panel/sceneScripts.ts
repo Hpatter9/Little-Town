@@ -12,7 +12,7 @@ export const LOOP = 8;
 export const VIEW_W = 320;
 export const VIEW_H = 180;
 
-export type Anim = 'idle' | 'walk' | 'work' | 'attack' | 'shoot' | 'read';
+export type Anim = 'idle' | 'walk' | 'work' | 'attack' | 'shoot' | 'read' | 'talk' | 'kneel' | 'cheer';
 export type FxKind =
   | 'rain' | 'snow' | 'leaves' | 'petals' | 'embers' | 'sparks' | 'bubbles' | 'wisps' | 'fireflies' | 'dust' | 'smoke' | 'steam'
   | 'bats' | 'birds' | 'fish' | 'mist' | 'ash' | 'flash';
@@ -27,8 +27,8 @@ export interface Actor {
   y?: number;
   /** Its height in art pixels. */
   h: number;
-  /** Which way it faces (by default the way it travels, else right). */
-  face?: 'l' | 'r';
+  /** Which way it faces (by default the way it travels, else right); a paper doll can also face us (f) or away (b). */
+  face?: 'l' | 'r' | 'f' | 'b';
   /** Where in the loop it starts (0 to 1). */
   phase?: number;
   /** Drifting up and down as in water. */
@@ -41,7 +41,35 @@ export interface Fx {
   at?: [number, number];
   colour?: string;
 }
+/** A thing on the stage (panel/eventProps.ts names them): stood with its foot at (x, y), shares of the width and height. */
+export interface Prop {
+  id: string;
+  x: number;
+  /** Where its foot is, down the height (0.9). */
+  y?: number;
+  /** Drawn bigger or smaller than its own size (1). */
+  k?: number;
+  flip?: boolean;
+  /** Hung on the wall or laid behind everyone, whatever its foot. */
+  back?: boolean;
+  /** Drawn in the order of something standing here (down the height) rather than of its foot: bread on a table. */
+  z?: number;
+}
+/** Townsfolk gathered: `n` of the dolls from `from` (the event's cast puts its crowd last), spread over `x` in up to two
+ *  rows between `y`, all facing one way, murmuring (a small shift now and then) and raising their hands at a vote. */
+export interface Crowd {
+  n: number;
+  x: [number, number];
+  y: [number, number];
+  h: number;
+  face: 'l' | 'r' | 'f' | 'b';
+  from?: number;
+  anim?: Anim;
+  /** One row only (a bucket line; an audience along the front, heads and shoulders): two when there are more than three. */
+  rows?: 1 | 2;
+}
 export interface SceneScript {
+  /** A painted background (art/backdrops), or a set laid from the pack's tiles (`set:hall`, `set:cottage`). */
   back: string;
   /** How far the nearest layer goes by each second (art px; the far ones go slower), minus is leftward. */
   scroll?: number;
@@ -49,6 +77,13 @@ export interface SceneScript {
   tint?: [string, number];
   actors: Actor[];
   fx: Fx[];
+  /** The stage's things, and its gathered townsfolk. */
+  props?: Prop[];
+  crowd?: Crowd[];
+  /** The actor who speaks while the card is read (by its place in `actors`): the talk pose and a small bob. */
+  speaker?: number;
+  /** The ground shaking (art px). */
+  shake?: number;
 }
 
 const A = (who: number | string, anim: Anim, x: [number, number], h: number, o: Partial<Actor> = {}): Actor => ({ who, anim, x, h, ...o });
@@ -239,31 +274,13 @@ const FAMILY_WORDS: [EventFamily, RegExp][] = [
 ];
 const KIND_FAMILY: Record<string, EventFamily> = { envoy: 'envoy', refugees: 'stranger', council: 'council', trial: 'council', revolt: 'council', dragon: 'wild', enemy: 'raid', secret: 'stranger', road: 'road', watch: 'raid', debrief: 'raid', village: 'trade' };
 
-/** Which family of scene an event gets: its words first (they say what it is), then its kind, else the generic scene. */
+/** Which family of scene an event gets: its words first (they say what it is), then its kind, else the generic scene.
+ *  Only a fallback now: every choice event names its own scene (data/eventSceneIds.ts, panel/eventScenes.ts). */
 export function eventFamily(kind: string, title: string, text: string): EventFamily {
   const words = `${title}. ${text}`;
   for (const [fam, re] of FAMILY_WORDS) if (re.test(words)) return fam;
   return KIND_FAMILY[kind] ?? 'generic';
 }
-
-export const EVENT_SCRIPTS: Record<EventFamily, SceneScript> = {
-  raid: { back: 'battle_ruins', scroll: 0, tint: ['#300800', 0.2], actors: [A(0, 'idle', [0.3, 0.3], 46, { y: 0.93 }), A(1, 'idle', [0.45, 0.45], 42, { y: 0.9 }), A('hk_orc_grunt', 'walk', [1.05, 0.62], 42, { y: 0.93, face: 'l' }), A('hk_orc_brute', 'walk', [1.3, 0.75], 48, { y: 0.9, face: 'l' })], fx: [{ kind: 'dust', n: 14, at: [0.75, 0.95] }, { kind: 'embers', n: 8, at: [0.9, 0.7], colour: '#ff7a2a' }, { kind: 'smoke', n: 5, at: [0.85, 0.35], colour: '#4a4a4a' }] },
-  stranger: { back: 'summer_5', scroll: 0, actors: [A(0, 'idle', [0.25, 0.25], 46, { y: 0.93 }), A(1, 'walk', [1.05, 0.5], 44, { y: 0.93, face: 'l' })], fx: [{ kind: 'dust', n: 10, at: [0.7, 0.96] }, { kind: 'birds', n: 3 }] },
-  plague: { back: 'abandoned_3', scroll: 0, tint: ['#1c3010', 0.3], actors: [A(0, 'idle', [0.3, 0.3], 44, { y: 0.93 }), A(1, 'walk', [0.9, 0.7], 40, { y: 0.9, face: 'l' }), A('hk_zombie_bare', 'idle', [0.15, 0.15], 40, { y: 0.95 })], fx: [{ kind: 'mist', n: 4, colour: '#8aa860' }, { kind: 'bats', n: 2 }, { kind: 'wisps', n: 8, colour: '#b6e070' }] },
-  storm: { back: 'skies_4', scroll: -6, tint: ['#0a1020', 0.35], actors: [A(0, 'walk', [0.9, 0.4], 44, { y: 0.94, face: 'l' }), A(1, 'walk', [1.0, 0.55], 40, { y: 0.9, face: 'l', phase: 0.3 })], fx: [{ kind: 'rain', n: 60 }, { kind: 'leaves', n: 10 }, { kind: 'flash', n: 1, colour: '#e0f0ff' }] },
-  feast: { back: 'summer_3', scroll: 0, actors: [A(0, 'walk', [0.2, 0.3], 46, { y: 0.93 }), A(1, 'walk', [0.4, 0.5], 44, { y: 0.9, phase: 0.5 }), A(2, 'walk', [0.7, 0.6], 42, { y: 0.95, phase: 0.2 })], fx: [{ kind: 'petals', n: 14 }, { kind: 'fireflies', n: 12, colour: '#ffe9a0' }, { kind: 'sparks', n: 8, at: [0.5, 0.9], colour: '#ffcf5a' }] },
-  envoy: { back: 'city_2', scroll: 0, actors: [A(0, 'idle', [0.3, 0.3], 46, { y: 0.93 }), A(1, 'walk', [1.05, 0.62], 46, { y: 0.93, face: 'l' }), A('knight_1', 'walk', [1.25, 0.8], 46, { y: 0.9, face: 'l' })], fx: [{ kind: 'dust', n: 10, at: [0.7, 0.96] }, { kind: 'birds', n: 3 }] },
-  miracle: { back: 'temple_2', scroll: 0, tint: ['#fff0a0', 0.12], actors: [A(0, 'idle', [0.45, 0.45], 48, { y: 0.93 }), A(1, 'idle', [0.2, 0.2], 40, { y: 0.9 })], fx: [{ kind: 'wisps', n: 22, colour: '#fff4b0' }, { kind: 'sparks', n: 12, at: [0.45, 0.4], colour: '#ffffff' }, { kind: 'flash', n: 1, colour: '#fff8d0' }] },
-  cult: { back: 'temple_4', scroll: 0, tint: ['#2a0030', 0.3], actors: [A(0, 'read', [0.5, 0.5], 46, { y: 0.93 }), A(1, 'idle', [0.25, 0.25], 40, { y: 0.9 }), A(2, 'idle', [0.75, 0.75], 40, { y: 0.9, face: 'l' })], fx: [{ kind: 'wisps', n: 16, colour: '#c47aff' }, { kind: 'embers', n: 8, at: [0.5, 0.9], colour: '#ff4a8a' }, { kind: 'bats', n: 3 }] },
-  death: { back: 'battle_graves', scroll: 0, tint: ['#101820', 0.3], actors: [A(0, 'idle', [0.4, 0.4], 44, { y: 0.93 }), A('hk_ghost', 'idle', [0.7, 0.7], 40, { y: 0.78, bob: 3 })], fx: [{ kind: 'mist', n: 3, colour: '#8a9aa8' }, { kind: 'wisps', n: 8, colour: '#9ad8ff' }] },
-  war: { back: 'battle_hall', scroll: 0, actors: [A('knight_1', 'walk', [0.0, 0.5], 46, { y: 0.93 }), A('knight_2', 'walk', [-0.2, 0.35], 46, { y: 0.9 }), A(0, 'attack', [0.8, 0.8], 46, { y: 0.93, face: 'l' }), A('skeleton_warrior', 'attack', [0.62, 0.62], 40, { y: 0.9, face: 'l' })], fx: [{ kind: 'dust', n: 16, at: [0.5, 0.95] }, { kind: 'sparks', n: 8, at: [0.7, 0.7], colour: '#fff4c0' }] },
-  trade: { back: 'oasis_1', scroll: -10, actors: [A(0, 'idle', [0.65, 0.65], 46, { y: 0.93, face: 'l' }), A(1, 'walk', [-0.1, 0.5], 44, { y: 0.94 }), A(2, 'walk', [-0.3, 0.3], 40, { y: 0.9 })], fx: [{ kind: 'dust', n: 18 }, { kind: 'birds', n: 2 }] },
-  wild: { back: 'forest_2', scroll: 0, tint: ['#102418', 0.2], actors: [A(0, 'idle', [0.25, 0.25], 46, { y: 0.93 }), A('werewolf_black', 'walk', [1.1, 0.7], 50, { y: 0.93, face: 'l' })], fx: [{ kind: 'leaves', n: 10 }, { kind: 'mist', n: 2, colour: '#6fa97a' }, { kind: 'fireflies', n: 8 }] },
-  omen: { back: 'moon_4', scroll: -2, actors: [A(0, 'idle', [0.5, 0.5], 46, { y: 0.93 })], fx: [{ kind: 'wisps', n: 12, colour: '#9ab8ff' }, { kind: 'fireflies', n: 18, colour: '#ffffff' }, { kind: 'flash', n: 1, colour: '#cfe0ff' }] },
-  road: { back: 'meadows_3', scroll: -12, actors: [A(0, 'walk', [0.2, 0.7], 46, { y: 0.94 }), A(1, 'walk', [0.05, 0.55], 42, { y: 0.9, phase: 0.3 })], fx: [{ kind: 'dust', n: 12 }, { kind: 'birds', n: 3 }, { kind: 'leaves', n: 6 }] },
-  council: { back: 'city_3', scroll: 0, actors: [A(0, 'idle', [0.5, 0.5], 46, { y: 0.93 }), A(1, 'idle', [0.25, 0.25], 42, { y: 0.9 }), A(2, 'idle', [0.75, 0.75], 42, { y: 0.9, face: 'l' })], fx: [{ kind: 'dust', n: 6 }, { kind: 'birds', n: 2 }] },
-  generic: { back: 'summer_1', scroll: 0, actors: [A(0, 'idle', [0.4, 0.4], 46, { y: 0.93 }), A(1, 'walk', [0.9, 0.6], 42, { y: 0.9, face: 'l' })], fx: [{ kind: 'birds', n: 3 }, { kind: 'leaves', n: 6 }] },
-};
 
 /** The raiders' pack sprites by raid kind (the recap's comic strip draws them); kinds not listed get the match by name. */
 const RAIDER_SPRITES: Record<string, string[]> = {

@@ -22,7 +22,7 @@ const W = FESTIVAL_EVENT_WEIGHT;
 export const FESTIVAL_EVENTS: readonly EventDef[] = [
   // ---- any town
   {
-    id: 'fest_rival_stall', title: 'A stall at the festival', who: true, weight: W,
+    id: 'fest_rival_stall', scene: 'market', title: 'A stall at the festival', who: true, weight: W,
     text: 'A pedlar from down the road has set up a stall right where the festival is to be held, and won\'t shift. {who} wants to know what to do.',
     when: near,
     options: [
@@ -32,7 +32,7 @@ export const FESTIVAL_EVENTS: readonly EventDef[] = [
     ],
   },
   {
-    id: 'fest_lost_child', title: 'A child lost in the crowd', weight: W,
+    id: 'fest_lost_child', scene: 'festival', title: 'A child lost in the crowd', weight: W,
     text: 'In the bustle of making ready a visitor\'s little one has wandered off, and their mother is beside herself.',
     when: (s) => near(s) && (s.travellers ?? []).length > 0,
     options: [
@@ -42,7 +42,7 @@ export const FESTIVAL_EVENTS: readonly EventDef[] = [
     ],
   },
   {
-    id: 'fest_storm_threat', title: 'Clouds over the festival', weight: W,
+    id: 'fest_storm_threat', scene: 'storm', title: 'Clouds over the festival', weight: W,
     text: 'The sky to the west has gone the colour of a bruise. If it breaks on the festival day, the decorations will be ruined.',
     when: near,
     options: [
@@ -52,7 +52,7 @@ export const FESTIVAL_EVENTS: readonly EventDef[] = [
     ],
   },
   {
-    id: 'fest_old_song', title: 'The old song', who: true, weight: W,
+    id: 'fest_old_song', scene: 'festival', title: 'The old song', who: true, weight: W,
     text: '{who} has found the words to a festival song nobody has sung since the founding. Half the verses are missing.',
     when: near,
     options: [
@@ -63,7 +63,7 @@ export const FESTIVAL_EVENTS: readonly EventDef[] = [
   },
   // ---- each people's own
   {
-    id: 'fest_settlers_bean', title: 'The bean in the cake', who: true, weight: W,
+    id: 'fest_settlers_bean', scene: 'feast', title: 'The bean in the cake', who: true, weight: W,
     text: 'Whoever finds the bean is lucky till next year, and this year {who} has quietly found three. Folk are starting to talk.',
     when: ours('settlers'),
     options: [
@@ -73,7 +73,7 @@ export const FESTIVAL_EVENTS: readonly EventDef[] = [
     ],
   },
   {
-    id: 'fest_lich_mourner', title: 'A living mourner', weight: W,
+    id: 'fest_lich_mourner', scene: 'funeral', title: 'A living mourner', weight: W,
     text: 'A living woman from the next valley has come to the festival of the dead, asking to walk beside her late husband\'s bones one last time.',
     when: ours('lich'),
     options: [
@@ -83,7 +83,7 @@ export const FESTIVAL_EVENTS: readonly EventDef[] = [
     ],
   },
   {
-    id: 'fest_druid_hawthorn', title: 'The hawthorn will not bloom', weight: W,
+    id: 'fest_druid_hawthorn', scene: 'festival', title: 'The hawthorn will not bloom', weight: W,
     text: 'The old hawthorn at the grove\'s heart has not put out a single flower, and the festival is days away.',
     when: ours('druid'),
     options: [
@@ -93,7 +93,7 @@ export const FESTIVAL_EVENTS: readonly EventDef[] = [
     ],
   },
   {
-    id: 'fest_vampire_guest', title: 'An uninvited guest', weight: W,
+    id: 'fest_vampire_guest', scene: 'gate', title: 'An uninvited guest', weight: W,
     text: 'A masked stranger has arrived for the festival bearing a gift wrapped in black silk, and will give no name. The Court is intrigued.',
     when: ours('vampire'),
     options: [
@@ -103,7 +103,7 @@ export const FESTIVAL_EVENTS: readonly EventDef[] = [
     ],
   },
   {
-    id: 'fest_wolf_challenge', title: 'A challenge at the fire', who: true, weight: W,
+    id: 'fest_wolf_challenge', scene: 'festival', title: 'A challenge at the fire', who: true, weight: W,
     text: 'Young {who} has challenged the pack\'s best to wrestle at the festival fire. Everyone wants to see it. Nobody thinks they can win.',
     when: ours('werewolf'),
     options: [
@@ -113,7 +113,7 @@ export const FESTIVAL_EVENTS: readonly EventDef[] = [
     ],
   },
   {
-    id: 'fest_robot_glitch', title: 'A unit out of step', who: true, weight: W,
+    id: 'fest_robot_glitch', scene: 'festival', title: 'A unit out of step', who: true, weight: W,
     text: 'In the festival rehearsal {who} keeps doing the dance a beat behind. The others are struggling not to correct them.',
     when: ours('robot'),
     options: [
@@ -123,7 +123,7 @@ export const FESTIVAL_EVENTS: readonly EventDef[] = [
     ],
   },
   {
-    id: 'fest_dwarf_rune', title: 'The festival rune', who: true, weight: W,
+    id: 'fest_dwarf_rune', scene: 'miracle', title: 'The festival rune', who: true, weight: W,
     text: '{who} swears a rune has appeared overnight on the hall\'s great stone: the old rune for "deeper". The elders argue about whether it is a blessing.',
     when: ours('dwarves'),
     options: [
@@ -133,7 +133,7 @@ export const FESTIVAL_EVENTS: readonly EventDef[] = [
     ],
   },
   {
-    id: 'fest_mer_whale', title: 'A whale at the festival', weight: W,
+    id: 'fest_mer_whale', scene: 'sea', title: 'A whale at the festival', weight: W,
     text: 'A great old whale has come into the bay as if it had heard the singing, and is lying there, listening.',
     when: ours('merfolk'),
     options: [
@@ -143,7 +143,7 @@ export const FESTIVAL_EVENTS: readonly EventDef[] = [
     ],
   },
   {
-    id: 'fest_nomad_horse', title: 'The wild stallion', weight: W,
+    id: 'fest_nomad_horse', scene: 'farm', title: 'The wild stallion', weight: W,
     text: 'A wild stallion has been running alongside the camp all week, as if it wants to join the festival race.',
     when: ours('nomads'),
     options: [
@@ -153,7 +153,7 @@ export const FESTIVAL_EVENTS: readonly EventDef[] = [
     ],
   },
   {
-    id: 'fest_fae_mortal', title: 'A mortal in the ring', weight: W,
+    id: 'fest_fae_mortal', scene: 'festival', title: 'A mortal in the ring', weight: W,
     text: 'A mortal shepherd has stumbled into the Court\'s ring while it was being laid, and is dancing, and cannot stop.',
     when: ours('fae'),
     options: [
@@ -163,7 +163,7 @@ export const FESTIVAL_EVENTS: readonly EventDef[] = [
     ],
   },
   {
-    id: 'fest_alchemist_vat', title: 'The festival vat bubbles over', who: true, weight: W,
+    id: 'fest_alchemist_vat', scene: 'magic', title: 'The festival vat bubbles over', who: true, weight: W,
     text: '{who} has brewed the festival\'s great tincture in a vat that is now bubbling, glowing and, very faintly, humming a tune.',
     when: ours('alchemists'),
     options: [
@@ -173,7 +173,7 @@ export const FESTIVAL_EVENTS: readonly EventDef[] = [
     ],
   },
   {
-    id: 'fest_knight_herald', title: 'The visiting herald', weight: W,
+    id: 'fest_knight_herald', scene: 'envoy', title: 'The visiting herald', weight: W,
     text: 'A herald of a distant order has ridden in for the festival, demanding that their champion be allowed to joust against ours.',
     when: ours('knights'),
     options: [
@@ -183,7 +183,7 @@ export const FESTIVAL_EVENTS: readonly EventDef[] = [
     ],
   },
   {
-    id: 'fest_orc_brawl', title: 'Too much too early', who: true, weight: W,
+    id: 'fest_orc_brawl', scene: 'tavern', title: 'Too much too early', who: true, weight: W,
     text: '{who} has started on the festival grog two days early and is now challenging the war totem to a fight.',
     when: ours('orcs'),
     options: [

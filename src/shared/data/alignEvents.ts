@@ -10,7 +10,7 @@ const grown = (s: GameState, n: number) => s.people.filter((p) => p.bornTick == 
 
 export const ALIGN_EVENTS: readonly EventDef[] = [
   {
-    id: 'pilgrims_come', title: 'Pilgrims at the gate', weight: 3, when: (s) => score(s) >= GOOD_AT,
+    id: 'pilgrims_come', scene: 'refugees', title: 'Pilgrims at the gate', weight: 3, when: (s) => score(s) >= GOOD_AT,
     text: 'A line of footsore pilgrims has come a long way on the strength of the town\'s name, and asks only for a roof and a crust.',
     options: [
       dflt('Take them in', take('food', 0.05), { join: 2 }, mood(2, 48, 'Pilgrims blessed the table')),
@@ -19,7 +19,7 @@ export const ALIGN_EVENTS: readonly EventDef[] = [
     ],
   },
   {
-    id: 'holy_order', title: 'A holy order offers its aid', weight: 3, when: (s) => score(s) >= DEEP_GOOD_AT && grown(s, 8),
+    id: 'holy_order', scene: 'gate', title: 'A holy order offers its aid', weight: 3, when: (s) => score(s) >= DEEP_GOOD_AT && grown(s, 8),
     text: 'Riders in plain white surcoats have come to the gate. Their order tends the sick and guards the road, and has heard of this town\'s mercy.',
     options: [
       dflt('Welcome the order to stay', { join: 2 }, mod('guard', 1.2, 120, 'The order keeps watch'), { heal: 1 }),
@@ -28,7 +28,7 @@ export const ALIGN_EVENTS: readonly EventDef[] = [
     ],
   },
   {
-    id: 'thieves_offer', title: 'The Hand makes an offer', weight: 3, when: (s) => score(s) <= EVIL_AT,
+    id: 'thieves_offer', scene: 'shady', title: 'The Hand makes an offer', weight: 3, when: (s) => score(s) <= EVIL_AT,
     text: 'A cloaked woman at the back of the tavern says she speaks for the Hand, the guild that does not exist. For a share, the town\'s coffers need never want.',
     options: [
       dflt('Let the Hand work here', coin(40), mood(-2, 48, 'Shadows in the lanes'), rep(-1)),
@@ -37,7 +37,7 @@ export const ALIGN_EVENTS: readonly EventDef[] = [
     ],
   },
   {
-    id: 'dark_bargain', title: 'A bargain in the dark', weight: 3, when: (s) => score(s) <= EVIL_AT && grown(s, 6),
+    id: 'dark_bargain', scene: 'cult', title: 'A bargain in the dark', weight: 3, when: (s) => score(s) <= EVIL_AT && grown(s, 6),
     text: 'Something answers the town\'s reputation. It offers strength for a price that is not named, only hinted: a life, freely given or not.',
     options: [
       opt('Strike the bargain', mod('fight', 1.35, 120, 'The bargain\'s strength'), { kill: 'random', chance: 0.7, cause: 'given to the bargain' }, { dread: 1 }),
@@ -46,7 +46,7 @@ export const ALIGN_EVENTS: readonly EventDef[] = [
     ],
   },
   {
-    id: 'foes_treat', title: 'A raider chief asks to parley', weight: 3, when: (s) => score(s) <= DEEP_EVIL_AT,
+    id: 'foes_treat', scene: 'envoy', title: 'A raider chief asks to parley', weight: 3, when: (s) => score(s) <= DEEP_EVIL_AT,
     text: 'A raider chief has walked up to the wall alone, hands open. Your name has reached them. They would rather be paid in a share than in blood.',
     options: [
       dflt('Treat with them', calm(96), take('coins', 0.1)),
@@ -56,7 +56,7 @@ export const ALIGN_EVENTS: readonly EventDef[] = [
   },
   // (never by chance: a town that swings hard from one end to the other, once each way: sim/alignment.ts `arcs`)
   {
-    id: 'fall_reckoning', title: 'How far we have fallen', when: () => false,
+    id: 'fall_reckoning', scene: 'council', title: 'How far we have fallen', when: () => false,
     text: 'Not long ago this was a town people spoke well of. Now travellers cross the road to avoid it, and the elders cannot meet each other\'s eyes.',
     options: [
       opt('Embrace what we have become', mod('fight', 1.2, 120, 'The town has made its peace with the dark'), follow('fall_exodus'), { reputation: -2 }),
@@ -65,7 +65,7 @@ export const ALIGN_EVENTS: readonly EventDef[] = [
     ],
   },
   {
-    id: 'fall_exodus', title: 'The kind ones leave', when: () => false,
+    id: 'fall_exodus', scene: 'leaving', title: 'The kind ones leave', when: () => false,
     text: 'Those who stayed for the town\'s old good name are packing their carts. They do not argue. That is the worst of it.',
     options: [
       opt('Let them go', { exodus: 0.12 }, rep(-1)),
@@ -74,7 +74,7 @@ export const ALIGN_EVENTS: readonly EventDef[] = [
     ],
   },
   {
-    id: 'redemption_penance', title: 'The long road back', when: () => false,
+    id: 'redemption_penance', scene: 'gate', title: 'The long road back', when: () => false,
     text: 'The town was feared once. Now the old victims\' children come to the gate, not with spears but to see whether the stories of change are true.',
     options: [
       dflt('Do public penance and open the stores', coin(-40), take('food', 0.1), rep(3), mood(4, 72, 'The town made amends')),
@@ -83,7 +83,7 @@ export const ALIGN_EVENTS: readonly EventDef[] = [
     ],
   },
   {
-    id: 'redemption_shadow', title: 'Old friends come calling', when: () => false,
+    id: 'redemption_shadow', scene: 'envoy', title: 'Old friends come calling', when: () => false,
     text: 'Those who profited from the town\'s old ways have heard of its change, and they are not pleased. Some of them have swords.',
     options: [
       dflt('Stand against them', { raid: 12 }, mod('fight', 1.15, 72, 'Standing for the new way'), rep(1)),
