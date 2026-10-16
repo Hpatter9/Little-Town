@@ -27,12 +27,15 @@ export const CAMP_CLEAR = 5;
 /** At least this many cells of each wild kind lie within the open land at the start (wood, stone, clay and fiber). */
 export const MIN_KIND_NEAR = 10;
 /** Footpaths: the most a cell wears, how worn it is before a path shows (and shows fully), what one walker stepping
- *  into a cell adds, and what an hour's rest takes off. */
+ *  into a cell adds, and what an unwalked cell loses every `WEAR_DECAY_HOURS` hours (a day's rest takes off
+ *  `WEAR_DECAY` * 24 / `WEAR_DECAY_HOURS`, less than a well-walked route adds: a used path stays, an unused one
+ *  fades over days, not hours). */
 export const WEAR_MAX = 60;
 export const WEAR_SHOW = 6;
 export const WEAR_FULL = 24;
-export const WEAR_STEP = 2;
-export const WEAR_DECAY = 2;
+export const WEAR_STEP = 3;
+export const WEAR_DECAY = 1;
+export const WEAR_DECAY_HOURS = 1;
 
 /** Beyond the open land, this many cells are seen dimly (the renderer's fog); past them, nothing. */
 export const FOG_BAND = 6;
@@ -884,9 +887,10 @@ export function addWear(m: LandMap, i: number, n = WEAR_STEP): void {
   m.wear = m.wear.slice(0, i) + String.fromCharCode(48 + v) + m.wear.slice(i + 1);
 }
 
-/** An hour passes: every worn cell grasses over a little; with nothing worn the field is dropped. */
-export function decayWear(m: LandMap): void {
-  if (!m.wear) return;
+/** An hour passes (`hour`: the game hour, so only every `WEAR_DECAY_HOURS`th hour takes anything off; left out, it
+ *  always does): every worn cell grasses over a little; with nothing worn the field is dropped. */
+export function decayWear(m: LandMap, hour?: number): void {
+  if (!m.wear || (hour !== undefined && hour % WEAR_DECAY_HOURS !== 0)) return;
   let out = '';
   let any = false;
   for (let i = 0; i < m.wear.length; i++) {
