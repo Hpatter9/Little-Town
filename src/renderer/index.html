@@ -1710,7 +1710,7 @@
       }
       body.embedded #prompt,
       body.embedded #banner {
-        top: 34px;
+        top: 8px;
       }
       /* (notices go to the bottom corner, clear of a question card at the top: they fade in a few seconds) */
       body.embedded #toasts {
@@ -1744,6 +1744,14 @@
       }
       body.embedded #clock > * {
         flex-shrink: 0; /* (it scrolls instead of squashing its parts together) */
+      }
+      /* The phone's page has the quiet top bar (ui/topBar.ts) with the day, pause and speed: the strip's clock bar
+         would only repeat it, so it shows only to hold the power to cast in a raid. */
+      body.embedded #clock > :not(.cast) {
+        display: none !important;
+      }
+      body.embedded #clock:not(:has(> .cast:not([hidden]))) {
+        display: none !important;
       }
     </style>
   </head>

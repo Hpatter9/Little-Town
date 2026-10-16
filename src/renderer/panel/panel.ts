@@ -28,6 +28,9 @@ import { noteFood } from './dashboard';
 import { applyTheme, currentTheme, panelLabel } from '../theme';
 import { closeLatestCard, detailsKey, setDetailsRedraw } from './details';
 import { legendsVersion, primeLegends } from '../legends';
+import { applyUiLook } from '../ui/frame';
+import { dressStats, wireTips } from '../ui/tips';
+import { tickNumbers } from '../ui/motion';
 
 /** The Town's building book groups its buildings under these (sub-headings, not sections). */
 const LAYER_HEADS = /^(Foreground|Midground|Background)/;
@@ -51,7 +54,12 @@ primeLegends(bridge, () => {
   render();
 });
 
+// (the shared look's held tips: ui/tips.ts)
+wireTips();
+
 let shown: PanelId | null = null;
+/** The menu and sub-tab last drawn: a change cross-fades the new one in (ui/motion.ts). */
+let shownTabKey = '';
 let snap: Snapshot | null = null;
 let renderedKey = '';
 /** A finger (or the mouse) is down on the menu: a rebuild now would pull the button from under it and the tap would
@@ -149,6 +157,18 @@ function render(): void {
   // (drawing may have settled which sub-tab is open: the key as it is now, so the next snapshot doesn't redraw for nothing)
   renderedKey = keyOf();
   body.scrollTop = scroll;
+  // (the shared look: the stats' icons and tips, numbers that changed ticked over, and a new tab faded in)
+  dressStats(body);
+  tickNumbers(body);
+  const tabNow = `${shown}|${tabKey(shown ?? '')}`;
+  if (tabNow !== shownTabKey) {
+    shownTabKey = tabNow;
+    body.classList.remove('ui-xfade');
+    void body.offsetWidth;
+    body.classList.add('ui-xfade');
+    // (only the change fades in: the redraws after it, ten a second at most, come in as they are)
+    window.setTimeout(() => body.classList.remove('ui-xfade'), 260);
+  }
 }
 
 ensureStructureStyle();
@@ -180,6 +200,7 @@ if (bridge) {
     snap = next;
     noteFood(next);
     if (applyTheme(next.theme, 'panel')) renderedKey = ''; // (the look changed: redraw, with the new names)
+    applyUiLook('panel', next.theme, next.align?.cast ?? 0, next.calendar.daylight);
     render();
   });
   Promise.all([bridge.getState(), bridge.getSnapshot()]).then(([st, sn]) => {

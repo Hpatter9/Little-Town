@@ -15,8 +15,8 @@ function svg(w: number, h: number, body: string): string {
 /** A pseudo-element on every selector of a list ('a, b' + '::after' -> 'a::after, b::after'). */
 const pseudo = (list: string, el: string): string => list.split(', ').map((x) => x + el).join(', ');
 
-/** The selectors each skin dresses. */
-function parts(T: string) {
+/** The selectors each skin dresses (the frame set, ui/uiCss.ts, dresses the same ones over them). */
+export function parts(T: string) {
   const all = (s: string) => s.split(',').map((x) => `${T} ${x.trim()}`).join(', ');
   return {
     frame: `${T}.page-panel body`,
