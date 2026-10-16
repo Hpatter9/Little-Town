@@ -5,6 +5,7 @@
 import { readLevel, saveLevel, type VolumeKind } from '../volume';
 import { readVibrate, saveVibrate } from '../vibration';
 import { startNotices } from './notices';
+import { watchFavourites } from './obituaryReveal';
 import { createEventSheet } from './eventSheet';
 import { revealsOn, setRevealsOn, showReveal, startReveals } from './revealCard';
 import { buildingCard, buildingCardKey, type BuildingArt } from '../panel/buildingCard';
@@ -331,6 +332,9 @@ void bridge.getState().then(applyState); // (a first run opens on the New town p
   const { bubble, sheet: news } = startNotices(bridge, strip);
   document.body.append(bubble, news);
 }
+
+// (a favourite's death: their obituary card, once: mobile/obituaryReveal.ts)
+bridge.onSnapshot(watchFavourites(strip));
 
 /* ------------------------------------------------------------ the selected thing's card */
 

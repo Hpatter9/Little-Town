@@ -86,6 +86,8 @@ export type Command =
   /** Follow a townsperson (null: nobody). */
   | { type: 'follow'; person: number | null }
   | { type: 'watch'; expedition: number | null }
+  /** Follow a townsperson, or stop (sim/favourites.ts): a view preference only. */
+  | { type: 'favourite'; id: number; on: boolean }
   /** Go into a mine on the land and watch the digging (null: back to the town). */
   | { type: 'watchMine'; place: number | null }
   /** Look down into the Deep (sim/deep.ts): a level by its depth, or null to come back up. */
@@ -239,6 +241,8 @@ export function parseCommand(raw: unknown): Command | null {
       return c.power === null || typeof c.power === 'string' ? { type: 'holdPower', power: c.power as string | null } : null;
     case 'castHeld':
       return { type: 'castHeld' };
+    case 'favourite':
+      return Number.isInteger(c.id) && typeof c.on === 'boolean' ? { type: 'favourite', id: c.id as number, on: c.on } : null;
     case 'watch':
       return c.expedition === null || Number.isInteger(c.expedition) ? { type: 'watch', expedition: c.expedition as number | null } : null;
     case 'giftVillage':
