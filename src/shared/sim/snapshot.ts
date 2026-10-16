@@ -14,7 +14,7 @@ import { diaryOf } from './diary';
 import { townGossip, whisperGossip, type Gossip } from './gossip';
 import { playingKids, tagIt } from './idleScenes';
 import { ROAMER_NAME } from '../data/roamers';
-import { paveSeconds } from './streets';
+import { streetShare } from './streets';
 import { PATH_BY_ID, roadsFrom } from '../data/paths';
 import { CLASS_DEFS, STAGE_LEVELS } from '../data/classes';
 import { loreOf } from '../data/pathLore';
@@ -2086,7 +2086,7 @@ function taskDone(s: GameState, p: Person): number | null {
     case 'build':
       return b ? clamp(b.progress) : null;
     case 'pave':
-      return clamp(t.progress / paveSeconds(s, t.cell));
+      return clamp(streetShare(s));
     case 'light':
       return clamp(t.progress / FEED_SECONDS);
     case 'repair': {

@@ -253,7 +253,7 @@ export class Sim {
     injuriesHourly(s, this.rng);
     if (s.tick % TICKS_PER_HOUR === 0) for (const p of s.people) if (p.autoPriorities) p.priorities = autoPriorities(p.skills, p.id === s.mainId);
     if (s.tick % TICKS_PER_HOUR === 0) classesHourly(s);
-    if (s.tick % TICKS_PER_HOUR === 0) decayWear(s.land); // (footpaths grass over where nobody walks)
+    if (s.tick % TICKS_PER_HOUR === 0) decayWear(s.land, s.tick / TICKS_PER_HOUR); // (footpaths grass over where nobody walks)
     regrowHourly(s); // (and the woods grow back: sim/regrow.ts)
     streetsHourly(s); // (streets planned where folk walk, and to the gates: sim/streets.ts)
     faithHourly(s); // (the gods: sim/faith.ts)

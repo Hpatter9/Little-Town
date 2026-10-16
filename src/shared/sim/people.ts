@@ -27,7 +27,7 @@ import { skillSpeed } from '../data/skills';
 import { TERRAIN } from '../data/terrain';
 import type { Rng } from '../rng';
 import { BUILDING_BY_ID } from '../data/buildings';
-import { nextPave, pave, paveReady, paveSeconds } from './streets';
+import { paveReady, paveTask, streetWork } from './streets';
 import { SHAFT } from '../data/deep';
 import { shaftHasWork } from './deep';
 import { guardEngages, roamerToHunt } from './roamers';
@@ -149,9 +149,9 @@ export function updatePerson(s: GameState, p: Person, rng: Rng, ctx: TickContext
     const spot = wantsRelax(s, p, true);
     // (a light to feed before dark comes first: sim/lighting.ts)
     const torch = !s.raid && !isChild(p) ? lightToFeed(s, p) : null;
-    const cell = !torch && !spot && !s.raid && p.priorities.construct !== 0 && !isChild(p) ? nextPave(s, p) : null;
+    const street = !torch && !spot && p.priorities.construct !== 0 ? paveTask(s, p, true) : null;
     if (torch) p.task = { type: 'light', torch: torch.id, progress: 0 };
-    else if (cell !== null) p.task = { type: 'pave', cell, progress: 0 };
+    else if (street) p.task = street;
     else if (spot) p.task = { type: 'relax', building: spot.id, until: s.tick + relaxTicks(spot) };
     else {
       const c = campXY(s);
@@ -316,13 +316,10 @@ export function updatePerson(s: GameState, p: Person, rng: Rng, ctx: TickContext
       if (!goTo(s, p, at)) break;
       if (p.activity !== 'build') pickTool(s, p, 'construct');
       p.activity = 'build';
-      task.progress += (buildPower(p.skills.construction.level) * toolSpeed(p, 'construct') * workFactor(s, p) * buildSpeed(s)) / TICK_HZ;
+      // (everyone on the street adds to its one pool of work: the cells go down in order, sim/streets.ts)
+      streetWork(s, (buildPower(p.skills.construction.level) * toolSpeed(p, 'construct') * workFactor(s, p) * buildSpeed(s)) / TICK_HZ);
       gainSkill(p, 'construction', BUILD_XP_PER_SEC / TICK_HZ / 2);
       accruePay(s, p, BUILD_PER_HOUR, 'wages', 'building', TICKS_PER_HOUR);
-      if (task.progress >= paveSeconds(s, task.cell)) {
-        pave(s, task.cell);
-        p.task = null;
-      }
       break;
     }
     case 'light': {
@@ -1502,7 +1499,8 @@ function findJob(s: GameState, p: Person, job: Job): Task | null {
       });
       if (b) return wall ? { type: 'build', building: wall.site.id, spot: wall.spot } : { type: 'build', building: b.id, spot: buildSpot(s, p, b, cover, builders) };
       const hurt = s.raid ? undefined : s.buildings.find((q) => q.status === 'done' && q.hp !== undefined && q.hp < (defOf(q).hp ?? 0));
-      return hurt ? { type: 'repair', building: hurt.id } : null;
+      // (nothing to raise or mend: a stretch of street to lay, sim/streets.ts)
+      return hurt ? { type: 'repair', building: hurt.id } : paveTask(s, p);
     }
     case 'defend':
       // (fighting only happens in raids, see chooseTask; between them, guards on shift patrol)
