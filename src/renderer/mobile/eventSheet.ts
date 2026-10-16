@@ -9,6 +9,10 @@ import { BACKDROPS, type BackdropId } from '../../shared/data/backdrops';
 import type { Snapshot, PromptView } from '../../shared/sim/snapshot';
 import { loadImage } from '../art/loadImage';
 import { emblemCanvas } from '../art/emblems';
+import { hkLayers, hkWhoOf } from '../art/hkFolk';
+import { playScene } from '../panel/scenePlayer';
+import { EVENT_SCRIPTS, eventFamily } from '../panel/sceneScripts';
+import { addCardStyles } from '../panel/cardsStyles';
 
 const W = 576;
 const H = 324;
@@ -47,6 +51,7 @@ export function createEventSheet(onAnswer: (prompt: number, option: number) => v
   /** The answer given, while the box shows what came of it. */
   let answered: { id: number; from: number; at: number; box: HTMLElement; told: boolean } | null = null;
   let tick = 0;
+  let lastSnap: Snapshot | null = null;
   /** Debriefs read (closed at once, never shown again while the sim catches up). */
   const read = new Set<number>();
   /** Waiting this long (real ms) with nothing come of it, the box says so and lets you go on. */
@@ -55,17 +60,26 @@ export function createEventSheet(onAnswer: (prompt: number, option: number) => v
 
   const build = (p: PromptView) => {
     shown = p.id;
+    addCardStyles();
     const art = document.createElement('div');
     art.className = 'event-art';
-    if (p.picture) {
+    // a short moving scene for the kind of event it is: the family's script, with the townsperson it is about first
+    const scene = document.createElement('div');
+    scene.className = 'ev-scene';
+    const subject = p.who != null ? lastSnap?.people.find((q) => q.id === p.who) : undefined;
+    const cast = [...(subject ? [subject] : []), ...(lastSnap?.people.filter((q) => q.id !== p.who && q.indoors === false && q.away === null && !q.growsUpIn).slice(0, 3) ?? [])];
+    const dolls = cast.map((q) => hkLayers(hkWhoOf(q), { fighting: false, activity: 'idle' }));
+    const played = p.kind !== 'evolve' && playScene(scene, EVENT_SCRIPTS[eventFamily(p.kind, p.title, p.story ?? p.text)], dolls);
+    if (played) art.append(scene);
+    else if (p.picture) {
       void backdrop(p.picture).then((c) => {
         if (shown !== p.id) return;
         c.className = 'event-backdrop';
         art.prepend(c);
       });
     }
-    // the townsperson it's about, stood in the picture
-    if (p.who != null) {
+    // the townsperson it's about, stood in the picture (the scene has them in it already)
+    if (p.who != null && !played) {
       const face = win()?.__picture?.({ person: p.who });
       if (face) {
         face.className = 'event-who';
@@ -94,8 +108,21 @@ export function createEventSheet(onAnswer: (prompt: number, option: number) => v
     }
     const options = document.createElement('div');
     options.className = evolve ? 'event-options evolve-options' : 'event-options';
+    // the answer taken: a gold flash and a burst of sparks over the scene
+    const flourish = () => {
+      const f = document.createElement('div');
+      f.className = 'ev-flourish';
+      for (let i = 0; i < 10; i++) {
+        const sp = document.createElement('i');
+        sp.style.setProperty('--a', `${i * 36}deg`);
+        f.append(sp);
+      }
+      art.append(f);
+      setTimeout(() => f.remove(), 950);
+    };
     const choose = (label: string, i: number) => {
         if (answered) return;
+        flourish();
         onAnswer(p.id, i);
         if (p.kind === 'debrief' || p.kind === 'watch') {
           read.add(p.id);
@@ -158,9 +185,17 @@ export function createEventSheet(onAnswer: (prompt: number, option: number) => v
       const b = document.createElement('button');
       b.className = i === p.defaultOption ? 'event-option default' : 'event-option';
       if (i === p.recommended) b.classList.add('recommended');
-      b.textContent = i === p.recommended ? `★ ${label}` : label;
+      if (i === p.recommended) {
+        // (the town's own pick, marked with a wax seal)
+        const seal = document.createElement('span');
+        seal.className = 'ev-seal';
+        seal.textContent = '★';
+        seal.title = 'The town recommends this';
+        b.append(seal, label);
+      } else b.textContent = label;
       b.addEventListener('click', () => {
         if (answered) return;
+        flourish();
         onAnswer(p.id, i);
         // (a debrief is read, not answered, and a fight to watch is watched or not: either just closes)
         if (p.kind === 'debrief' || p.kind === 'watch') {
@@ -179,7 +214,7 @@ export function createEventSheet(onAnswer: (prompt: number, option: number) => v
     // the town's own pick and why (sim/alignment.ts), under the answers
     const advice = document.createElement('div');
     advice.className = 'event-advice';
-    if (p.recommended != null && p.why && !evolve) advice.textContent = `★ The town recommends "${p.options[p.recommended]}": ${p.why}.`;
+    if (p.recommended != null && p.why && !evolve) advice.textContent = `The town recommends "${p.options[p.recommended]}": ${p.why}.`;
     body.append(title, text, options, advice, count);
     el.replaceChildren(art, body);
     el.scrollTop = 0;
@@ -238,6 +273,7 @@ export function createEventSheet(onAnswer: (prompt: number, option: number) => v
   return {
     update(snap) {
       tick = snap.tick;
+      lastSnap = snap;
       const away = !!snap.battle || !!snap.watch || !!snap.mine || !!snap.tactics || snap.fightOn;
       const w = win();
       if (w) w.__eventSheet = true;

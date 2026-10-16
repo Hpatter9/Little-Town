@@ -32,6 +32,7 @@ import type { PersonView, Snapshot, VisitorView } from '../../shared/sim/snapsho
 import { bleedLeft } from '../../shared/format';
 import { button, el } from './dom';
 import { itemStats } from './details';
+import { personSheet, personSheetKey } from './personCard';
 
 /** Changes whenever the panel's shape changes: who is listed, who is inspected and what they have (gear, skills,
  *  relations, wounds...). The list's live details (what each is doing, their health and spirits, their coins, a
@@ -62,6 +63,10 @@ export const townsfolkKey = (s: Snapshot) => {
     inspecting,
     chosenSlot,
     inspectTab, // (the inspect page's own tabs: a tap must redraw)
+    sheetOn,
+    personSheetKey(), // (the character sheet's tabs)
+    who?.diary.length,
+    who?.sick,
     chosenSkill, // (a tapped skill, spell or trait opens its card: the tap must redraw)
     classOpen,
     s.theme,
@@ -267,6 +272,8 @@ const INSPECT_TABS: [InspectTab, string][] = [
   ['skills', 'Skills'],
 ];
 let inspectTab: InspectTab = 'equipment';
+/** The character sheet (personCard.ts) is the page for someone inspected; "All details" goes on to the older tabs. */
+let sheetOn = true;
 /** The skill, spell or trait tapped on the Skills or Character tab, whose card shows under the list. */
 let chosenSkill: string | null = null;
 
@@ -277,6 +284,8 @@ function inspectView(p: PersonView, s: Snapshot, bridge: Bridge | undefined, rer
     const box = scroller();
     if (box) box.scrollTop = listScroll;
   }, { cls: 'place small quiet back-btn' });
+  if (sheetOn) return [back, personSheet(p, s, { face, rerender, open: (id) => ((inspecting = id), rerender()), more: () => ((sheetOn = false), rerender()) })];
+  const sheetBtn = button('Character sheet', () => ((sheetOn = true), rerender()), { cls: 'place small quiet' });
 
   // who they are, over every tab
   const card = el('div', 'card person inspect');
@@ -331,7 +340,7 @@ function inspectView(p: PersonView, s: Snapshot, bridge: Bridge | undefined, rer
   else if (inspectTab === 'background') backgroundTab(p, s, body);
   else skillsTab(p, rerender, body);
 
-  const out: HTMLElement[] = [back, card, tabs, body];
+  const out: HTMLElement[] = [back, sheetBtn, card, tabs, body];
   const turn = turnButtons(p, s, bridge);
   if (turn) out.push(turn);
   if (p.monster) out.push(orderRow(p, bridge));
