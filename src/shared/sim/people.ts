@@ -48,6 +48,7 @@ import { biomeOf, openGround } from '../data/biomes';
 import { HORSE_HP } from '../data/trade';
 import { offerBloodRite, offerLichRite, offerMoonRite } from './occult';
 import { cropOf, fieldSpot, fieldToWork, isField, mineToWork, workField, workMine } from './farming';
+import { underFlooded } from './underdark';
 import { isPen, needsTending, penToTend, workPen } from './livestock';
 import { fightFire, fireToFight } from './fire';
 import { caughtOut, defenderAttack, defenderReach, nearestRaider, rallyPoint, townEdgeX } from './raids';
@@ -1533,7 +1534,7 @@ function ownWork(s: GameState, p: Person, handsFull: boolean): Task | null {
   const b = heldJob(s, p);
   if (!b) return null;
   if (!handsFull && p.priorities.craft !== 0 && (STATIONS as readonly string[]).includes(b.def)) return findCraft(s, p, b.def);
-  if (!handsFull && WORKPLACES[b.def] && p.priorities.gather !== 0 && (b.def !== SHAFT || shaftHasWork(s))) {
+  if (!handsFull && WORKPLACES[b.def] && p.priorities.gather !== 0 && (b.def !== SHAFT || shaftHasWork(s)) && !underFlooded(s, b)) {
     const diggers = s.people.filter((o) => o !== p && o.task?.type === 'mine' && o.task.building === b.id).length;
     return diggers < WORKPLACES[b.def].workers ? { type: 'mine', building: b.id, work: 0 } : null;
   }

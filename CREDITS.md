@@ -106,11 +106,17 @@ Village Tileset's rack and barrel, and the tunnels' torches the 2D Top-Down Pixe
 
 The Underdark's view (`src/renderer/art/under/`): its solid rock is cut from the **[FREE] Mine Tileset** (Mine
 Tileset +PLUS Pack, 32px starter pack) by **P.A.R-T** (Atomic Realm, itch.io; use in projects allowed, no
-redistribution); the floor tile, the water (burning orange for the magma) and the ladder down at the town's ways down
+redistribution); the water (burning orange for the magma) and the ladder down at the town's ways down
 from **Craftpix.net**'s free 2D Top-Down Pixel Dungeon pack (`walls_floor.png`, `Water_coasts_animation.png`,
 `Objects.png`); the cave towns' dwellings are the free Top-Down Pixel Art Cave Objects pack's buildings (dark shadow),
 and its mushrooms, crystals, ruins, boulders and bonfire are the Deep's (above). Behind it all, the free Crystal Cave
 Pixel Art Backgrounds (`backdrops/crystal_2.webp`). https://craftpix.net, free licence.
+
+The second pass (claude/underdark-2) paints the caves anew: the rock's stony edges are the **[FREE] Mine Tileset**'s
+16 px starter sheet (`art/under/rock_edges.png`, P.A.R-T, as above); the cave floor and the cobbles where it has been
+worked (`art/under/ground.png`), the jagged cliffs where rock overhangs the floor (`art/under/cliff.png`) and the cracks,
+pebbles and stalagmites strewn about (`art/under/details.png`) are cut from **Craftpix.net**'s free Undead Tileset
+(Top-Down Pixel Art: `Ground_rocks.png`, `Details.png`). https://craftpix.net, free licence.
 
 ## Craftpix top-down objects (the raid map's scenery)
 

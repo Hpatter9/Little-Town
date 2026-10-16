@@ -21,7 +21,7 @@ export const worst = (tones: Tone[]): Tone | null => tones.reduce<Tone | null>((
 
 export interface NoticeAction {
   label: string;
-  kind: 'watch' | 'panel' | 'recap' | 'map' | 'question';
+  kind: 'watch' | 'panel' | 'recap' | 'map' | 'question' | 'under';
   watch?: number;
   panel?: string;
   /** The tab to open the menu at (panel/subtabs.ts). */
@@ -63,6 +63,7 @@ export function toneOf(text: string, key: boolean): Tone {
 /** A mark for a line with no picture (the feed's old marks). */
 export function markFor(text: string): string {
   const t = text.toLowerCase();
+  if (BELOW.test(text)) return /died|killed|slain|buried|drowned|dragged|taken|lost|will not be coming/.test(t) ? '☠' : '⛰';
   if (/died|killed|slain|carried off|breaks apart/.test(t)) return '☠';
   if (/raid|raider|attack|army|the dead are|horde/.test(t)) return '⚔';
   if (/research complete|learned|new age|era/.test(t)) return '✦';
@@ -72,6 +73,9 @@ export function markFor(text: string): string {
   if (/built|finished|upgrad|extended|set out/.test(t)) return '⌂';
   return '•';
 }
+
+/** A line about the Underdark (sim/underdark.ts): its news gets a way to look below. */
+export const BELOW = /Underdark|tunnels below|below the town|up the shaft|out of the shaft|Scouts (?:below|in|on|at)|cave town|Glimmerdeep|Umbral Court|Sporemoot|Greyhold|Deep Roads|Sunless Sea|Magma Deep|search party|Heartvein|Sleeping Wyrm|under-village|founded in the Underdark/;
 
 /** What is going on now that wants attention: a raid, a host, a doom, parties out, places found, the last recap, the
  *  last answer's outcome, a question waiting. Each keyed so it counts as new once. */
@@ -188,7 +192,7 @@ export function journalNotices(entries: JournalEntryView[], snap: Snapshot | nul
       text: '',
       when: e.when.replace(/ · \w+ · /, ' · '),
       about: about ?? undefined,
-      ...(onMap ? { action: { label: about!.person != null || about!.traveller != null ? 'Show them' : 'Show it', kind: 'map' as const, target: about! } } : {}),
+      ...(BELOW.test(e.text) && snap?.underdark ? { action: { label: 'Look below', kind: 'under' as const } } : onMap ? { action: { label: about!.person != null || about!.traveller != null ? 'Show them' : 'Show it', kind: 'map' as const, target: about! } } : {}),
     };
   });
 }
@@ -219,7 +223,7 @@ const READ_MOST = 400;
 
 interface NoticeBridge {
   openPanel(id: string): void;
-  command?: (c: { type: 'watch'; expedition: number }) => void;
+  command?: (c: { type: 'watch'; expedition: number } | { type: 'watchUnder'; on: boolean }) => void;
   getJournal(): Promise<JournalEntryView[]>;
   onSnapshot(fn: (s: Snapshot) => void): void;
 }
@@ -337,6 +341,9 @@ export function startNotices(bridge: NoticeBridge, strip: HTMLIFrameElement): { 
       }
       case 'question':
         break; // (the question's card is on the town)
+      case 'under':
+        bridge.command?.({ type: 'watchUnder', on: true }); // (the Underdark's view: renderer/underdark/underdarkView.ts)
+        break;
     }
   };
 

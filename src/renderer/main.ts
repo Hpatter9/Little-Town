@@ -548,7 +548,7 @@ async function start(): Promise<void> {
   const interior = new InteriorScene((c) => bridge.command(c));
   app.stage.addChild(deep.root);
   // the Underdark under the land (underdark/underdarkView.ts): the caves seen from above, lit by what glows
-  const under = new UnderScene((c) => bridge.command(c));
+  const under = new UnderScene((c) => bridge.command(c), (id) => bridge.openPanel(id));
   app.stage.addChild(under.root);
   // a cutscene (cutscene/cutsceneView.ts): over everything, offered first, then played full screen
   const cutscene = new CutsceneScene((c) => bridge.command(c), document.body);
@@ -1395,6 +1395,7 @@ async function start(): Promise<void> {
   window.addEventListener(
     'wheel',
     (e) => {
+      if (under.shown) return under.zoom(Math.exp(-e.deltaY * 0.0015), e.clientX, e.clientY); // (the Underdark: the wheel zooms)
       if (!hover && !placing && !snap.battle) return;
       const unit = e.deltaMode === 1 ? 40 : e.deltaMode === 2 ? window.innerWidth : 1;
       // (a plain wheel scrolls the map up and down; with shift, or a sideways wheel, across)
@@ -1408,6 +1409,13 @@ async function start(): Promise<void> {
   // Two fingers pinching the town zoom it in and out (on the phone: the page around the strip does the zooming).
   const touches = new Map<number, { x: number; y: number }>();
   let pinchFrom: number | null = null; // how far apart the fingers were when the pinch began
+  // (the Underdark's view pinches on its own: its fingers, and how far apart they were last)
+  const underTouches = new Map<number, { x: number; y: number }>();
+  let underPinch: number | null = null;
+  const underSpread = () => {
+    const [a, b] = [...underTouches.values()];
+    return a && b ? Math.max(20, Math.hypot(a.x - b.x, a.y - b.y)) : 20;
+  };
   let afterPinch = false; // a finger still down after a pinch: nothing else starts until it lifts
   const spread = () => {
     const [a, b] = [...touches.values()];
@@ -1453,6 +1461,15 @@ async function start(): Promise<void> {
   // (a tactics battle has the screen: a tap is its, a drag looks about the board)
   let boardPress: { x: number; y: number; lx: number; ly: number; moved: boolean; id: number } | null = null;
   canvas.addEventListener('pointerdown', (e) => {
+    if (under.shown && e.pointerType === 'touch') {
+      // (the Underdark: two fingers pinch it closer or farther)
+      underTouches.set(e.pointerId, { x: e.clientX, y: e.clientY });
+      if (underTouches.size === 2) {
+        boardPress = null;
+        underPinch = underSpread();
+        return;
+      }
+    }
     if (tactics.shown || deep.shown || under.shown) {
       boardPress = { x: e.clientX, y: e.clientY, lx: e.clientX, ly: e.clientY, moved: false, id: e.pointerId };
       return;
@@ -1480,6 +1497,16 @@ async function start(): Promise<void> {
     canvas.setPointerCapture(e.pointerId);
   });
   canvas.addEventListener('pointermove', (e) => {
+    if (under.shown && underTouches.has(e.pointerId)) {
+      underTouches.set(e.pointerId, { x: e.clientX, y: e.clientY });
+      if (underPinch !== null && underTouches.size >= 2) {
+        const now = underSpread();
+        const [a, b] = [...underTouches.values()];
+        under.zoom(now / underPinch, (a.x + b.x) / 2, (a.y + b.y) / 2);
+        underPinch = now;
+        return;
+      }
+    }
     if ((tactics.shown || deep.shown || under.shown) && boardPress && e.pointerId === boardPress.id) {
       if (Math.hypot(e.clientX - boardPress.x, e.clientY - boardPress.y) >= DRAG_THRESHOLD) boardPress.moved = true;
       if (boardPress.moved) (under.shown ? under : deep.shown ? deep : tactics).pan(e.clientX - boardPress.lx, e.clientY - boardPress.ly);
@@ -1501,10 +1528,13 @@ async function start(): Promise<void> {
     camera.dragTo(e.clientX, e.clientY, e.timeStamp);
   });
   const release = (e: PointerEvent) => {
+    underTouches.delete(e.pointerId);
+    if (underTouches.size < 2) underPinch = null;
     if (boardPress && e.pointerId === boardPress.id) {
       const was = boardPress;
       boardPress = null;
       if (!was.moved && e.type === 'pointerup' && tactics.shown) tactics.tap(e.clientX, e.clientY);
+      else if (!was.moved && e.type === 'pointerup' && under.shown) under.tap(e.clientX, e.clientY);
       return;
     }
     touches.delete(e.pointerId);
