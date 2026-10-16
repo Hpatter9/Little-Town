@@ -10,6 +10,7 @@ import { el } from './dom';
 import { inTabs, selectTab, shownTab, tabKey } from './subtabs';
 import { expeditionsKey, renderExpeditions } from './expeditionsPanel';
 import { renderJournal } from './journalPanel';
+import { shelfKey } from './shelfPanel';
 import { guildMark, guildsOf } from '../art/guildMarks';
 import { festivalsKey } from './festivalsPanel';
 import { cultureKey } from './culturePanel';
@@ -96,7 +97,7 @@ function keyOf(): string {
           : shown === 'expeditions'
             ? 'e' + expeditionsKey(snap)
             : shown === 'journal'
-              ? 'j' + festivalsKey(snap.festivals) + '|' + cultureKey(snap.culture) + '|' + snap.journalHead + '|' + snap.calendar.day + '|' + legendsVersion() + '|' + JSON.stringify(snap.ancestry ? [snap.ancestry.visits, snap.ancestry.log.length, snap.ancestry.place, snap.ancestry.heirloom] : null) + '|' + snap.met.length + '|' + snap.scenesSeen.length + '|' + snap.annals.fallen.length + '|' + snap.annals.chronicles.length + '|' + snap.annals.famous.map((f) => `${f.id}:${f.felled}:${f.level}:${f.titles.length}:${guildsOf({ guilds: snap?.guilds ?? [] }, f.id)[0]?.role ?? ''}`).join(',')
+              ? 'j' + festivalsKey(snap.festivals) + '|' + cultureKey(snap.culture) + '|' + snap.journalHead + '|' + snap.calendar.day + '|' + legendsVersion() + '|' + shelfKey(snap.rare) + '|' + JSON.stringify(snap.ancestry ? [snap.ancestry.visits, snap.ancestry.log.length, snap.ancestry.place, snap.ancestry.heirloom] : null) + '|' + snap.met.length + '|' + snap.scenesSeen.length + '|' + snap.annals.fallen.length + '|' + snap.annals.chronicles.length + '|' + snap.annals.famous.map((f) => `${f.id}:${f.felled}:${f.level}:${f.titles.length}:${guildsOf({ guilds: snap?.guilds ?? [] }, f.id)[0]?.role ?? ''}`).join(',')
               : shown === 'crafting'
                 ? 'c' + craftingKey(snap)
                 : shown === 'trade'
@@ -130,7 +131,7 @@ function render(): void {
     void bridge.getJournal().then((entries) => {
       if (renderedKey !== keyed) return; // moved on meanwhile
       const top = body.scrollTop;
-      body.replaceChildren(...renderJournal(entries, snap?.met ?? [], snap?.annals, snap?.scenesSeen ?? [], (key) => (bridge.command({ type: 'scene', op: 'watch', key }), bridge.closePanel?.()), snap?.ancestry, snap?.festivals, snap?.culture, (id) => guildMark({ guilds: snap?.guilds ?? [] }, id), snap?.calendar.day));
+      body.replaceChildren(...renderJournal(entries, snap?.met ?? [], snap?.annals, snap?.scenesSeen ?? [], (key) => (bridge.command({ type: 'scene', op: 'watch', key }), bridge.closePanel?.()), snap?.ancestry, snap?.festivals, snap?.culture, (id) => guildMark({ guilds: snap?.guilds ?? [] }, id), snap?.calendar.day, snap?.rare));
       body.scrollTop = top;
     });
     return;
