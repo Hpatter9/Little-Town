@@ -10,7 +10,7 @@
 // Castles and the hold have walls of their own, and a wandering tribe its wagons: no ring for them.
 import { BUILDING_BY_ID, type BuildingDef } from '../data/buildings';
 import { RING_SHAPE_OF, type RingShape } from '../data/ringShapes';
-import { builtOn, builtOnIndex, canPlace, demolish, isUnlocked, overgrownCells, placeBlueprint, unlockInfo } from './buildings';
+import { builtOn, builtOnIndex, canPlace, demolish, isUnlocked, overgrownCells, placeBlueprint, refreshOvergrown, unlockInfo } from './buildings';
 import { holdOf } from './castle';
 import { CELL, groundAt, idx, inMap, isPlannedRoad, isRoad, planRoad, unsetRoad, wet, WILD, wildToClear, type LandMap, type Pt, type Rect } from './land';
 import { nomadic } from './nomads';
@@ -344,7 +344,9 @@ const gateCovers = (ring: Ring, g: Pt): Pt[] => (gateTurned(ring, g) ? [g, { x: 
  *  ground with both its cells on the same side's run; and wherever a road crosses the line (a gate every few cells
  *  at most). */
 export function gateCells(s: GameState, line: LineCell[]): Pt[] {
-  const c = campCell(s);
+  // (a town with a plan has its gates where its main streets meet the wall: the high street's row, the south road's
+  // column, sim/layout.ts)
+  const c = s.layout ? { x: s.layout.col, y: s.layout.row } : campCell(s);
   const m = s.land;
   const at = new Map(line.map((l) => [idx(m, l.x, l.y), l]));
   const dry = (p: Pt) => inMap(m, p.x, p.y) && !wet(groundAt(m, p.x, p.y)) && groundAt(m, p.x, p.y) !== 'mountain';
@@ -519,6 +521,10 @@ export function planRing(s: GameState, wanted: boolean, raided = false): number[
   // (the trees and rocks under the pieces laid over the wild, in the ring's order)
   for (const b of s.buildings) {
     if (b.ring !== ring.gen || !b.overgrown) continue;
+    // (ground cleared some other way, a wildfire through the wood say, leaves the piece clear: it was once stuck
+    // overgrown for good, and the wall never finished)
+    refreshOvergrown(s, b);
+    if (!b.overgrown) continue;
     for (const i of overgrownCells(s, b)) if (clear.length < RING_CLEAR && !clear.includes(i)) clear.push(i);
   }
   ring.clearing = clear.slice();

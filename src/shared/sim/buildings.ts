@@ -5,6 +5,7 @@
 
 import { VILLAGE_KEEP } from '../data/villages';
 import { isGate, ringWallCells, riverCell, wallOnly } from './ringWall';
+import { planBias } from './layout';
 import { isSeat } from '../data/seats';
 import { hallCells, HALLWAY, castleCells, castleGate, castleOn, holdOf, joinsCastle, nearCastle, roomKind, solidCells } from './castle';
 import { seaBuild, seaTown } from './sea';
@@ -400,7 +401,7 @@ export function layStreet(s: GameState, from: Pt, to: Pt, reach = ROAD_REACH): b
   const blocked = (x: number, y: number) => !ground(x, y) || !!on(x, y) || !!castle?.has(idx(m, x, y));
   // (a road may run through the ring wall's gate; a gate cell is left a plain cell, the gate stands on it)
   const gate = (x: number, y: number) => isGate(on(x, y)?.def ?? '');
-  const path = findPath(m, from, to, (x, y) => walled(x, y) || (blocked(x, y) && !isRoad(m, x, y) && !isPlannedRoad(m, x, y) && !gate(x, y)), { maxNodes: 6000, four: true, swim: pier ? PIER_COST : BRIDGE_COST });
+  const path = findPath(m, from, to, (x, y) => walled(x, y) || (blocked(x, y) && !isRoad(m, x, y) && !isPlannedRoad(m, x, y) && !gate(x, y)), { maxNodes: 6000, four: true, swim: pier ? PIER_COST : BRIDGE_COST, extra: planBias(s) });
   if (!path || path.length > reach) return false;
   lay(from.x, from.y);
   for (const c of path) if ((!on(c.x, c.y) || gate(c.x, c.y)) && ground(c.x, c.y)) lay(c.x, c.y);

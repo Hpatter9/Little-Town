@@ -619,6 +619,9 @@ export interface PathOpts {
   /** Widened to take in every cell the search looked at: what it found rests on those cells alone (sim/walk.ts keeps
    *  ways found while nothing in their reach changes). */
   reach?: { x0: number; y0: number; x1: number; y1: number };
+  /** What a step onto a cell costs on top of its ground (never less than none): a street keeps to the town plan's
+   *  lines (sim/layout.ts `planBias`). */
+  extra?: (x: number, y: number) => number;
 }
 /** What a cell of the sea costs a swimmer. */
 export const SWIM_COST = 0.8;
@@ -660,7 +663,7 @@ export function findPath(m: LandMap, from: { x: number; y: number }, to: { x: nu
     if (x < 0 || y < 0 || x >= W || y >= m.h) return Infinity;
     const i = y * W + x;
     if (costAt[i] === gen) return costOf[i];
-    const c = cost0(x, y);
+    const c = opts.extra ? cost0(x, y) + opts.extra(x, y) : cost0(x, y);
     if (reach) {
       if (x < reach.x0) reach.x0 = x;
       if (x > reach.x1) reach.x1 = x;

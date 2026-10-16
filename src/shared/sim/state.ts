@@ -1037,6 +1037,9 @@ export interface GameState {
   /** Seconds of paving work done toward the next cell of the streets planned: every paver adds to the one pool, and the
    *  cells go down in order as it covers them (sim/streets.ts `streetWork`). */
   streetSec?: number;
+  /** The town plan (sim/layout.ts): the square, the main streets' lines, the craft quarter's side. Left out of an older
+   *  save until the planner fits one round what stands. */
+  layout?: import('./layout').TownLayout;
   /** The town's lights, and whether lighting is at work (sim/lighting.ts; off in the tests' plainGame). */
   torches?: import('./lighting').Torch[];
   lighting?: boolean;
