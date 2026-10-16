@@ -22,9 +22,15 @@ import { renderAlerts } from './alertsPanel';
 import { renderNewGame, restartNewGame } from './newGamePanel';
 import { isVenuePanel, renderShop, shopKey, venueView } from './shopPanel';
 import { hkKnow } from '../art/hkFolk';
+import { countsFor } from './counts';
+import { ensureStructureStyle, foldSections, installSwipe } from './structure';
+import { noteFood } from './dashboard';
 import { applyTheme, currentTheme, panelLabel } from '../theme';
-import { detailsKey, setDetailsRedraw } from './details';
+import { closeLatestCard, detailsKey, setDetailsRedraw } from './details';
 import { legendsVersion, primeLegends } from '../legends';
+
+/** The Town's building book groups its buildings under these (sub-headings, not sections). */
+const LAYER_HEADS = /^(Foreground|Midground|Background)/;
 
 declare global {
   interface Window {
@@ -122,7 +128,9 @@ function render(): void {
     return;
   }
   // (each menu's sections in sub-tabs: subtabs.ts)
-  const tabbed = (els: HTMLElement[]) => inTabs(shown!, els, render);
+  // (and each tab's sections folded, with their counts in the headings: structure.ts)
+  const menu = shown;
+  const tabbed = (els: HTMLElement[]) => inTabs(menu, els, render, menu, (c) => (snap ? foldSections(menu, c, countsFor(menu, snap), menu === 'build' ? LAYER_HEADS : undefined) : c));
   // (the Town: its overview, buildings and treasury, and the stores; the Market: its shops, caravan and animals, and the
   // workshops: the menus' redo)
   if (snap && shown === 'build') body.replaceChildren(...tabbed([...renderBuild(snap, bridge, render), ...renderStores(snap, render)]));
@@ -143,6 +151,9 @@ function render(): void {
   body.scrollTop = scroll;
 }
 
+ensureStructureStyle();
+// (a swipe to the right closes the card opened last, or a sheet)
+installSwipe(body, closeLatestCard);
 // (a card opened or closed: details.ts)
 setDetailsRedraw(() => render());
 
@@ -167,6 +178,7 @@ if (bridge) {
   bridge.onState(onState);
   bridge.onSnapshot((next) => {
     snap = next;
+    noteFood(next);
     if (applyTheme(next.theme, 'panel')) renderedKey = ''; // (the look changed: redraw, with the new names)
     render();
   });
