@@ -51,6 +51,8 @@ export function topLines(s: Snapshot): { urgent: string | null; turn: string[] }
               ? `Lift-off in ${Math.ceil(s.launchHours)}h`
               : null;
   const turn: string[] = [];
+  // what the town senses coming (sim/foreshadow.ts): ahead of the news, behind anything urgent
+  for (const h of s.foreshadow ?? []) turn.push(`⏳ ${h.text}`);
   if (s.news) turn.push(s.news.text);
   const study = researchFill(s.research);
   if (study) turn.push(study.title.replace(/^Researching /, 'Studying '));

@@ -1,5 +1,7 @@
 // What the renderers see of the sim: a read-only copy sent over IPC each tick.
 
+import { foreshadow } from './foreshadow';
+import { upcoming } from './calendar';
 import { ancestryView, type AncestryView } from './ancestors';
 import { fightOnScreen } from './raidWait';
 import { townWhy, type WhyLines } from './whyLines';
@@ -1140,6 +1142,10 @@ export interface Snapshot {
   turnable: MonsterKind[];
   /** Game hours until lift-off, once the ship is built. */
   launchHours: number | null;
+  /** What the town senses coming (sim/foreshadow.ts: hints in its voice, no numbers), and the coming days it knows of
+   *  (sim/calendar.ts). Missing on a snapshot from before them. */
+  foreshadow?: import('./foreshadow').Hint[];
+  upcoming?: import('./calendar').CalendarDay[];
   /** Time away being simulated: how far along (0..1). Set by the main process while it catches up. */
   /** The important things since the player was last here (sim/awaySummary.ts): on the snapshot that ends a catch-up
    *  only, for the phone's return card. */
@@ -1512,6 +1518,8 @@ export function snapshot(s: GameState): Snapshot {
     why: townWhy(s),
     ironman: !!s.ironman,
     launchHours: s.launchTick != null ? Math.max(0, (s.launchTick - s.tick) / TICKS_PER_HOUR) : null,
+    foreshadow: foreshadow(s),
+    upcoming: upcoming(s),
     mainId: s.mainId,
     unlockAll: s.cheats.unlockAll,
     research: researchView(s),

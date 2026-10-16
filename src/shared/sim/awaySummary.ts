@@ -6,6 +6,7 @@
 import { ERA_NAMES } from '../data/eras';
 import { ITEM_BY_ID } from '../data/items';
 import { PLACE_DEFS } from '../data/places';
+import { openThreads } from './foreshadow';
 import type { RaidRecap } from './raidRecap';
 import type { GameState } from './state';
 
@@ -20,7 +21,7 @@ export interface AwayBefore {
   lastRecap: RaidRecap | undefined;
 }
 
-export type AwayTone = 'bad' | 'good' | 'ask' | 'news';
+export type AwayTone = 'bad' | 'good' | 'ask' | 'news' | 'next';
 export interface AwayLine {
   tone: AwayTone;
   text: string;
@@ -83,5 +84,7 @@ export function awaySummary(s: GameState, b: AwayBefore): AwayLine[] {
   // what waits on the player
   const asks = s.prompts.length;
   if (asks) out.push({ tone: 'ask', text: asks === 1 ? `A question waits: ${s.prompts[0].title}.` : `${asks} questions wait for you.` });
+  // the open threads to end on (sim/foreshadow.ts): only after a recap, so a quiet absence still shows no card
+  if (out.length) for (const text of openThreads(s)) out.push({ tone: 'next', text });
   return out;
 }
