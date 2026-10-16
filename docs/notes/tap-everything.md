@@ -65,8 +65,8 @@ furnishings, the Chronicle (every line's names, and the line itself), the away l
 the midwinter chronicles (Heroes), the gods (Faith), the guilds, the powers of the realm (Trips), the next festival. On
 the phone page (`mobile/cardLink.ts` `openCardInMenu`, through the menus' `window.__openCard`): a unique's reveal card has
 "More about it ›" (`RevealCard.more`), a haul's unique line opens it once laid out (`data-item`), and a news line naming a
-unique gets "About it" (`NoticeAction` kind `card`). The War tab (claude/war-island's) can open a power's card with one
-line: `openCard({ kind: 'faction', id })` from panel/infoCard.ts.
+unique gets "About it" (`NoticeAction` kind `card`). On the War tab's island map (0.149.0), a picked province's holder
+opens its power's card, when the realm knows it (one line in `provinceCard`, panel/warPanel.ts).
 
 **One look for tappable text** (`tapLink` in panel/structure.ts, `.tap-link`): a dotted underline in the people's heading
 colour (`--heading`), the same dotted underline the research queue used in 0.137.0. A tap on it never opens or closes an
