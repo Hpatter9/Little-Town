@@ -1247,6 +1247,14 @@ export interface GameState {
   plan?: TownPlan;
   /** The ring wall round the town (sim/ringWall.ts). */
   ring?: Ring;
+  /** The firsts the town has seen (sim/milestones.ts): which, and the day. Older saves start recording from the day
+   *  `milestonesFrom` (the first day it was kept). */
+  milestones?: { id: string; day: number }[];
+  milestonesFrom?: number;
+  /** Where the rank's and milestones' news lines last sat among the ids (sim/milestones.ts `tell`). */
+  tellAt?: { base: number; n: number };
+  /** The town's rank and its generations (sim/tiers.ts). */
+  rank?: import('./tiers').Rank;
   /** Buildings the player pinned in the Building book: the town builds them next (sim/pins.ts). */
   pins?: Pin[];
   /** False turns the town's own planner off (tests of single mechanics). On when left out. */
