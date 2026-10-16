@@ -11,7 +11,9 @@
 import type { ClassId, ClassStats } from './classes';
 import { FOUNDER_CLASSES, FOUNDER_ROADS } from './founderLines';
 import { ORIGIN_ROADS } from './originPaths';
+import { callingId, ORIGIN_CALLINGS, type CallingForm, type CallingNode } from './originCallings';
 import type { OriginId } from './origins';
+import type { FamilyId } from './weapons';
 
 export interface PathNode {
   id: string;
@@ -33,6 +35,11 @@ export interface PathNode {
   own?: boolean;
   /** Its telling, for nodes off the shared tree (the shared ones' is in data/pathLore.ts). */
   lore?: string;
+  /** On a people's own base calling's tree (data/originCallings.ts): how it is drawn fighting, and a weapon kind it
+   *  may wield over its archetype's (each the nearest set up its road: `formOf`, `armsOf`). */
+  calling?: true;
+  form?: CallingForm;
+  arms?: FamilyId;
 }
 
 const nodes: PathNode[] = [];
@@ -289,6 +296,37 @@ for (const r of ORIGIN_ROADS) {
  *  straight on. */
 export const ORIGIN_PATHS: readonly PathNode[] = originNodes;
 
+/* ------------------------------------------------------------ the peoples' own base callings */
+
+const callingNodes: PathNode[] = [];
+for (const t of ORIGIN_CALLINGS) {
+  const id = (k: string) => callingId(t.origin, k);
+  const mk = (n: CallingNode, stage: number, from: string | null): PathNode => {
+    const node: PathNode = { id: id(n.id), name: n.name, stage, from, cls: n.cls, text: n.text, lore: n.lore, origin: t.origin, calling: true };
+    if (n.stats) node.stats = n.stats;
+    if (n.companion) node.companion = n.companion;
+    if (n.form) node.form = n.form;
+    if (n.arms) node.arms = n.arms;
+    callingNodes.push(node);
+    return node;
+  };
+  const base = mk(t.base, 0, null);
+  for (const [r1, roads2] of t.roads) {
+    const one = mk(r1, 1, base.id);
+    for (const [r2, roads3] of roads2) {
+      const two = mk(r2, 2, one.id);
+      for (const r3 of roads3) {
+        const three = mk(r3, 3, two.id);
+        callingNodes.push({ id: id(r3.asc[0]), name: r3.asc[1], stage: 4, from: three.id, cls: r3.cls, text: `${r3.text} Ascended: the last and greatest of their people's calling.`, origin: t.origin, calling: true, ...(r3.companion ? { companion: r3.companion } : {}) });
+      }
+    }
+  }
+}
+/** Every people's own base callings, whole trees (ids `oc_<people>_<id>`). */
+export const CALLING_PATHS: readonly PathNode[] = callingNodes;
+/** A people's own base callings (the starting nodes). */
+export const callingBases = (origin: string | null | undefined): PathNode[] => callingNodes.filter((n) => n.stage === 0 && n.origin === origin);
+
 /* ------------------------------------------------------------ the founders' lines, with their choices */
 
 const founderNodes: PathNode[] = [];
@@ -319,20 +357,31 @@ export const FOUNDER_PATHS: readonly PathNode[] = founderNodes;
 /** A founder's starting node. */
 export const founderRoot = (fid: string) => `f_${fid}`;
 
-export const PATH_BY_ID: Readonly<Record<string, PathNode>> = Object.fromEntries([...nodes, ...originNodes, ...founderNodes].map((n) => [n.id, n]));
+export const PATH_BY_ID: Readonly<Record<string, PathNode>> = Object.fromEntries([...nodes, ...originNodes, ...callingNodes, ...founderNodes].map((n) => [n.id, n]));
 export const BASE_PATHS: readonly PathNode[] = nodes.filter((n) => n.stage === 0);
 const kids = new Map<string, PathNode[]>();
 for (const n of Object.values(PATH_BY_ID)) if (n.from) kids.set(n.from, [...(kids.get(n.from) ?? []), n]);
 /** The shared roads out of a node (two, or the one ascended form from a stage-3 node; none past that), and a
  *  founder's line's. A people's own roads are left out: `roadsFrom` adds them. */
 export const branchesOf = (id: string): PathNode[] => (kids.get(id) ?? []).filter((n) => !n.origin || PATH_BY_ID[id]?.origin);
-/** The roads out of a node for someone of a people: the shared ones and their people's own. */
-export const roadsFrom = (id: string, origin?: string | null): PathNode[] => (kids.get(id) ?? []).filter((n) => !n.origin || n.origin === origin);
+/** The roads out of a node for someone of a people: the shared ones and their people's own (and, once on a people's
+ *  own calling, its roads whoever they are now). */
+export const roadsFrom = (id: string, origin?: string | null): PathNode[] => (kids.get(id) ?? []).filter((n) => !n.origin || n.origin === origin || (n.calling && PATH_BY_ID[id]?.calling));
 /** A node and every node before it, the base first. */
 export function lineage(id: string): PathNode[] {
   const out: PathNode[] = [];
   for (let n: PathNode | undefined = PATH_BY_ID[id]; n; n = n.from ? PATH_BY_ID[n.from] : undefined) out.unshift(n);
   return out;
+}
+/** How a road's calling is drawn fighting, and the weapon kind it may wield over its archetype's: the nearest set up
+ *  its road (only the peoples' own callings set them). */
+export function formOf(id: string | null | undefined): CallingForm | null {
+  for (let n = id ? PATH_BY_ID[id] : undefined; n; n = n.from ? PATH_BY_ID[n.from] : undefined) if (n.form) return n.form;
+  return null;
+}
+export function armsOf(id: string | null | undefined): FamilyId | null {
+  for (let n = id ? PATH_BY_ID[id] : undefined; n; n = n.from ? PATH_BY_ID[n.from] : undefined) if (n.arms) return n.arms;
+  return null;
 }
 /** The node at a stage of someone's road (the base at 0, where they stand now at their stage). */
 export const pathStage = (id: string, stage: number): PathNode | undefined => lineage(id)[stage];

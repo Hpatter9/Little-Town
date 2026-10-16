@@ -15,7 +15,7 @@ import { CREATURE_FRAME, creatureFrame, creatureSize, type CreatureSheet } from 
 import { EMOTE_SIZE, emoteFrame, levelUpFrame, HOLY_SIZE, holyFrame, REVIVE_SIZE, reviveFrame, SPELL_SIZE, spellFrame, spellFrames, SPLAT_SIZE, splatFrame, pixelFxFrame, type Emote } from '../art/effects';
 import { COUGH_FOR, coughing } from './moodRules';
 import { motionOf } from '../fight/fightMotion';
-import { fightAnim, fightPose, founderSheet, heroFrame, heroScale, heroSheet, SHOOT_TICKS, skeletonSheet, WOLF_FORMS, WOLF_SCALE } from '../art/combatPoses';
+import { fightAnim, fightPose, founderSheet, heroFrame, heroScale, heroSheet, roadForm, SHOOT_TICKS, skeletonSheet, WOLF_FORMS, WOLF_SCALE } from '../art/combatPoses';
 import { creatureFlip } from '../art/creatures';
 import { loadImage } from '../art/loadImage';
 import barrowUrl from '../art/shops/gb_barrow.png';
@@ -798,6 +798,16 @@ export class MapPeople {
         const wk = heroScale(wolf) * k * WOLF_SCALE;
         s.anchor.set(0.5, 1);
         s.scale.set(wk * creatureFlip(wolf, facing), wk);
+      }
+      // a people's own calling fights in its form from the packs (data/originCallings.ts: a Bonewright's skeleton, a
+      // Gearwright's robot), over the Himeko look and the wolf, as the werewolves do
+      const form = inCombat && !hidden && !founder ? roadForm(d.view.roadId) : null;
+      if (form) {
+        plain = false;
+        s.texture = heroFrame(form, { facing, moving: riderMoving, walked: d.walked, sinceBlow: v.sinceBlow, sinceHit: v.sinceHit, sinceBlock: v.sinceBlock, down: v.downed !== null, now, ref: v.id });
+        const fk = heroScale(form) * k;
+        s.anchor.set(0.5, 1);
+        s.scale.set(fk * creatureFlip(form, facing), fk);
       }
       // a shapeshifter fights in their beast's shape (data/levels.ts `beastForm`: wolf, lion, bear, drake, wyvern by
       // stage; a druid's bear)

@@ -433,6 +433,8 @@ export interface FighterView {
   statuses: string[];
   clsName: string | null;
   cls: ClassId | null;
+  /** Their road (data/paths.ts), for the form a people's own calling fights in. */
+  road?: string | null;
   level: number | null;
   pop: { age: number; amount: number; heal: boolean } | null;
   conjured: boolean;
@@ -2299,6 +2301,7 @@ function expeditionView(s: GameState, e: Expedition): ExpeditionView {
           statuses: Object.entries(f.st ?? {}).filter(([, v]) => v!.until > e.battle!.tick).map(([k]) => k),
           clsName: f.side === 'party' ? ((q) => (q ? callingName(q, stageOf(q)) : null))(s.people.find((p) => p.id === f.ref)) : null,
           cls: f.side === 'party' ? (s.people.find((p) => p.id === f.ref)?.cls ?? null) : null,
+          road: f.side === 'party' ? (s.people.find((p) => p.id === f.ref)?.road ?? null) : null,
           wolf: f.side === 'party' && s.people.find((p) => p.id === f.ref)?.monster === 'werewolf',
           beast: f.side === 'party' ? ((q) => (q ? beastForm(q) : null))(s.people.find((p) => p.id === f.ref)) : null,
           undead: f.side === 'party' && s.people.find((p) => p.id === f.ref)?.monster === 'undead',

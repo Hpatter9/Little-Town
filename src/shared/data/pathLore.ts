@@ -3,6 +3,8 @@
 // road asks, what it makes of a person, and a line of the world's lore. FORK is how each base calling's crossroads
 // is told as a scene; LORE is each node's passage; ASCENDED tells the last step.
 
+import { callingId, ORIGIN_CALLINGS } from './originCallings';
+
 /** How the fork is told, by the base calling, with {name} for the townsperson. */
 export const FORK: Record<string, string> = {
   fighter: 'The sparring post in the yard is split clean through, and {name} is only breathing a little hard. The old hands have stopped correcting their stance. What they have is not technique yet, only strength and nerve, and the question is what to make of them.',
@@ -14,6 +16,9 @@ export const FORK: Record<string, string> = {
   wanderer: '{name} came back from the woods with a wolf cub asleep in their hood, and the cub would not go to anyone else. The land has taken a liking to them. The green will give them its secrets, or lend them its creatures.',
   minstrel: 'When {name} starts a song at the fire, the quarrelling stops and the tired sit up. People fight better when they are near them, and nobody is quite sure why. A voice like that can carry a party, or a trade can carry a town.',
 };
+
+// (the peoples' own base callings tell their own crossroads: data/originCallings.ts)
+for (const t of ORIGIN_CALLINGS) FORK[callingId(t.origin, t.base.id)] = t.fork;
 
 /** How a founder's evolution is told: the line the stories expect, or a road of their own. */
 export const FOUNDER_FORK = 'The town has grown up round {name} like a village round a well. The songs they sing about the founder already say what comes next, and {name} could become exactly that. Or they could become something the songs never imagined.';

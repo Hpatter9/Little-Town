@@ -5,6 +5,7 @@
 
 import { lineage, PATHS } from './paths';
 import { ORIGIN_ROADS } from './originPaths';
+import { callingId, callingNodes, ORIGIN_CALLINGS } from './originCallings';
 
 export interface EmblemColours {
   /** The field, its shade, and a light for the chevron and the rim's glint. */
@@ -168,6 +169,11 @@ const C: Record<string, Compose> = {
 };
 // (the peoples' own roads carry their emblems with them)
 for (const r of ORIGIN_ROADS) for (const n of [r.two, r.three, r.high]) C[n.id] = { main: n.emblem.main as Glyph, ...(n.emblem.charge ? { charge: n.emblem.charge as Glyph } : {}) };
+// (and the peoples' own base callings theirs, and their colours: data/originCallings.ts)
+for (const t of ORIGIN_CALLINGS) {
+  BASE_COLOURS[callingId(t.origin, t.base.id)] = t.colours;
+  for (const [id, n] of callingNodes(t)) C[id] = { main: n.emblem.main, ...(n.emblem.charge ? { charge: n.emblem.charge } : {}), ...(n === t.base ? { behind: t.base.behind } : {}) };
+}
 
 /** A founder's line's colours: royal violet and gold, whatever their base. */
 export const FOUNDER_COLOURS: EmblemColours = { fill: '#5a2f7a', dark: '#2e1640', light: '#e8c860' };
