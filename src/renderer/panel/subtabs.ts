@@ -112,9 +112,9 @@ try {
 } catch {}
 
 /** A menu's elements, put in its tabs; `redraw` after a tab is chosen. */
-export function inTabs(menu: string, els: HTMLElement[], redraw: () => void, kind = menu): HTMLElement[] {
+export function inTabs(menu: string, els: HTMLElement[], redraw: () => void, kind = menu, fold: (els: HTMLElement[]) => HTMLElement[] = (e) => e): HTMLElement[] {
   const cfg = GROUPS[kind];
-  if (!cfg) return els;
+  if (!cfg) return fold(els);
   const above: HTMLElement[] = [];
   const parts = new Map<string, HTMLElement[]>(cfg.groups.map(([n]) => [n, []]));
   let current: string | null = cfg.intro ?? null;
@@ -134,7 +134,7 @@ export function inTabs(menu: string, els: HTMLElement[], redraw: () => void, kin
   const shown = cfg.groups.map(([n]) => n).filter((n) => parts.get(n)!.length);
   if (shown.length < 2) {
     effective.delete(menu);
-    return els;
+    return fold(els);
   }
   const want = openTab(menu);
   const open = want && shown.includes(want) ? want : shown[0];
@@ -155,7 +155,7 @@ export function inTabs(menu: string, els: HTMLElement[], redraw: () => void, kin
   const content = parts.get(open)!;
   // (the open tab's own first heading only repeats the tab's name)
   if (content[0]?.tagName === 'H2' && content[0].textContent === open) content.shift();
-  return [...above, row, ...content];
+  return [...above, row, ...fold(content)];
 }
 
 /** What the open tab is, for the menu's redraw key. */

@@ -7,6 +7,11 @@
 import { MATERIAL_NAMES, type Material, type Stock } from '../../shared/data/materials';
 import type { Snapshot } from '../../shared/sim/snapshot';
 import { guildMarkOrFallen } from '../art/guildMarks';
+import { RAID_KINDS } from '../../shared/data/raids';
+import { hkDraw, hkLayers, hkWhoOf } from '../art/hkFolk';
+import { playScene } from '../panel/scenePlayer';
+import { raiderSprites, recapScript, type RecapPanel } from '../panel/sceneScripts';
+import { addCardStyles } from '../panel/cardsStyles';
 
 const SEEN_KEY = 'littletown.recapSeen';
 
@@ -24,6 +29,80 @@ const el = <K extends keyof HTMLElementTagNameMap>(tag: K, cls: string, text?: s
   if (text !== undefined) e.textContent = text;
   return e;
 };
+
+type Recap = NonNullable<Snapshot['raidRecap']>;
+
+/** A small face for a chip, from the Himeko doll (blank until its layers load; the strip is drawn once, so a later redraw fills it). */
+function miniFace(p: Snapshot['people'][number]): HTMLCanvasElement {
+  const c = document.createElement('canvas');
+  c.width = c.height = 40;
+  const g = c.getContext('2d')!;
+  g.imageSmoothingEnabled = false;
+  hkDraw(g, hkLayers(hkWhoOf(p), { fighting: false, activity: 'idle' }), 0, 0, 20, 84, 92);
+  return c;
+}
+
+/** The raid told in four panels: the warning, the clash, the turning point and the aftermath. The turning point is read
+ *  from the recap: the boss falling, the best defender's tally, the town's mercy, or the breach. */
+function strip(c: Recap, snap: Snapshot | null): HTMLElement {
+  addCardStyles();
+  const kind = RAID_KINDS.find((k) => k.name === c.name);
+  const sprites = raiderSprites(kind?.id ?? '');
+  const best = c.rows.find((r) => r.id === c.best);
+  const fought = c.rows.filter((r) => !r.died);
+  const order = [...(best ? [best] : []), ...fought.filter((r) => r.id !== c.best)];
+  const people = snap?.people ?? [];
+  const cast = order.map((r) => people.find((p) => p.id === r.id)).filter((p): p is Snapshot['people'][number] => !!p);
+  const filler = people.filter((p) => !cast.includes(p) && p.indoors === false && p.away === null && !p.growsUpIn).slice(0, 3);
+  const dolls = [...cast, ...filler].slice(0, 4).map((p) => hkLayers(hkWhoOf(p), { fighting: true, activity: 'idle' }));
+  const night = !!snap && snap.calendar.daylight < 0.3;
+  const turn = c.boss && c.outcome === 'victory'
+    ? `${c.boss} falls!`
+    : c.outcome === 'pillaged'
+      ? (c.through ? `They broke through: ${c.through} got past the defences.` : 'They broke through and pillaged the town.')
+      : best && best.kills > 0
+        ? `${best.name} felled ${best.kills}, and the line held.`
+        : c.towers && c.towers.kills > 0
+          ? `The towers and traps took ${c.towers.kills}.`
+          : c.mercy === 'turned'
+            ? 'They saw the town and turned back.'
+            : `${c.killed} of ${c.came} were felled.`;
+  const lost = c.rows.filter((r) => r.died).length;
+  const after = c.outcome === 'pillaged' ? 'The town was pillaged.' : lost ? `${lost} did not come home.` : stockLine(c.stolen) ? 'Driven off, with something taken.' : c.outcome === 'victory' ? 'Nobody was lost. The town stands.' : 'They fled, and took nothing.';
+  const panels: [RecapPanel, string][] = [
+    ['warning', c.watched ? `Spotted by the watch ${c.watched}: ${c.name}, ${c.came} strong.` : `${c.name} came: ${c.came} strong${c.waves > 1 ? `, in ${c.waves} waves` : ''}.`],
+    ['clash', fought.length ? `${fought.length} stood against them.` : 'Nobody stood against them.'],
+    ['turn', turn],
+    ['after', after],
+  ];
+  const box = el('div', 'rs-strip');
+  for (const [which, cap] of panels) {
+    const panel = el('div', 'rs-panel');
+    playScene(panel, recapScript(which, sprites, c.outcome, night, !!c.boss), dolls);
+    panel.append(el('div', 'rs-cap', cap));
+    box.append(panel);
+  }
+  const wrap = el('div', '');
+  wrap.append(box);
+  // who fell and who shone
+  const chips = el('div', 'rs-chips');
+  for (const r of c.rows.filter((q) => q.died || q.fell)) {
+    const chip = el('span', 'rs-chip fell');
+    const p = people.find((q) => q.id === r.id);
+    if (p && !r.died) chip.append(miniFace(p));
+    chip.append(`${r.died ? '✝ ' : ''}${r.name} ${r.died ? 'slain' : 'fell'}`);
+    chips.append(chip);
+  }
+  for (const r of c.rows.filter((q) => !q.died && (q.id === c.best || q.levelTo > q.levelFrom))) {
+    const chip = el('span', 'rs-chip shone');
+    const p = people.find((q) => q.id === r.id);
+    if (p) chip.append(miniFace(p));
+    chip.append(`${r.id === c.best ? '★ ' : ''}${r.name}${r.levelTo > r.levelFrom ? ` Lv ${r.levelTo}!` : r.kills > 0 ? ` felled ${r.kills}` : ` dealt ${r.dealt}`}`);
+    chips.append(chip);
+  }
+  if (chips.childElementCount) wrap.append(chips);
+  return wrap;
+}
 
 export interface RaidRecapView {
   update(s: Snapshot): void;
@@ -70,6 +149,7 @@ export function createRaidRecap(): RaidRecapView {
     box.append(el('div', 'rr-title', c.boss && c.outcome === 'victory' ? `${c.boss} falls!` : TITLES[c.outcome]));
     const sum = [`${c.name}`, c.waves > 1 ? `${c.waves} waves` : '', `${c.killed} of ${c.came} felled`, c.fled ? `${c.fled} fled` : '', c.through ? `${c.through} got through` : ''].filter(Boolean).join(' · ');
     box.append(el('div', 'rr-sum', sum));
+    box.append(strip(c, snap));
     // what happened, told
     if (c.story?.length) box.append(el('div', 'rr-story', c.story.join(' ')));
     // the defenders, the best first

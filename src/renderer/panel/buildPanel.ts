@@ -26,6 +26,7 @@ import { materialIcon } from '../art/materialIcons';
 import { BUILD_MULTIPLIER } from '../../shared/sim/state';
 import { hiddenNote, HidePrefs } from './hide';
 import { foodDays, glance, inTown } from './townOverview';
+import { dashboard, dashboardKey } from './dashboard';
 import { storesKey } from './craftingPanel';
 import { topicKnown } from './secrets';
 import { expandable, facts, list, type More } from './details';
@@ -66,6 +67,7 @@ export const buildKey = (s: Snapshot, tab: string | null = null) => {
     hide.key,
     s.theme,
     on(['Overview'], () => [s.powers.map((p) => [p.id, Math.ceil(p.readyHours), Math.ceil(p.activeHours), p.held, p.affordable]), s.powerLog[0], s.nomad && [s.nomad.site, s.nomad.settled, Math.ceil((s.nomad.nextMoveDays ?? 0) * 24)], s.lichOffer, heritageTiles()]),
+    on(['Overview'], () => [dashboardKey(s), s.why?.research, s.why?.craft]),
     on(['Overview', 'Treasury'], () => s.coins),
     on(['Treasury'], () => ledgerKey(s)),
     s.guards.n, s.guards.watch, !!s.shop, !!s.tavern, s.era, s.research.revealed, s.buildSlots, s.unlockAll, s.research.done, s.storageCapacity, s.housing, s.direction, s.plan,
@@ -83,7 +85,7 @@ export const buildKey = (s: Snapshot, tab: string | null = null) => {
 export function renderBuild(s: Snapshot, bridge: Bridge | undefined, rerender: () => void = () => {}): HTMLElement[] {
   const used = blueprintCount(s);
   // the town at a glance first (townOverview.ts): every tile a way in
-  const out: HTMLElement[] = [...glance(s, bridge, rerender)];
+  const out: HTMLElement[] = [...dashboard(s, bridge, rerender), ...glance(s, bridge, rerender)];
 
   // a choice only the player can make: binding the founder's soul (once Lichcraft is learned)
   if (s.lichOffer) {
@@ -139,6 +141,8 @@ export function renderBuild(s: Snapshot, bridge: Bridge | undefined, rerender: (
     );
   }
   out.push(dirs, el('div', 'hint', DIRECTION_DEFS[s.direction].description));
+  // what the town chose to do, and why (sim/whyLines.ts)
+  for (const w of [s.why?.build, s.why?.research, s.why?.craft]) if (w) out.push(el('div', 'why-line', w));
 
   // how raids are fought: down the trail (tower defence) or on a tactics board (sim/tactics.ts; a trial)
   out.push(el('h2', '', 'Raid battles'));
