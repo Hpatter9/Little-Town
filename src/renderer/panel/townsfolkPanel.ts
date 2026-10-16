@@ -126,7 +126,7 @@ export function renderTownsfolk(s: Snapshot, bridge: Bridge | undefined, rerende
   inspecting = null;
 
   const out: HTMLElement[] = [];
-  const head = el('div', 'panel-head folk-head');
+  const head = el('div', 'panel-head folk-head pin-tabs');
   const food = (s.stock.berries ?? 0) + (s.stock.meat ?? 0);
   head.append(el('span', '', `People ${s.housing.people} · Beds ${s.housing.beds}`), el('span', '', `Food in storage: ${food}`));
   out.push(head);

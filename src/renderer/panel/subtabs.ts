@@ -151,11 +151,15 @@ export function inTabs(menu: string, els: HTMLElement[], redraw: () => void, kin
     });
     row.append(b);
   }
+  // (an element marked `pin-tabs` rides in the sticky bar, under the buttons, so it stays in view when the menu
+  // scrolls: the People menu's count of people and beds)
+  for (const e of above.filter((x) => x.classList.contains('pin-tabs'))) row.append(e);
+  const kept = above.filter((x) => !x.classList.contains('pin-tabs'));
   effective.set(menu, open);
   const content = parts.get(open)!;
   // (the open tab's own first heading only repeats the tab's name)
   if (content[0]?.tagName === 'H2' && content[0].textContent === open) content.shift();
-  return [...above, row, ...fold(content)];
+  return [...kept, row, ...fold(content)];
 }
 
 /** What the open tab is, for the menu's redraw key. */

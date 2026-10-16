@@ -1303,6 +1303,32 @@
         min-width: 0;
         gap: 1px;
       }
+      /* Upright, the day's line (the arc, the day and what's happening) has a row of its own under the name, the
+         whole width of the bar: beside the pause, speed and ☰ it was squeezed to a few letters on a narrow phone. */
+      #top.top-quiet {
+        grid-template-rows: auto auto;
+        align-content: center;
+        row-gap: 1px;
+      }
+      #top.top-quiet .top-main {
+        display: contents;
+      }
+      #top.top-quiet .top-mark {
+        grid-column: 1;
+        grid-row: 1;
+      }
+      #top.top-quiet .top-name {
+        grid-column: 2;
+        grid-row: 1;
+      }
+      #top.top-quiet .top-btns {
+        grid-column: 3;
+        grid-row: 1;
+      }
+      #top.top-quiet .top-sub {
+        grid-column: 1 / -1;
+        grid-row: 2;
+      }
       #top.top-quiet .top-name {
         overflow: hidden;
         text-overflow: ellipsis;
@@ -1399,20 +1425,24 @@
           top: calc(env(safe-area-inset-top) + var(--tabs-h));
           left: env(safe-area-inset-left);
           right: auto;
-          max-width: 50%;
+          max-width: 66%;
           height: 40px;
           gap: 6px;
           padding: 0 4px;
           z-index: 2;
         }
+        #top.top-quiet {
+          grid-template-rows: auto;
+        }
         #top.top-quiet .top-main {
+          display: flex;
           flex-direction: row;
           align-items: center;
           gap: 8px;
         }
         #top.top-quiet .top-name {
           display: block;
-          max-width: 140px;
+          max-width: 120px;
           font-size: var(--ui-fs-body, 13px);
         }
         #top.top-quiet .top-mark {

@@ -217,6 +217,7 @@ const STYLE = `
 .section-body { padding: 4px 8px 8px; }
 .section-body > h2:first-child { margin-top: 4px; }
 .menu-tabs { position: sticky; top: 0; z-index: 5; background: #211811; padding: 4px 0; margin-top: 0; box-shadow: 0 -14px 0 #211811; }
+.menu-tabs .pin-tabs { flex: 1 1 100%; margin-top: 2px; font-size: 0.9em; }
 .dash { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 8px; margin: 6px 0 10px; }
 .dash-card { display: flex; flex-direction: column; gap: 2px; padding: 8px 10px; text-align: left; color: inherit; font: inherit; background: rgba(60,40,26,0.55); border: 1px solid rgba(120,90,60,0.6); border-radius: 6px; min-height: 64px; cursor: pointer; }
 .dash-card.wide { grid-column: 1 / -1; }

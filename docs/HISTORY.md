@@ -7736,3 +7736,14 @@ Tests: `test/eventScenes.test.ts` (every event names a scene that exists and res
 finds one; every scene's props are in the table and every prop's and set's picture is present; the backdrops exist; the
 scenes the owner named have their parts; the crowd picker is the same every time, never repeats anyone and puts no
 child at the table). The sim hashes (`tools/sim-hash.mjs`) are unchanged.
+
+## The day's line on its own row, and the people count pinned under the tabs (0.145.0)
+
+Two overlaps on the phone (the owner's report). The top bar's line of what's happening (the sun's arc, the day and
+season, the rotating news line) sat beside the pause, speed and ☰ buttons and was squeezed to a few letters on a narrow
+phone. Upright, it now has a row of its own under the town's name, the whole width of the bar (`#top.top-quiet` is a
+two-row grid and `.top-main` is `display: contents` in `mobile/index.html`); sideways the bar keeps its single slim row
+but may grow to 66% of the width (was 50%) with the name capped at 120px. In the People menu, the "People N · Beds N ·
+Food" head scrolled away under the sticky sub-tab bar: `subtabs.ts` now moves any element marked `pin-tabs` into the
+sticky bar under its buttons (`.menu-tabs .pin-tabs` in `panel/structure.ts`), and `townsfolkPanel.ts` marks that
+head. Renderer only.
