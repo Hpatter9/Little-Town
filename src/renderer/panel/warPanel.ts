@@ -12,6 +12,7 @@ import type { Snapshot } from '../../shared/sim/snapshot';
 import { onWarArt } from '../art/warSprites';
 import { button, el } from './dom';
 import { icon } from '../ui/icon';
+import { cardLink, cardSnapshot } from './infoCard';
 import { drawMarks, holdersLayer, realmColour, terrainCell, worldTerrain, devicePixels } from './warMap';
 import { islandOf } from './warIsland';
 
@@ -192,7 +193,7 @@ function provinceCard(w: WarView, p: ProvinceView): HTMLElement {
   dot.style.background = realmColour(w, p.holder) ?? 'transparent';
   dot.style.borderColor = p.holder ? 'transparent' : '#888';
   name.append(dot, document.createTextNode(` ${p.name}`));
-  head.append(name, el('span', 'realm-stance', p.holderName));
+  head.append(name, p.holder && cardSnapshot()?.realm.factions.some((f) => f.id === p.holder && f.known) ? cardLink(p.holderName, { kind: 'faction', id: p.holder }) : el('span', 'realm-stance', p.holderName)); // (a power's card: infoCard.ts)
   card.append(head);
   card.append(el('div', 'realm-sub', `${p.land} · ${p.tier}${p.capitalOf ? ' (a capital)' : ''} · ${p.fort}${p.landmark ? ` · ${p.landmark}` : ''}${p.coast ? ' · on the sea' : ''}`));
   if (!p.holder) card.append(el('div', 'hint', p.landmark === 'Lair' ? 'Something dens here: a power must clear it before it is held.' : 'Free ground: the first power to march in holds it.'));
