@@ -111,6 +111,11 @@ function seatLine(seat: NonNullable<Snapshot['research']['seat']>): string {
   return `🏛 The seat is the ${seat.name}. Studies of the ${seat.nextEra} age wait until it is raised to the ${seat.next}.`;
 }
 
+/** A topic's card (the tree's, the queue's, and the one a tapped topic name opens: infoCards.ts). */
+export function topicCard(t: Topic, s: Snapshot, bridge: Bridge | undefined): HTMLElement {
+  return card(t, s, bridge);
+}
+
 function card(t: Topic, s: Snapshot, bridge: Bridge | undefined): HTMLElement {
   const r = s.research;
   const done = r.done.includes(t.id);

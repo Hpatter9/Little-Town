@@ -6,6 +6,7 @@
 // have something done; a raid comes to the gate (`Raid.saga`, decided in `sagaRaidOver`); an end leaves the town its
 // effects, a title for the hero and perhaps a unique. Everything here draws on its own seeded stream.
 
+import { noteUnique } from './provenance';
 import { addDeed } from './deeds';
 import { queueScene } from './cutscenes';
 import { MAX_SAGAS, SAGAS, SAGA_ASK_HOURS, SAGA_BY_ID, SAGA_DAILY, SAGA_FIRST_DAY, SAGA_GAP_DAYS, SAGA_HOUR, type Chapter, type Foes, type Next, type SagaDef, type SagaEffect } from '../data/sagas';
@@ -333,6 +334,8 @@ function effects(s: GameState, r: SagaRun, list: readonly SagaEffect[]): string[
     } else if ('unique' in e) {
       if (ITEM_BY_ID[e.unique] && !(s.uniques ?? []).includes(e.unique)) {
         (s.uniques ??= []).push(e.unique);
+        const hero = heroOf(s, r);
+        noteUnique(s, e.unique, 'saga', { by: hero ? [hero] : [], where: SAGA_BY_ID[r.id]?.title }); // (its story: sim/provenance.ts)
         addItems(s, e.unique, 1);
         out.push(`${ITEM_BY_ID[e.unique].name}, a unique weapon`);
       }

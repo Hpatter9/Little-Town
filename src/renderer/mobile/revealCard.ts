@@ -42,6 +42,14 @@ export interface RevealCard {
   key?: string;
   /** A haul, opened line by line like a chest (mobile/reveals.ts `haulOrder`). */
   haul?: HaulLine[];
+  /** A thing with a card of its own in the menus (a unique: its whole story, panel/itemCard.ts): "More…" opens it. */
+  more?: { item: string };
+}
+
+/** Opens an item's card in the menus (mobile.ts sets it: the menus are another frame). */
+let openItem: ((id: string) => void) | null = null;
+export function setItemOpener(fn: (id: string) => void): void {
+  openItem = fn;
 }
 
 const OFF_KEY = 'littletown.revealsOff';
@@ -119,24 +127,45 @@ function draw(card: RevealCard): void {
     rest = openHaul(list, card.haul);
   }
   if (card.rarity) inner.append(el('div', 'reveal-rarity', card.rarity));
-  inner.append(el('div', 'reveal-tap ui-small', 'Tap to close'));
+  // (a unique's whole story: who won it, who bears it; the card closes and its card opens in the menus)
+  let more: string | null = card.more?.item ?? null;
+  if (more && openItem) {
+    const b = el('button', 'reveal-more ui-btn', 'More about it ›');
+    b.addEventListener('click', (ev) => {
+      ev.stopPropagation();
+      close();
+      openItem?.(more!);
+    });
+    inner.append(b);
+  } else more = null;
+  inner.append(el('div', 'reveal-tap ui-small', more ? 'Tap anywhere else to close' : 'Tap to close'));
   root.replaceChildren(inner);
   root.hidden = false;
   root.classList.remove('in');
   void root.offsetWidth; // (so the slide starts again)
   root.classList.add('in');
   chime();
-  root.onclick = () => {
+  const close = () => {
+    root.hidden = true;
+    root.onclick = null;
+    showing = false;
+    next();
+  };
+  root.onclick = (ev) => {
+    // (a unique's line in a haul: its card in the menus)
+    const line = (ev.target as HTMLElement).closest<HTMLElement>('.reveal-item[data-item]');
+    if (line && openItem && !rest) {
+      close();
+      openItem(line.dataset.item!);
+      return;
+    }
     // (a chest still opening: the first tap lays it all out; the next closes)
     if (rest) {
       const r = rest;
       rest = null;
       if (r()) return;
     }
-    root.hidden = true;
-    root.onclick = null;
-    showing = false;
-    next();
+    close();
   };
 }
 
@@ -147,6 +176,7 @@ function openHaul(list: HTMLElement, haul: HaulLine[]): () => boolean {
     const pic = h.unique ? (ITEM_BY_ID[h.id] ? itemIcon(ITEM_BY_ID[h.id], 2) : null) : stockIcon(h.id as Material, 32);
     if (pic) row.append(pic);
     row.append(el('span', 'reveal-item-name', h.n > 1 ? `${h.n} ${h.name.toLowerCase()}` : h.name));
+    if (h.unique) row.dataset.item = h.id; // (a tap on it, once laid out, opens its card in the menus)
     return row;
   });
   if (reducedMotion()) {
@@ -268,7 +298,7 @@ export function startReveals(bridge: { onSnapshot(cb: (s: Snapshot) => void): vo
       for (const w of fresh) {
         known.add(w.key);
         if (inChest.has(w.key)) continue;
-        showReveal({ kind: w.kind, title: w.title, lore: w.lore, rarity: w.rarity, tone: w.tone, art: artOf(w), key: w.key });
+        showReveal({ kind: w.kind, title: w.title, lore: w.lore, rarity: w.rarity, tone: w.tone, art: artOf(w), key: w.key, ...(w.key.startsWith('unique:') ? { more: { item: w.key.slice(7) } } : {}) });
       }
       if (fresh.length) saveKnown({ seed, keys: [...known] });
     }
@@ -315,6 +345,8 @@ function addStyles(): void {
   font-size: var(--ui-fs-body, 13px); text-align: left; animation: reveal-pop var(--ui-fast, 140ms) var(--ui-ease, ease-out) both; }
 #reveal-card .reveal-item.rare { background: rgba(255, 210, 120, 0.16); box-shadow: 0 0 12px var(--reveal-glow); font-weight: bold; animation-duration: var(--ui-slow, 220ms); }
 #reveal-card .reveal-item.unique { box-shadow: 0 0 14px #f0b040; }
+#reveal-card .reveal-item[data-item] .reveal-item-name { text-decoration: underline dotted; text-underline-offset: 3px; }
+#reveal-card .reveal-more { margin: 6px auto 2px; min-height: 40px; padding: 0 16px; font: inherit; cursor: pointer; }
 @keyframes reveal-pop { from { transform: scale(0.85); opacity: 0; } to { transform: none; opacity: 1; } }
 @media (prefers-reduced-motion: reduce) {
   #reveal-card.in .reveal-box, #reveal-card .reveal-item { animation: none; }

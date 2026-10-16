@@ -5,6 +5,7 @@
 
 import type { Snapshot } from '../../shared/sim/snapshot';
 import { el } from './dom';
+import { cardLink } from './infoCard';
 import { expandable, facts } from './details';
 
 const ICON: Record<string, string> = { harvest: '🌾', hearth: '🔥', war: '⚔', sky: '⛈' };
@@ -35,7 +36,9 @@ export function faithSection(s: Snapshot): HTMLElement[] {
   for (const g of f.gods) {
     const c = el('div', `card god god-${g.mood.replace(' ', '-')}`);
     const top = el('div', 'card-top');
-    top.append(el('span', 'card-name', `${ICON[g.domain] ?? ''} ${g.name}`), el('span', 'card-size', g.mood));
+    const name = el('span', 'card-name', `${ICON[g.domain] ?? ''} `);
+    name.append(cardLink(g.name, { kind: 'god', id: g.domain })); // (its card: infoCard.ts)
+    top.append(name, el('span', 'card-size', g.mood));
     c.append(top, el('div', 'purpose', `${g.title.charAt(0).toUpperCase() + g.title.slice(1)}, keeper of ${g.keeps}`));
     const bar = el('div', 'favour');
     const fill = el('div', `favour-fill ${g.favour >= 0 ? 'up' : 'down'}`);

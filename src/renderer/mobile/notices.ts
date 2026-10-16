@@ -14,6 +14,8 @@ import { CHATTER } from '../chatter';
 import type { JournalEntryView, Snapshot } from '../../shared/sim/snapshot';
 import { loadMet, meet, saveMet, tipsDue, tipsOn, type Tip } from './tips';
 import { showObituary } from './obituaryReveal';
+import { openCardInMenu } from './cardLink';
+import { ITEM_BY_ID } from '../../shared/data/items';
 
 export type Tone = 'red' | 'gold' | 'blue';
 const RANK: Record<Tone, number> = { red: 3, gold: 2, blue: 1 };
@@ -22,7 +24,9 @@ export const worst = (tones: Tone[]): Tone | null => tones.reduce<Tone | null>((
 
 export interface NoticeAction {
   label: string;
-  kind: 'watch' | 'panel' | 'recap' | 'map' | 'question' | 'under' | 'obit' | 'funeral';
+  kind: 'watch' | 'panel' | 'recap' | 'map' | 'question' | 'under' | 'obit' | 'funeral' | 'card';
+  /** A unique named in the line: its card in the menus (`card`: panel/itemCard.ts). */
+  item?: string;
   /** Whose obituary, or whose funeral (sim/obituary.ts). */
   fallen?: number;
   watch?: number;
@@ -248,6 +252,11 @@ export function stakeNotices(ns: Notice[], entries: readonly JournalEntryView[],
     const rest = /lay (.+) to rest\.$|bury its dead: (.+)\.$/.exec(e.text);
     const mourned = rest ? gone.find((g) => nameRe(g.name).test(rest[1] ?? rest[2])) : undefined;
     if (mourned) m.action = { label: 'Watch', kind: 'funeral', fallen: mourned.id };
+    // (a unique the line names, with nothing else to do: its whole story, in the menus)
+    if (!m.action) {
+      const u = (snap.uniques ?? []).find((x) => ITEM_BY_ID[x.id] && e.text.includes(ITEM_BY_ID[x.id].name));
+      if (u) m.action = { label: 'About it', kind: 'card', item: u.id };
+    }
     if (favNames.some((name) => nameRe(name).test(e.text))) {
       m.title = `♥ ${m.title}`;
       m.mark = '♥';
@@ -408,6 +417,9 @@ export function startNotices(bridge: NoticeBridge, strip: HTMLIFrameElement): { 
         break;
       case 'funeral':
         (w as { __showOnMap?: (x: { funeral: number }) => boolean } | null)?.__showOnMap?.({ funeral: a.fallen! });
+        break;
+      case 'card':
+        openCardInMenu({ kind: 'item', id: a.item! }); // (mobile/cardLink.ts)
         break;
     }
   };

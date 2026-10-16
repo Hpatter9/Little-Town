@@ -4,6 +4,7 @@
 
 import type { AnnalsView } from '../../shared/sim/snapshot';
 import { el } from './dom';
+import { linked } from './infoCard';
 import { fallenGuildMark } from '../art/guildMarks';
 import { fallenFace } from '../art/fallenFace';
 import { obituaryLines } from '../../shared/sim/obituary';
@@ -18,7 +19,7 @@ export function obituaryBox(f: Fallen): HTMLElement {
   const face = fallenFace(f, 56);
   if (face) box.append(face);
   const words = el('div', 'obit-words');
-  for (const line of obituaryLines(f).slice(1)) words.append(el('p', line.startsWith('“') ? 'obit-line said' : 'obit-line', line));
+  for (const line of obituaryLines(f).slice(1)) words.append(linked(line, 'p', line.startsWith('“') ? 'obit-line said' : 'obit-line')); // (the kin it names: tap for their sheet)
   if (!f.obit) words.append(el('p', 'obit-line', 'Their story was not written down.'));
   box.append(words);
   return box;
@@ -79,7 +80,7 @@ export function renderHeroes(a: AnnalsView, guildMark?: (personId: number) => HT
     d.open = i === 0;
     const sum = el('summary', 'card-name', ch.title);
     d.append(sum);
-    for (const line of ch.lines) d.append(el('p', 'hall-line', line));
+    for (const line of ch.lines) d.append(linked(line, 'p', 'hall-line'));
     out.push(d);
   });
   out.push(el('h2', '', 'The fallen'));

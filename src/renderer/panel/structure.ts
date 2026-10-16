@@ -173,6 +173,22 @@ export function sheetIcon(sheet: IconSheet, index: number, size = 16): HTMLEleme
   return e;
 }
 
+/* ---------------------------------------------------------------- tappable text */
+
+/** Make text tappable, in the one look every menu uses for it (a dotted underline in the link colour: `.tap-link`), so
+ *  the player learns it: a name that opens its card (panel/infoCard.ts), a research topic in the queue. The tap never
+ *  reaches a card it sits in (an `expandable` card does not open or close for it). */
+export function tapLink<E extends HTMLElement>(e: E, onTap: () => void): E {
+  e.classList.add('tap-link', 'no-expand');
+  e.setAttribute('role', 'link');
+  e.tabIndex = 0;
+  e.addEventListener('click', (ev) => {
+    ev.stopPropagation();
+    onTap();
+  });
+  return e;
+}
+
 /* ---------------------------------------------------------------- swipe right closes */
 
 /** A swipe to the right on the menu closes the most recently opened card, else a sheet's own close (muster). */
@@ -232,6 +248,10 @@ const STYLE = `
 .thumb-img { max-width: 100%; max-height: 100%; image-rendering: pixelated; }
 .calling-mark { flex: none; vertical-align: middle; }
 .card-top .thumb, .card-top .calling-mark { margin-right: 4px; }
+.tap-link { cursor: pointer; color: var(--heading, #e0b864); text-decoration: underline dotted; text-underline-offset: 3px; text-decoration-thickness: 1px; }
+.tap-link:active { opacity: 0.7; }
+.pc-slot { cursor: pointer; }
+.pc-slot.unique .tap-link { color: #ffd84a; }
 `;
 let styled = false;
 export function ensureStructureStyle(): void {
