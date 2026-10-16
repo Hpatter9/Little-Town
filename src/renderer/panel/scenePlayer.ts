@@ -168,7 +168,11 @@ function prop(g: CanvasRenderingContext2D, p: Prop, props: Map<string, HTMLImage
   g.save();
   g.translate(x, y);
   if (p.flip) g.scale(-1, 1);
-  g.drawImage(im, f * art.w, 0, art.w, art.h, -Math.round(w / 2), -h, w, h);
+  // (a shared picture shrunk to the stage is smoothed; the stage's own, and pixel cells blown up, stay crisp)
+  const sw = im.width / art.frames;
+  g.imageSmoothingEnabled = art.k < 1;
+  g.drawImage(im, f * sw, 0, sw, im.height, -Math.round(w / 2), -h, w, h);
+  g.imageSmoothingEnabled = false;
   g.restore();
 }
 

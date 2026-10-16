@@ -22,7 +22,6 @@ const env = (name) => fw('Environment', name);
 const bld = (name) => fw('Building', name);
 const DECOR = path.join(ASSETS, 'DawnLike/Objects/Decor0.png');
 const FOOD = path.join(ASSETS, 'DawnLike/Items/Food.png');
-const LIGHT = path.join(ASSETS, 'DawnLike/Items/Light.png');
 const BEASTS = path.join(ASSETS, 'DawnLike/Characters/Quadraped0.png');
 const FLAME = path.join(__dirname, '../src/renderer/art/effects/flame.png');
 
@@ -30,23 +29,30 @@ const FLAME = path.join(__dirname, '../src/renderer/art/effects/flame.png');
 // cells: [col, row, cols]), whole-pixel scale] for DawnLike's cells.
 const FWP = [
   ['banner_red', env('Banner 03'), 34], ['banner_green', env('Banner 02'), 34], ['banner_brown', env('Banner 01'), 36],
-  ['cask', env('Wooden Barrel'), 30], ['tub', env('Barrel'), 22], ['bucket', env('Bucket'), 12],
-  ['handcart', env('Cart 01'), 26], ['wagon', env('Cart 02'), 50], ['bench', env('Chair'), 14],
-  ['fence', env('Fence 02'), 28], ['hay_bale', env('Hay 01'), 22], ['haystack', env('Hay 02'), 40],
+  ['tub', env('Barrel'), 22], ['bench', env('Chair'), 14], ['fence', env('Fence 02'), 28], ['haystack', env('Hay 02'), 40],
   ['crops', env('Plants 06'), 24], ['turnips', env('Plants 03'), 20], ['beans', env('Plants 02'), 34], ['grapes', env('Plants 05'), 14],
   ['plow', env('Plow'), 26], ['board', env('Quest Board'), 60], ['sign', env('Sign 03'), 28],
-  ['table', env('Table 01'), 26], ['table_small', env('Table 02 '), 24], ['crate', env('Wooden Crate'), 24],
-  ['tree', env('Tree 02'), 140], ['rock', env('Rock 01'), 22], ['stall', env('Canopy'), 70], ['mill', env('Handmill'), 34],
+  ['table_small', env('Table 02 '), 24], ['crate', env('Wooden Crate'), 24], ['tree', env('Tree 02'), 140], ['stall', env('Canopy'), 70], ['mill', env('Handmill'), 34],
   ['door', bld('Door 01'), 72], ['well', bld('Chimney 03'), 46], ['window', bld('Window 01'), 34], ['tools', bld('Decor Tools 01'), 26],
 ];
 const DLP = [
   ['bed', DECOR, [0, 9], 3], ['sickbed', DECOR, [0, 20], 3], ['cot', DECOR, [1, 21], 2], ['coffin', DECOR, [6, 10], 3],
-  ['candles', DECOR, [3, 8], 2], ['candle', DECOR, [2, 8], 2], ['tombstone', DECOR, [0, 17], 2], ['cross', DECOR, [0, 11], 3],
+  ['candles', DECOR, [3, 8], 2], ['candle', DECOR, [2, 8], 2], ['cross', DECOR, [0, 11], 3],
   ['round_table', DECOR, [1, 7], 2], ['long_table', DECOR, [0, 10, 2], 2], ['chair', DECOR, [0, 7], 2],
   ['throne', DECOR, [6, 7], 3], ['shelf', DECOR, [3, 4], 3],
-  ['bowl', FOOD, [4, 5], 2], ['bread', FOOD, [1, 4], 2], ['apple', FOOD, [0, 2], 2], ['lantern', LIGHT, [3, 0], 2],
+  ['bowl', FOOD, [4, 5], 2],
   ['cow', BEASTS, [0, 1], 2], ['goat', BEASTS, [0, 2], 2], ['sheep', BEASTS, [1, 3], 2], ['horse', BEASTS, [2, 5], 2], ['boar', BEASTS, [4, 0], 2],
 ];
+
+// Those the cutscenes already cut from the same pictures (tools/compose-scene-props.cjs, src/renderer/art/scene/) are
+// shared, not cut again: [id, its file under art/, drawn at this share of its pixels].
+const SHARED = [
+  ['cask', 'scene/barrel.png', 1], ['handcart', 'scene/cart.png', 0.6], ['wagon', 'scene/wagon.png', 0.9], ['table', 'scene/table.png', 1.08],
+  ['rock', 'scene/rock.png', 1], ['hay_bale', 'scene/hay.png', 0.55], ['bucket', 'scene/bucket.png', 0.67], ['tombstone', 'scene/grave.png', 0.85],
+  ['bread', 'scene/bread.png', 2], ['apple', 'scene/apple.png', 2], ['lantern', 'scene/lantern.png', 2],
+];
+/** A PNG's size, from its header. */
+const pngSize = (f) => { const b = fs.readFileSync(f); return [b.readUInt32BE(16), b.readUInt32BE(20)]; };
 
 (async () => {
   fs.mkdirSync(OUT, { recursive: true });
@@ -190,6 +196,10 @@ const DLP = [
       return c.toDataURL('image/png');
     }, { parts: SET, set });
     save(`set_${set}`, url);
+  }
+  for (const [id, file, k] of SHARED) {
+    const [w, h] = pngSize(path.join(__dirname, '../src/renderer/art', file));
+    sizes[id] = [Math.round(w * k), Math.round(h * k), file, k];
   }
   fs.writeFileSync(path.join(OUT, 'sizes.json'), JSON.stringify(sizes) + '\n');
   console.log(Object.keys(sizes).length, 'props, 2 sets');

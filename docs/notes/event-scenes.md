@@ -56,11 +56,13 @@ robes). `mobile/eventSheet.ts` calls `playEventScene` in one small block.
 **The props** (`panel/eventProps.ts`, `EVENT_PROPS`, from `art/eventprops/sizes.json`; the pictures in
 `src/renderer/art/eventprops/`, copied beside the page by `build.mjs` and `tools/build-web.mjs`), cut by
 `tools/compose-event-props.cjs` (run by hand) already at their size on the 320x180 stage: the Medieval Field Work
-pack's banners, casks, tub, bucket, handcart, wagon, bench, fence, hay, crops, plough, notice board, sign, trestle tables,
-crate, tree, rock, market stall, handmill, door, well, window and tools; a house front and a gate put together from its
-wall, roof, door, window and column pieces; DawnLike's bed, sickbed, cot, coffin, candles, tombstone, cross, tables,
-chair, throne, shelf, bowl, bread, apple, lantern and five beasts (cow, goat, sheep, horse, boar); and the game's own
-flame as the fire. The sets: the hall (plaster between brick columns, tall stone windows, two banners, an earthen floor)
+pack's banners, tub, bench, fence, haystack, crops, plough, notice board, sign, trestle table, crate, tree, market stall,
+handmill, door, well, window and tools; a house front and a gate put together from its wall, roof, door, window and
+column pieces; DawnLike's bed, sickbed, cot, coffin, candles, cross, tables, chair, throne, shelf, bowl and five beasts
+(cow, goat, sheep, horse, boar); and the game's own flame as the fire. Those the cutscenes already cut from the same
+pictures are shared, not cut again (`SHARED` in the tool: a prop's `file` under `art/scene/` and `k`, the share of its
+pixels it's drawn at, shrunk ones smoothed): the cask, handcart, wagon, table, rock, hay bale, bucket, tombstone, bread,
+apple and lantern; the builds now copy `art/scene/` beside the page too. The sets: the hall (plaster between brick columns, tall stone windows, two banners, an earthen floor)
 and the cottage (a plastered room with a wainscot, wooden windows, a door).
 
 **On its side** (`panel/cardsStyles.ts`, the scene area only): the picture's column is near square, so the scene is
