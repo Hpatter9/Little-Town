@@ -15,6 +15,8 @@ import { guildBadge, guildsOf } from '../art/guildMarks';
 import { bleedLeft } from '../../shared/format';
 import { el } from './dom';
 import { addCardStyles } from './cardsStyles';
+import { linked, openCard } from './infoCard';
+import { tapLink } from './structure';
 
 export type SheetTab = 'story' | 'skills' | 'kin' | 'kit';
 const TABS: [SheetTab, string][] = [
@@ -108,13 +110,13 @@ function head(p: PersonView, s: Snapshot, hooks: SheetHooks): HTMLElement {
   }
   who.append(name, el('div', 'pc-doing', p.away !== null ? `Away on an expedition: ${p.away}` : p.doing));
   const chips = el('div', 'pc-chips');
-  if (p.clsName) chips.append(chip(`${p.clsName} · Lv ${p.level}`, 'calling'));
+  if (p.clsName) chips.append(p.cls ? tapLink(chip(`${p.clsName} · Lv ${p.level}`, 'calling'), () => openCard({ kind: 'calling', id: p.cls! })) : chip(`${p.clsName} · Lv ${p.level}`, 'calling'));
   else chips.append(chip(p.typeName));
   chips.append(chip(`${p.ageYears} years${p.elder ? ', an elder' : ''}`), chip(p.natureName));
   if (p.job) chips.append(chip(`${p.job.title} at ${p.job.at}`));
   for (const t of p.titles) chips.append(chip(t, 'title'));
   for (const g of guilds) {
-    const c = chip(`${g.lead ? '★ ' : ''}${g.name}`);
+    const c = tapLink(chip(`${g.lead ? '★ ' : ''}${g.name}`), () => openCard({ kind: 'guild', id: g.id }));
     c.prepend(guildBadge(g.role, 14));
     chips.append(c);
   }
@@ -136,11 +138,11 @@ function storyTab(p: PersonView, out: HTMLElement): void {
   if (p.secret) out.append(el('div', 'pc-sec', 'A secret'), el('div', 'pc-text', `${p.secret.name}: ${p.secret.text}`));
   if (p.diary.length) {
     out.append(el('div', 'pc-sec', 'Today, in their words'));
-    for (const l of p.diary) out.append(el('div', 'pc-diary', l));
+    for (const l of p.diary) out.append(linked(l, 'div', 'pc-diary'));
   }
   if (p.recent.length) {
     out.append(el('div', 'pc-sec', 'Lately'));
-    for (const l of p.recent.slice(0, 5)) out.append(el('div', 'pc-diary', l));
+    for (const l of p.recent.slice(0, 5)) out.append(linked(l, 'div', 'pc-diary'));
   }
   const deeds = p.deeds.filter((d) => d.n > 0);
   if (deeds.length) {
@@ -214,8 +216,10 @@ function kitTab(p: PersonView, out: HTMLElement): void {
     const def = id ? ITEM_BY_ID[id] : undefined;
     if (!def) continue;
     any = true;
-    const row = el('div', 'pc-slot');
-    row.append(itemIcon(def, 1), el('span', '', def.name), el('small', '', SLOT_NAMES[slot]));
+    const row = el('div', `pc-slot${def.unique ? ' unique' : ''}`);
+    row.append(itemIcon(def, 1), tapLink(el('span', '', def.name), () => openCard({ kind: 'item', id: def.id })), el('small', '', SLOT_NAMES[slot]));
+    // (the whole row opens its card: a unique's whole story)
+    row.addEventListener('click', () => openCard({ kind: 'item', id: def.id }));
     out.append(row);
   }
   if (!any) out.append(el('div', 'pc-text', 'Nothing worn or carried in hand.'));
@@ -228,6 +232,7 @@ function kitTab(p: PersonView, out: HTMLElement): void {
       if (def) {
         slot.append(itemIcon(def, 1));
         slot.title = def.name;
+        slot.addEventListener('click', () => openCard({ kind: 'item', id: def.id }));
       }
       box.append(slot);
     }

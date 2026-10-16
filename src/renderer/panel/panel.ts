@@ -32,6 +32,9 @@ import { legendsVersion, primeLegends } from '../legends';
 import { applyUiLook } from '../ui/frame';
 import { dressStats, wireTips } from '../ui/tips';
 import { tickNumbers } from '../ui/motion';
+import { backCard, closeCards, openCard, refreshCard, setCardHost, type CardRef } from './infoCard';
+import './itemCard';
+import './infoCards';
 
 /** The Town's building book groups its buildings under these (sub-headings, not sections). */
 const LAYER_HEADS = /^(Foreground|Midground|Background)/;
@@ -175,6 +178,15 @@ function render(): void {
 ensureStructureStyle();
 // (a swipe to the right closes the card opened last, or a sheet)
 installSwipe(body, closeLatestCard);
+// (a tapped name's card over the menu: infoCard.ts; the phone page opens one too, from the news or a reveal card)
+setCardHost(bridge);
+(window as unknown as { __openCard?: (ref: CardRef, menu?: PanelId) => void }).__openCard = (ref, menu) => {
+  if (menu && !shown) bridge.openPanel(menu); // (no menu up: the one asked for; else over the one open)
+  openCard(ref);
+};
+document.addEventListener('keydown', (ev) => {
+  if (ev.key === 'Escape') backCard();
+});
 // (a card opened or closed: details.ts)
 setDetailsRedraw(() => render());
 
@@ -185,6 +197,7 @@ function onState(s: StripState): void {
     bridge?.openPanel('trade');
     return;
   }
+  if (s.panel === null) closeCards(); // (the menu shut: its cards with it)
   if (s.panel !== shown) {
     shown = s.panel;
     // (New Town opened afresh starts at its first question; its redraws while open keep the step)
@@ -199,6 +212,7 @@ if (bridge) {
   bridge.onState(onState);
   bridge.onSnapshot((next) => {
     snap = next;
+    refreshCard(next);
     noteFood(next);
     if (applyTheme(next.theme, 'panel')) renderedKey = ''; // (the look changed: redraw, with the new names)
     applyUiLook('panel', next.theme, next.align?.cast ?? 0, next.calendar.daylight);
@@ -206,6 +220,7 @@ if (bridge) {
   });
   Promise.all([bridge.getState(), bridge.getSnapshot()]).then(([st, sn]) => {
     snap = sn;
+    refreshCard(sn);
     onState(st);
   });
 }

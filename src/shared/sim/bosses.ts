@@ -2,6 +2,7 @@
 // help, sweeping attacks that hit several defenders (and can set buildings alight), and the unique trophy
 // each drops. The town celebrates a boss slain.
 
+import { noteUnique } from './provenance';
 import { packBossSlain } from './pack';
 import { BUILDING_BY_ID } from '../data/buildings';
 import { ENEMIES } from '../data/enemies';
@@ -106,6 +107,7 @@ export function dropLoot(s: GameState, kind: string): string | null {
   if (!left.length || !rng.chance(table.chance)) return null;
   const id = left[rng.int(0, left.length - 1)];
   (s.uniques ??= []).push(id);
+  noteUnique(s, id, 'found', { where: def.name }); // (its story: sim/provenance.ts)
   addItems(s, id, 1);
   notify(s, `${def.name} dropped ${ITEM_BY_ID[id].name}, a unique ${ITEM_BY_ID[id].family ? 'weapon' : 'treasure'}! There is no other like it.`, true);
   return id;

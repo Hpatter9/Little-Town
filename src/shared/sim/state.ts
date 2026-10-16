@@ -1188,6 +1188,9 @@ export interface GameState {
   items: Record<string, number>;
   /** The unique weapons the town has found (data/uniques.ts), in the order found: each drops once in the world. */
   uniques?: string[];
+  /** Each unique's story: who made or won it, who has borne it, its deeds, its end (sim/provenance.ts). Missing on
+   *  older saves, and for a unique found before there was one. */
+  uniqueLog?: Record<string, import('./provenance').UniqueRecord>;
   itemQ?: Record<string, number[]>;
   /** The craft queue, worked front to back. */
   crafting: CraftOrder[];

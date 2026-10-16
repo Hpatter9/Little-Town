@@ -9,7 +9,16 @@ import { newGame } from '../src/shared/sim/state';
 import { startCatchUp } from '../src/shared/sim/offline';
 import { TICKS_PER_DAY } from '../src/shared/sim/time';
 
-const hash = (s: Parameters<typeof serialize>[0]) => createHash('sha1').update(serialize(s, 0)).digest('hex').slice(0, 12);
+// (STRIP=a,b leaves those top-level fields out of the hash: a branch that only records more compares with main so)
+const strip = (process.env.STRIP ?? '').split(',').filter(Boolean);
+const hash = (s: Parameters<typeof serialize>[0]) => {
+  const t = s as unknown as Record<string, unknown>;
+  const kept = strip.map((k) => [k, t[k]] as const);
+  for (const k of strip) delete t[k];
+  const h = createHash('sha1').update(serialize(s, 0)).digest('hex').slice(0, 12);
+  for (const [k, v] of kept) if (v !== undefined) t[k] = v;
+  return h;
+};
 const days = Number(process.argv[2] ?? 6);
 const only = process.argv[3];
 if (!only || only === 'fixture') {

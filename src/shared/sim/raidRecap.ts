@@ -4,6 +4,7 @@
 // active, who was in town and at what level is noted (`Raid.roll`); `raidRecap` (from `endRaid`) puts it together on
 // `s.raidRecap`, and the snapshot carries it for `RECAP_HOURS`.
 
+import { noteFelled } from './provenance';
 import { ENEMIES } from '../data/enemies';
 import { addDeed } from './deeds';
 import { levelOf, xpToLevel } from '../data/levels';
@@ -100,6 +101,8 @@ export function credit(s: GameState, who: number, was: [Raider, number, boolean]
     const p = s.people.find((q) => q.id === who);
     if (p) p.felled = (p.felled ?? 0) + kills;
     for (const [rd, , down] of was) if (rd.down && !down && ENEMIES[rd.kind]?.boss) addDeed(p, 'bosses');
+    const boss = was.find(([rd, , down]) => rd.down && !down && ENEMIES[rd.kind]?.boss)?.[0];
+    noteFelled(s, p, kills, boss ? ENEMIES[boss.kind].name : undefined); // (the unique in hand: sim/provenance.ts)
   }
 }
 
