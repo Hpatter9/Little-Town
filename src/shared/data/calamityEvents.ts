@@ -10,7 +10,7 @@ const stage = (s: GameState, n: number) => !!s.calamity && s.calamity.beaten ===
 
 export const CALAMITY_EVENTS: readonly EventDef[] = [
   {
-    id: 'calamity_dream', title: 'A dream of the dark', who: true, weight: 2,
+    id: 'calamity_dream', scene: 'omen', title: 'A dream of the dark', who: true, weight: 2,
     text: '{who} woke screaming before dawn, from a dream of the thing that is waking out on the land. They say it spoke to them.',
     when: (s) => stage(s, 1),
     options: [
@@ -20,7 +20,7 @@ export const CALAMITY_EVENTS: readonly EventDef[] = [
     ],
   },
   {
-    id: 'calamity_eclipse', title: 'Darkness at noon', weight: 2,
+    id: 'calamity_eclipse', scene: 'calamity', title: 'Darkness at noon', weight: 2,
     text: 'At midday the sun went black, as if a hand had closed over it. The birds went silent. When the light came back, nobody would look at anyone else.',
     when: (s) => stage(s, 1),
     options: [
@@ -30,7 +30,7 @@ export const CALAMITY_EVENTS: readonly EventDef[] = [
     ],
   },
   {
-    id: 'calamity_refugees', title: 'Fleeing the blight', weight: 2,
+    id: 'calamity_refugees', scene: 'refugees', title: 'Fleeing the blight', weight: 2,
     text: 'A family comes up the road with everything they own on their backs. Their village is grey now, they say. Everything there is grey.',
     when: (s) => stage(s, 2),
     options: [
@@ -40,7 +40,7 @@ export const CALAMITY_EVENTS: readonly EventDef[] = [
     ],
   },
   {
-    id: 'calamity_hedge_witch', title: 'The hedge witch', weight: 2,
+    id: 'calamity_hedge_witch', scene: 'gate', title: 'The hedge witch', weight: 2,
     text: 'An old woman with a basket of carved stones asks for the town\'s leader. She knows the signs that keep the dark out, she says, and she will carve them, for a price.',
     when: (s) => stage(s, 2),
     options: [
@@ -50,7 +50,7 @@ export const CALAMITY_EVENTS: readonly EventDef[] = [
     ],
   },
   {
-    id: 'calamity_relic', title: 'A blade in the grey', who: true, weight: 2,
+    id: 'calamity_relic', scene: 'calamity', title: 'A blade in the grey', who: true, weight: 2,
     text: '{who} came back from the edge of the blight with an old sword they found standing in the dead grass. It is cold, and it hums.',
     when: (s) => stage(s, 2),
     options: [
@@ -60,7 +60,7 @@ export const CALAMITY_EVENTS: readonly EventDef[] = [
     ],
   },
   {
-    id: 'calamity_well', title: 'The grey well', weight: 2,
+    id: 'calamity_well', scene: 'well', title: 'The grey well', weight: 2,
     text: 'The water came up grey this morning, and it smells of the blight. The animals will not drink it.',
     when: (s) => stage(s, 2) && s.buildings.some((b) => b.def === 'well'),
     options: [
@@ -70,7 +70,7 @@ export const CALAMITY_EVENTS: readonly EventDef[] = [
     ],
   },
   {
-    id: 'cult_preacher', title: 'A preacher of the end', weight: 2,
+    id: 'cult_preacher', scene: 'cult', title: 'A preacher of the end', weight: 2,
     text: 'A thin man in grey stands by the fire every evening, speaking softly of the thing that is coming, and how it will be kind to those who welcome it. People listen.',
     when: (s) => stage(s, 3) && people(s, 4),
     options: [
@@ -80,7 +80,7 @@ export const CALAMITY_EVENTS: readonly EventDef[] = [
     ],
   },
   {
-    id: 'cult_shrine', title: 'The shrine in the woods', who: true, weight: 2,
+    id: 'cult_shrine', scene: 'cult', title: 'The shrine in the woods', who: true, weight: 2,
     text: '{who} found a clearing in the woods with a ring of grey stones, offerings laid in it, and footprints from the town leading to it.',
     when: (s) => stage(s, 3),
     options: [
@@ -90,7 +90,7 @@ export const CALAMITY_EVENTS: readonly EventDef[] = [
     ],
   },
   {
-    id: 'calamity_herald', title: 'The herald', weight: 3,
+    id: 'calamity_herald', scene: 'envoy', title: 'The herald', weight: 3,
     text: 'A rider in grey stops at the gate and will not come closer. Its master offers the town mercy, it says, for a tithe of everything it has.',
     when: (s) => stage(s, 4),
     options: [
@@ -100,7 +100,7 @@ export const CALAMITY_EVENTS: readonly EventDef[] = [
     ],
   },
   {
-    id: 'calamity_drill', title: 'The town takes up arms', weight: 2,
+    id: 'calamity_drill', scene: 'battle', title: 'The town takes up arms', weight: 2,
     text: 'With the dark so near, the town\'s fighters offer to teach everyone the spear, every evening, in the square.',
     when: (s) => stage(s, 3) && people(s, 5),
     options: [

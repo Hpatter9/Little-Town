@@ -9,9 +9,7 @@ import { BACKDROPS, type BackdropId } from '../../shared/data/backdrops';
 import type { Snapshot, PromptView } from '../../shared/sim/snapshot';
 import { loadImage } from '../art/loadImage';
 import { emblemCanvas } from '../art/emblems';
-import { hkLayers, hkWhoOf } from '../art/hkFolk';
-import { playScene } from '../panel/scenePlayer';
-import { EVENT_SCRIPTS, eventFamily } from '../panel/sceneScripts';
+import { playEventScene } from '../panel/eventScenePlay';
 import { addCardStyles } from '../panel/cardsStyles';
 
 const W = 576;
@@ -63,13 +61,10 @@ export function createEventSheet(onAnswer: (prompt: number, option: number) => v
     addCardStyles();
     const art = document.createElement('div');
     art.className = 'event-art';
-    // a short moving scene for the kind of event it is: the family's script, with the townsperson it is about first
+    // a short moving scene of what the event is about, with the townsfolk in it (panel/eventScenePlay.ts)
     const scene = document.createElement('div');
     scene.className = 'ev-scene';
-    const subject = p.who != null ? lastSnap?.people.find((q) => q.id === p.who) : undefined;
-    const cast = [...(subject ? [subject] : []), ...(lastSnap?.people.filter((q) => q.id !== p.who && q.indoors === false && q.away === null && !q.growsUpIn).slice(0, 3) ?? [])];
-    const dolls = cast.map((q) => hkLayers(hkWhoOf(q), { fighting: false, activity: 'idle' }));
-    const played = p.kind !== 'evolve' && playScene(scene, EVENT_SCRIPTS[eventFamily(p.kind, p.title, p.story ?? p.text)], dolls);
+    const played = p.kind !== 'evolve' && lastSnap ? playEventScene(scene, p, lastSnap) : null;
     if (played) art.append(scene);
     else if (p.picture) {
       void backdrop(p.picture).then((c) => {
@@ -110,6 +105,7 @@ export function createEventSheet(onAnswer: (prompt: number, option: number) => v
     options.className = evolve ? 'event-options evolve-options' : 'event-options';
     // the answer taken: a gold flash and a burst of sparks over the scene
     const flourish = () => {
+      played?.answered();
       const f = document.createElement('div');
       f.className = 'ev-flourish';
       for (let i = 0; i < 10; i++) {

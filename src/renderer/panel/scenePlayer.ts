@@ -1,12 +1,15 @@
-// Plays a New Town scene (sceneScripts.ts) on one small canvas: the backdrop's layers scrolling, actors (paper dolls and
-// pack creatures) moving along their paths, and particles over them. Everything is a function of the time, so there's
-// nothing to keep between frames, and it stops by itself when its canvas leaves the page (the sheet closing).
+// Plays a New Town scene (sceneScripts.ts) on one small canvas: the backdrop's layers scrolling (or a set laid from the
+// pack's tiles), the stage's props, actors (paper dolls and pack creatures) moving along their paths, gathered
+// townsfolk, and particles over them. Everything is a function of the time, so there's nothing to keep between frames,
+// and it stops by itself when its canvas leaves the page (the sheet closing). The event cards cue it (`sceneCue`): at a
+// vote the crowd raises its hands.
 
 import { hkDraw } from '../art/hkFolk';
 import { PACK_LAYOUT, packUrl } from '../art/creatures/packs';
 import { loadImage } from '../art/loadImage';
 import manifest from '../art/backdrops.json';
-import { LOOP, VIEW_H, VIEW_W, type Actor, type Fx, type SceneScript } from './sceneScripts';
+import { LOOP, VIEW_H, VIEW_W, type Actor, type Anim, type Crowd, type Fx, type Prop, type SceneScript } from './sceneScripts';
+import { EVENT_PROPS, propFile, setFile } from './eventProps';
 
 const ACTOR_SCALE = 1.3;
 const FPS = 24;
@@ -22,6 +25,34 @@ const image = (url: string) => {
 const frac = (x: number) => x - Math.floor(x);
 /** A steady pseudo-random number for particle `i`, stream `k`. */
 const rnd = (i: number, k: number) => frac(Math.sin(i * 12.9898 + k * 78.233) * 43758.5453);
+/** The paper doll's row for each facing. */
+const ROW = { f: 0, l: 1, r: 2, b: 3 } as const;
+
+/** What a playing scene has been told (a vote taken), and how to draw it once more when it doesn't run on (reduced
+ *  motion). */
+interface Live {
+  cue: string | null;
+  cueAt: number;
+  redraw: () => void;
+  /** Draw times (ms) for the bench (`__sceneStats` on the page). */
+  ms: number[];
+}
+const live = new WeakMap<HTMLCanvasElement, Live>();
+let lastLive: Live | null = null;
+/** Tell a playing scene what has happened: 'vote' (an answer taken) raises the crowd's hands for a moment. */
+export function sceneCue(c: HTMLCanvasElement | null | undefined, cue: 'vote'): void {
+  const l = c && live.get(c);
+  if (!l) return;
+  l.cue = cue;
+  l.cueAt = performance.now();
+  l.redraw();
+}
+/** The last scene's draw times: frames drawn and the mean ms (a dev hook: the event cards' frame budget). */
+export function sceneStats(): { frames: number; meanMs: number; maxMs: number } | null {
+  if (!lastLive || !lastLive.ms.length) return null;
+  const m = lastLive.ms;
+  return { frames: m.length, meanMs: m.reduce((a, b) => a + b, 0) / m.length, maxMs: Math.max(...m) };
+}
 
 /** Play a scene into any container (the New Town sheets, and whatever else wants a moving picture): `script` is a
  *  SceneScript, or the name of one in `scripts`. Returns the canvas; it stops by itself once removed from the page. */
@@ -42,9 +73,16 @@ export function animScene(script: SceneScript, dolls: string[][]): HTMLCanvasEle
   const g = c.getContext('2d')!;
   g.imageSmoothingEnabled = false;
 
+  const set = script.back.startsWith('set:') ? script.back.slice(4) : null;
   const back = (manifest as Record<string, { layers: number; ext: string }>)[script.back];
   let backImg: HTMLImageElement | null = null;
-  void image(`backdrops/${script.back}.${back?.ext ?? 'webp'}`).then((im) => (backImg = im));
+  void image(set ? setFile(set) : `backdrops/${script.back}.${back?.ext ?? 'webp'}`).then((im) => (backImg = im));
+  const props = new Map<string, HTMLImageElement>();
+  for (const pr of script.props ?? [])
+    if (EVENT_PROPS[pr.id] && !props.has(pr.id)) {
+      const id = pr.id;
+      void image(propFile(id)).then((im) => props.set(id, im));
+    }
   const sheets = new Map<string, HTMLImageElement>();
   for (const a of script.actors)
     if (typeof a.who === 'string' && PACK_LAYOUT[a.who] && !sheets.has(a.who)) {
@@ -56,24 +94,42 @@ export function animScene(script: SceneScript, dolls: string[][]): HTMLCanvasEle
   const born = performance.now();
   let last = 0;
   const reduced = typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const state: Live = { cue: null, cueAt: 0, redraw: () => paint(performance.now()), ms: [] };
+  live.set(c, state);
+  lastLive = state;
+  const paint = (now: number) => {
+    const t0 = performance.now();
+    // (a vote's raised hands last a moment; with reduced motion they stay raised)
+    const cue = state.cue && (reduced || now - state.cueAt < 2200) ? { what: state.cue, since: reduced ? 1 : (now - state.cueAt) / 1000 } : null;
+    draw(g, script, dolls, backImg, sheets, props, reduced ? 2 : (now - born) / 1000, cue);
+    if (state.ms.length < 400) state.ms.push(performance.now() - t0);
+  };
   const frame = (now: number) => {
     if (c.isConnected) seen = true;
     else if (seen || now - born > 3000) return;
     if (now - last >= 1000 / FPS - 1) {
       last = now;
-      draw(g, script, dolls, backImg, sheets, reduced ? 2 : (now - born) / 1000);
+      paint(now);
     }
     if (!reduced) requestAnimationFrame(frame);
-    else if (!seen || !backImg) requestAnimationFrame(frame);
+    // (still: drawn until everything it shows has loaded)
+    else if (!seen || !backImg || props.size < new Set((script.props ?? []).map((p) => p.id)).size || now - born < 1500) requestAnimationFrame(frame);
   };
   requestAnimationFrame(frame);
   return c;
 }
 
-function draw(g: CanvasRenderingContext2D, s: SceneScript, dolls: string[][], backImg: HTMLImageElement | null, sheets: Map<string, HTMLImageElement>, t: number): void {
+type Cue = { what: string; since: number } | null;
+
+function draw(g: CanvasRenderingContext2D, s: SceneScript, dolls: string[][], backImg: HTMLImageElement | null, sheets: Map<string, HTMLImageElement>, props: Map<string, HTMLImageElement>, t: number, cue: Cue): void {
   g.clearRect(0, 0, VIEW_W, VIEW_H);
+  // (a quake: the whole picture jolts now and then)
+  const jolt = s.shake && frac(t / 1.7) < 0.3 ? Math.round(Math.sin(t * 60) * s.shake) : 0;
+  g.save();
+  g.translate(jolt, 0);
   const n = (manifest as Record<string, { layers: number }>)[s.back]?.layers ?? 1;
-  if (backImg) {
+  if (backImg && s.back.startsWith('set:')) g.drawImage(backImg, 0, 0, VIEW_W, VIEW_H);
+  else if (backImg) {
     const k = VIEW_H / 324;
     for (let i = 0; i < n; i++) {
       // (the far layers go slower than the near)
@@ -87,32 +143,94 @@ function draw(g: CanvasRenderingContext2D, s: SceneScript, dolls: string[][], ba
     g.fillRect(0, 0, VIEW_W, VIEW_H);
     g.globalAlpha = 1;
   }
-  // (back to front: whoever is further up the picture first)
-  const order = [...s.actors].sort((a, b) => (a.y ?? 0.9) - (b.y ?? 0.9));
-  for (const a of order) actor(g, a, dolls, sheets, t);
+  // (back to front: whatever stands further up the picture first; things hung on the wall before all)
+  const order: { y: number; draw: () => void }[] = [];
+  for (const p of s.props ?? []) order.push({ y: p.back ? -1 : (p.z ?? p.y ?? 0.9), draw: () => prop(g, p, props, t) });
+  s.actors.forEach((a, i) => order.push({ y: a.y ?? 0.9, draw: () => actor(g, a, dolls, sheets, t, i === s.speaker ? 'talk' : null) }));
+  for (const cr of s.crowd ?? []) for (const m of crowdOf(cr, dolls.length)) order.push({ y: m.y, draw: () => member(g, cr, m, dolls, t, cue) });
+  order.sort((a, b) => a.y - b.y);
+  for (const o of order) o.draw();
   s.fx.forEach((f, j) => fx(g, f, t, j));
+  g.restore();
 }
 
-function actor(g: CanvasRenderingContext2D, a: Actor, dolls: string[][], sheets: Map<string, HTMLImageElement>, t: number): void {
+function prop(g: CanvasRenderingContext2D, p: Prop, props: Map<string, HTMLImageElement>, t: number): void {
+  const art = EVENT_PROPS[p.id];
+  const im = props.get(p.id);
+  if (!art || !im) return;
+  const k = p.k ?? 1;
+  const w = Math.round(art.w * k);
+  const h = Math.round(art.h * k);
+  // (a strip's frame by the time, each fire a little out of step with the next)
+  const f = art.frames > 1 ? Math.floor(t * 10 + p.x * 13) % art.frames : 0;
+  const x = Math.round(p.x * VIEW_W);
+  const y = Math.round((p.y ?? 0.9) * VIEW_H);
+  g.save();
+  g.translate(x, y);
+  if (p.flip) g.scale(-1, 1);
+  g.drawImage(im, f * art.w, 0, art.w, art.h, -Math.round(w / 2), -h, w, h);
+  g.restore();
+}
+
+/** Where each of a crowd stands: two staggered rows, the back one a touch smaller, by a steady jitter. */
+function crowdOf(cr: Crowd, dolls: number): { i: number; doll: number; x: number; y: number; k: number }[] {
+  const from = cr.from ?? 0;
+  const n = Math.max(0, Math.min(cr.n, dolls - from));
+  const out = [];
+  for (let i = 0; i < n; i++) {
+    const row = n > 3 && cr.rows !== 1 ? i % 2 : 0;
+    const x = cr.x[0] + ((cr.x[1] - cr.x[0]) * (i + 0.5)) / n + (rnd(i, 7) - 0.5) * 0.03;
+    const y = row ? cr.y[0] : cr.y[1];
+    out.push({ i, doll: from + i, x, y: y + (rnd(i, 8) - 0.5) * 0.02, k: row ? 0.9 : 1 });
+  }
+  return out;
+}
+
+/** The paper doll's column for a pose at time `t` (`ref` puts each out of step with the others). */
+function poseCol(anim: Anim | 'talk', t: number, ref: number): number {
+  switch (anim) {
+    case 'walk': return WALK[Math.floor(t * 8) % 4];
+    case 'work': return Math.floor(t * 3) % 2 ? 4 : 3;
+    case 'attack': return Math.floor(t * 4) % 3 ? (Math.floor(t * 4) % 3 === 1 ? 3 : 4) : 0;
+    case 'shoot': return Math.floor(t * 1.5) % 2 ? 5 : 0;
+    case 'read': return 6;
+    // (speaking: a hand out now and then, as one makes a point)
+    case 'talk': return frac(t / 1.6 + ref * 0.37) < 0.35 ? 5 : frac(t / 2.9 + ref) < 0.2 ? 3 : 0;
+    case 'kneel': return 7;
+    case 'cheer': return frac(t / 0.8 + ref * 0.3) < 0.5 ? 3 : 0;
+    default: return 0;
+  }
+}
+
+function member(g: CanvasRenderingContext2D, cr: Crowd, m: { i: number; doll: number; x: number; y: number; k: number }, dolls: string[][], t: number, cue: Cue): void {
+  const keys = dolls[m.doll];
+  if (!keys) return;
+  // (a murmur: now and then one shifts their weight, or turns to a neighbour)
+  const r = rnd(m.i, 9);
+  const u = frac(t / (2.2 + r * 2) + r);
+  const shift = u < 0.12 ? (r > 0.5 ? 1 : -1) : 0;
+  const turn = cr.face === 'b' && u > 0.55 && u < 0.62 ? (r > 0.5 ? 'r' : 'l') : cr.face;
+  // (a vote: hands go up one after another, and stay up a while)
+  const voting = cue?.what === 'vote' && cue.since > rnd(m.i, 10) * 0.6;
+  const col = voting ? 3 : poseCol(cr.anim ?? 'idle', t, r);
+  const h = cr.h * ACTOR_SCALE * m.k;
+  const feet = m.y * VIEW_H - (voting ? Math.abs(Math.sin(t * 6 + m.i)) : 0);
+  hkDraw(g, keys, col, ROW[turn], m.x * VIEW_W + shift, feet, h);
+}
+
+function actor(g: CanvasRenderingContext2D, a: Actor, dolls: string[][], sheets: Map<string, HTMLImageElement>, t: number, as: 'talk' | null): void {
   const u = frac(t / LOOP + (a.phase ?? 0));
   const x = (a.x[0] + (a.x[1] - a.x[0]) * u) * VIEW_W;
   const moving = a.x[0] !== a.x[1];
   const face = moving ? (a.x[1] < a.x[0] ? 'l' : 'r') : (a.face ?? 'r');
-  const feet = (a.y ?? 0.9) * VIEW_H + (a.bob ? Math.sin(t * 2 + (a.phase ?? 0) * 6) * a.bob : 0);
+  // (a speaker bobs a little as they talk)
+  const feet = (a.y ?? 0.9) * VIEW_H + (a.bob ? Math.sin(t * 2 + (a.phase ?? 0) * 6) * a.bob : 0) - (as === 'talk' ? Math.round(Math.max(0, Math.sin(t * 7)) ) : 0);
   const h = a.h * ACTOR_SCALE;
   if (typeof a.who === 'number') {
     const keys = dolls[Math.min(a.who, dolls.length - 1)];
     if (!keys) return;
-    const row = face === 'l' ? 1 : 2;
-    let col = 0;
-    switch (a.anim) {
-      case 'walk': col = WALK[Math.floor(t * 8) % 4]; break;
-      case 'work': col = Math.floor(t * 3) % 2 ? 4 : 3; break;
-      case 'attack': col = Math.floor(t * 4) % 3 ? (Math.floor(t * 4) % 3 === 1 ? 3 : 4) : 0; break;
-      case 'shoot': col = Math.floor(t * 1.5) % 2 ? 5 : 0; break;
-      case 'read': col = 6; break;
-      default: col = 0;
-    }
+    const row = ROW[face];
+    const col = poseCol(as ?? a.anim, t, a.phase ?? 0);
     // (bobbing a step as they walk)
     const hop = a.anim === 'walk' && col !== 0 ? -1 : 0;
     g.save();
@@ -125,12 +243,13 @@ function actor(g: CanvasRenderingContext2D, a: Actor, dolls: string[][], sheets:
   const lay = PACK_LAYOUT[a.who];
   const im = sheets.get(a.who);
   if (!lay || !im) return;
-  const anim = lay.rows.includes(a.anim === 'shoot' || a.anim === 'work' || a.anim === 'read' ? 'attack' : a.anim) ? (a.anim === 'shoot' || a.anim === 'work' || a.anim === 'read' ? 'attack' : a.anim) : 'idle';
+  const want = a.anim === 'shoot' || a.anim === 'work' || a.anim === 'read' ? 'attack' : a.anim === 'walk' || a.anim === 'attack' ? a.anim : 'idle';
+  const anim = lay.rows.includes(want) ? want : 'idle';
   const count = lay.counts[anim] ?? 1;
   const f = Math.floor(t * 9 + (a.phase ?? 0) * 7) % count;
   const row = lay.rows.indexOf(anim);
   const w = (lay.w * h) / lay.h;
-  const flip = (face === 'r') !== lay.facesRight;
+  const flip = (face !== 'l') !== lay.facesRight;
   g.save();
   g.translate(Math.round(x), Math.round(feet));
   if (flip) g.scale(-1, 1);

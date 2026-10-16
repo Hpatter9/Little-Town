@@ -528,6 +528,10 @@ export interface PromptView {
   story: string | null;
   picture: string | null;
   who: number | null;
+  /** For the card's scene (renderer/panel/eventScenes.ts): the choice event's id, and what a question of politics or of a
+   *  daughter village is about (a vote, a trial, a revolt; a parting, a village beset). */
+  eventId?: string;
+  about?: string;
   /** Until the default is taken; null when it waits as long as it takes. */
   secondsLeft: number | null;
   /** An evolution's roads (data/paths.ts, data/pathLore.ts): each with its archetype's role, its telling and its
@@ -1455,6 +1459,8 @@ export function snapshot(s: GameState): Snapshot {
       story: p.story ?? null,
       picture: p.picture ?? null,
       who: p.who ?? null,
+      ...(p.kind === 'event' && s.event?.prompt === p.id ? { eventId: s.event.def } : {}),
+      ...(p.politics || p.village ? { about: p.politics ?? p.village?.about } : {}),
       // (none for a question that waits as long as it takes: raiders held at the gate)
       secondsLeft: p.expiresTick >= Number.MAX_SAFE_INTEGER ? null : Math.max(0, (p.expiresTick - s.tick) / TICK_HZ),
       ...(p.roads ? { roads: p.roads.map(roadOf).filter((r): r is RoadView => !!r) } : {}),

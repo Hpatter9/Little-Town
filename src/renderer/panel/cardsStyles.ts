@@ -91,6 +91,8 @@ button.pc-fav:not(.on):not(#ui-0):not(#ui-1):not(#ui-2) { color: #e8d8c0 !import
 .ev-scene { position: relative; width: 100%; aspect-ratio: 16 / 9; max-height: 34vh; overflow: hidden; border-radius: 10px; border: 2px solid #6b5230; background: #000; }
 .event-art .ev-scene { position: absolute; inset: 0; max-height: none; aspect-ratio: auto; border: 0; border-radius: 0; }
 .ev-scene canvas { width: 100%; height: 100%; display: block; image-rendering: pixelated; object-fit: cover; }
+/* on its side the picture's column is near square: the whole scene shown, not its middle (the speaker stands at an edge) */
+@media (orientation: landscape) and (max-height: 560px) { .event-art .ev-scene { background: transparent; } .event-art .ev-scene canvas { object-fit: contain; } }
 .ev-seal { display: inline-flex; width: 22px; height: 22px; margin-right: 6px; border-radius: 50%; background: radial-gradient(circle at 35% 30%, #e8504a, #8a1c18); color: #ffe9a0; font-size: 12px; align-items: center; justify-content: center; vertical-align: middle; box-shadow: 0 1px 2px #000a; flex: none; }
 .event-option.recommended { display: flex; align-items: center; justify-content: center; }
 .ev-flourish { position: absolute; inset: 0; pointer-events: none; background: radial-gradient(circle at 50% 60%, #ffe08acc, transparent 60%); animation: ev-flourish 900ms ease-out forwards; }

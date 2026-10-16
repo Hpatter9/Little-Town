@@ -9,6 +9,7 @@ import { ERAS, type Era } from './eras';
 import type { Stock } from './materials';
 import type { Skill } from './skills';
 import type { OriginId } from './origins';
+import type { EventSceneId } from './eventSceneIds';
 
 /** What an event's mark can push: the same levers origins and research use (sim/origin.ts). */
 export type Lever = 'work' | 'build' | 'crops' | 'forage' | 'research' | 'craft' | 'travellers' | 'prices' | 'fight' | 'guard';
@@ -95,6 +96,8 @@ export interface EventDef {
   weight?: number;
   /** One of the fateful events: rare, and it turns the town's course (fatefulEvents.ts). */
   fateful?: boolean;
+  /** The scene its story card plays (data/eventSceneIds.ts; the renderer's, never read by the simulation). */
+  scene?: EventSceneId;
   /** When it can happen (always, if left out). */
   when?: (s: GameState) => boolean;
   options: EventOption[];
