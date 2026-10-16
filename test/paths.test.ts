@@ -6,7 +6,7 @@ import { CLASS_DEFS, STAGE_LEVELS } from '../src/shared/data/classes';
 import { ENEMIES } from '../src/shared/data/enemies';
 import { callingName } from '../src/shared/data/founderClasses';
 import { levelOf, stageOf } from '../src/shared/data/levels';
-import { BASE_PATHS, branchesOf, lineage, PATH_BY_ID, PATHS } from '../src/shared/data/paths';
+import { BASE_PATHS, branchesOf, lineage, MYTHIC_PATHS, PATH_BY_ID, PATHS } from '../src/shared/data/paths';
 import { LEANS, roadAttrs, roadFavours } from '../src/shared/data/pathAttrs';
 import { PATH_SKILL_ROWS } from '../src/shared/data/pathSkills';
 import { attributesOf, freePoints, spendByClass, spendPoint, statsHourly } from '../src/shared/sim/attributes';
@@ -34,8 +34,8 @@ test('the tree: eight bases, two roads at every fork, one ascended form at the e
   assert.equal(new Set(PATH_SKILL_ROWS.map((r) => r[1])).size, PATH_SKILL_ROWS.length, 'skill ids distinct');
   for (const a of PATH_ABILITIES) for (const e of a.active?.effects ?? []) if (e.summon) assert.ok(ENEMIES[e.summon], `${a.id} summons ${e.summon}`);
   assert.ok(!PATH_SKILL_ROWS.some((r) => ABILITY_BY_ID[r[1]]?.path === undefined), 'no path skill id clashes with a class skill');
-  // every one of the 26 archetypes is reached somewhere
-  for (const cls of Object.keys(CLASS_DEFS)) assert.ok(PATHS.some((n) => n.cls === cls), `${cls} is on the tree`);
+  // every one of the 26 archetypes is reached somewhere (the Summoner only on the mythic callings' tree: data/mythic.ts)
+  for (const cls of Object.keys(CLASS_DEFS)) assert.ok([...PATHS, ...MYTHIC_PATHS].some((n) => n.cls === cls), `${cls} is on the tree`);
 });
 
 test('a grown-up starts on a base calling fitting their skills; skills come from the road taken; the name is the node', () => {
@@ -55,7 +55,8 @@ test('a grown-up starts on a base calling fitting their skills; skills come from
   p.level = 30;
   assert.equal(stageOf(p), 2);
   assert.equal(callingName(p, 2), 'Conjurer');
-  assert.equal(callingName(p, 0), 'Wanderer');
+  // (the Summoner's road grows from the first mythic calling now: data/mythic.ts)
+  assert.equal(callingName(p, 0), 'Pact-born');
   const known = abilitiesKnown(p.cls, levelOf(p), p.road).map((a) => a.id);
   assert.ok(known.includes('spirit_ward') && known.includes('bind_the_elements'), `the road's skills: ${known.join(' ')}`);
   assert.ok(!known.includes('elemental_court'), 'not the next node\'s');

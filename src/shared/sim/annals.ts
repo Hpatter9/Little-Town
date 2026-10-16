@@ -5,6 +5,7 @@
 // is reckoned from what the town looked like at the last chronicle, or its founding (`s.yearStart`), and from the raids
 // tallied as they end (`s.yearRaids`).
 
+import { mythicYearLines } from './classes';
 import { awardDeedTitles } from './deeds';
 import { ERA_NAMES } from '../data/eras';
 import { callingName } from '../data/founderClasses';
@@ -195,6 +196,7 @@ export function writeChronicle(s: GameState): Chronicle {
   lines.push(...religionYearLines(s, y.tick)); // (the year's miracles and the cult: sim/religion.ts)
   lines.push(...dynastyYearLines(s, y.tick)); // (the houses' year: feuds, the ruling house, heirlooms: sim/dynasty.ts)
   lines.push(...warYearLines(s, y.tick)); // (the realm's wars, and the town's war dead: sim/war/memory.ts)
+  lines.push(...mythicYearLines(s, y.tick)); // (a mythic calling come among us: sim/classes.ts)
   // the Great Enemy's turns this year (sim/greatEnemy.ts)
   const foe = s.greatEnemy && s.greatEnemy.chosen >= 0 ? s.greatEnemy : null;
   const turns = (foe?.log ?? []).filter((l) => l.day >= calendar(y.tick).day).map((l) => l.text);
