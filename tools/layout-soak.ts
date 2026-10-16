@@ -98,7 +98,8 @@ function shoot(d: number) {
   const f = r.save.state;
   f.nextEventTick = f.nextRaidTick = Number.MAX_SAFE_INTEGER;
   const fork = new Sim(f);
-  while (calendar(f.tick).hour !== 12) fork.step();
+  // (a town that is over steps no further: bounded to a day)
+  for (let i = 0; i < TICKS_PER_DAY && calendar(f.tick).hour !== 12; i++) fork.step();
   f.prompts = [];
   f.raid = null;
   mkdirSync(saveDir!, { recursive: true });

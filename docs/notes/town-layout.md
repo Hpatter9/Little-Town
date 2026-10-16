@@ -86,3 +86,22 @@ off). `test/castle.test.ts` "a Blood Court builds one castle" passes again with 
 numbers (people, deaths, buildings standing, paved and planned cells, the day the ring stood and its box), the map as
 letters (`@` seat, `*` fire, `H` homes, `B` workshops and the rest, `K` stores, `V` venues, `F` fields, `P` pens, `D`
 defences, `W` wall, `#` street, `+` planned; small letters for blueprints), and saves at day 10 and the end, at midday.
+
+**Numbers** (40-day soaks, seeds soak-a/b/c, `tools/layout-soak.mjs`; main as it stood at 0.130.0 → this branch; people
+alive at day 40 / deaths / the day the first ring stood):
+
+| | before | after |
+|---|---|---|
+| settlers | 16, 11, 5 (32) / 7, 10, 10 / 13.5, 28.3, 24 | 12, 13, 16 (41) / 11, 10, 3 / 19, 28.1, 17.3 |
+| knights | 12, 12, 12 (36) / 7, 6, 6 / 11.2, 21.1, 13.6 | 10, 11, 11 (32) / 2, 1, 6 / 11.4, 13.4, 10.2 |
+| dwarves (no ring) | 9, 2, 8 (19) / 6, 1, 5 | 3, 6, 8 (17) / 8, 6, 1 |
+| orcs | 11, 25, 20 (56) / 12, 6, 8 / 29, 16.1, 18.2 | 17, 17, 8 (42) / 10, 7, 8 / 18.1, 23.3, 14.9 |
+
+All told 143 people and 74 deaths before, 132 and 73 after; the ring stood on day 19.7 on average before, 17.0 after.
+The towns run chaotically apart (an earlier run of the same orc seeds with the plan ended at 29, 13 and 9), so the
+people column is noise at three seeds; ten-day starts on eight settlers seeds ('lone-1'..'lone-8') averaged 3.4 people
+after against 3.0 before. A planned town paves more (the square, the main streets, the side streets: 240 to 310 cells
+by day 40 where 170 to 410 were before) and its ring's box is often a step wider. `tools/sim-hash.mjs` moves for every
+town (the fixture and hash-a..d: buildings stand elsewhere); `tools/perf-sim.mjs` on the fixture: step 1.22 ms against
+1.29, catching up two days 25.1 s against 24.8 s. `layoutSpot` costs 5 to 20 ms a call on the fixture (desktop), asked
+only when something is placed.
