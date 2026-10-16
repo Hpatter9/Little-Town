@@ -157,6 +157,8 @@ export interface InspectInfo {
   title: string;
   lines: string[];
   actions: { id: string; label: string; danger?: boolean; primary?: boolean }[];
+  /** A building: its id, so the page can draw its card (panel/buildingCard.ts). */
+  building?: number;
 }
 
 /** A snapshot message on the desktop (`Bridge.onSnapDelta`): the whole snapshot, or what changed since the last. */

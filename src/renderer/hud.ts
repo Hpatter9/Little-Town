@@ -10,6 +10,8 @@ import { GAME_SPEEDS } from '../shared/sim/battle';
 import type { Snapshot } from '../shared/sim/snapshot';
 import { bleedLeft, expeditionFill, researchFill } from '../shared/format';
 import { FULL_MOON_PHASE } from '../shared/sim/monsters';
+import { applyUiLook } from './ui/frame';
+import { wireTips } from './ui/tips';
 
 /** The moon's face by its phase, new to full. */
 const MOON_GLYPHS = ['○', '◔', '◑', '◕', '●'];
@@ -20,6 +22,8 @@ export interface Hud {
 }
 
 export function createHud(bridge: Bridge, onTheme?: (theme: Theme) => void): Hud {
+  // (the shared look's held tips: ui/tips.ts)
+  wireTips();
   let paused = false;
   let stripMode: StripState['mode'] = 'full';
   const togglePause = () => bridge.command({ type: 'setPaused', paused: !paused });
@@ -75,7 +79,7 @@ export function createHud(bridge: Bridge, onTheme?: (theme: Theme) => void): Hud
     tabs.set(p.id, b);
     dock.append(b);
   }
-  const collapse = el('button', { class: 'tab collapse', title: 'Shrink to the slim ticker' }, 'Minimize ▾');
+  const collapse = el('button', { class: 'tab collapse', title: 'Shrink to the slim ticker' }, 'Minimise ▾');
   collapse.addEventListener('click', () => bridge.setMode('minimal'));
   dock.append(collapse);
 
@@ -103,6 +107,7 @@ export function createHud(bridge: Bridge, onTheme?: (theme: Theme) => void): Hud
     update(snap) {
       tickerName.textContent = snap.townName;
       if (document.title !== snap.townName) document.title = snap.townName;
+      applyUiLook('strip', snap.theme, snap.align?.cast ?? 0, snap.calendar.daylight);
       // the necropolis look, once the founder is a lich (the desktop dock's tabs take the new names)
       if (applyTheme(snap.theme, 'strip')) {
         for (const p of PANELS) tabs.get(p.id)!.querySelector('.tab-label')!.textContent = panelLabel(p.id, p.label, snap.theme);

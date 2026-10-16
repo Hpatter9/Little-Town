@@ -404,3 +404,14 @@ The Mage Tower on the map (`src/renderer/art/packs/su_stonetower.png`, scaled do
 raw files are not redistributed). The Arcane Library is laid from the glass jar, the shelves of tomes and potions and the
 reading tables of Craftpix's free Pixel Dungeon Props and Objects pack (`src/renderer/art/village/dprops.png`, already in
 the game). The rites, the surges and the cast in a fight play strips of the **5000 Pixel Effects** atlas (see Effects).
+
+## The menus' frame set (the shared look)
+
+The menus' frames, buttons, tabs, chips and dividers (`src/renderer/ui/art/`, tinted for each people in the game by
+`src/renderer/ui/frame.ts`) are cut from three packs: the carved wooden rim (`wood.png`) is the frame of the window
+(`Building - Window 01.png`) of **Craftpix.net**'s free Medieval Field Work 2D tileset, cropped and halved; every
+button's bevelled face and the stone peoples' rim (`stone.png`) is the raised slab of the walls-and-floor sheet
+(`walls_floor.png`) of its free 2D Top-Down Pixel Dungeon pack; both under Craftpix's free licence (use in the game;
+the raw files are not redistributed): https://craftpix.net/file-licenses/. The rounded chip, the divider's rod and the
+stat marks (hearts, the small stat icons and the speech-bubble marks) are **DawnLike**'s `GUI/GUI0.png` (`gui0.png`) by
+**DragonDePlatino**, on **DawnBringer**'s palette, **CC-BY 4.0**.

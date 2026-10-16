@@ -6,12 +6,16 @@ import { readLevel, saveLevel, type VolumeKind } from '../volume';
 import { readVibrate, saveVibrate } from '../vibration';
 import { startNotices } from './notices';
 import { createEventSheet } from './eventSheet';
+import { buildingCard, buildingCardKey, type BuildingArt } from '../panel/buildingCard';
 import { PANELS, type StripState } from '../../shared/ipc';
 import { mobileBridge } from './mobileBridge';
 import { expeditionFill, researchFill } from '../../shared/format';
 import { css, mix, skyColors, weatherCover } from '../town/skyColors';
 import { applyTheme, panelLabel } from '../theme';
 import { setTipsOn, tipsOn } from './tips';
+import { applyUiLook } from '../ui/frame';
+import { wireTips } from '../ui/tips';
+import { createTopBar } from '../ui/topBar';
 
 /** A phone on its side (the same test as the page's CSS): the tabs run across the top, and the town fills the
  *  rest of the screen under them. */
@@ -151,6 +155,7 @@ const mapCanvas = () => strip.contentDocument?.querySelector('body > canvas') as
 type StripWin = Window & {
   __zoomAbout?: (mx: number, my: number, from: number, to: number, nx?: number, ny?: number) => void;
   __pinching?: (on: boolean) => void;
+  __picture?: (h: { person?: number; building?: string }) => HTMLCanvasElement | null;
 };
 const stripWin = () => strip.contentWindow as StripWin | null;
 // (the canvas follows the fingers once a frame, however many moves the touch screen reports between)
@@ -256,6 +261,13 @@ bridge.onSnapshot((snap) => {
     layout();
   }
 });
+// the shared look (ui/): the people's frames, the alignment's warmth and the night; the quiet top bar; held tips
+const topBar = createTopBar($('top'), bridge);
+wireTips();
+bridge.onSnapshot((snap) => {
+  applyUiLook('phone', snap.theme, snap.align?.cast ?? 0, snap.calendar.daylight);
+  topBar.update(snap);
+});
 bridge.onSnapshot((snap) => {
   if (!applyTheme(snap.theme, 'phone')) return;
   for (const t of tabButtons) {
@@ -321,9 +333,32 @@ void bridge.getState().then(applyState); // (a first run opens on the New town p
 // Tapping in the town selects rather than acts; the strip sends what's selected here, with its buttons (marking a
 // tree or rock for gathering is confirmed here).
 const inspect = $('inspect');
+// (a selected building shows its card: panel/buildingCard.ts, kept up to date as the town moves on)
+let cardFor: number | null = null;
+let cardKey = '';
+let cardLines: HTMLElement | null = null;
+let lastSnap: Parameters<Parameters<typeof bridge.onSnapshot>[0]>[0] | null = null;
+const cardSlot = document.createElement('div');
+cardSlot.className = 'inspect-card';
+const cardArt: BuildingArt = { building: (def) => stripWin()?.__picture?.({ building: def }) ?? null, person: (id) => stripWin()?.__picture?.({ person: id }) ?? null };
+const drawCard = () => {
+  if (cardFor === null || !lastSnap) return;
+  const key = buildingCardKey(lastSnap, cardFor);
+  if (key === cardKey) return;
+  cardKey = key;
+  const card = buildingCard(lastSnap, cardFor, cardArt);
+  cardSlot.replaceChildren(...(card ? [card] : []));
+  if (cardLines) cardLines.hidden = !!card;
+};
+bridge.onSnapshot((snap) => {
+  lastSnap = snap;
+  drawCard();
+});
 bridge.onInspect?.((info) => {
   inspect.hidden = !info;
   $('hint').hidden = !!info;
+  cardFor = info?.building ?? null;
+  cardKey = '';
   if (!info) return inspect.replaceChildren();
   const top = document.createElement('div');
   top.className = 'inspect-top';
@@ -348,7 +383,10 @@ bridge.onInspect?.((info) => {
     b.addEventListener('click', () => bridge.inspectAction?.(a.id));
     actions.append(b);
   }
-  inspect.replaceChildren(top, lines, ...(info.actions.length ? [actions] : []));
+  cardLines = lines;
+  cardSlot.replaceChildren();
+  inspect.replaceChildren(top, lines, ...(cardFor !== null ? [cardSlot] : []), ...(info.actions.length ? [actions] : []));
+  drawCard();
 });
 
 /* ------------------------------------------------------------ the ☰ menu */

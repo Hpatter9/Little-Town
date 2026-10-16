@@ -668,6 +668,8 @@ async function start(): Promise<void> {
   // the land's soundscape, on with the music (ambience.ts)
   const ambience = createAmbience();
   (window as unknown as { __ambience?: typeof ambience }).__ambience = ambience; // (for previews)
+  // (a button tapped in any of the pages clicks softly: a page turned, ui/frame.ts)
+  (window as unknown as { __uiClick?: () => void }).__uiClick = () => ambience.cue('page', 0);
   // (how loud the music and the sound effects are: the ☰ menu's sliders set them here, and the phone remembers them)
   const levels = { music: readLevel('music'), sfx: readLevel('sfx') };
   music.setLevel(levels.music);
@@ -1135,7 +1137,7 @@ async function start(): Promise<void> {
         const actions = list.map((a, i) => act(`b${i}`, a.label, a.onClick, { danger: a.danger }));
         const venue = venuePanel(b.def);
         if (venue && inspectMenu === 'main') actions.unshift(act('venue', 'Look inside…', () => bridge.openPanel(venue), { primary: true }));
-        return { title: d.title, lines: d.lines, actions };
+        return { title: d.title, lines: d.lines, actions, building: b.id };
       }
       case 'person': {
         const v = snap.visitor;

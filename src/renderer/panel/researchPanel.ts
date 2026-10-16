@@ -40,6 +40,7 @@ export function renderResearch(s: Snapshot, bridge: Bridge | undefined, rerender
   const head = el('div', 'panel-head');
   head.append(el('span', '', `Research queue ${r.queue.length}/${r.slots}`), el('span', '', `${r.stations.filter((st) => st.who).length}/${r.stations.length} stations in use`));
   out.push(head);
+  if (s.why?.research) out.push(el('div', 'why-line', s.why.research));
   const queue = el('div', 'queue');
   if (!r.queue.length) queue.append(el('div', 'empty', 'Nothing left to study for now. Some research waits on the next era (and the next era can wait on an expedition).'));
   r.queue.forEach((id, i) => {

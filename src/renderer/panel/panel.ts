@@ -22,9 +22,18 @@ import { renderAlerts } from './alertsPanel';
 import { renderNewGame, restartNewGame } from './newGamePanel';
 import { isVenuePanel, renderShop, shopKey, venueView } from './shopPanel';
 import { hkKnow } from '../art/hkFolk';
+import { countsFor } from './counts';
+import { ensureStructureStyle, foldSections, installSwipe } from './structure';
+import { noteFood } from './dashboard';
 import { applyTheme, currentTheme, panelLabel } from '../theme';
-import { detailsKey, setDetailsRedraw } from './details';
+import { closeLatestCard, detailsKey, setDetailsRedraw } from './details';
 import { legendsVersion, primeLegends } from '../legends';
+import { applyUiLook } from '../ui/frame';
+import { dressStats, wireTips } from '../ui/tips';
+import { tickNumbers } from '../ui/motion';
+
+/** The Town's building book groups its buildings under these (sub-headings, not sections). */
+const LAYER_HEADS = /^(Foreground|Midground|Background)/;
 
 declare global {
   interface Window {
@@ -45,7 +54,12 @@ primeLegends(bridge, () => {
   render();
 });
 
+// (the shared look's held tips: ui/tips.ts)
+wireTips();
+
 let shown: PanelId | null = null;
+/** The menu and sub-tab last drawn: a change cross-fades the new one in (ui/motion.ts). */
+let shownTabKey = '';
 let snap: Snapshot | null = null;
 let renderedKey = '';
 /** A finger (or the mouse) is down on the menu: a rebuild now would pull the button from under it and the tap would
@@ -82,7 +96,7 @@ function keyOf(): string {
           : shown === 'expeditions'
             ? 'e' + expeditionsKey(snap)
             : shown === 'journal'
-              ? 'j' + festivalsKey(snap.festivals) + '|' + cultureKey(snap.culture) + '|' + snap.journalHead + '|' + legendsVersion() + '|' + JSON.stringify(snap.ancestry ? [snap.ancestry.visits, snap.ancestry.log.length, snap.ancestry.place, snap.ancestry.heirloom] : null) + '|' + snap.met.length + '|' + snap.scenesSeen.length + '|' + snap.annals.fallen.length + '|' + snap.annals.chronicles.length + '|' + snap.annals.famous.map((f) => `${f.id}:${f.felled}:${f.level}:${f.titles.length}:${guildsOf({ guilds: snap?.guilds ?? [] }, f.id)[0]?.role ?? ''}`).join(',')
+              ? 'j' + festivalsKey(snap.festivals) + '|' + cultureKey(snap.culture) + '|' + snap.journalHead + '|' + snap.calendar.day + '|' + legendsVersion() + '|' + JSON.stringify(snap.ancestry ? [snap.ancestry.visits, snap.ancestry.log.length, snap.ancestry.place, snap.ancestry.heirloom] : null) + '|' + snap.met.length + '|' + snap.scenesSeen.length + '|' + snap.annals.fallen.length + '|' + snap.annals.chronicles.length + '|' + snap.annals.famous.map((f) => `${f.id}:${f.felled}:${f.level}:${f.titles.length}:${guildsOf({ guilds: snap?.guilds ?? [] }, f.id)[0]?.role ?? ''}`).join(',')
               : shown === 'crafting'
                 ? 'c' + craftingKey(snap)
                 : shown === 'trade'
@@ -116,13 +130,15 @@ function render(): void {
     void bridge.getJournal().then((entries) => {
       if (renderedKey !== keyed) return; // moved on meanwhile
       const top = body.scrollTop;
-      body.replaceChildren(...renderJournal(entries, snap?.met ?? [], snap?.annals, snap?.scenesSeen ?? [], (key) => (bridge.command({ type: 'scene', op: 'watch', key }), bridge.closePanel?.()), snap?.ancestry, snap?.festivals, snap?.culture, (id) => guildMark({ guilds: snap?.guilds ?? [] }, id)));
+      body.replaceChildren(...renderJournal(entries, snap?.met ?? [], snap?.annals, snap?.scenesSeen ?? [], (key) => (bridge.command({ type: 'scene', op: 'watch', key }), bridge.closePanel?.()), snap?.ancestry, snap?.festivals, snap?.culture, (id) => guildMark({ guilds: snap?.guilds ?? [] }, id), snap?.calendar.day));
       body.scrollTop = top;
     });
     return;
   }
   // (each menu's sections in sub-tabs: subtabs.ts)
-  const tabbed = (els: HTMLElement[]) => inTabs(shown!, els, render);
+  // (and each tab's sections folded, with their counts in the headings: structure.ts)
+  const menu = shown;
+  const tabbed = (els: HTMLElement[]) => inTabs(menu, els, render, menu, (c) => (snap ? foldSections(menu, c, countsFor(menu, snap), menu === 'build' ? LAYER_HEADS : undefined) : c));
   // (the Town: its overview, buildings and treasury, and the stores; the Market: its shops, caravan and animals, and the
   // workshops: the menus' redo)
   if (snap && shown === 'build') body.replaceChildren(...tabbed([...renderBuild(snap, bridge, render), ...renderStores(snap, render)]));
@@ -141,8 +157,23 @@ function render(): void {
   // (drawing may have settled which sub-tab is open: the key as it is now, so the next snapshot doesn't redraw for nothing)
   renderedKey = keyOf();
   body.scrollTop = scroll;
+  // (the shared look: the stats' icons and tips, numbers that changed ticked over, and a new tab faded in)
+  dressStats(body);
+  tickNumbers(body);
+  const tabNow = `${shown}|${tabKey(shown ?? '')}`;
+  if (tabNow !== shownTabKey) {
+    shownTabKey = tabNow;
+    body.classList.remove('ui-xfade');
+    void body.offsetWidth;
+    body.classList.add('ui-xfade');
+    // (only the change fades in: the redraws after it, ten a second at most, come in as they are)
+    window.setTimeout(() => body.classList.remove('ui-xfade'), 260);
+  }
 }
 
+ensureStructureStyle();
+// (a swipe to the right closes the card opened last, or a sheet)
+installSwipe(body, closeLatestCard);
 // (a card opened or closed: details.ts)
 setDetailsRedraw(() => render());
 
@@ -167,7 +198,9 @@ if (bridge) {
   bridge.onState(onState);
   bridge.onSnapshot((next) => {
     snap = next;
+    noteFood(next);
     if (applyTheme(next.theme, 'panel')) renderedKey = ''; // (the look changed: redraw, with the new names)
+    applyUiLook('panel', next.theme, next.align?.cast ?? 0, next.calendar.daylight);
     render();
   });
   Promise.all([bridge.getState(), bridge.getSnapshot()]).then(([st, sn]) => {

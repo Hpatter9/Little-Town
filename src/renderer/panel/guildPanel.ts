@@ -6,6 +6,7 @@ import type { Snapshot } from '../../shared/sim/snapshot';
 import { el } from './dom';
 import { expandable, facts } from './details';
 import { guildBadge } from '../art/guildMarks';
+import { face } from './townsfolkPanel';
 
 export function guildsSection(s: Snapshot, open: (id: number) => void): HTMLElement[] {
   const out: HTMLElement[] = [el('h2', '', 'Guilds')];
@@ -23,6 +24,8 @@ export function guildsSection(s: Snapshot, open: (id: number) => void): HTMLElem
     const chips = el('div', 'kin-row guild-chips');
     for (const m of g.members) {
       const b = el('button', 'kin');
+      const who = s.people.find((p) => p.id === m.id);
+      if (who) b.append(face(who, s));
       b.append(guildBadge(g.role, 14), el('span', 'kin-name', `${m.lead ? '★ ' : ''}${m.name}`), el('span', 'kin-sub', m.lead ? `leader · lv ${m.level}` : `lv ${m.level}`));
       b.addEventListener('click', (e) => (e.stopPropagation(), open(m.id)));
       chips.append(b);
