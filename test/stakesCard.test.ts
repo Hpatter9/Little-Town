@@ -90,7 +90,7 @@ test('the stake card: who goes, what they seek, what the town risks, how long; a
   m.members = m.members.filter((id) => id !== s.mainId);
   const leader = s.people.find((p) => p.id === m.leader)!;
   assert.match(stakeCard(s, m, d).warning!, new RegExp(`${leader.name} leads them`));
-  (s as GameState & { favourites?: number[] }).favourites = [m.members.at(-1)!];
+  s.favourites = [m.members.at(-1)!];
   const fav = s.people.find((p) => p.id === m.members.at(-1))!;
   assert.match(stakeCard(s, m, d).warning!, new RegExp(`${fav.name}.*favourite`));
   m.members.push(s.mainId);

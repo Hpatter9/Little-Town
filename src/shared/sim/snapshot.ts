@@ -138,7 +138,7 @@ import { TERRAIN } from '../data/terrain';
 import { buildingCentre, buildingCentreX, buildSlots, defOf, enclosure, footprint, totalCapacity, totalStock } from './buildings';
 import { destinationHidden, destinationOf, destinationUnlocked, foodNeeded, partyCarry, planParty } from './expeditions';
 import { modifiers, researchStation, researchStations, seatStageNow } from './research';
-import { tireless, carryCapacity, ERA_MULTIPLIER, FX_TICKS, maxHp, RESEARCH_MULTIPLIER, poolSize, type PersonFx, type RaiderHitFx, type SpellTarget, SPELL_FX_TICKS, type Activity, type Building, type CraftOrder, type Debrief, type Expedition, type ExpeditionPhase, type GameState, type JournalEntry, type Ledger, type Needs, type Notice, type Person, type TileState, campCell, campX, campXY, BLOOD_LASTS, DEBRIS_LASTS, type DebrisKind, type ShopTalk } from './state';
+import { tireless, carryCapacity, MAX_JOURNAL, ERA_MULTIPLIER, FX_TICKS, maxHp, RESEARCH_MULTIPLIER, poolSize, type PersonFx, type RaiderHitFx, type SpellTarget, SPELL_FX_TICKS, type Activity, type Building, type CraftOrder, type Debrief, type Expedition, type ExpeditionPhase, type GameState, type JournalEntry, type Ledger, type Needs, type Notice, type Person, type TileState, campCell, campX, campXY, BLOOD_LASTS, DEBRIS_LASTS, type DebrisKind, type ShopTalk } from './state';
 import { cellAt, groundAt, inMap, type LandMap, wet, CELL } from './land';
 import { calendar, TICK_HZ, TICKS_PER_HOUR, type Calendar } from './time';
 import { ABILITIES, abilitiesKnown } from '../data/abilities';
@@ -194,6 +194,7 @@ const spellName = (spell: string): string => {
 };
 import { housingCapacity, mood, SULK_MORALE, type MoodReason } from './townsfolk';
 import { topicName } from '../data/originResearch';
+import { isShaken } from './closeCalls';
 
 export interface SkillView {
   level: number;
@@ -236,6 +237,8 @@ export interface PersonView {
   clsPast: string[];
   clsText: string;
   founderCalling: boolean;
+  /** Shaken by a close call a little while ago (sim/closeCalls.ts): a label on their card only. */
+  shaken: boolean;
   /** Their road (data/paths.ts): where they stand, the roads open at the next stage (names and what each is), the
    *  level that opens them, and the evolution question waiting on them, if one is. Founders have none. */
   roadId: string | null;
@@ -1051,6 +1054,10 @@ export interface Snapshot {
   /** The hall of heroes (sim/annals.ts): the fallen, newest first; the year's chronicles, newest first; and the famous
    *  among the living. */
   annals: AnnalsView;
+  /** The townsfolk the player follows, and the favourites who died (newest last), for their last card
+   *  (sim/favourites.ts). */
+  favourites: number[];
+  favouritesGone: number[];
   faith: FaithView;
   /** The townsfolk's faith: priests, followers, feast days, miracles, the cult (sim/religion.ts). */
   religion: ReligionView;
@@ -1201,6 +1208,8 @@ export interface JournalEntryView {
   key: boolean;
   lines?: string[];
   highlights?: { text: string; building?: string; person?: number }[];
+  /** A close call (sim/closeCalls.ts): who it happened to. */
+  close?: number;
 }
 
 /** Where someone away on a people's own errand is (the warband's war party: sim/warpath.ts). */
@@ -1211,7 +1220,14 @@ function awayWithArmy(s: GameState, p: Person): string {
 }
 
 export function journalView(s: GameState): JournalEntryView[] {
-  return s.journal.filter((e) => !e.text.startsWith('While you were away (')).map(entryView);
+  const out = s.journal.filter((e) => !e.text.startsWith('While you were away (')).map(entryView);
+  // (the close calls, sim/closeCalls.ts: each just after the entry before it, by a fractional id)
+  // (dropped with the lines around them once the Journal is full and its oldest go)
+  const first = s.journal.length >= MAX_JOURNAL ? s.journal[0].id : -Infinity;
+  const calls = (s.closeCalls ?? []).filter((c) => c.after >= first);
+  if (!calls.length) return out;
+  calls.forEach((c, i) => out.push({ ...entryView({ id: c.after + 0.5 + i / 1000, tick: c.tick, text: c.text }), key: true, close: c.id }));
+  return out.sort((a, b) => a.id - b.id);
 }
 
 function entryView(e: JournalEntry): JournalEntryView {
@@ -1369,6 +1385,8 @@ export function snapshot(s: GameState): Snapshot {
     sagas: sagasView(s),
     met: s.met ?? [],
     annals: annalsView(s),
+    favourites: [...(s.favourites ?? [])],
+    favouritesGone: [...(s.favouritesGone ?? [])],
     faith: faithView(s),
     religion: religionView(s),
     disaster: disasterView(s),
@@ -1979,6 +1997,7 @@ function personSlow(s: GameState, p: Person): Omit<PersonView, FastPart> {
     clsPast: p.cls ? [0, 1, 2, 3].filter((i) => i < stageOf(p)).map((i) => callingName(p, i)!) : [],
     clsText: callingText(p),
     founderCalling: !!p.fcls,
+    shaken: isShaken(s, p),
     road: roadView(s, p),
     roadId: p.road ?? null,
     freePts: freePoints(p),
@@ -2397,7 +2416,7 @@ const SCENE_GOING: Partial<Record<string, string>> = {
   riverside: 'Walking down to the water together', busk: 'Off to play in the square',
 };
 
-function describe(s: GameState, p: Person): string {
+export function describe(s: GameState, p: Person): string {
   const name = (id: number) => {
     const b = s.buildings.find((q) => q.id === id);
     return b ? defOf(b).name : 'building';

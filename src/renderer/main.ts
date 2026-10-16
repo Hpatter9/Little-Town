@@ -5,6 +5,7 @@ import { guildsOf } from './art/guildMarks';
 import { withDeltas } from './deltaBridge';
 import { biomeById } from '../shared/data/biomes';
 import { hkCell, hkDraw, hkKnow, hkLayers, hkWhoOf, onHkLoad } from './art/hkFolk';
+import { fallenFace } from './art/fallenFace';
 import { seatArt } from './art/seatArt';
 import { seatPack } from './map/seatPacks';
 import { SEAT_STAGE } from '../shared/data/seats';
@@ -102,7 +103,7 @@ import { buildingTint } from './theme';
 function travellerPerson(t: TravellerView): PersonView {
   return {
     id: t.id, name: t.name, typeName: 'Traveller', look: t.look, x: t.x, y: t.y, dir: t.dir,
-    activity: 'walk', taskDone: null, story: '', titles: [], deeds: [], secret: null, sinceHit: 999, hitFrom: 1, sinceBlow: 999, sinceBlock: 999, defending: false, beast: null, cls: null, clsName: null, clsPast: [], income: null, owns: [], debt: 0, ambition: null, trips: 0, clsText: '', founderCalling: false, stage: 0, ascended: false, level: 1, levelProgress: 0, mounted: null, doing: travellerDoing(t), carrying: {},
+    activity: 'walk', taskDone: null, story: '', titles: [], deeds: [], secret: null, sinceHit: 999, hitFrom: 1, sinceBlow: 999, sinceBlock: 999, defending: false, beast: null, cls: null, clsName: null, clsPast: [], income: null, owns: [], debt: 0, ambition: null, trips: 0, clsText: '', founderCalling: false, shaken: false, stage: 0, ascended: false, level: 1, levelProgress: 0, mounted: null, doing: travellerDoing(t), carrying: {},
     skills: {} as PersonView['skills'], traits: [], needs: { food: 1, rest: 1 }, morale: 60, moodTarget: 60, moodReasons: [], grieving: false,
     priorities: {} as PersonView['priorities'], autoPriorities: false, bed: null, bedId: null, floor: null,
     indoors: t.phase === 'shopping', // (inside the shop: see its window)
@@ -1255,7 +1256,16 @@ async function start(): Promise<void> {
   // (the feed's "Show on the map": look at someone or something and open its card: mobile/feed.ts)
   (window as unknown as { __showRecap?: () => boolean }).__showRecap = () => raidRecap.open();
   (window as unknown as { __centre?: (x: number, y: number) => void }).__centre = (x, y) => camera.centreOn({ x, y }, app.screen.width, app.screen.height); // (previews)
-  (window as unknown as { __showOnMap?: (a: { person?: number; building?: number; traveller?: number; village?: number }) => boolean }).__showOnMap = (a) => {
+  (window as unknown as { __showOnMap?: (a: { person?: number; building?: number; traveller?: number; village?: number; funeral?: number }) => boolean }).__showOnMap = (a) => {
+    // (someone's funeral under way, else their grave, else the graveyard: the obituary's "Watch", mobile/obituaryReveal.ts)
+    if (a.funeral != null) {
+      const g = snap.gathering && (snap.gathering.kind === 'funeral' || snap.gathering.kind === 'great_funeral') ? snap.gathering : null;
+      const yard = snap.buildings.find((b) => b.def === 'graveyard' && b.status === 'done');
+      const at = g ? (g.head ?? { x: g.x, y: g.y }) : (graves.posOf(a.funeral) ?? (yard ? { x: (yard.tile + 1) * CELL, y: (yard.row + 1) * CELL } : null));
+      if (!at) return false;
+      camera.centreOn(at, app.screen.width, app.screen.height);
+      return true;
+    }
     // (a daughter village: its fire)
     const vil = a.village != null ? snap.villages.find((q) => q.id === a.village) : undefined;
     if (vil) {
@@ -1869,7 +1879,10 @@ async function start(): Promise<void> {
       if (seat) return seatPack(seat.origin, seat.stage, def.width) ?? seatArt(seat.origin, seat.stage, def.width, depthOf(def), noTone, 'card');
       return packArt(id, def.width, buildStyle || 'town') ?? topDownArt(id, def.width, depthOf(def), noTone, 'card', buildStyle || 'town');
     };
-    (window as unknown as { __picture?: (p: { person?: number; building?: string }) => HTMLCanvasElement | null }).__picture = (h) => {
+    (window as unknown as { __picture?: (p: { person?: number; building?: string; fallen?: number }) => HTMLCanvasElement | null }).__picture = (h) => {
+      // (the dead, from the look their obituary keeps: art/fallenFace.ts)
+      const gone = h.fallen != null ? next.annals.fallen.find((f) => f.id === h.fallen) : undefined;
+      if (gone) return fallenFace(gone, 64);
       const who = h.person != null ? next.people.find((p) => p.id === h.person) : undefined;
       if (who) return personPicture(who);
       if (h.building && BUILDING_BY_ID[h.building]) return textureCanvas(cardArt(h.building).texture, 96, 64);

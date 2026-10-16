@@ -53,7 +53,7 @@ export interface StakeCard {
 }
 
 /** Who the player has pinned as favourites (claude/favourites: `s.favourites`), if the town keeps any. */
-export const favouritesOf = (s: GameState): number[] => (s as GameState & { favourites?: number[] }).favourites ?? [];
+export const favouritesOf = (s: GameState): number[] => s.favourites ?? [];
 
 const list = (xs: string[]) => (xs.length < 2 ? xs.join('') : `${xs.slice(0, -1).join(', ')} and ${xs.at(-1)}`);
 
