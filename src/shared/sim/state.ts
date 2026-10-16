@@ -1373,6 +1373,8 @@ export interface GameState {
   /** The Underdark under the town's land (sim/underdark.ts), and whether its view is open. */
   underdark?: Underdark;
   watchingUnder?: boolean;
+  /** Which of its depths the view shows (0 or missing: the upper caves; sim/underdark.ts). */
+  watchingUnderDepth?: number;
   /** The building the player is looking into (sim/interiors.ts). */
   lookingInside?: number;
   /** Everyone with kin, living and dead (sim/lineage.ts): the family trees. */

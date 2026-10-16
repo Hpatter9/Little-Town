@@ -246,6 +246,11 @@ function globalPart(prev: Snapshot, next: Snapshot, r: () => number, play: Play)
   }
   // disasters: the ground shaking, the fire's rush
   if (next.disaster && next.disaster.kind !== prev.disaster?.kind) play(next.disaster.kind === 'wildfire' ? 'whoosh' : 'rumble');
+  // the Underdark: the roof coming down in the tunnels below, the river breaking in (sim/underdark.ts)
+  const ut0 = prev.underdark?.tally;
+  const ut1 = next.underdark?.tally;
+  if (ut0 && ut1 && ut1.caveIns > ut0.caveIns) play('rumble', 0, 0.2);
+  if (ut0 && ut1 && ut1.floods > ut0.floods) play('whoosh', 0, 0.2);
 }
 
 /** A watched party's fight: each side's blows (the party by their weapons, the foes by what they are), spells and

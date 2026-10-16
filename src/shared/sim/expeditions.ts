@@ -72,7 +72,7 @@ import { huntDestOf, huntHome, isHuntDest } from './hunts';
 import { dragonDestination, dragonHome, isDragonDest } from './dragon';
 import { isVillageDest, villageDestination, villageHome } from './villages';
 import { isPilgrimDest, pilgrimDestination, pilgrimHome } from './religion';
-import { isUnderDest, underDestination } from './underdark';
+import { isUnderDest, underDestination, underHome } from './underdark';
 import { isPortalDest, portalDestination, portalHome } from './portals';
 import { heartCleared, heartDestination, heartOpen, isHeartDest } from './calamity';
 import { enemyDestination, enemyPlaceCleared, isEnemyDest } from './greatEnemy';
@@ -770,6 +770,7 @@ function comeHome(s: GameState, e: Expedition, d: Destination, members: Person[]
   villageHome(s, e.dest, !!e.cleared && !e.recalled);
   pilgrimHome(s, e, party); // (the pilgrims home: sim/religion.ts)
   portalHome(s, e.dest, party, !!e.cleared && !e.recalled, at);
+  underHome(s, e.dest, !!e.cleared && !e.recalled, at); // (a dweller below slain: sim/underdark.ts)
   companyHome(s, e, party, d.name, jobDone(e, party)); // (a bond between those who went, sim/companies.ts)
   payBounty(s, e, party); // (a bounty the treasury posted on the place, if they did the job)
   if (!e.recalled) findRelic(s, e, d, rng);

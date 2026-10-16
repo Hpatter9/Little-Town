@@ -31,7 +31,7 @@ import { gainSkill, workFactor } from './townsfolk';
 import { cropSpeed } from './origin';
 import { SHAFT } from '../data/deep';
 import { cellAt, deepOf, deepTarget, digDeep, digSeconds, isDiggable, shaftHasWork, workingLevel } from './deep';
-import { underDug } from './underdark';
+import { underDug, underFlooded } from './underdark';
 
 const FARM_XP_PER_SEC = 2;
 const HARVEST_XP = 20;
@@ -250,6 +250,7 @@ export function mineToWork(s: GameState, p: Person): Building | null {
   for (const b of s.buildings) {
     if (b.status !== 'done' || !WORKPLACES[b.def]) continue;
     if (b.def === SHAFT && !shaftHasWork(s)) continue;
+    if (underFlooded(s, b)) continue; // (the river in the tunnels: nobody works it till it drains)
     const diggers = s.people.filter((o) => o !== p && o.task?.type === 'mine' && o.task.building === b.id).length;
     if (diggers >= WORKPLACES[b.def].workers) continue;
     if (!best || Math.abs(buildingCentreX(b) - p.x) < Math.abs(buildingCentreX(best) - p.x)) best = b;
@@ -291,6 +292,7 @@ function workDeep(s: GameState, p: Person, b: Building, task: { work: number; ce
 
 /** One tick of digging. Returns true when a load is dug out (it goes into the digger's hands). */
 export function workMine(s: GameState, p: Person, b: Building, progress: { work: number; cell?: number; depth?: number }): boolean {
+  if (underFlooded(s, b)) return true; // (driven out by the flood: off to other work, empty-handed)
   if (b.def === SHAFT) {
     const done = workDeep(s, p, b, progress);
     if (done) underDug(s, p, b); // (and the way on into the Underdark: sim/underdark.ts)
