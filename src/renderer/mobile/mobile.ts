@@ -18,6 +18,7 @@ import { setTipsOn, tipsOn } from './tips';
 import { applyUiLook } from '../ui/frame';
 import { wireTips } from '../ui/tips';
 import { createTopBar } from '../ui/topBar';
+import { watchMilestones } from './milestoneCards';
 
 /** A phone on its side (the same test as the page's CSS): the tabs run across the top, and the town fills the
  *  rest of the screen under them. */
@@ -269,6 +270,7 @@ bridge.onSnapshot((snap) => {
 // the shared look (ui/): the people's frames, the alignment's warmth and the night; the quiet top bar; held tips
 const topBar = createTopBar($('top'), bridge);
 wireTips();
+watchMilestones(bridge); // (the rank's changes and the town's firsts, each told once as a card)
 bridge.onSnapshot((snap) => {
   applyUiLook('phone', snap.theme, snap.align?.cast ?? 0, snap.calendar.daylight);
   topBar.update(snap);
@@ -281,7 +283,7 @@ bridge.onSnapshot((snap) => {
     const short = SHORT_LABELS[t.id] ?? t.name;
     t.label.dataset.short = t.label.textContent.length <= 8 ? t.label.textContent : short; // (six tabs upright: a long name is cut)
   }
-  $('top-title').textContent = snap.townTitle ? `${snap.townName} ${snap.townTitle}` : snap.townName;
+  // (the top bar writes the town's name and rank: ui/topBar.ts)
   document.title = snap.townName;
 });
 // The page above the strip is more of the same sky, a little deeper toward the top of the screen.

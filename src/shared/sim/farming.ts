@@ -32,6 +32,7 @@ import { cropSpeed } from './origin';
 import { SHAFT } from '../data/deep';
 import { cellAt, deepOf, deepTarget, digDeep, digSeconds, isDiggable, shaftHasWork, workingLevel } from './deep';
 import { underDug, underFlooded } from './underdark';
+import { markMilestone } from './milestones';
 
 const FARM_XP_PER_SEC = 2;
 const HARVEST_XP = 20;
@@ -234,6 +235,7 @@ function harvestHome(s: GameState): void {
   if (days >= HARVEST_HOME.days) {
     (s.marks ??= []).push({ lever: 'morale', value: HARVEST_HOME.feast, until: s.tick + HARVEST_HOME.hours * TICKS_PER_HOUR, text: 'The harvest home' });
     notify(s, `The harvest is in: the town feasts at the harvest home, with ${Math.floor(days)} days' food put by for the winter.`, true);
+    markMilestone(s, 'harvest'); // (the first of them is a milestone: sim/milestones.ts)
   } else if (days < HARVEST_HOME.lean) {
     (s.marks ??= []).push({ lever: 'morale', value: HARVEST_HOME.grumble, until: s.tick + HARVEST_HOME.hours * TICKS_PER_HOUR, text: 'A thin harvest' });
     notify(s, 'A thin harvest: winter comes with the stores nearly bare.', true);

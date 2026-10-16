@@ -7440,3 +7440,104 @@ close calls (medkit, tending, a raid's sliver) and their place in the Journal, t
 `tools/sim-hash.mjs`: hash-b, hash-c and hash-d unchanged; the fixture and hash-a change only by the new fields (an
 obituary on each of the fallen and on `s.honoured`, close calls on people and the town, recap lines): with those
 stripped, all five match main.
+
+## The stakes: an expedition is a bet, a fateful choice is remembered (changes HISTORY "Sending a party yourself", "Expedition stakes", "Fateful events", "Events told in full")
+
+The two levers the player has, made weighty. No new controls: the existing send flow and the event box are richer.
+
+**The stake card** (`src/shared/sim/stakes.ts`, drawn by `panel/musterPanel.ts`). On the sheet for raising a party,
+above the roster: the odds in words, the party's portraits (the leader in gold), "They seek" (the errand, likely finds,
+a bounty, a quest on the place), "The town risks" (the lives with their levels, the pieces of gear that go with them,
+the food packed, any purse) and how long they'll be gone, then one warning line. `musterView().stake` is the card
+(`stakeCard`). The odds are worked out, never drawn: `homeShare(ratio)` is the share of the party expected home, a
+logistic in the party's strength over the place's danger (`HALF_AT` 0.7, `STEEPNESS` 3.2; a bold trip counts the danger
+`BOLD_DANGER` 1.25 times, as `oddsLine` already did); the words are the bands of that share (`ODDS_WORDS`: Sure to come
+home, Likely to return, A hard road: some may fall, Half may not come home, Most may not come home, They go to their
+deaths; a place with nothing to fight reads "Nothing to fear but the road"). `oddsWordFor` is the only place a word is
+chosen, and `test/stakesCard.test.ts` checks the word is only said inside its band at every ratio. The warning
+(`warningFor`): the founder goes, else a favourite goes (`favouritesOf(s)` reads `s.favourites?: number[]` from
+claude/favourites if present; none is added here), else the leader. The leader's own quote (`oddsLine`, `ODDS`) is
+unchanged.
+
+**The homecoming** (`sim/muster.ts` `debrief`, `Prompt.debrief`, `PromptView.debrief`). The result prompt now carries
+`Debrief`: who came back (with a word on how: a level, wounds, carried in), who did not, and the haul. The title says
+how many came home ("The Ruined Keep: 3 of 4 came home"). `mobile/eventSheet.ts` `debriefBlock` leads with "Came
+home" (portraits), then "Did not come home" (a red panel with ✝), then "What they brought". **The haul sits in
+`.debrief-haul` with `data-slot="loot-reveal"`: that is the place for claude/reveals' item-by-item reveal**; for now
+it lists the haul plainly. `comeHome` (sim/expeditions.ts) sets `s.homecoming` for a commanded or watched party, and
+`snapshot.homecoming` makes `main.ts` centre the camera on the gate they come in at, once (`homecomingSeen`), when
+the player is not on a watch screen.
+
+**Fateful events, rarer and bigger** (`data/fatefulEvents.ts`). `FATEFUL_GAP_DAYS` 4 to 10 and `FATEFUL_WEIGHT` 6 to 3
+(about one fateful event in ten, a town meets one every couple of weeks). Five new events, each with a delayed
+consequence (`later`): `stranger_at_the_gate` (a stranger named heir, `s.heirId`, who `heirOf` prefers; hunters
+follow, then a lord pays), `hollow_tithe` (good years, and a life at the end: `later` kill of the event's person),
+`shrine_in_the_wood` (a god's favour moved, a wayside shrine laid down, a blessing lands), `warlords_oath` (a peace
+now, a call on the town's coin and young later), `the_deep_well` (learning and gems, then sickness). New effects in
+`eventKit.ts`/`sim/events.ts`: `adopt(type)` and `favour(god | 'all', by)`. `FATE_LATER_DAYS` (21) is how long a
+fateful consequence may take to land (the all-answers test waits that long for fateful events, 3 days for the rest).
+`EventDef.remember` is how the Chronicle names a choice.
+
+**Remembered** (`sim/fates.ts`, `s.fates?: Fate[]`, at most `FATES_KEPT` 40). `answerEvent` records a fateful answer
+(day, title, the answer, what came of it at once: the effects' lines plus notes and deaths) with `recordFate`; a
+`later` met under it carries `fate` (the tick answered) and `fateLanded` adds the consequence line. A fateful answer
+is resolved on its own stream `new Rng(hashSeed(`${seed}:fates:${tick}`))` (`fateRng` in sim/events.ts), so it draws
+nothing from the town's. `snapshot.annals.fates` feeds a "Fateful choices" section at the top of the Chronicle's
+Heroes tab (`panel/heroesPanel.ts`; folded by `foldSections`, its entries keyed into the Chronicle's redraw key in
+`panel.ts`): "Day 34: the night you let the stranger in", the answer, the result, and "Later: ..." (or "the
+consequence has not landed yet").
+
+**The event box** (`mobile/eventSheet.ts`, `mobile/index.html`). `Prompt.fateful`: `#event-sheet.fateful` has a frame
+2.4 cuts thick (the 0.133.0 `--ui-cut` variable, with the `ui-frame-big` class on the body), a vignette on the picture,
+a centred title, and a reveal: the title, then the telling a paragraph at a time (300 ms apart, each step 380 ms), then
+the answers, which cannot be tapped until they're there. Nothing moves with reduced motion.
+
+Tests: `test/stakesCard.test.ts` (odds words in their bands, a bold trip reads worse, the card, the result's parts, the
+fateful rate constant, fate recording and its own stream, the bargain and the shrine); `test/events.test.ts` (the event
+count is 567; the all-answers test waits `FATE_LATER_DAYS` for fateful events; the let-it-burn test varies the seed,
+since a fateful answer no longer takes its dice from the stream passed in).
+
+**Checks.** `tools/sim-hash.mjs`, before to after. 6 days: the late-town fixture 9803566bfd19 (unchanged: it runs with no events), settlers 41304b3d20b4 to 96ba0eda5025, knights e92bb1b03214 (unchanged), vampire 9844858b381f to 8e33bd79c9d1, dwarves 3db54df8a874 to 9d60d32c0266. 20 days: fixture unchanged; settlers 267ab49a06cd to 9bdcb177f697, knights de8465d020e3 to 3606de46d237, vampire 1a3b3ebe1de3 to fb5ff738fdde, dwarves d3ec56f098b9 to 637712daf992. The moves are the fateful events' rate (a fateful event now comes later, so the town's events differ from the first one on) and their stream (a fateful answer no longer draws from the town's). `tools/soak.mjs 40 2 settlers,vampire`, before to after: settlers deaths 7.0 to 10.5 (people 13.0 to 8.0), vampire deaths 6.5 to 5.5 (people 6.5 to 8.0), none wiped out: the deaths did not collapse. Phone screenshots (393x852 and 852x393): `docs/notes/stakes-shots/` (the fateful box, the stake card, the homecoming).
+
+## Town ranks, milestones and generations (visible progress)
+
+Three things that make a long game read as progress at every timescale, with nothing for the player to do. All of it is
+off with the autopilot (`s.autopilot === false` returns), and none of it draws a number or takes an id from the town.
+
+- **Town tiers** (`sim/tiers.ts`, data in `data/tiers.ts`). Seven rungs: Camp, Hamlet, Village, Market Town, Walled Town,
+  Town, City (`DEFAULT_TIERS`), with ladders of their own for the dwarves, vampires, nomads, knights, orcs, liches and
+  machines (`TIER_NAMES`, keyed by people; the rest use the default). `TIER_RULES[k]` asks for people, buildings standing
+  (not ring-wall pieces), the day, and a done market (rung 3+), the ring closed (4+; a hold, castle or camp on the move
+  has no ring, so it needs `NO_RING_EXTRA` more buildings instead) and the seat at a stage (5: 2, 6: 3). `tierOf(s, held)`
+  rises to the highest rung met in full and falls only when the held rung is missed even at `TIER_SLACK` (80%), so one
+  death does not flicker it. `tiersHourly` (from `sim.ts`, after `annalsHourly`) keeps `s.rank` (`Rank`: tier, best,
+  since, founders, founder name and nature, generation, last change). A rise past the best so far, or any fall, is told:
+  `tell` lines (news + journal, key) and `rank.last` (a `RankChange` with a card key, the line, and the founder's
+  remembered word from their nature: `lineFor(nature, 'work' | 'mourn', tier)`, no draw). A rung regained is only noted.
+  An older save starts at the rung it holds, uncelebrated. Snapshot: `rank` (`RankView`: tier, name, "a Market Town",
+  since, last). The top bar (`ui/topBar.ts`) shows "Name, a Market Town" (the name is cut with an ellipsis, the rank is
+  not; the alignment title moved to the mark's tip). `mobile.ts` no longer writes `#top-title` (the bar owns it).
+- **Milestones** (`sim/milestones.ts`, `MILESTONES` in `data/tiers.ts`): wall closed, first child, first death, first
+  wedding, first harvest home, first caravan, first raid won, first raid lost, first mythic, first unique, hundredth day,
+  founders gone, first daughter village. `s.milestones?: { id, day }[]` (once each, `markMilestone`). Events that fire
+  once in the sim call it where they happen (`tallyRaid` in `annals.ts`, `harvestHome` in `farming.ts`); the rest the
+  state already shows and `milestonesHourly` finds them. `s.milestonesFrom` is the day recording began: an older save
+  records from then, and the Milestones section says so in one line.
+- **`tell(s, text, key)`** (`milestones.ts`): the news line these use. It takes its id as a fraction between the last id
+  given out and `nextId` (`s.tellAt`), never from `nextId` itself: a `notify` here moved every later id and changed who
+  was born when, so towns played out differently (found with `tools/sim-hash.mjs`).
+- **Generations** (`generationNow`, `generationLines` in `tiers.ts`): the highest generation of grown folk alive, from
+  `lineGroups` (`sim/lineage.ts`); a new high is told ("The third generation now works the fields."). The founders are
+  those living with no parents when the rank is first reckoned (`rank.founders`); "None who founded the town still live."
+  is the `generation` milestone and a Chronicle line.
+- **Cards** (renderer): `mobile/milestoneCards.ts` reads the snapshot (`annals.milestones`, `rank.last`), takes the first
+  snapshot's cards as seen, and shows each new key once through `showReveal` (`mobile/revealCard.ts`, tone `gold`, key
+  `m:<id>` or the rank change's key). Icons are DawnLike/GUI marks by name (`ui/icon.ts`).
+- **Chronicle tab:** a "Milestones" filter (`panel/milestonesPanel.ts`, wired in `panel/journalPanel.ts`) lists the
+  generation lines and the firsts, "n of 13". The journal panel's redraw key (`panel/panel.ts`) includes the milestones
+  count and the generation lines.
+- Tests: `test/tiers.test.ts`. Sim-hash: with the new fields, notices and journal stripped, all four towns and the late-town
+  fixture hash the same as before.
+- Changes sections of HISTORY.md: "The annals" (annals.ts now notes the first raid won/lost), "Phase 4, more farming"
+  (the harvest home notes the first), "The phone made smoother" (top bar title), "Every menu in sub-tabs"/"The menus
+  redone" (the Chronicle's filter row).
