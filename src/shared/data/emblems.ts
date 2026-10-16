@@ -3,8 +3,11 @@
 // item sheets (and the Magic Items pack), and its stage told by the rim and the device. Here are the colours and the
 // glyphs; a node without a glyph of its own takes the nearest on its road.
 
-import { lineage, PATHS } from './paths';
+import { lineage, MYTHIC_PATHS, PATHS } from './paths';
 import { ORIGIN_ROADS } from './originPaths';
+import { callingId, callingNodes, ORIGIN_CALLINGS } from './originCallings';
+import { MYTHIC_CALLINGS, mythicId, mythicNodes, WANDERER_ROAD } from './mythic';
+import { roadNodes } from './callings/kit';
 
 export interface EmblemColours {
   /** The field, its shade, and a light for the chevron and the rim's glint. */
@@ -168,6 +171,17 @@ const C: Record<string, Compose> = {
 };
 // (the peoples' own roads carry their emblems with them)
 for (const r of ORIGIN_ROADS) for (const n of [r.two, r.three, r.high]) C[n.id] = { main: n.emblem.main as Glyph, ...(n.emblem.charge ? { charge: n.emblem.charge as Glyph } : {}) };
+// (and the peoples' own base callings theirs, and their colours: data/originCallings.ts)
+for (const t of ORIGIN_CALLINGS) {
+  BASE_COLOURS[callingId(t.origin, t.base.id)] = t.colours;
+  for (const [id, n] of callingNodes(t)) C[id] = { main: n.emblem.main, ...(n.emblem.charge ? { charge: n.emblem.charge } : {}), ...(n === t.base ? { behind: t.base.behind } : {}) };
+}
+// (the mythic callings', and the Wanderer's new road's)
+for (const t of MYTHIC_CALLINGS) {
+  BASE_COLOURS[mythicId(t.base.id)] = t.colours;
+  for (const [id, n] of mythicNodes(t)) C[id] = { main: n.emblem.main, ...(n.emblem.charge ? { charge: n.emblem.charge } : {}), ...(n === t.base ? { behind: t.base.behind } : {}) };
+}
+if (WANDERER_ROAD) for (const [n] of roadNodes(WANDERER_ROAD)) C[n.id] = { main: n.emblem.main, ...(n.emblem.charge ? { charge: n.emblem.charge } : {}) };
 
 /** A founder's line's colours: royal violet and gold, whatever their base. */
 export const FOUNDER_COLOURS: EmblemColours = { fill: '#5a2f7a', dark: '#2e1640', light: '#e8c860' };
@@ -187,6 +201,8 @@ export interface Emblem {
   charge: Glyph | null;
   gem: boolean;
   crown: boolean;
+  /** A mythic calling's (drawn with a glow round the rim). */
+  mythic?: boolean;
   /** The device of the one before (an ascended form keeps its road's), for telling what it is. */
   glyph: Glyph;
   stage: number;
@@ -200,7 +216,7 @@ export function emblemOf(nodeId: string): Emblem | null {
   // (a founder's line: the device of the first shared calling of their base class, in the founder's colours, and a
   // charge telling the line's own stage from a road of their own)
   if (last.founder) {
-    const like = PATHS.find((n) => n.cls === last.cls && n.stage > 0) ?? PATHS[0];
+    const like = [...PATHS, ...MYTHIC_PATHS].find((n) => n.cls === last.cls && n.stage > 0) ?? PATHS[0];
     const e = emblemOf(like.id)!;
     const charge = last.stage === 0 ? e.charge : last.own ? OWN_CHARGE : ALT_CHARGE;
     return { ...e, colours: FOUNDER_COLOURS, charge, gem: last.stage >= 3, crown: last.stage >= 4, stage: last.stage, base: line[0].id };
@@ -216,6 +232,6 @@ export function emblemOf(nodeId: string): Emblem | null {
   const stage = line[line.length - 1].stage;
   const main = part('main');
   const behind = part('behind');
-  return { colours: BASE_COLOURS[base] ?? BASE_COLOURS.fighter, behind, main, charge: part('charge'), gem: stage >= 3, crown: stage >= 4, glyph: main ?? behind ?? ['Shield', 0], stage, base };
+  return { colours: BASE_COLOURS[base] ?? BASE_COLOURS.fighter, behind, main, charge: part('charge'), gem: stage >= 3, crown: stage >= 4, glyph: main ?? behind ?? ['Shield', 0], stage, base, ...(last.mythic ? { mythic: true } : {}) };
 }
 export const COMPOSITIONS = C;

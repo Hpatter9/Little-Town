@@ -11,7 +11,10 @@ import { ITEM_BY_ID, type ItemDef } from '../data/items';
 import { FOCI } from '../data/magic';
 import { SPELLCASTERS } from '../data/spells';
 import { LEVEL_SHARE_FIGHT, LEVEL_SHARE_WORK, levelOf, levelPower, MAX_LEVEL, stageOf, xpToLevel } from '../data/levels';
-import { BASE_PATHS, founderRoot, lineage, PATH_BY_ID, PATHS, roadsFrom, type PathNode } from '../data/paths';
+import { armsOf, BASE_PATHS, callingBases, founderRoot, lineage, PATH_BY_ID, PATHS, roadsFrom, type PathNode } from '../data/paths';
+import { ORIGIN_CALLING_LEAN } from '../data/originCallings';
+import { MYTHIC_CALLINGS, MYTHIC_HEIR_ODDS, MYTHIC_ODDS, MYTHIC_OMEN_ODDS, mythicId } from '../data/mythic';
+import { MYTHIC_BASES, MYTHIC_PATHS } from '../data/paths';
 import { FORK, FOUNDER_FORK } from '../data/pathLore';
 import type { Skill } from '../data/skills';
 import { hashSeed, mixSeed, Rng } from '../rng';
@@ -33,25 +36,72 @@ export function classPull(p: Person, cls: ClassId): number {
   return d.rarity * fit * fit;
 }
 
-/** Give someone their calling, once: one of the eight base paths (data/paths.ts), at random but weighted by how well
- *  their skills fit its archetype (decided by the seed, so a town plays the same every time). */
+/** The base callings open to someone: the eight shared ones, and (in a town run by its autopilot) the three of their
+ *  own people's (data/originCallings.ts), each with its draw: how well their skills fit its archetype, their people's
+ *  own leaned a little more (`ORIGIN_CALLING_LEAN`). */
+export function basePulls(s: GameState, p: Person): [PathNode, number][] {
+  const own = s.autopilot !== false ? callingBases(peopleFor(p, s)) : [];
+  return [...BASE_PATHS, ...own].map((b) => [b, (classPull(p, b.cls) / CLASS_DEFS[b.cls].rarity) * (b.calling ? ORIGIN_CALLING_LEAN : 1)]);
+}
+
+/** Give someone their calling, once: one of the base paths open to them (`basePulls`), at random but weighted by how
+ *  well their skills fit it (decided by the seed, so a town plays the same every time). */
 export function assignClass(s: GameState, p: Person): ClassId {
   const rng = new Rng(mixSeed(hashSeed(s.seed), p.id * 7907 + 13));
-  const pulls = BASE_PATHS.map((b) => classPull(p, b.cls) / CLASS_DEFS[b.cls].rarity);
-  let roll = rng.next() * pulls.reduce((a, b) => a + b, 0);
-  let base = BASE_PATHS[0];
-  for (let i = 0; i < BASE_PATHS.length; i++) {
-    roll -= pulls[i];
+  const pulls = basePulls(s, p);
+  let roll = rng.next() * pulls.reduce((a, [, w]) => a + w, 0);
+  let base = pulls[0][0];
+  for (const [b, w] of pulls) {
+    roll -= w;
     if (roll <= 0) {
-      base = BASE_PATHS[i];
+      base = b;
       break;
     }
   }
+  const mythic = mythicRoll(s, p);
+  if (mythic) base = mythic;
   p.road = base.id;
   p.cls = base.cls;
   p.level ??= 1;
   p.stageSeen = 0;
+  if (mythic) mythicBorn(s, p, mythic);
   return base.cls;
+}
+
+/* ------------------------------------------------------------ the mythic callings (data/mythic.ts) */
+
+/** The chance someone taking their first calling takes a mythic one: `MYTHIC_ODDS`, the child of two ascended
+ *  parents `MYTHIC_HEIR_ODDS`, the first after an ascension `MYTHIC_OMEN_ODDS` (the omen spent either way). */
+export function mythicOdds(s: GameState, p: Person): number {
+  const parents = (p.parents ?? []).map((id) => s.people.find((q) => q.id === id));
+  if (parents.length >= 2 && parents.every((q) => q?.ascended)) return MYTHIC_HEIR_ODDS;
+  return s.mythicOmen ? MYTHIC_OMEN_ODDS : MYTHIC_ODDS;
+}
+/** Whether someone taking their first calling is given a mythic one, and which (by how well they fit each): a side
+ *  stream of their own, so the town's stream is untouched; only in a town run by its autopilot. */
+export function mythicRoll(s: GameState, p: Person): PathNode | null {
+  if (s.autopilot === false || !MYTHIC_BASES.length) return null;
+  const odds = mythicOdds(s, p);
+  if (s.mythicOmen) s.mythicOmen = false;
+  const rng = new Rng(hashSeed(`${s.seed}:mythic:${p.id}`));
+  if (!rng.chance(odds)) return null;
+  const pulls = MYTHIC_BASES.map((b) => classPull(p, b.cls) / CLASS_DEFS[b.cls].rarity);
+  let roll = rng.next() * pulls.reduce((a, b) => a + b, 0);
+  for (let i = 0; i < MYTHIC_BASES.length; i++) if ((roll -= pulls[i]) <= 0) return MYTHIC_BASES[i];
+  return MYTHIC_BASES[MYTHIC_BASES.length - 1];
+}
+/** A mythic calling comes among the town: their title, the news, and a line for the year's chronicle. */
+export function mythicBorn(s: GameState, p: Person, base: PathNode): void {
+  const t = MYTHIC_CALLINGS.find((m) => mythicId(m.base.id) === base.id);
+  if (!t) return;
+  const line = t.born.replaceAll('{name}', p.name).replaceAll('{town}', s.townName ?? 'the town');
+  if (!(p.titles ??= []).includes(t.title)) p.titles.push(t.title);
+  (s.mythics ??= []).push({ id: p.id, road: base.id, line, tick: s.tick });
+  notify(s, `✨ ${line}`, true);
+}
+/** The year's chronicle lines for the mythic callings that came among the town since `since`. */
+export function mythicYearLines(s: GameState, since: number): string[] {
+  return (s.mythics ?? []).filter((m) => m.tick >= since).map((m) => m.line);
 }
 
 /* ------------------------------------------------------------ evolutions */
@@ -98,8 +148,10 @@ export function askEvolve(s: GameState, p: Person, roads: PathNode[]): void {
   const cal = calendar(s.tick);
   const base = lineage(node.id)[0];
   const scene = (base.founder ? FOUNDER_FORK : FORK[base.id] ?? '{name} stands where the road forks.').replaceAll('{name}', p.name);
-  const mine = roads.find((r) => r.origin);
-  const story = `${scene} ${p.name} the ${node.name} is level ${levelOf(p)} now, and ${roads.length === 2 ? 'two' : roads.length === 3 ? 'three' : roads.length} callings are open to them.${mine ? ` One of them, the ${mine.name}, is the road of their own people: no one else may walk it.` : ''}`;
+  // (an origin road beside the shared ones is told as theirs alone; on a people's own calling every road is)
+  const mine = roads.find((r) => r.origin && !r.calling);
+  const own = !mine && node.calling ? ' Theirs is a calling of their own people: no one else walks these roads.' : '';
+  const story = `${scene} ${p.name} the ${node.name} is level ${levelOf(p)} now, and ${roads.length === 2 ? 'two' : roads.length === 3 ? 'three' : roads.length} callings are open to them.${mine ? ` One of them, the ${mine.name}, is the road of their own people: no one else may walk it.` : own}`;
   s.prompts.push({
     id: s.nextId++,
     kind: 'evolve',
@@ -139,7 +191,8 @@ export function adoptPath(p: Person): void {
   let st = 0;
   for (let i = 0; i < STAGE_LEVELS.length; i++) if (lv >= STAGE_LEVELS[i]) st = i;
   if (!p.ascended) st = Math.min(st, 3);
-  const ofClass = PATHS.filter((n) => n.cls === p.cls);
+  // (the shared tree, and the Summoner's road, which grows from a mythic calling now)
+  const ofClass = [...PATHS, ...MYTHIC_PATHS].filter((n) => n.cls === p.cls && !n.id.startsWith('my_'));
   const node = ofClass.find((n) => n.stage === st) ?? [...ofClass].sort((a, b) => Math.abs(a.stage - st) - Math.abs(b.stage - st))[0];
   if (!node) return;
   // (a node past their stage: the one of its line at their stage)
@@ -155,6 +208,8 @@ export function adoptPath(p: Person): void {
 export function ascend(s: GameState, p: Person, why = 'Their power has grown past all measure'): void {
   if (p.ascended || !p.cls) return;
   p.ascended = true;
+  // (an ascension stirs the old powers: the next to take a calling may take a mythic one)
+  if (s.autopilot !== false) s.mythicOmen = true;
   if (p.road) {
     const [road] = roadsOpen(p);
     if (road) evolveTo(s, p, road, why);
@@ -254,12 +309,13 @@ export const levelProgress = (p: Person) => (levelOf(p) >= MAX_LEVEL ? 1 : Math.
 
 /** Whether someone's class lets them wear or wield a piece: weapons by family, armour by weight (tools, torches,
  *  cloaks and charms, and anyone without a class yet: anything). */
-export function canWear(p: Pick<Person, 'cls'>, def: ItemDef | string): boolean {
+export function canWear(p: Pick<Person, 'cls'> & { road?: string | null }, def: ItemDef | string): boolean {
   const d = typeof def === 'string' ? ITEM_BY_ID[def] : def;
   if (d && FOCI.includes(d.id)) return !!p.cls && SPELLCASTERS.has(p.cls); // (a focus only in a caster's hand: data/magic.ts)
   if (!p.cls || !d) return true;
   const c = CLASS_DEFS[p.cls];
-  if (d.slot === 'weapon' && d.family) return c.weapons.includes(d.family);
+  // (a people's own calling may wield its own kind of weapon too: data/originCallings.ts `arms`)
+  if (d.slot === 'weapon' && d.family) return c.weapons.includes(d.family) || armsOf(p.road) === d.family;
   if (d.weight && d.weight !== 'trinket') return c.armour.includes(d.weight);
   return true;
 }

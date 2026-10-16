@@ -4,7 +4,8 @@
 
 import { CLASS_DEFS, STAGE_LEVELS, STAGE_STEP, type ClassId, type ClassStats } from './classes';
 import { FOUNDER_CLASS, FOUNDER_EDGE } from './founderClasses';
-import { PATH_BY_ID } from './paths';
+import { PATH_BY_ID, type PathNode } from './paths';
+import { MYTHIC_EDGE, MYTHIC_EVOLVE } from './mythic';
 
 export const MAX_LEVEL = 100;
 /** XP to go from a level to the next: grows with the level, and much faster past LEVEL_STEEP (so the last stage's
@@ -80,7 +81,7 @@ export function classStat(p: Leveled, k: keyof ClassStats): number {
   // (on a founder's line, the road they took: its own stage's signature stats, or the bent of a road of their own)
   const v = (node?.founder ? node.stats?.[k] : f?.stats[k]) ?? node?.stats?.[k] ?? CLASS_DEFS[p.cls].stats[k];
   if (v === undefined) return plain;
-  const grow = (1 + STAGE_STEP * stageOf(p)) * (f ? FOUNDER_EDGE : node?.origin ? ORIGIN_EDGE : 1);
+  const grow = (1 + STAGE_STEP * stageOf(p)) * (f ? FOUNDER_EDGE : mythicTop(node) ? MYTHIC_EDGE : originEdge(node) ? ORIGIN_EDGE : 1);
   // (speed is better below 1: its edge is how much below)
   return plain + (v - plain) * grow;
 }
@@ -98,11 +99,16 @@ export const EVOLVE_ATTRS = 3;
 export const ORIGIN_EDGE = 1.2;
 export const ORIGIN_EVOLVE = 1.25;
 export const FOUNDER_EVOLVE = 1.5;
+/** Whether a node has a people's edge: all of an origin road (data/originPaths.ts), but on a people's own base
+ *  calling (data/originCallings.ts) only its ascended form: below that its numbers are the shared callings'. */
+const originEdge = (node: PathNode | undefined) => (!!node?.origin && (!node.calling || node.stage >= 4)) || (!!node?.mythic && node.stage < 4);
+/** A mythic calling's ascended form (data/mythic.ts): a bigger edge than any people's. */
+const mythicTop = (node: PathNode | undefined) => !!node?.mythic && node.stage >= 4;
 /** Someone's evolution steps, times their edge (none without a calling). */
 export function evolveSteps(p: Leveled): number {
   if (!p.cls) return 0;
   const node = p.road ? PATH_BY_ID[p.road] : undefined;
-  const edge = p.fcls ? FOUNDER_EVOLVE : node?.origin ? ORIGIN_EVOLVE : 1;
+  const edge = p.fcls ? FOUNDER_EVOLVE : mythicTop(node) ? MYTHIC_EVOLVE : originEdge(node) ? ORIGIN_EVOLVE : 1;
   return EVOLVE_STEPS[stageOf(p)] * edge;
 }
 

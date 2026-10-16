@@ -60,6 +60,16 @@ export function paintEmblem(c: HTMLCanvasElement, nodeId: string, size: number):
     g.fill();
     g.restore();
   }
+  // a mythic calling's: a violet-white glow at every stage (data/mythic.ts)
+  if (e.mythic) {
+    g.save();
+    g.shadowColor = 'rgba(200, 160, 255, 0.95)';
+    g.shadowBlur = S * 0.22;
+    shield(g, pad, pad * 0.8, w, h);
+    g.fillStyle = '#e6d4ff';
+    g.fill();
+    g.restore();
+  }
   // the field
   shield(g, pad, pad * 0.8, w, h);
   const grad = g.createLinearGradient(pad, pad, pad + w, pad + h);

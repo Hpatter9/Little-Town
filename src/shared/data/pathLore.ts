@@ -3,6 +3,10 @@
 // road asks, what it makes of a person, and a line of the world's lore. FORK is how each base calling's crossroads
 // is told as a scene; LORE is each node's passage; ASCENDED tells the last step.
 
+import { callingId, ORIGIN_CALLINGS } from './originCallings';
+import { MYTHIC_CALLINGS, mythicId, WANDERER_ROAD } from './mythic';
+import { roadNodes } from './callings/kit';
+
 /** How the fork is told, by the base calling, with {name} for the townsperson. */
 export const FORK: Record<string, string> = {
   fighter: 'The sparring post in the yard is split clean through, and {name} is only breathing a little hard. The old hands have stopped correcting their stance. What they have is not technique yet, only strength and nerve, and the question is what to make of them.',
@@ -11,9 +15,13 @@ export const FORK: Record<string, string> = {
   rogue: 'The purse was back on the table before its owner noticed it was gone, and {name} was across the room looking innocent. Quick hands, quicker feet, and no great respect for the rules of a fair fight. There are two ways to sharpen that.',
   apprentice: 'The candle lit itself again this morning, and this time {name} meant it to. The books are getting harder and they are reading them anyway. The spark wants a shape: the bright arts or the dark ones.',
   acolyte: '{name} has been sitting with the sick, and the sick have been getting better faster than the healer can explain. Something answers when they pray. Whether it answers with light or with discipline is theirs to decide.',
-  wanderer: '{name} came back from the woods with a wolf cub asleep in their hood, and the cub would not go to anyone else. The land has taken a liking to them. The green will give them its secrets, or lend them its creatures.',
+  wanderer: '{name} came back from the woods with a wolf cub asleep in their hood, and the cub would not go to anyone else. The land has taken a liking to them. The green will give them its secrets, or the spirits of the old ways will show them the roads they walk.',
   minstrel: 'When {name} starts a song at the fire, the quarrelling stops and the tired sit up. People fight better when they are near them, and nobody is quite sure why. A voice like that can carry a party, or a trade can carry a town.',
 };
+
+// (the peoples' own base callings tell their own crossroads: data/originCallings.ts)
+for (const t of ORIGIN_CALLINGS) FORK[callingId(t.origin, t.base.id)] = t.fork;
+for (const t of MYTHIC_CALLINGS) FORK[mythicId(t.base.id)] = t.fork;
 
 /** How a founder's evolution is told: the line the stories expect, or a road of their own. */
 export const FOUNDER_FORK = 'The town has grown up round {name} like a village round a well. The songs they sing about the founder already say what comes next, and {name} could become exactly that. Or they could become something the songs never imagined.';
@@ -165,4 +173,6 @@ export const ASCENDED = 'The last of the line. There is nothing past {name}: the
 export function loreOf(id: string, name: string, from?: string): string {
   return L[id] ?? ASCENDED.replace('{name}', name).replace('{from}', from ?? 'calling');
 }
+// (the Wanderer's new road carries its own)
+if (WANDERER_ROAD) for (const [n] of roadNodes(WANDERER_ROAD)) L[n.id] = n.lore;
 export const LORE_IDS: readonly string[] = Object.keys(L);

@@ -53,7 +53,7 @@ export function fightPose(st: { sinceBlow: number; sinceHit: number; down: boole
   return ['walk', 0];
 }
 
-export { HERO_FORM, heroSheet, founderSheet, FOUNDER_ID } from './heroForms';
+export { HERO_FORM, heroSheet, founderSheet, FOUNDER_ID, roadForm } from './heroForms';
 /** How tall a hero stands on screen (px, before the person's own scale): about an LPC townsperson's figure. */
 export const HERO_HEIGHT = 50;
 /** The scale that brings a hero sheet's figure to HERO_HEIGHT. */

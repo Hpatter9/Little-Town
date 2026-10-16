@@ -86,7 +86,7 @@ const ROADS: readonly Road[] = [
     asc: ['stonefather', 'Stonefather'],
   },
   {
-    origin: 'merfolk', from: 'summoner',
+    origin: 'merfolk', from: 'spirit_wayfarer',
     two: { id: 'tidecaller', name: 'Tidecaller', cls: 'summoner', text: 'The sea comes when they call: a wave that walks and fights.', companion: 'coral_golem', lore: 'Tidecallers grow up singing to the surf until the surf sings back. In a fight they open their arms and the water comes up out of the ground, out of the barrels and the wells, and stands beside them with fists of foam.', skill: ['call_the_tide', 'Call the Tide', A(40, [summon('coral_golem'), summon('coral_golem'), hit(1.3, 'water', 'foes')])], lean: { int: 0.25, wis: 0.15, cha: 0.25 }, emblem: { main: ['Potion', 10], charge: ['Music', 8] } },
     three: { id: 'leviathan_speaker', name: 'Leviathan Speaker', cls: 'summoner', text: 'Speaks with the great things of the deep, and sometimes they surface.', companion: 'coral_golem', lore: 'A Leviathan Speaker has gone down past where the light ends and come back up with a promise. When the town is in danger the sea darkens, the boats rock, and something very large and very old lifts its head to listen.', skill: ['from_the_deep', 'From the Deep', A(70, [summon('coral_golem'), summon('coral_golem'), summon('coral_golem'), inflict('stun', 2, 'foes', 0.4)])], lean: { int: 0.3, cha: 0.3 }, emblem: { main: ['LongWep', 6] } },
     asc: ['deep_sovereign', 'Sovereign of the Deep'],

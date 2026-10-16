@@ -2,6 +2,7 @@
 // someone to inspect them: their picture in what they wear, their gear laid out as in Diablo (each piece in its slot
 // round them, tap one for its stats), what they carry, how they fight, and everything else about them.
 
+import { isMythic } from '../../shared/data/paths';
 import { familiesSection } from './familyPanel';
 import { guildsSection } from './guildPanel';
 import { arenaSection } from './arenaPanel';
@@ -211,6 +212,7 @@ function folkRow(p: PersonView, s: Snapshot, open: () => void): HTMLElement {
   if (p.roadId) {
     const cm = emblemCanvas(p.roadId, 18);
     cm.classList.add('calling-mark');
+    if (isMythic(p.roadId)) cm.classList.add('mythic'); // (its emblem glows: data/mythic.ts)
     cm.title = p.clsName ?? "";
     name.append(cm);
   }
