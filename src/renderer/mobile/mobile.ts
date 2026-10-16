@@ -7,7 +7,8 @@ import { readVibrate, saveVibrate } from '../vibration';
 import { startNotices } from './notices';
 import { watchFavourites } from './obituaryReveal';
 import { createEventSheet } from './eventSheet';
-import { revealsOn, setRevealsOn, showReveal, startReveals } from './revealCard';
+import { revealsOn, setItemOpener, setRevealsOn, showReveal, startReveals } from './revealCard';
+import { openCardInMenu, setMenuFrame } from './cardLink';
 import { buildingCard, buildingCardKey, type BuildingArt } from '../panel/buildingCard';
 import { PANELS, type StripState } from '../../shared/ipc';
 import { mobileBridge } from './mobileBridge';
@@ -87,6 +88,7 @@ const panel = document.createElement('iframe');
 panel.src = 'panel.html';
 panel.title = 'Menu';
 sheet.append(panel);
+setMenuFrame(panel);
 
 /**
  * The strip is drawn at its desktop scale times the zoom, so zooming out fits more of the town across the screen
@@ -253,6 +255,9 @@ const tabButtons = PANELS.map((p) => {
 // the rare things, and a party's haul, revealed card by card (revealCard.ts)
 startReveals(bridge, strip);
 (window as unknown as { __reveal?: typeof showReveal }).__reveal = showReveal; // (for previews)
+// (a thing's card, opened in the menus from this page: a unique on its reveal card or in a haul, a news line's "About
+// it": panel/infoCard.ts)
+setItemOpener((id) => openCardInMenu({ kind: 'item', id }, 'journal'));
 // the necropolis look, once the founder is a lich (and the menus' new names)
 bridge.onSnapshot((snap) => {
   // (watching a party away takes the screen the same way)

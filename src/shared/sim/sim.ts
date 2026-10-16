@@ -1,6 +1,7 @@
 // Fixed-tick simulation. Rendering never drives it: callers feed in elapsed real time and the sim runs
 // however many whole ticks that covers.
 
+import { uniquesHourly } from './provenance';
 import { CONQUEST } from '../data/conquest';
 import { tacticsOrder } from './tactics';
 import { regrowHourly } from './regrow';
@@ -309,6 +310,7 @@ export class Sim {
     risingHourly(s); // (the rising powers' own moves: sim/risingPowers.ts)
     if (CONQUEST.on) warHourly(s); // (the seasons of war: the realm's wars, the town drawn in, its borders on the War tab: sim/war/)
     if (s.tick % TICKS_PER_HOUR === 0) keepKin(s);
+    if (s.tick % TICKS_PER_HOUR === 0) uniquesHourly(s); // (who bears each unique now: sim/provenance.ts)
     packHourly(
       s,
       this.rng,

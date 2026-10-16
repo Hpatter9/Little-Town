@@ -1,5 +1,6 @@
 // Health: injury, being downed, bleeding out, death, and healing in town (DESIGN §3).
 
+import { noteBearerDied } from './provenance';
 import { deathSeen } from './religion';
 import { mournFor } from './ceremonies';
 import { guildCare } from './guildPerks';
@@ -130,6 +131,7 @@ export function killPerson(s: GameState, p: Person, cause: string): void {
   dynastyDeath(s, p, cause); // (an heirloom passes on, an heir's fall is felt: sim/dynasty.ts)
   s.people = s.people.filter((q) => q !== p);
   // what they wore stays in town if they died there (it's lost with them on the road)
+  noteBearerDied(s, p); // (a unique's end, or its return to the armoury: sim/provenance.ts)
   if (p.away === null) for (const id of Object.values(p.gear)) s.items[id!] = (s.items[id!] ?? 0) + 1;
   if (p.id === s.mainId) {
     // someone takes up the leadership, if there's a grown-up left to; else the town is finished

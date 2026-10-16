@@ -5,6 +5,7 @@ import type { AncestryView } from '../../shared/sim/ancestors';
 import type { JournalEntryView } from '../../shared/sim/snapshot';
 import { platino } from '../art/icons';
 import { el } from './dom';
+import { linked, openCard } from './infoCard';
 import { renderBestiary } from './bestiaryPanel';
 import { renderHeroes } from './heroesPanel';
 import { renderLegends } from './legendsPanel';
@@ -121,12 +122,14 @@ function entryRows(entries: JournalEntryView[]): HTMLElement[] {
       const top = el('div', 'card-top');
       top.append(el('span', 'card-name', e.text), el('span', 'card-size', time));
       const list = el('ul', 'away-lines');
-      for (const line of e.lines) list.append(el('li', '', line));
+      for (const line of e.lines) list.append(linked(line, 'li'));
       c.append(top, list);
       out.push(c);
     } else {
+      // (a name in the line opens its card or sheet; a tap anywhere else on the line opens the line's own card: infoCard.ts)
       const row = el('div', e.key ? 'journal-row key' : 'journal-row');
-      row.append(el('span', 'journal-time', time), el('span', '', e.text));
+      row.append(el('span', 'journal-time', time), linked(e.text));
+      row.addEventListener('click', () => openCard({ kind: 'event', id: e.id, text: e.text, when: e.when }));
       out.push(row);
     }
   }
