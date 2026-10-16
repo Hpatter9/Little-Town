@@ -6,7 +6,7 @@ import { gunzipSync } from 'node:zlib';
 import { parseSave, serialize } from '../src/shared/sim/save';
 import { Sim } from '../src/shared/sim/sim';
 import { campCell, newGame, type GameState } from '../src/shared/sim/state';
-import { TICKS_PER_DAY } from '../src/shared/sim/time';
+import { calendar, TICKS_PER_DAY } from '../src/shared/sim/time';
 import { footprint } from '../src/shared/sim/buildings';
 import { groundAt, isPlannedRoad, isRoad } from '../src/shared/sim/land';
 import { BUILDING_BY_ID } from '../src/shared/data/buildings';
@@ -91,12 +91,16 @@ for (let d = 1; d <= days; d++) {
   if (every && d % every === 0) console.log(report(d), kinds());
   if (saveDir && d === 10 && days > 10) shoot(d);
 }
-// (the saves for pictures are taken at midday: half a day on)
+// (the saves for pictures are taken at the next midday, no question or raid on the screen)
 function shoot(d: number) {
   const r = parseSave(serialize(s, Date.now()));
   if (!r.ok) throw new Error('the save would not load');
-  const fork = new Sim(r.save.state);
-  for (let i = 0; i < TICKS_PER_DAY / 2; i++) fork.step();
+  const f = r.save.state;
+  f.nextEventTick = f.nextRaidTick = Number.MAX_SAFE_INTEGER;
+  const fork = new Sim(f);
+  while (calendar(f.tick).hour !== 12) fork.step();
+  f.prompts = [];
+  f.raid = null;
   mkdirSync(saveDir!, { recursive: true });
   writeFileSync(`${saveDir}/${what}-${seed}-d${d}.txt`, serialize(fork.state, Date.now()));
 }
