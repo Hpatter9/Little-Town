@@ -10,7 +10,7 @@ import { campXY, type Activity, type GameState, type Person } from './state';
 import { benchSpot, busks, buskSpot, BUSK_EVERY, BUSK_FROM, BUSK_PEOPLE, BUSK_UNTIL, eavesSpot, EAVES_PEOPLE, fairNow, PIGEON_EVERY, PIGEON_FROM, PIGEON_UNTIL, puddleSpot, RIVER_FROM, RIVER_UNTIL, riverSpot, playingKids, someoneBusking, tagIt, tagTarget, wetNow } from './idleScenes';
 import { isChild } from './social';
 import { isElder } from './ageing';
-import { buildingDoor } from './buildings';
+import { buildingDoor, builtOn } from './buildings';
 import { SICKBEDS } from '../data/prisons';
 import type { DoomKind } from '../data/doom';
 
@@ -41,7 +41,7 @@ export function marketSquare(s: GameState): { x: number; y: number } {
   return { x: c.x, y: c.y + 3 * CELL };
 }
 
-export type Pastime = 'play' | 'sit' | 'stroll' | 'market' | 'well' | 'carry' | 'rounds' | IdleScene;
+export type Pastime = 'play' | 'sit' | 'stroll' | 'market' | 'well' | 'carry' | 'rounds' | 'square' | IdleScene;
 /** The small scenes about town and in the rain (sim/idleScenes.ts). */
 export type IdleScene = 'eaves' | 'splash' | 'tag' | 'pigeons' | 'riverside' | 'busk';
 
@@ -112,6 +112,23 @@ export const STROLL_FROM = 17;
 export const STROLL_UNTIL = 21;
 /** Elders sit this far from the fire (cells); children play within this of each other (cells). */
 const FIRE_RING = 1.7;
+/** Of a fair evening, from `SQUARE_FROM` to `SQUARE_UNTIL`, a grown-up with nothing to do goes to stand about on the
+ *  town plan's square (sim/layout.ts) one idle wander in `SQUARE_EVERY`, to talk the day over. */
+export const SQUARE_FROM = 18;
+export const SQUARE_UNTIL = 22;
+export const SQUARE_EVERY = 2;
+
+/** A spot on the square to stand at (its inside, turning with the slot), or null without a plan. */
+export function squareSpot(s: GameState, p: { id: number }, slot: number): { x: number; y: number } | null {
+  const L = s.layout;
+  if (!L) return null;
+  // (never on the fire, or whatever else stands there)
+  for (let k = p.id * 7 + slot * 3, n = 0; n < 6; n++, k += 5) {
+    const x = L.sq.x + 1 + (k % (L.sq.w - 2)), y = L.sq.y + 1 + (Math.floor(k / 3) % (L.sq.h - 2));
+    if (!builtOn(s, x, y)) return { x: (x + 0.5) * CELL, y: (y + 0.5) * CELL };
+  }
+  return null;
+}
 const PLAY_NEAR = 2.5;
 const STROLL_RING = 5;
 
@@ -175,6 +192,11 @@ export function pastimeFor(s: GameState, p: Person, slot: number): { x: number; 
       return { x: c.x + Math.cos(a) * STROLL_RING * CELL, y: c.y + Math.sin(a) * STROLL_RING * CELL * 0.7, pastime: 'stroll' };
     }
     return { x: partner.x - 0.6 * CELL, y: partner.y + 0.2 * CELL, pastime: 'stroll' };
+  }
+  // (a fair evening: out on the square with the others, talking the day over)
+  if (fairNow(s) && hour >= SQUARE_FROM && hour < SQUARE_UNTIL && (slot + p.id) % SQUARE_EVERY === 0 && !isElder(s, p)) {
+    const sq = squareSpot(s, p, slot);
+    if (sq) return { ...sq, pastime: 'square' };
   }
   // (by day, now and then, to draw water at the well: stood at its foot, a little to one side)
   if (hour >= WELL_FROM && hour < WELL_UNTIL && (slot + p.id) % WELL_EVERY === 0 && p.bed != null && !isElder(s, p)) {

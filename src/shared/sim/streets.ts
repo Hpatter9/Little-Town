@@ -12,6 +12,7 @@ import { takeFromStorage } from './expeditions';
 import { cellAt, groundAt, idx, inMap, isPlannedRoad, isRoad, planRoad, setRoad, wearAt, wet, type Pt } from './land';
 import { isGate, liftRoadsOffWall, lineOf, sideOn, wallOnly } from './ringWall';
 import { campCell, type GameState, type Person } from './state';
+import { layoutHourly, onPlanLine } from './layout';
 import { isChild } from './social';
 import { TICKS_PER_HOUR } from './time';
 
@@ -190,6 +191,7 @@ export function streetsHourly(s: GameState): void {
   if (s.tick % TICKS_PER_HOUR !== 0) return;
   liftRoadsOffWall(s); // (roads an older town laid over the wall's line are lifted, so the wall can be raised there)
   if (s.autopilot === false) return;
+  layoutHourly(s); // (the town plan's main streets kept ahead of the town: sim/layout.ts)
   gatePaths(s);
   if (Math.floor(s.tick / TICKS_PER_HOUR) % 24 !== 6) return;
   planStreets(s);
@@ -200,6 +202,7 @@ export function planStreets(s: GameState): number {
   const m = s.land;
   if (!m.wear) return 0;
   const camp = campCell(s);
+  const blocks = s.layout?.style === 'grid';
   const want: { i: number; w: number }[] = [];
   for (let y = Math.max(0, camp.y - STREET_REACH); y <= Math.min(m.h - 1, camp.y + STREET_REACH); y++)
     for (let x = Math.max(0, camp.x - STREET_REACH); x <= Math.min(m.w - 1, camp.x + STREET_REACH); x++) {
@@ -209,6 +212,8 @@ export function planStreets(s: GameState): number {
       const g = groundAt(m, x, y);
       if (g !== 'grass' && g !== 'fertile' && g !== 'sand') continue;
       if (!N4.some(([dx, dy]) => isRoad(m, x + dx, y + dy) || isPlannedRoad(m, x + dx, y + dy))) continue;
+      // (a town laid out in blocks paves the paths that keep to its plan's lines; the rest stay footpaths)
+      if (blocks && !onPlanLine(s, x, y)) continue;
       want.push({ i, w });
     }
   want.sort((a, b) => b.w - a.w || a.i - b.i);

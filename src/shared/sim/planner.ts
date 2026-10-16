@@ -24,6 +24,7 @@ import { canWear } from './classes';
 import { armedForSkills } from '../data/armed';
 import { isChild } from './social';
 import { buildOrigin } from './nomads';
+import { ensureLayout, layoutSpot } from './layout';
 import { LEISURE, LEISURE_PEOPLE, LOW_SPIRITS } from '../data/recreation';
 import { TRAINING_BUILDINGS } from '../data/training';
 const TRAINING_IDS = new Set(TRAINING_BUILDINGS.map((d) => d.id));
@@ -680,6 +681,9 @@ function nearestOrder(m: GameState['land'], c: Pt): { cells: Int32Array; d: Floa
  *  ground where it can, and over a wood or rocks rather than walk further out (the owner's ask). */
 export const WILD_SPOT_COST = 1.5;
 export function findSpot(s: GameState, def: BuildingDef): (Pt & { wild?: true }) | null {
+  // (a town with a plan builds in the quarter the building belongs in: sim/layout.ts; else, or with no room there, as before)
+  const planned = layoutSpot(s, def);
+  if (planned && canPlace(s, def, planned.x, planned.y, undefined, false, !!planned.wild).ok) return planned;
   // (a wandering tribe builds its great works on its home ground)
   const from = buildOrigin(s, def.id) ?? campCell(s);
   const taken = footprints(s);
@@ -720,7 +724,8 @@ function roomSpot(s: GameState, def: BuildingDef): Pt | null {
     roads: true,
     door: false,
     carve: holdOf(s) === 'mountain',
-    ok: (rect) => joinsCastle(cells, s.land, rect, solid) && !(held && overlaps(rect, held)),
+    // (and only where it may stand: the snuggest spot was once the ground before the gate, refused, and no room built)
+    ok: (rect) => joinsCastle(cells, s.land, rect, solid) && !(held && overlaps(rect, held)) && canPlace(s, def, rect.x, rect.y).ok,
     prefer: (rect) => -sharedEdges(cells, s.land, rect, solid),
   });
   if (!r) return null;
@@ -1439,6 +1444,7 @@ function payFor(s: GameState, coins: number): boolean {
 export function runPlanner(s: GameState): void {
   if (s.gameOver || s.autopilot === false || s.tick % PLAN_TICKS !== 0) return;
   openLand(s);
+  ensureLayout(s); // (the town plan, laid down on the first pass: sim/layout.ts)
   const n = needs(s);
   makeRoom(s, n);
   const plan: TownPlan = { build: s.plan?.build ?? null, research: null, gathering: [], waiting: [], lastHome: s.plan?.lastHome, lastHomeBeds: s.plan?.lastHomeBeds, shelved: s.plan?.shelved, moved: s.plan?.moved };
