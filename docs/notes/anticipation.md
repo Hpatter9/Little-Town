@@ -30,7 +30,7 @@
   witch, druid, chronomancer; the Fate-touched road `fateTouched`, `FATE_OMEN_CHANCE` 0.9 against `OMEN_CHANCE` 0.5)
   marks a day of each season with a vague omen (`omensFor`, side stream `${seed}:omen:<season>:<seer>`, at most
   `OMENS_MOST` 2, `guess: true`; whether it comes true is chance). Other systems add dates with
-  `addCalendarSource(id, (s, from, to) => entries)` (the favourites' name-days, kind `name-day`).
+  `addCalendarSource(id, (s, from, to) => entries)`; the favourites' name-days (`nameDays`, sim/favourites.ts) are read in directly (kind `name-day`).
   `Snapshot.upcoming` (optional).
 - **The days ahead (`panel/calendarStrip.ts`):** a folded section in the Town's Overview (`GROUPS` in
   `panel/subtabs.ts`): a strip of the days, five to a row (ten sideways, `min-width: 640px`) (`.cal-day.ui-frame`, today ringed, a mark per entry with

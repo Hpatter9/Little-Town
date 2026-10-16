@@ -756,6 +756,46 @@
       .hall-card.fallen {
         opacity: 0.92;
       }
+      .hall-card.fallen > summary {
+        list-style: none;
+        cursor: pointer;
+      }
+      .hall-card.fallen > summary::-webkit-details-marker {
+        display: none;
+      }
+      .hall-card.fallen > summary::after {
+        content: '›';
+        margin-left: auto;
+        opacity: 0.6;
+      }
+      .hall-card.fallen[open] > summary::after {
+        content: '⌄';
+      }
+      /* an obituary (sim/obituary.ts): their face and their last lines */
+      .obit {
+        display: flex;
+        gap: 8px;
+        align-items: flex-start;
+        margin-top: 6px;
+        padding-top: 6px;
+        border-top: 1px solid rgba(255, 255, 255, 0.12);
+      }
+      .obit canvas {
+        flex: none;
+        border-radius: 4px;
+        background: rgba(0, 0, 0, 0.35);
+      }
+      .obit-words {
+        min-width: 0;
+      }
+      .obit-line {
+        margin: 0 0 3px;
+        line-height: 1.3;
+      }
+      .obit-line.said {
+        font-style: italic;
+        color: #f0d8a8;
+      }
       .hall-cause {
         font-style: italic;
         margin-top: 2px;
@@ -1896,6 +1936,46 @@
       .shop-when {
         flex: none;
         color: var(--text-dim);
+        white-space: nowrap;
+      }
+      /* the followed at the top of the People tab (sim/favourites.ts) */
+      .fav-row {
+        display: flex;
+        gap: 6px;
+        margin: 6px 0 4px;
+      }
+      .fav-pick {
+        flex: 0 1 112px;
+        min-width: 0;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 2px;
+        padding: 6px 4px;
+        font: inherit;
+        color: var(--text);
+        background: rgba(255, 90, 110, 0.08);
+        border: 1px solid rgba(255, 106, 122, 0.45);
+        border-radius: 6px;
+        cursor: pointer;
+      }
+      .fav-pick .folk-face {
+        width: 48px;
+        height: 48px;
+      }
+      .fav-pick .fav-name {
+        font-weight: 700;
+        max-width: 100%;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+      .fav-pick small {
+        opacity: 0.75;
+        font-size: 11px;
+        max-width: 100%;
+        overflow: hidden;
+        text-overflow: ellipsis;
         white-space: nowrap;
       }
       /* the townsfolk list: a short row each; tap one to inspect them */

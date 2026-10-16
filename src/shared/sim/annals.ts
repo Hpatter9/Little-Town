@@ -25,6 +25,8 @@ import { religionYearLines } from './religion';
 import { topicName } from '../data/originResearch';
 import type { GuildRole } from '../data/guilds';
 import { warFallen, warYearLines } from './war/memory';
+import { buildObituary, type Obituary } from './obituary';
+import { favouriteDied } from './favourites';
 
 /** Midwinter: the middle day of winter, of an evening. */
 export const CHRONICLE_DAY = Math.ceil(DAYS_PER_SEASON / 2);
@@ -51,6 +53,8 @@ export interface Fallen {
   /** The guild they belonged to when they fell (the dead leave their guild's roll at the next count, so it is kept
    *  here for their badge). */
   guild?: { role: GuildRole; name: string; lead: boolean };
+  /** Their obituary, written as they died (sim/obituary.ts; older saves have none). */
+  obit?: Obituary;
 }
 
 export interface Chronicle {
@@ -87,10 +91,12 @@ export function recordFallen(s: GameState, p: Person, cause: string): void {
     felled: p.felled ?? 0,
     trips: p.trips ?? 0,
     founder: p.id === s.mainId,
+    obit: buildObituary(s, p, cause, stageOf(p)),
   };
   const g = (s.guilds ?? []).find((x) => x.members.includes(p.id));
   if (g) f.guild = { role: g.role, name: g.name, lead: g.leader === p.id };
   (s.fallen ??= []).push(f);
+  favouriteDied(s, p.id); // (a favourite's slot frees: sim/favourites.ts)
   honour(s, p, f); // (the famous are honoured with a statue in the square: sim/memorials.ts)
   if (s.fallen.length > FALLEN_MOST) s.fallen.splice(0, s.fallen.length - FALLEN_MOST);
 }

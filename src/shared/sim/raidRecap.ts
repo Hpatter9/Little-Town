@@ -11,6 +11,7 @@ import { legWound } from './raiderWounds';
 import { watchWon } from './nightWatch';
 import type { Stock } from '../data/materials';
 import type { GameState, Person, Raid, Raider } from './state';
+import { raidCloseCalls } from './closeCalls';
 
 /** The tally's key for the town's towers and traps. */
 export const TOWERS = -1;
@@ -164,6 +165,8 @@ export function raidRecap(s: GameState, r: Raid, name: string, a: { outcome: Rai
     recap.story.splice(1, 0, `The night watch spotted them ${r.watched} and raised the alarm.`);
     watchWon(s, r, recap);
   }
+  // (who nearly fell, and lived: sim/closeCalls.ts)
+  recap.story.splice(Math.max(1, recap.story.length - 1), 0, ...raidCloseCalls(s, r.arrivesTick, rows)); // (before how it ended)
   return recap;
 }
 

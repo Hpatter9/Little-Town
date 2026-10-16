@@ -17,6 +17,7 @@ import { grieve, isChild } from './social';
 import { revealOccult, tryRevive } from './occult';
 import { tireless, notify, maxHp, markBlood, personFx, type GameState, type Person } from './state';
 import { TICKS_PER_HOUR } from './time';
+import { closeCall } from './closeCalls';
 
 /** How long someone downed has before they bleed out, unless a medic (or the camp) tends them. */
 export const BLEED_TICKS = 2 * TICKS_PER_HOUR;
@@ -64,6 +65,7 @@ export function knockDown(s: GameState, p: Person): void {
     p.scarred = true;
     personFx(s, p.id, 'heal');
     notify(s, `${p.name} was struck down, but a medkit got them straight back up.`);
+    closeCall(s, p, `${p.name} was struck down${s.raid?.phase === 'active' ? ' in the raid' : ''}, and a medkit was all that stood between life and death.`); // (sim/closeCalls.ts)
     return;
   }
   p.hp = 0;

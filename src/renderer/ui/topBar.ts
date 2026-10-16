@@ -56,6 +56,10 @@ export function topLines(s: Snapshot): { urgent: string | null; turn: string[] }
   if (s.news) turn.push(s.news.text);
   const study = researchFill(s.research);
   if (study) turn.push(study.title.replace(/^Researching /, 'Studying '));
+  // (one favourite's doing, a different one each hour: sim/favourites.ts)
+  const favs = (s.favourites ?? []).map((id) => s.people.find((p) => p.id === id)).filter((p) => !!p);
+  const fav = favs[s.calendar.hour % Math.max(1, favs.length)];
+  if (fav) turn.push(`♥ ${fav.name}: ${fav.away !== null ? 'away from the town' : fav.doing.charAt(0).toLowerCase() + fav.doing.slice(1)}`);
   const sites = s.buildings.filter((b) => b.status === 'blueprint');
   if (sites.length) turn.push(`Building ${sites.slice(0, 2).map((b) => BUILDING_BY_ID[b.def]?.name ?? b.def).join(', ')}${sites.length > 2 ? ` and ${sites.length - 2} more` : ''}`);
   const eaters = s.people.filter((p) => !p.tireless && p.away === null).length;

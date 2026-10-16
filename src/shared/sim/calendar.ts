@@ -2,15 +2,17 @@
 // of them. The season's festival (sim/festivals.ts), the first day of the next season, the weekly rite for the gods
 // (sim/faith.ts), the caravan expected at the market (sim/trade.ts), the Guild's hunts closing (sim/hunts.ts), and omens:
 // a seer in the town (a priest, a shaman, a witch, a druid, a timekeeper; the Fate-touched above all, data/mythic.ts)
-// now and then marks a day with a vague omen that may or may not come true. Other systems add their own dates with
-// `addCalendarSource` (a favourite's name-day, say). Reads the state only: the omens are a side stream by the season
-// (`${seed}:omen:<season>:<seer>`), so they hold all season and the town's own rolls are untouched.
+// now and then marks a day with a vague omen that may or may not come true, and the favourites' name-days
+// (sim/favourites.ts `nameDays`). Other systems may add their own dates with `addCalendarSource`. Reads the state
+// only: the omens are a side stream by the season (`${seed}:omen:<season>:<seer>`), so they hold all season and the
+// town's own rolls are untouched.
 
 import { Rng, hashSeed } from '../rng';
 import { FESTIVAL_DAY, festivalFor } from '../data/festivals';
 import { FAITH_HOUR, RITE_EVERY_DAYS, WORSHIP } from '../data/gods';
 import { QUARRY_BY_ID } from '../data/hunts';
 import { MYTHIC_CALLINGS, mythicNodes } from '../data/mythic';
+import { nameDays } from './favourites';
 import type { GameState, Person } from './state';
 import { calendar, DAYS_PER_SEASON, SEASONS, START_HOUR, TICKS_PER_DAY, TICKS_PER_HOUR, type Season } from './time';
 
@@ -92,11 +94,14 @@ export function upcoming(s: GameState, days = CALENDAR_DAYS): CalendarDay[] {
   const entries: CalendarEntry[] = [];
   const cal = calendar(s.tick);
   const auto = s.autopilot !== false;
+  const names = nameDays(s);
   for (let idx = today; idx < today + days; idx++) {
     const season = SEASONS[seasonOfIdx(idx) % SEASONS.length];
     const ofSeason = (idx % DAYS_PER_SEASON) + 1;
     // the first day of a season, and its festival (kept only with the autopilot)
     if (ofSeason === 1 && idx > today) entries.push({ day: idx + 1, kind: 'season', text: `The first day of ${season}` });
+    // the favourites' name-days (sim/favourites.ts)
+    for (const n of names) if (n.season === season && n.day === ofSeason) entries.push({ day: idx + 1, kind: 'name-day', text: `${n.name}'s name-day` });
     if (auto && ofSeason === FESTIVAL_DAY && !(idx === today && s.festival?.phase === 'done')) entries.push({ day: idx + 1, kind: 'festival', text: festivalFor(s.origin, season).name });
   }
   // the weekly rite, wherever there's a shrine to keep it at

@@ -145,3 +145,13 @@ test('the news bubble shows the hints, marked ⏳, keyed by the hint', async () 
   for (const [i, n] of ns.entries()) assert.ok(n.mark === '⏳' && n.key === `hint:${hints[i].key}` && n.title === hints[i].text);
   assert.deepEqual(hintNotices({} as never), [], 'an older snapshot has none');
 });
+
+test('a favourite\'s name-day is on the calendar', () => {
+  const s = town('ant-name');
+  const p = s.people[1];
+  s.favourites = [p.id];
+  const days = upcoming(s, 4 * DAYS_PER_SEASON);
+  const hit = days.flatMap((d) => d.entries).filter((e) => e.kind === 'name-day');
+  assert.equal(hit.length, 1, JSON.stringify(hit));
+  assert.equal(hit[0].text, `${p.name}'s name-day`);
+});

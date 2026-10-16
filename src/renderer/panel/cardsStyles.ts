@@ -29,6 +29,10 @@ export const CARDS_CSS = `
 .pc-bar.hp > i { background: #c24040; } .pc-bar.mp > i { background: #4a7ae0; } .pc-bar.mood > i { background: #d8b040; } .pc-bar.food > i { background: #6aa84a; }
 .pc-who { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 5px; }
 .pc-name { font-size: 18px; font-weight: 700; line-height: 1.1; }
+.pc-fav { margin-left: 8px; min-width: 32px; min-height: 32px; padding: 0 6px; border-radius: 16px; border: 1px solid #4a3722; background: #2a1f16; color: #e8a0a0; font-size: 18px; line-height: 1; vertical-align: middle; font-family: inherit; }
+button.pc-fav.on:not(#ui-0):not(#ui-1):not(#ui-2) { color: #ff4a5e !important; text-shadow: 0 0 6px #ff4a5e88; }
+button.pc-fav:not(.on):not(#ui-0):not(#ui-1):not(#ui-2) { color: #e8d8c0 !important; }
+.pc-fav:disabled { opacity: 0.4; }
 .pc-doing { font-size: 12px; opacity: 0.85; }
 .pc-chips { display: flex; flex-wrap: wrap; gap: 4px; }
 .pc-chip { display: inline-flex; align-items: center; gap: 3px; padding: 2px 8px; min-height: 22px; border-radius: 11px; font-size: 11px; background: #2a1f16; border: 1px solid #4a3722; color: inherit; font-family: inherit; }
