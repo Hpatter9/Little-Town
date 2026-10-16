@@ -230,6 +230,8 @@ const BASES: Base[] = [
           B('manyform', 'Manyform', 'shapeshifter', 'Shifts mid-fight: the shape for every moment.', undefined, ['the_thousand_shapes', 'The Thousand Shapes']),
         ]],
       ]],
+      // (the Summoner's road: it grows from the first mythic calling now, data/mythic.ts, and the Wanderer has a new
+      // road in its place, WANDERER_ROAD; built here so its ids and nodes stay as they were)
       [B('summoner', 'Summoner', 'summoner', 'Calls spirits and beasts to fight at their side. Frail, and fiercer than anyone while something stands between them and the foe.', { stats: GLASS, companion: 'spirit' }), [
         [B('conjurer', 'Conjurer', 'summoner', 'Binds the elements: salamanders, golems and undines answer.', { stats: GLASS, companion: 'fire_elemental' }), [
           B('elementarch', 'Elementarch', 'summoner', 'A court of elementals at once: fire, stone, water and storm.', { stats: GLASS, companion: 'stone_golem' }, ['planeswalker', 'Planeswalker']),
@@ -285,6 +287,9 @@ for (const base of BASES) {
 
 // (the Wanderer's second road, in the Summoner's place now the Summoner has gone up to the mythic callings)
 const summonerRoad = nodes.find((n) => n.id === 'summoner')!;
+/** Where each shared stage-1 road first grew from (the origin roads open beside it there: the merfolk's Tidecaller
+ *  beside the Summoner, at the Wanderer's fork, wherever the Summoner's road grows from now). */
+const firstFrom = new Map(nodes.map((n) => [n.id, n.from]));
 if (WANDERER_ROAD) {
   const [r1, roads2] = WANDERER_ROAD;
   const mk = (n: CallingNode, stage: number, from: string) => add(n.id, n.name, stage, from, n.cls, n.text, { lore: n.lore, ...(n.companion ? { companion: n.companion } : {}), ...(n.stats ? { stats: n.stats } : {}) });
@@ -293,7 +298,7 @@ if (WANDERER_ROAD) {
     mk(r2, 2, r1.id);
     for (const r3 of roads3) {
       mk(r3, 3, r2.id);
-      add(r3.asc[0], r3.asc[1], 4, r3.id, r3.cls, `${r3.text} Ascended: the last and greatest of the line.`, r3.companion ? { companion: r3.companion } : {});
+      add(r3.asc[0], r3.asc[1], 4, r3.id, r3.cls, `${r3.text} Ascended: the last and greatest of the line.`, { ...(r3.stats ? { stats: r3.stats } : {}), ...(r3.companion ? { companion: r3.companion } : {}) });
     }
   }
 }
@@ -327,7 +332,7 @@ for (const t of MYTHIC_CALLINGS) {
       const two = mk(r2, 2, one.id);
       for (const r3 of roads3) {
         const three = mk(r3, 3, two.id);
-        mythicNodeList.push({ id: mythicId(r3.asc[0]), name: r3.asc[1], stage: 4, from: three.id, cls: r3.cls, text: `${r3.text} Ascended: a legend, and the last of a line few ever walk.`, mythic: true, ...(r3.companion ? { companion: r3.companion } : {}) });
+        mythicNodeList.push({ id: mythicId(r3.asc[0]), name: r3.asc[1], stage: 4, from: three.id, cls: r3.cls, text: `${r3.text} Ascended: a legend, and the last of a line few ever walk.`, mythic: true, ...(r3.stats ? { stats: r3.stats } : {}), ...(r3.companion ? { companion: r3.companion } : {}) });
       }
     }
   }
@@ -342,7 +347,7 @@ export const MYTHIC_BASES: readonly PathNode[] = mythicNodeList.filter((n) => n.
 const originNodes: PathNode[] = [];
 for (const r of ORIGIN_ROADS) {
   const mk = (n: (typeof r)['two'], stage: number, from: string): PathNode => ({ id: n.id, name: n.name, stage, from, cls: n.cls, text: n.text, lore: n.lore, origin: r.origin, ...(n.stats ? { stats: n.stats } : {}), ...(n.companion ? { companion: n.companion } : {}) });
-  const base = nodes.find((n) => n.id === r.from)!.from!;
+  const base = firstFrom.get(r.from)!;
   originNodes.push(mk(r.two, 1, base), mk(r.three, 2, r.two.id), mk(r.high, 3, r.three.id));
   originNodes.push({ id: r.asc[0], name: r.asc[1], stage: 4, from: r.high.id, cls: r.high.cls, text: `${r.high.text} Ascended: the last and greatest of their people's road.`, origin: r.origin, ...(r.high.companion ? { companion: r.high.companion } : {}) });
 }
@@ -371,7 +376,7 @@ for (const t of ORIGIN_CALLINGS) {
       const two = mk(r2, 2, one.id);
       for (const r3 of roads3) {
         const three = mk(r3, 3, two.id);
-        callingNodes.push({ id: id(r3.asc[0]), name: r3.asc[1], stage: 4, from: three.id, cls: r3.cls, text: `${r3.text} Ascended: the last and greatest of their people's calling.`, origin: t.origin, calling: true, ...(r3.companion ? { companion: r3.companion } : {}) });
+        callingNodes.push({ id: id(r3.asc[0]), name: r3.asc[1], stage: 4, from: three.id, cls: r3.cls, text: `${r3.text} Ascended: the last and greatest of their people's calling.`, origin: t.origin, calling: true, ...(r3.stats ? { stats: r3.stats } : {}), ...(r3.companion ? { companion: r3.companion } : {}) });
       }
     }
   }

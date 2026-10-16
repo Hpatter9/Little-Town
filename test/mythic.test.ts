@@ -80,13 +80,13 @@ test('the odds: about one in four hundred, more for the child of two ascended pa
   for (let i = 0; i < N; i++) if (mythicRoll(s, fresh(i))) mythic++;
   assert.ok(mythic > N * MYTHIC_ODDS * 0.6 && mythic < N * MYTHIC_ODDS * 1.5, `${mythic} of ${N}`);
   // a child of two ascended parents
-  const [a, b] = [s.people[0], s.people[1]];
+  const [a, b, c] = [fresh(N + 20), fresh(N + 21), fresh(N + 22)];
+  s.people.push(a, b, c);
   a.ascended = b.ascended = true;
   const child = fresh(N + 1);
   child.parents = [a.id, b.id];
   assert.equal(mythicOdds(s, child), MYTHIC_HEIR_ODDS);
   // an ascension stirs the omen, spent on the next to take a calling
-  const c = s.people[2];
   c.cls = 'knight';
   c.road = 'paladin';
   c.level = 90;
@@ -131,7 +131,8 @@ test('mythic numbers: a people\'s edge below the top, and more than any people\'
 test('a save from before: someone on the Summoner\'s road keeps it, and it is mythic now', () => {
   const s = newGame('mythic-save', { origin: 'settlers' });
   s.evolveAsk = false;
-  const p = s.people[1];
+  const p = makePerson(new Rng(2), 30000, 'hunter', { x: 0, y: 0 }, []);
+  s.people.push(p);
   p.cls = 'summoner';
   p.road = 'conjurer';
   p.level = 31;

@@ -14,7 +14,7 @@ export const FORK: Record<string, string> = {
   rogue: 'The purse was back on the table before its owner noticed it was gone, and {name} was across the room looking innocent. Quick hands, quicker feet, and no great respect for the rules of a fair fight. There are two ways to sharpen that.',
   apprentice: 'The candle lit itself again this morning, and this time {name} meant it to. The books are getting harder and they are reading them anyway. The spark wants a shape: the bright arts or the dark ones.',
   acolyte: '{name} has been sitting with the sick, and the sick have been getting better faster than the healer can explain. Something answers when they pray. Whether it answers with light or with discipline is theirs to decide.',
-  wanderer: '{name} came back from the woods with a wolf cub asleep in their hood, and the cub would not go to anyone else. The land has taken a liking to them. The green will give them its secrets, or lend them its creatures.',
+  wanderer: '{name} came back from the woods with a wolf cub asleep in their hood, and the cub would not go to anyone else. The land has taken a liking to them. The green will give them its secrets, or the spirits of the old ways will show them the roads they walk.',
   minstrel: 'When {name} starts a song at the fire, the quarrelling stops and the tired sit up. People fight better when they are near them, and nobody is quite sure why. A voice like that can carry a party, or a trade can carry a town.',
 };
 

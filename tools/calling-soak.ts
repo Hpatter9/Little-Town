@@ -1,7 +1,7 @@
 // The peoples' own base callings over a run (docs/notes/origin-classes.md): for towns of some peoples, the people,
 // the deaths, how many hold one of their people's own callings (`oc_` roads) at the end, and the raids won, driven off
 // or pillaged; and the hash of a plain town (autopilot off) that the callings must leave as it was.
-// Run: node tools/calling-soak.mjs [days] [seeds] [origin,origin...]
+// Run: node tools/calling-soak.mjs [days] [seeds] [origin,origin...] [one seed]   (plain hashes only: ... plain)
 import { createHash } from 'node:crypto';
 import { serialize } from '../src/shared/sim/save';
 import { Sim } from '../src/shared/sim/sim';
@@ -11,10 +11,12 @@ import { TICKS_PER_DAY } from '../src/shared/sim/time';
 const args = process.argv.slice(2);
 const DAYS = Number(args[0] ?? 40);
 const SEEDS = Number(args[1] ?? 3);
-const origins = (args[2] ?? 'lich,knights,orcs').split(',');
+const origins = args[2] === 'plain' ? [] : (args[2] ?? 'lich,knights,orcs').split(',');
+const one = args[3] !== undefined ? Number(args[3]) : null;
 
 for (const o of origins) {
   for (let k = 0; k < SEEDS; k++) {
+    if (one !== null && k !== one) continue;
     const s: GameState = newGame(`calling-${o}-${k}`, { origin: o as 'settlers' });
     const sim = new Sim(s);
     const fell0 = (s.fallen ?? []).length;
@@ -34,7 +36,7 @@ for (const o of origins) {
   }
 }
 // a plain town (autopilot off), five days: its hash must not move
-for (const o of ['settlers', 'lich', 'orcs'] as const) {
+for (const o of args[2] === 'plain' ? (['settlers', 'lich', 'orcs'] as const) : []) {
   const s = newGame(`plain-${o}`, { origin: o });
   s.autopilot = false;
   const sim = new Sim(s);
