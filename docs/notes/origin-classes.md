@@ -56,6 +56,13 @@ and levels run to 100" and "A calling's weapon in hand".
 **Tool:** `tools/calling-soak.mjs [days] [seeds] [origins] [one seed]` (people, deaths, own callings, raids; `plain`
 for the plain-town hashes).
 
+**Soak** (40 days, 3 seeds each, `tools/calling-soak.mjs`; before is main at 0.130.0): people / deaths / raids won,
+driven off, pillaged; own = folk on their people's own callings at day 40.
+- Liches: before 89 / 36 / 31, 79, 13; after 69 / 31 / 32, 86, 8; own 24 of 69.
+- Knights: before 41 / 16 / 33, 52, 8; after 47 / 19 / 20, 33, 6 (one town of three fell, at 7 deaths); own 13 of 35.
+- Orcs: before 41 / 18 / 28, 42, 17; after 45 / 13 / 40, 42, 13; own 17 of 42.
+- Plain towns (autopilot off) hash the same before and after. Autopilot hashes move (who takes which calling).
+
 **The callings** (base: archetype, form; then each stage-1 road with its stage-2 roads, their stage-3 roads and
 ascended forms):
 
