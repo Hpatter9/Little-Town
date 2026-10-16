@@ -63,6 +63,10 @@ const STYLE = `
 .cal-row.guess .cal-text { font-style: italic; opacity: 0.85; }
 .cal-when { flex: none; font-size: 0.85em; opacity: 0.8; min-width: 3.6em; }
 .cal-text { flex: 1; min-width: 0; overflow-wrap: anywhere; }
+@media (min-width: 640px) {
+  .cal-strip { grid-template-columns: repeat(10, minmax(0, 1fr)); }
+  .cal-day { min-height: 44px; }
+}
 `;
 let styled = false;
 function ensureStyle(): void {

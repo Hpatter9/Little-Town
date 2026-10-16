@@ -33,6 +33,6 @@
   `addCalendarSource(id, (s, from, to) => entries)` (the favourites' name-days, kind `name-day`).
   `Snapshot.upcoming` (optional).
 - **The days ahead (`panel/calendarStrip.ts`):** a folded section in the Town's Overview (`GROUPS` in
-  `panel/subtabs.ts`): a strip of the days, five to a row (`.cal-day.ui-frame`, today ringed, a mark per entry with
+  `panel/subtabs.ts`): a strip of the days, five to a row (ten sideways, `min-width: 640px`) (`.cal-day.ui-frame`, today ringed, a mark per entry with
   its `data-tip`), then a line per date (`.cal-row.ui-chip`, omens in italics) under a `.ui-divider`. Read-only;
   `calendarKey` is in `buildKey`. Tests: `test/anticipation.test.ts`.
