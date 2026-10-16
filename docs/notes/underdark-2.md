@@ -116,3 +116,39 @@ and rats).
   town).
 
 Tests: `test/underdark.test.ts` (eleven new).
+
+The three dwellers each carry a unique (data/uniques.ts, as the cave lords do): the Warden's Fist (a mace), the Sunless
+Tine (a spear), Wyrmheart (a greatsword).
+
+### Balance: 40-day soaks, 3 seeds (`tools/under-soak.mjs`; before = main, after = this branch)
+
+Averages. "Cave deaths" are the town's people killed below (cave-ins, the taken, the drowned, lost scouts). "Goods" before
+is an estimate from each dawn's yields (main kept no tally; it leaves out the cave towns' trades), after the tally.
+
+| Town | People | Deaths | Cave deaths | Raids up the shaft | Goods up | Trades | Depth reached |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| Dwarves, before | 5.7 | 5.3 | 0 | 1.0 | ~437 | 18 | upper |
+| Dwarves, after | 4.3 | 7.0 | 0 | 1.0 | 631 | 18 | Deep Roads in 1 of 3 |
+| Knights + a mine on day 6, before | 8.0 | 3.7 | 0.3 | 1.0 | ~368 | 9.7 | upper |
+| Knights + a mine on day 6, after | 7.3 | 4.7 | 0.7 | 1.7 | 499 | 9.3 | Deep Roads in 2 of 3 |
+| Settlers + a mine on day 6 | 9.7 | 8.0 | 0 | 0 | 111 | 2.3 | (2 of 3 never broke through: identical before and after) |
+| Late fixture + a mine, 20 days, 2 seeds, before | 48 | 23 | 0.5 | 0.5 | ~228 | 2.5 | upper |
+| Late fixture + a mine, 20 days, 2 seeds, after | 44 | 22 | 2.0 | 1.5 | 235 | 3 | Deep Roads in both |
+
+Most 40-day towns are hamlets (1 to 10 people), under `DANGER_PEOPLE`, so the caves seldom bite them; a town of a size
+(the fixture) loses two or three below in 20 days and sees the river flood twice. No dweller was slain in 40 days: the
+deeper depths are a long game (the first opens some 3 days after the ruins are found, in a town of 8 or more). The
+dwarves' seed 1 ended 6 people to main's 10 with no cave deaths: the town's own play diverged (more goods, the Deep
+Roads opened), not a death below.
+
+### Sim hashes (`tools/sim-hash.mjs`)
+
+Only the dwarves' changes (`9c9150e6581b` to `9c099d5be6b2`): their hallway now opens onto the caves' network. The
+fixture, settlers, knights and vampire hashes are unchanged (no Underdark within six days); main at 0.133.0 hashes as
+main at 0.129.0.
+
+### Speed (`tools/perf-sim.mjs`, now with `SAVE=` and `UNDER=1`)
+
+The fixture: step 1.03 ms, snapshot 4.68 ms (main 1.05 / 4.85). A fixture town with all three depths open and the view
+watched: step 1.81 ms, snapshot 4.85 ms, against 1.75 / 4.20 for the same town with neither; `underdarkHourly` 1.1 ms an
+hour, `underSummary` 0.16 ms and `underView` 0.24 ms a snapshot. A dwarves town with the view open: 0.41 / 2.61 ms.
