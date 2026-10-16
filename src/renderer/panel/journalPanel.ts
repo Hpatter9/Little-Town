@@ -13,6 +13,7 @@ import type { FestivalsView } from '../../shared/sim/festivals';
 import { renderFestivals } from './festivalsPanel';
 import { renderCulture } from './culturePanel';
 import type { CultureView } from '../../shared/sim/culture';
+import { timelineStrip } from './timelineStrip';
 
 type Filter = 'all' | 'key' | 'deaths' | 'festivals' | 'culture' | 'heroes' | 'legends' | 'bestiary' | 'scenes';
 const FILTERS: [Filter, string][] = [
@@ -31,7 +32,7 @@ let filter: Filter = 'all';
 
 const isDeath = (e: JournalEntryView) => / has died /.test(e.text);
 
-export function renderJournal(entries: JournalEntryView[], met: readonly string[] = [], annals?: AnnalsView, scenes: { key: number; title: string; tick: number }[] = [], watch?: (key: number) => void, ancestry?: AncestryView | null, festivals?: FestivalsView, culture?: CultureView, guildMark?: (personId: number) => HTMLElement | null): HTMLElement[] {
+export function renderJournal(entries: JournalEntryView[], met: readonly string[] = [], annals?: AnnalsView, scenes: { key: number; title: string; tick: number }[] = [], watch?: (key: number) => void, ancestry?: AncestryView | null, festivals?: FestivalsView, culture?: CultureView, guildMark?: (personId: number) => HTMLElement | null, nowDay = 1): HTMLElement[] {
   const list = el('div');
   const row = el('div', 'row inv-tabs menu-tabs');
   const draw = () => {
@@ -88,7 +89,7 @@ export function renderJournal(entries: JournalEntryView[], met: readonly string[
     if (filter === 'all' && entries.length >= 200) list.append(platino()); // for those who read all the way back
   };
   draw();
-  return [row, list];
+  return [row, list, timelineStrip(entries, annals, nowDay)];
 }
 
 function entryRows(entries: JournalEntryView[]): HTMLElement[] {

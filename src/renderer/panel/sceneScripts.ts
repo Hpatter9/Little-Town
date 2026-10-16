@@ -214,3 +214,84 @@ export function founderScript(origin: OriginId, loves: Skill | undefined): Scene
   if (w.beast) actors.push(A(w.beast, w.anim === 'attack' ? 'attack' : 'walk', [0.9, 0.7], 40, { y: 0.92, face: 'l' }));
   return { back: base.back, scroll: base.scroll ? base.scroll : 0, tint: base.tint, actors, fx: w.fx };
 }
+
+/* ------------------------------------------------------------ events and raids (the story cards, the raid recap) */
+
+/** The families an event's scene comes from: its kind, then the words of its title and telling. The dolls are the event's
+ *  townsperson first (when it's about one), then whoever else the caller has. */
+export type EventFamily = 'raid' | 'stranger' | 'plague' | 'storm' | 'feast' | 'envoy' | 'miracle' | 'cult' | 'death' | 'war' | 'trade' | 'wild' | 'omen' | 'road' | 'council' | 'generic';
+
+const FAMILY_WORDS: [EventFamily, RegExp][] = [
+  ['plague', /plague|sickness|\bsick\b|fever|disease|pox|blight|famine|rot\b/i],
+  ['cult', /\bcult|heretic|sacrific|ritual|dark god|whisper/i],
+  ['miracle', /miracle|blessing|divine|saint|holy|vision|resurrect|revive/i],
+  ['storm', /storm|flood|lightning|gale|tempest|hail|drought|earthquake|quake|fire\b|wildfire|blizzard|cold snap/i],
+  ['feast', /feast|festival|wedding|harvest|celebrat|fair\b|dance|bard|minstrel|birth|toast/i],
+  ['raid', /raid|bandit|raider|wolves|wolf|attack|siege|ambush|thieves|pirate|marauder|slaver|hostile/i],
+  ['war', /\bwar\b|army|host|conquest|invad|battle|assault|garrison/i],
+  ['envoy', /envoy|ambassador|emissary|herald|tribute|treaty|alliance|embassy|lord\b|queen|king\b/i],
+  ['trade', /caravan|merchant|trader|pedlar|peddler|market|goods|prices?\b|loan/i],
+  ['stranger', /stranger|wanderer|traveller|traveler|newcomer|refugee|gate|beggar|pilgrim|knock/i],
+  ['death', /death|died|dying|grave|funeral|ghost|haunt|undead|skeleton/i],
+  ['omen', /omen|comet|eclipse|star|dream|prophe|oracle|sign\b|curse/i],
+  ['wild', /beast|bear|monster|dragon|hunt|forest|creature|lair|nest|wild/i],
+  ['council', /council|trial|law|edict|tax|vote|strike|revolt|crime|judge|elder/i],
+];
+const KIND_FAMILY: Record<string, EventFamily> = { envoy: 'envoy', refugees: 'stranger', council: 'council', trial: 'council', revolt: 'council', dragon: 'wild', enemy: 'raid', secret: 'stranger', road: 'road', watch: 'raid', debrief: 'raid', village: 'trade' };
+
+/** Which family of scene an event gets: its words first (they say what it is), then its kind, else the generic scene. */
+export function eventFamily(kind: string, title: string, text: string): EventFamily {
+  const words = `${title}. ${text}`;
+  for (const [fam, re] of FAMILY_WORDS) if (re.test(words)) return fam;
+  return KIND_FAMILY[kind] ?? 'generic';
+}
+
+export const EVENT_SCRIPTS: Record<EventFamily, SceneScript> = {
+  raid: { back: 'battle_ruins', scroll: 0, tint: ['#300800', 0.2], actors: [A(0, 'idle', [0.3, 0.3], 46, { y: 0.93 }), A(1, 'idle', [0.45, 0.45], 42, { y: 0.9 }), A('hk_orc_grunt', 'walk', [1.05, 0.62], 42, { y: 0.93, face: 'l' }), A('hk_orc_brute', 'walk', [1.3, 0.75], 48, { y: 0.9, face: 'l' })], fx: [{ kind: 'dust', n: 14, at: [0.75, 0.95] }, { kind: 'embers', n: 8, at: [0.9, 0.7], colour: '#ff7a2a' }, { kind: 'smoke', n: 5, at: [0.85, 0.35], colour: '#4a4a4a' }] },
+  stranger: { back: 'summer_5', scroll: 0, actors: [A(0, 'idle', [0.25, 0.25], 46, { y: 0.93 }), A(1, 'walk', [1.05, 0.5], 44, { y: 0.93, face: 'l' })], fx: [{ kind: 'dust', n: 10, at: [0.7, 0.96] }, { kind: 'birds', n: 3 }] },
+  plague: { back: 'abandoned_3', scroll: 0, tint: ['#1c3010', 0.3], actors: [A(0, 'idle', [0.3, 0.3], 44, { y: 0.93 }), A(1, 'walk', [0.9, 0.7], 40, { y: 0.9, face: 'l' }), A('hk_zombie_bare', 'idle', [0.15, 0.15], 40, { y: 0.95 })], fx: [{ kind: 'mist', n: 4, colour: '#8aa860' }, { kind: 'bats', n: 2 }, { kind: 'wisps', n: 8, colour: '#b6e070' }] },
+  storm: { back: 'skies_4', scroll: -6, tint: ['#0a1020', 0.35], actors: [A(0, 'walk', [0.9, 0.4], 44, { y: 0.94, face: 'l' }), A(1, 'walk', [1.0, 0.55], 40, { y: 0.9, face: 'l', phase: 0.3 })], fx: [{ kind: 'rain', n: 60 }, { kind: 'leaves', n: 10 }, { kind: 'flash', n: 1, colour: '#e0f0ff' }] },
+  feast: { back: 'summer_3', scroll: 0, actors: [A(0, 'walk', [0.2, 0.3], 46, { y: 0.93 }), A(1, 'walk', [0.4, 0.5], 44, { y: 0.9, phase: 0.5 }), A(2, 'walk', [0.7, 0.6], 42, { y: 0.95, phase: 0.2 })], fx: [{ kind: 'petals', n: 14 }, { kind: 'fireflies', n: 12, colour: '#ffe9a0' }, { kind: 'sparks', n: 8, at: [0.5, 0.9], colour: '#ffcf5a' }] },
+  envoy: { back: 'city_2', scroll: 0, actors: [A(0, 'idle', [0.3, 0.3], 46, { y: 0.93 }), A(1, 'walk', [1.05, 0.62], 46, { y: 0.93, face: 'l' }), A('knight_1', 'walk', [1.25, 0.8], 46, { y: 0.9, face: 'l' })], fx: [{ kind: 'dust', n: 10, at: [0.7, 0.96] }, { kind: 'birds', n: 3 }] },
+  miracle: { back: 'temple_2', scroll: 0, tint: ['#fff0a0', 0.12], actors: [A(0, 'idle', [0.45, 0.45], 48, { y: 0.93 }), A(1, 'idle', [0.2, 0.2], 40, { y: 0.9 })], fx: [{ kind: 'wisps', n: 22, colour: '#fff4b0' }, { kind: 'sparks', n: 12, at: [0.45, 0.4], colour: '#ffffff' }, { kind: 'flash', n: 1, colour: '#fff8d0' }] },
+  cult: { back: 'temple_4', scroll: 0, tint: ['#2a0030', 0.3], actors: [A(0, 'read', [0.5, 0.5], 46, { y: 0.93 }), A(1, 'idle', [0.25, 0.25], 40, { y: 0.9 }), A(2, 'idle', [0.75, 0.75], 40, { y: 0.9, face: 'l' })], fx: [{ kind: 'wisps', n: 16, colour: '#c47aff' }, { kind: 'embers', n: 8, at: [0.5, 0.9], colour: '#ff4a8a' }, { kind: 'bats', n: 3 }] },
+  death: { back: 'battle_graves', scroll: 0, tint: ['#101820', 0.3], actors: [A(0, 'idle', [0.4, 0.4], 44, { y: 0.93 }), A('hk_ghost', 'idle', [0.7, 0.7], 40, { y: 0.78, bob: 3 })], fx: [{ kind: 'mist', n: 3, colour: '#8a9aa8' }, { kind: 'wisps', n: 8, colour: '#9ad8ff' }] },
+  war: { back: 'battle_hall', scroll: 0, actors: [A('knight_1', 'walk', [0.0, 0.5], 46, { y: 0.93 }), A('knight_2', 'walk', [-0.2, 0.35], 46, { y: 0.9 }), A(0, 'attack', [0.8, 0.8], 46, { y: 0.93, face: 'l' }), A('skeleton_warrior', 'attack', [0.62, 0.62], 40, { y: 0.9, face: 'l' })], fx: [{ kind: 'dust', n: 16, at: [0.5, 0.95] }, { kind: 'sparks', n: 8, at: [0.7, 0.7], colour: '#fff4c0' }] },
+  trade: { back: 'oasis_1', scroll: -10, actors: [A(0, 'idle', [0.65, 0.65], 46, { y: 0.93, face: 'l' }), A(1, 'walk', [-0.1, 0.5], 44, { y: 0.94 }), A(2, 'walk', [-0.3, 0.3], 40, { y: 0.9 })], fx: [{ kind: 'dust', n: 18 }, { kind: 'birds', n: 2 }] },
+  wild: { back: 'forest_2', scroll: 0, tint: ['#102418', 0.2], actors: [A(0, 'idle', [0.25, 0.25], 46, { y: 0.93 }), A('werewolf_black', 'walk', [1.1, 0.7], 50, { y: 0.93, face: 'l' })], fx: [{ kind: 'leaves', n: 10 }, { kind: 'mist', n: 2, colour: '#6fa97a' }, { kind: 'fireflies', n: 8 }] },
+  omen: { back: 'moon_4', scroll: -2, actors: [A(0, 'idle', [0.5, 0.5], 46, { y: 0.93 })], fx: [{ kind: 'wisps', n: 12, colour: '#9ab8ff' }, { kind: 'fireflies', n: 18, colour: '#ffffff' }, { kind: 'flash', n: 1, colour: '#cfe0ff' }] },
+  road: { back: 'meadows_3', scroll: -12, actors: [A(0, 'walk', [0.2, 0.7], 46, { y: 0.94 }), A(1, 'walk', [0.05, 0.55], 42, { y: 0.9, phase: 0.3 })], fx: [{ kind: 'dust', n: 12 }, { kind: 'birds', n: 3 }, { kind: 'leaves', n: 6 }] },
+  council: { back: 'city_3', scroll: 0, actors: [A(0, 'idle', [0.5, 0.5], 46, { y: 0.93 }), A(1, 'idle', [0.25, 0.25], 42, { y: 0.9 }), A(2, 'idle', [0.75, 0.75], 42, { y: 0.9, face: 'l' })], fx: [{ kind: 'dust', n: 6 }, { kind: 'birds', n: 2 }] },
+  generic: { back: 'summer_1', scroll: 0, actors: [A(0, 'idle', [0.4, 0.4], 46, { y: 0.93 }), A(1, 'walk', [0.9, 0.6], 42, { y: 0.9, face: 'l' })], fx: [{ kind: 'birds', n: 3 }, { kind: 'leaves', n: 6 }] },
+};
+
+/** The raiders' pack sprites by raid kind (the recap's comic strip draws them); kinds not listed get the match by name. */
+const RAIDER_SPRITES: Record<string, string[]> = {
+  wolves: ['werewolf_white', 'werewolf_black'], prowl_wolves: ['werewolf_black'], boars: ['boar_king'], rivals: ['hk_orc_grunt', 'hk_orc_archer'], prowl_scouts: ['hk_orc_grunt'],
+  slimes: ['hk_slime_green', 'hk_slime_blue'], bandits: ['pirate_leader', 'samurai_archer'], band_bandits: ['pirate_leader'], prowl_thieves: ['kunoichi'], prowl_slavers: ['pirate_leader'], gang: ['ninja_peasant', 'pirate_leader'],
+  army: ['knight_1', 'knight_2'], marauders: ['hk_orc_brute', 'hk_orc_grunt'], mechanized: ['robot_infantry', 'robot_swordsman'], zombies: ['hk_zombie', 'hk_zombie_brute'],
+  frost: ['wanderer_mage', 'hk_tyrant'], rats: ['hk_slime_orange'], pirates: ['pirate_leader', 'pirate_zombie'], drones: ['robot_destroyer'], warband: ['hk_orc_warlord', 'hk_orc_grunt'],
+  lions: ['werewolf_red'], wild_dogs: ['werewolf_red'], crocodiles: ['squidman'], rival_lich: ['skeleton_warrior', 'skeleton_spearman'], rival_druid: ['satyr_1', 'werewolf_white'],
+};
+export const raiderSprites = (kindId: string): string[] => RAIDER_SPRITES[kindId] ?? ['hk_orc_grunt', 'hk_orc_brute'];
+
+export type RecapPanel = 'warning' | 'clash' | 'turn' | 'after';
+/** The four panels of a raid told as a strip. Dolls: the best defender first, then others who fought. `raiders` are pack
+ *  sprite ids; `how` is how it went. */
+export function recapScript(panel: RecapPanel, raiders: string[], how: 'victory' | 'driven' | 'pillaged', night: boolean, boss: boolean): SceneScript {
+  const r1 = raiders[0] ?? 'hk_orc_grunt';
+  const r2 = raiders[1] ?? r1;
+  const back = night ? 'moon_1' : 'battle_ruins';
+  const tint: [string, number] | undefined = night ? ['#0a1030', 0.3] : undefined;
+  switch (panel) {
+    case 'warning':
+      return { back, scroll: 0, tint, actors: [A(0, 'idle', [0.2, 0.2], 46, { y: 0.93 }), A(1, 'idle', [0.34, 0.34], 42, { y: 0.9 }), A(r1, 'walk', [1.1, 0.7], 40, { y: 0.93, face: 'l' }), A(r2, 'walk', [1.35, 0.85], 40, { y: 0.9, face: 'l' })], fx: [{ kind: 'dust', n: 10, at: [0.85, 0.96] }, { kind: 'birds', n: 4 }] };
+    case 'clash':
+      return { back, scroll: 0, tint, actors: [A(0, 'attack', [0.4, 0.4], 48, { y: 0.93 }), A(1, 'attack', [0.28, 0.28], 42, { y: 0.9 }), A(r1, 'attack', [0.62, 0.62], 44, { y: 0.93, face: 'l' }), A(r2, 'attack', [0.74, 0.74], 42, { y: 0.9, face: 'l' })], fx: [{ kind: 'sparks', n: 14, at: [0.52, 0.72], colour: '#fff4c0' }, { kind: 'dust', n: 12, at: [0.5, 0.96] }] };
+    case 'turn':
+      if (how === 'pillaged') return { back, scroll: 0, tint: ['#401000', 0.3], actors: [A(r1, 'attack', [0.4, 0.4], 48, { y: 0.93 }), A(r2, 'walk', [0.5, 0.8], 44, { y: 0.9 }), A(1, 'idle', [0.12, 0.12], 38, { y: 0.9 })], fx: [{ kind: 'embers', n: 16, at: [0.7, 0.8], colour: '#ff6a20' }, { kind: 'smoke', n: 7, at: [0.7, 0.45], colour: '#303030' }] };
+      return { back, scroll: 0, tint, actors: [A(0, 'attack', [0.45, 0.45], 52, { y: 0.93 }), A(r1, boss ? 'idle' : 'idle', [0.7, 0.7], boss ? 56 : 44, { y: 0.93, face: 'l' })], fx: [{ kind: 'flash', n: 1, colour: '#fff8d0' }, { kind: 'sparks', n: 18, at: [0.58, 0.6], colour: '#ffd84a' }, { kind: 'wisps', n: 8, colour: '#ffffff' }] };
+    case 'after':
+      return { back, scroll: 0, tint: how === 'pillaged' ? ['#401000', 0.25] : tint, actors: [A(0, 'idle', [0.4, 0.4], 46, { y: 0.93 }), A(1, 'idle', [0.55, 0.55], 42, { y: 0.9, face: 'l' })], fx: how === 'pillaged' ? [{ kind: 'smoke', n: 8, at: [0.6, 0.5], colour: '#303030' }, { kind: 'ash', n: 14 }] : [{ kind: 'petals', n: 8 }, { kind: 'birds', n: 3 }, { kind: 'smoke', n: 3, at: [0.8, 0.5], colour: '#cfcfcf' }] };
+  }
+}

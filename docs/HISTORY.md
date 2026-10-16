@@ -6704,3 +6704,192 @@ added once as a `<style data-for="new-town">` by `addNewTownStyles`, called from
 the shared look doesn't touch them. `scenePlayer.ts` also exports `playScene(container, script | name, dolls, scripts)`, which plays a
 `SceneScript` (or one named in a table the caller gives) into any container, for reuse by other screens (the event box, the
 raid recap); `animScene` is what it wraps. Scripts for other screens are just more `SceneScript` data.
+
+## A card Town home, folded sections, a "why" line (the UI restructure)
+
+The owner's ask: "Menus that look better and more thought out." This is the structure half (content and layout of the
+panels); the look half (frame, theme variables, icons, motion) is `claude/ui-look`'s. Everything here uses plain class
+names with the few layout rules in one injected style block, so the look can restyle them.
+
+Changes HISTORY.md sections: "The menus redone" (the Town overview's tiles are now a dashboard, the tiles kept in a
+closed "At a glance" section), "Every menu in sub-tabs" (the open tab's sections fold; the tab row is sticky), "Tap for
+more" (a swipe right closes the card opened last), "Mood drives what the town builds" (the planner's reasons are shown).
+
+**The dashboard** (`panel/dashboard.ts`, `dashboard(s, bridge, rerender)`): the Town's Overview opens on cards
+(`.dash` grid of `.dash-card`): Food (days left and a ▲/▼/▬ trend, sampled hourly by `noteFood(snap)` called from
+`panel.ts`, so the arrow shows after three hours of game time with the menu up), Danger (the raid at the gate or a
+doom's signs, the wall's progress, guards), Spirits (with a bar), Treasury, Faith, Building now (with a progress bar
+and the why line) and the realm line when at war. The most urgent card, by an urgency number each card works out, gets
+`.card-urgent`. A tap goes to the card's tab *and opens its section* (`jumpToSection`, then scrolls to it). `dashboardKey`
+is the card text as drawn, so the Overview key (`buildPanel.ts buildKey`) changes only when something the eye can see does.
+
+**Folded sections** (`panel/structure.ts`, `foldSections`): in each tabbed menu (Town, Studies, People, Quests, Market, War)
+the open tab's `h2` headings become `section.section` (`.section-head` button, `.section-title`, `.section-count`,
+`.section-body`), with counts from `panel/counts.ts` (`countsFor(menu, snap)`: "In town 273 built", "Being built 8 under
+way", "People 37 · 3 away"). A section with more than 8 things inside starts closed when the tab has three or more
+sections; "At a glance" always starts closed. Open or closed is remembered per viewer in `localStorage`
+`littletown.fold.<menu>.<heading words>`; toggling edits the DOM and storage only, so it needs no redraw and is not in any key.
+A tab with one section is left as it was. `inTabs` (`subtabs.ts`) takes a `fold` function for the tab's content.
+
+**Sticky tab bar:** `.menu-tabs { position: sticky; top: 0 }` in the injected style. **Swipe right:** `installSwipe(body,
+closeLatestCard)` (`structure.ts`, `details.ts closeLatestCard`): a short, flat swipe to the right closes the card
+opened last, else a sheet's Cancel/Close (the muster sheet). A swipe starting on `.no-swipe` things is left alone.
+
+**Pictures:** the People rows already had the paper-doll face and the guild badge; they now carry the calling's emblem
+(`emblemCanvas(p.roadId, 18)`, `.calling-mark`). Guild member chips gain the face. The Town's building cards gain a
+thumbnail (`structure.ts thumb(defId)`, `.thumb`): the strip frame's `window.__picture({building})` (already there for the
+feed) is read through the parent page, cached as a data URL per building, and filled a moment after the card is drawn
+without a redraw; on the desktop, where the menu has no strip beside it, no thumbnail shows.
+
+**The why line** (`sim/whyLines.ts`, `townWhy(s)`): the planner already records `plan.build` and `plan.research` with
+reasons; the snapshot's optional `why?: { build?, research?, craft? }` turns them into sentences ("Building a granary
+because food stores run out in 3 days."), and the craft line is worked out from the first workshop order. It is derived at
+snapshot time and never written to the state, so saves and `tools/sim-hash.mjs` are unchanged. Shown on the dashboard's
+Building card, under the dashboard for studying and making, under Direction, and on the Studies queue (`.why-line`).
+
+**Icons:** until the look chat's `icon(name)` is in, numbers carry icons from the existing sheets (`structure.ts sheetIcon`,
+`materialIcon`). Swap `sheetIcon(...)` calls in `dashboard.ts` for `icon(name)` at merge.
+
+Test: `test/whyLines.test.ts`.
+
+## The rich cards (UI overhaul)
+
+Renderer and phone page only: no sim change (`tools/sim-hash.mjs` identical). Styles are in `panel/cardsStyles.ts`
+(`addCardStyles()`, once a page), plain classes the look can restyle. Changes these HISTORY.md sections: "Tap for more",
+"Events told in full", "A recap after every raid", "The annals", "Watching a party's fights" (the scene player is reused).
+
+**Person card as a character sheet** (`panel/personCard.ts`, `personSheet`). Portrait (`face`) with guild badge and calling
+emblem, bars (`.pc-bar` hp/mp/mood/food), chips (`.pc-chip`: calling, age, nature, job, titles, guilds), tabs `.pc-tab`
+Story / Skills / Kin / Kit. Kin and relations are tappable `.pc-rel` portraits (kin from `s.families`, others by name).
+`townsfolkPanel.ts` draws it first for someone inspected (`sheetOn`); "All details…" goes to the older page (stat points,
+evolutions) and "Character sheet" comes back. `personSheetKey()` is in `townsfolkKey`.
+
+**Building card** (`panel/buildingCard.ts`, `buildingCard`, `buildingCardKey`). Sprite with state chips (`.bc-state`),
+people portraits, progress rings (`.bc-ring`) for orders and crops, needs (`.bc-need`). `InspectInfo.building` (ipc.ts) is
+set by main.ts; `mobile/mobile.ts` draws the card under the title, redrawing when the key changes.
+
+**Event story card** (`mobile/eventSheet.ts`). A moving scene above the choices: `eventFamily(kind, title, text)` picks one
+of `EVENT_SCRIPTS` (`sceneScripts.ts`: raid, stranger, plague, storm, feast, envoy, miracle, cult, death, war, trade, wild,
+omen, road, council, generic) played by `playScene` with the subject's doll first. The recommended answer carries a wax
+seal (`.ev-seal`); an answer gives a gold flash and sparks (`.ev-flourish`).
+
+**Raid recap strip** (`battle/raidRecap.ts`, `strip()`). Four panels (`.rs-panel`: warning, clash, turning point, aftermath)
+from `recapScript` (`sceneScripts.ts`; raiders' sprites by raid kind in `raiderSprites`), captions derived from the recap
+(boss fall, best defender, towers, mercy, breach), chips (`.rs-chip`) for who fell and shone, existing text beneath.
+
+**Chronicle timeline** (`panel/timelineStrip.ts`). Years as ticks, marks for deaths (from the hall), raids, miracles, wars,
+founder changes and festivals (journal lines matched by words); tap one to read it; "now" marked; scrolls sideways.
+`renderJournal` takes `nowDay`.
+
+**Tab cross-fade.** `.card-fade` (200 ms) on a sheet body when the tab or person changes, not on every redraw.
+
+## The menus' new look (the owner's ask: "a better and nicer feel, menus that look better and more thought out")
+
+The shared look of every menu, card and box, on the phone first. Renderer only: nothing under `src/shared/` changed
+(so `tools/sim-hash.mjs` and its hashes are untouched). It changes the look described in "The menus redone",
+"Every menu in sub-tabs", "Tap for more", "The news bubble", "Events told in full" and "The first hour" (the tips' box
+keeps its own look); the content and order of the panels are as they were. The new files are under
+`src/renderer/ui/`; the CSS is generated once by `ui/uiCss.ts` and put into all three pages (the menus, the phone's
+page, the strip) by `ui/frame.ts`, so the pages' own style blocks only gained the top bar's rules
+(`mobile/index.html`) and the strip's clock bar rule (`index.html`).
+
+- **The pack art (`ui/art/`, CREDITS.md "The menus' frame set"):** `wood.png` the Craftpix Medieval Field Work
+  window's carved frame (cropped and halved, 51x57, slice 9); `stone.png` the Craftpix 2D Top-Down Pixel Dungeon
+  `walls_floor.png` raised slab (crop 2,80 44x48, slice 6); `gui0.png` DawnLike's `GUI/GUI0.png` whole (the rounded
+  chip at 128,112 16x16 slice 5, the rod at 96,1 40x14, the stat marks). No Craftpix UI pack exists in
+  `../chronos-assets` (checked: there is no wood-and-iron or stone-and-parchment GUI set), so the frames are cut from
+  these three.
+
+## The frame set (`ui/frame.ts`, `ui/uiCss.ts`)
+
+- `applyUiLook(page, theme, cast, daylight)` is called with every snapshot by `panel/panel.ts`, `mobile/mobile.ts` and
+  `hud.ts` (the strip). Only a change of people, alignment (in fifths, `alignStep`) or night does any work. It tints
+  the pieces on a canvas (`tinted`) and sets CSS variables on the page's root: `--ui-frame` (the rim, its slice
+  `--ui-cut` / `--ui-cut-px`), `--ui-btn`, `--ui-btn-down`, `--ui-btn-off`, `--ui-btn-on`, `--ui-chip`, `--ui-chip-on`,
+  `--ui-divider`, `--ui-handle`, and the colours `--ui-surface`, `--ui-glow`, `--ui-face-text`, `--ui-on-text`. The
+  root gets `html.ui-look` and `html.page-<page>`.
+- What wears what: menus, cards, tap cards, the event box, the news page, the away card, the fight HUD's windows,
+  the prompt and the top bar have the rim (`--ui-frame`; the big ones, `.ui-frame-big`, at 1.5x); every button the
+  slab's face (pressed darker, `:disabled` greyed, the chosen and `button.primary` the accent slab with the people's
+  glow); idle tabs (`.menu-tabs .inv-tab`, `.ui-tab`) the chip, the chosen tab the accent slab; the phone's tab bar a
+  rim along its top, the chosen tab the slab; `.chip` the chip; `h2` in a menu the rod under it (`::after`); the
+  menu's sheet and the news page a grip (`#sheet::before`); the news bubble keeps its tone (blue, gold, red) inside the
+  slab's rim.
+- Classes any panel can use: `.ui-frame`, `.ui-frame-big`, `.ui-btn`, `.ui-tab`, `.ui-chip`, `.ui-divider`,
+  `.ui-handle`, `.ui-icon`, the type scale `.ui-head` / `.ui-body` / `.ui-small` / `.ui-label`; or `framed(el, kind)`.
+- The skins (`skins.ts`) keep each people's colours, fonts and ornaments; the frames go over their code-drawn borders,
+  using the skins' own selectors (`parts()`, now exported) under `html.ui-look.ui-look`, and `BOOST` (two `:not(#id)`s)
+  where a tab or chip must outweigh the skins' button selector.
+- The raid's tactics board is drawn in Pixi: `ui/pixiFrame.ts` `uiPlate(kind, w, h, tint)` nine-slices the same tinted
+  slab (`frameCanvas`, `frameVersion` in frame.ts) for its unit boxes (a foe's reddened, a tower's greyed), its
+  buttons (Skip, speed, Auto) and the ability box; `tactics/tacticsView.ts` falls back to its own boxes until the
+  frames are tinted.
+
+## Themed by people (`ui/looks.ts`)
+
+- `UI_LOOKS` (one per `ThemeId`, 13): `material`, `frame` ('wood' or 'stone'), `rim` (null: the sprite's own colours),
+  `face`, `accent` (each a `Ramp`: four colours, shadow to highlight), `surface`, `glow`, `mark` (the top bar's).
+  Carved wood (settlers, the sprite as drawn), dark stone and bone (liches), blood-red velvet (vampires), riveted brass
+  (machines), coral (merfolk), birch and moss (druids, wood), snow and fur (Moon Pack), sandstone (nomads, the one light
+  set, dark writing), gilt (knights), glass and copper (alchemists), iron and skulls (orcs), granite (dwarves), thorn and
+  glow (fae, wood).
+- `gradientMap(px, ramp)`: each pixel's lightness, stretched over the sprite's own range, picks its colour along the
+  ramp at `RAMP_STOPS` [0, 0.42, 0.78, 1] (placed on the slab's outline, inner line, face and bevel).
+- `alignRamp(ramp, cast)`: the alignment over it, a good town's frames warmer (toward gold), an evil one's colder
+  (toward violet-blue), at most a fifth of the way; under |0.15| none. `pressedRamp`, `disabledRamp`.
+
+## One type scale and one icon set (`ui/icon.ts`, `ui/uiCss.ts`)
+
+- `--ui-fs-head` 15px, `--ui-fs-body` 13px, `--ui-fs-small` 11.5px, `--ui-fs-label` 10.5px (h1, body, hints and
+  sub-lines, labels and menu headings).
+- `icon(name, size)`: a stat's mark from the sheets in the game (`STAT_ICONS`: people, beds, food, spirits, coins,
+  stores, building, studying, workshops, quests, shops, gods, age, raid, blood, skull, deep, day, night, health, attack,
+  defence, mana, speed, xp, loss, turn, good, evil, yes, no, news); `statIcon(label)` by a menu's label (`statOf`).
+- The Town menu's tiles get their icon and tip after each redraw (`dressStats` in `ui/tips.ts`, called from
+  `panel.ts`), so `townOverview.ts` is unchanged. "Minimize" on the desktop strip is "Minimise".
+
+## Motion and tap feedback (`ui/motion.ts`, `ui/frame.ts`)
+
+- Sheets slide up (`ui-up`: the menu sheet, the news page, the event box, the tap card, the ☰ menu, the prompt, the
+  tip); a new menu or sub-tab cross-fades in (`main.ui-xfade`, set by `panel.ts` only when the menu or sub-tab
+  changes, cleared after 260 ms so the ten-a-second redraws don't fade); changed numbers on the Town tiles (or anything
+  with `data-tick="<key>"`) tick over from the old value (`tickNumbers`, `leadingNumber`); bars ease their width.
+  Nothing over 250 ms (`--ui-fast` 140 ms, `--ui-slow` 220 ms). `prefers-reduced-motion: reduce` turns all of it off.
+- Every button is pressed while held (`.ui-down`, and `:active`) and clicks softly: the strip sets
+  `window.__uiClick` (main.ts: ambience's `'page'` cue, the existing page-turn sound, at the sound effects' level and
+  only with sound on), found from any page by `findClick`; at most one click per 60 ms.
+
+## The quiet top bar (`ui/topBar.ts`, `mobile/index.html`)
+
+- `createTopBar(top, bridge)`: the town's mark (`UI_LOOKS[...].mark`, on the chip) and name; under them a small arc
+  the sun (DawnLike's sun mark) or the moon travels (`arcAt(hour)`: 6:00 to 18:00 the sun, then the moon), "Day N ·
+  Season", and one line of what's happening (`topLines`): anything urgent first and held (catching up, a raid, someone
+  bleeding out, starving, a doom, lift-off), else in turn every 6 s (`LINE_MS`) the latest news, the study, the
+  building sites and the food. Pause and speed beside the ☰. People, beds and coins stay off the bar.
+- The strip's own clock bar is hidden inside the phone's page (`body.embedded #clock`), except to hold the held power's
+  Cast button in a raid. The news bubble moved up under the bar (64px; on its side under the tabs and the bar).
+- On its side the bar is one slim row under the tabs at the left; the ☰ stays at the tabs' end; a menu open or a fight
+  on the screen hides the bar but the ☰.
+
+## Night mode
+
+- `nightDepth(daylight)` 0..1 (`--ui-night`, `html.ui-night`): the menus' page under a warm multiply veil, and on the
+  phone's page and the strip each framed thing (tab bar, tap card, ☰ menu, news, event box, prompt, fight HUD) dimmer
+  and warmer by a filter; the top bar by an inset shade (a filter would pin the ☰ to it on its side).
+
+## Long-press tips (`ui/tips.ts`)
+
+- `wireTips()` in each page: holding a finger 450 ms (`HOLD_MS`) on anything with `data-tip` ("Title|text", and
+  `data-tip-icon`), or a plain `title`, shows a small framed sheet (`#ui-tip`) at the bottom; the held tap itself is let
+  go, and the next touch hides it. Texts: `STAT_TIPS` (the top bar's mark, day, line, pause and speed; the Town tiles),
+  `FIGHT_TIPS` (the fight HUD's health, mana, stamina, limit and turn gauges, via `fightTip` in `fight/fightHud.ts`).
+
+## Files outside `ui/` touched (small)
+
+- `panel/panel.ts` (applyUiLook, wireTips, dressStats, tickNumbers, the cross-fade), `mobile/mobile.ts` (applyUiLook,
+  the top bar, wireTips), `hud.ts` (applyUiLook, wireTips), `main.ts` (`__uiClick`), `skins.ts` (`parts` exported),
+  `fight/fightHud.ts` (`fightTip` on two meters), `tactics/tacticsView.ts` (`uiPlate` in three boxes),
+  `mobile/index.html` (the top bar's CSS, the bubble's top), `index.html` (the clock bar on the phone, the prompt's
+  top). No `*Panel.ts` changed.
+- Test: `test/uiLooks.test.ts` (13 looks, ramps dark to light, the gradient map, alignment warmth, pressed and greyed
+  faces, night depth, the number tick's parsing).

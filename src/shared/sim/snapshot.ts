@@ -2,6 +2,7 @@
 
 import { ancestryView, type AncestryView } from './ancestors';
 import { fightOnScreen } from './raidWait';
+import { townWhy, type WhyLines } from './whyLines';
 import { RING_SHAPE_NAMES } from '../data/ringShapes';
 import { deedLines } from './deeds';
 import { DUNGEON_BY_ID } from '../data/dungeons';
@@ -1131,6 +1132,8 @@ export interface Snapshot {
   tax: TaxRate;
   guards: { n: number; wanted: number; wage: number; names: string[]; watch: string };
   plan: TownPlan | null;
+  /** The planner's picks in plain English, with why (sim/whyLines.ts): derived, never saved. */
+  why?: WhyLines;
   /** The tick of the last big boss moment (a roar, a sweeping attack): the strip shakes. */
   bossShake: number;
   /** Curses the town can pass on (hidden: a lich founder, a vampire or werewolf in town). */
@@ -1506,6 +1509,7 @@ export function snapshot(s: GameState): Snapshot {
     tax: taxRate(s),
     guards: { n: guardsOf(s).length, wanted: guardsWanted(s), wage: guardWage(s), names: guardsOf(s).map((g) => g.name), watch: watchLine(s) },
     plan: s.plan ?? null,
+    why: townWhy(s),
     ironman: !!s.ironman,
     launchHours: s.launchTick != null ? Math.max(0, (s.launchTick - s.tick) / TICKS_PER_HOUR) : null,
     mainId: s.mainId,

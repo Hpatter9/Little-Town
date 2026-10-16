@@ -21,6 +21,7 @@ import { button, el } from './dom';
 import { expandable, facts, type More } from './details';
 import { alignBar } from './alignBar';
 import { selectTab } from './subtabs';
+import { thumb } from './structure';
 
 /** Go to a menu's tab: this menu redrawn, or another opened at it. */
 export function goTo(bridge: Bridge | undefined, here: PanelId, panel: PanelId, tab: string, rerender: () => void): void {
@@ -155,7 +156,7 @@ export function inTown(s: Snapshot, bridge: Bridge | undefined): HTMLElement[] {
       const top = el('div', 'card-top');
       // (a home by its name, a statue by whom it stands for: sim/memorials.ts)
       const hero = b.def === STATUE ? s.honoured.find((h) => h.id === b.statue) : undefined;
-      top.append(el('span', 'card-name', hero ? `Statue of ${hero.name}` : b.homeName ?? def.name), el('span', 'card-size', statusOf(b, s)));
+      top.append(thumb(b.def, 36), el('span', 'card-name', hero ? `Statue of ${hero.name}` : b.homeName ?? def.name), el('span', 'card-size', statusOf(b, s)));
       c.append(top);
       const owner = b.owner !== undefined ? s.people.find((p) => p.id === b.owner)?.name : undefined;
       if (hero) c.append(el('div', 'purpose', hero.deeds[0]));

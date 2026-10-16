@@ -31,6 +31,14 @@ export function setDetailsRedraw(fn: () => void): void {
 }
 /** Which cards are open (for the panel's redraw key). */
 export const detailsKey = (): string => [...open].sort().join(',') + '|' + [...picked].map(([g, id]) => `${g}=${id}`).join(',');
+/** Close the card opened last (a swipe to the right: structure.ts). False when none is open. */
+export function closeLatestCard(): boolean {
+  const last = [...open].pop();
+  if (last === undefined) return false;
+  open.delete(last);
+  redraw();
+  return true;
+}
 /** Whether a card is open. */
 export const isOpen = (key: string): boolean => open.has(key);
 
