@@ -39,7 +39,7 @@ export function underSection(s: Snapshot, bridge: Bridge | undefined, card: Card
     document.head.append(st);
   }
   const out: HTMLElement[] = [el('h2', '', 'Below the town')];
-  const box = el('div', 'under-box');
+  const box = el('div', 'under-box ui-frame');
   const line = (label: string, text: string, mats?: Material[]) => {
     const r = el('div', 'under-row');
     r.append(el('b', '', `${label} `), document.createTextNode(text));

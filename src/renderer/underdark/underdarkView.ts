@@ -1200,7 +1200,7 @@ const STANCE: Record<string, string> = { peace: 'at peace', friend: 'friends, tr
 /** The Underdark's own styles (the bar's depth buttons, the place card), apart from the shared blocks. */
 const STYLE = `
 #under-hud .uh-depths { display: flex; gap: 4px; }
-#under-hud .uh-card { position: absolute; left: 10px; right: 10px; top: 58px; max-width: 360px; margin: 0 auto; padding: 10px 12px 8px; box-sizing: border-box; background: rgba(18,14,18,0.94); border: 2px solid #6a5440; border-radius: 8px; pointer-events: auto; box-shadow: 0 4px 14px rgba(0,0,0,0.6); }
+#under-hud .uh-card { position: absolute; left: 10px; right: 10px; top: 58px; max-width: 360px; margin: 0 auto; padding: 10px 12px 8px; box-sizing: border-box; background: var(--ui-surface, rgba(18,14,18,0.94)); border: 2px solid #6a5440; border-radius: 8px; pointer-events: auto; box-shadow: 0 4px 14px rgba(0,0,0,0.6); }
 #under-hud .uh-card[hidden] { display: none; }
 #under-hud .uh-card h3 { margin: 0 24px 4px 0; font: 700 15px var(--font-display, serif); color: #ffd890; }
 #under-hud .uh-card p { margin: 0 0 3px; font-size: 13px; color: #e8dcc8; }
@@ -1234,7 +1234,7 @@ class UnderHud {
     this.el = document.createElement('div');
     this.el.id = 'under-hud';
     this.el.innerHTML =
-      '<div class="dh-top"><div class="uh-depths"><button class="uh-up" title="Up a depth">▲</button><button class="uh-down" title="Down a depth">▼</button></div><div class="dh-title">The Underdark</div><button class="dh-close" title="Back up to the town">✕</button></div><div class="uh-card" hidden><button class="uh-x">✕</button><h3></h3><div class="uh-lines"></div><button class="uh-go">Trips below…</button></div><div class="dh-info"></div>';
+      '<div class="dh-top"><div class="uh-depths"><button class="uh-up" title="Up a depth">▲</button><button class="uh-down" title="Down a depth">▼</button></div><div class="dh-title">The Underdark</div><button class="dh-close" title="Back up to the town">✕</button></div><div class="uh-card ui-frame" hidden><button class="uh-x ui-btn">✕</button><h3></h3><div class="uh-lines"></div><button class="uh-go ui-btn">Trips below…</button></div><div class="dh-info"></div>';
     this.el.hidden = true;
     document.body.append(this.el);
     this.title = this.el.querySelector('.dh-title')!;
