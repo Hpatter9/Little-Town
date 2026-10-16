@@ -7757,3 +7757,12 @@ over the back, and the front crop drawn over the rider starts at half the frame 
 horse's body hides the rider's legs from the thigh down. Measured on the phone build: the rider's feet were level with
 the horse's back before and are 18px below it after. The same code seats every mounted figure (couriers in
 `main.ts courierPerson`, the envoy, cavalry). Renderer only.
+
+## The top bar grows to fit its two rows (0.147.0; the owner: "the top bar doesn't quite fit")
+
+With the day's line on its own row (0.145.0) the bar's fixed 56px height clipped it. `#top.top-quiet` is now
+`height: auto; min-height: 56px` with tighter padding (2px over, 3px under, a 2px row gap) and smaller buttons
+(`.top-btn` 34x32, `#menu-btn` 38x34), which makes it 74px tall upright with the frame's 9px borders. `mobile.ts
+layout()` writes the bar's real height to `--top-h` on the root, and the ☰ menu and the news feed hang from
+`var(--top-h, 56px)` instead of a fixed 56px, so they follow it. Sideways the bar keeps its single 40px row.
+Renderer only.
