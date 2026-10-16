@@ -12,6 +12,9 @@ import { expeditionFill, researchFill } from '../../shared/format';
 import { css, mix, skyColors, weatherCover } from '../town/skyColors';
 import { applyTheme, panelLabel } from '../theme';
 import { setTipsOn, tipsOn } from './tips';
+import { applyUiLook } from '../ui/frame';
+import { wireTips } from '../ui/tips';
+import { createTopBar } from '../ui/topBar';
 
 /** A phone on its side (the same test as the page's CSS): the tabs run across the top, and the town fills the
  *  rest of the screen under them. */
@@ -255,6 +258,13 @@ bridge.onSnapshot((snap) => {
     document.body.classList.toggle('scene', scene);
     layout();
   }
+});
+// the shared look (ui/): the people's frames, the alignment's warmth and the night; the quiet top bar; held tips
+const topBar = createTopBar($('top'), bridge);
+wireTips();
+bridge.onSnapshot((snap) => {
+  applyUiLook('phone', snap.theme, snap.align?.cast ?? 0, snap.calendar.daylight);
+  topBar.update(snap);
 });
 bridge.onSnapshot((snap) => {
   if (!applyTheme(snap.theme, 'phone')) return;

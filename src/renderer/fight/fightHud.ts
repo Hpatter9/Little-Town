@@ -9,6 +9,7 @@ import { ITEM_BY_ID } from '../../shared/data/items';
 import { KIT_BY_ID } from '../../shared/data/kitItems';
 import { MATERIAL_NAMES, type Material } from '../../shared/data/materials';
 import { fightShare, tripLabel, tripShare } from './progress';
+import { fightTip } from '../ui/tips';
 
 export interface FightHud {
   /** The watched fight (or trip), and how fast the fight plays (the speed button beside ✕). */
@@ -376,6 +377,7 @@ function turnGauge(share: number, live: boolean, title: string): HTMLElement {
   const g = document.createElement('span');
   g.className = 'ff-turnwrap';
   g.title = title;
+  fightTip(g, 'turn'); // (held: what it is, ui/tips.ts)
   const lab = document.createElement('span');
   lab.className = 'ff-lab';
   lab.textContent = 'Turn';
@@ -394,6 +396,7 @@ function meter(cls: string, share: number, label: string, nums: string, title: s
   const m = document.createElement('div');
   m.className = `ff-meter ${cls}`;
   m.title = title;
+  fightTip(m, cls.startsWith('hp') ? 'hp' : cls); // (held: what it is, ui/tips.ts)
   if (label) {
     const lab = document.createElement('span');
     lab.className = 'ff-lab';

@@ -33,6 +33,7 @@ import { ShotPainter, shotTicks } from '../battle/projectiles';
 import { BoardLife, logTexture } from './boardLife';
 import { actFx } from '../../shared/data/actFx';
 import { ghostStep } from '../battle/juiceRules';
+import { uiPlate } from '../ui/pixiFrame';
 
 /** A tile's diamond (px), and a step of height. */
 /** How long the board's camera takes to glide most of the way to the unit whose turn it is (ms). */
@@ -874,7 +875,8 @@ export class TacticsScene {
     if (act) {
       const label = new Text({ text: act.name!, style: style(15, act.ult ? 0xffd060 : 0xffffff, true, 3) });
       const bw = label.width + 28;
-      const box = new Graphics().roundRect(0, 0, bw, 28, 6).fill({ color: act.ult ? 0x5a2008 : 0x1a2a5a, alpha: 0.92 }).stroke({ color: act.ult ? 0xffb040 : 0x9ab8f0, width: 2 });
+      // (the menus' frame set where it's tinted: ui/pixiFrame.ts)
+      const box = uiPlate('btn-on', bw, 28, act.ult ? 0xffc080 : 0xffffff) ?? new Graphics().roundRect(0, 0, bw, 28, 6).fill({ color: act.ult ? 0x5a2008 : 0x1a2a5a, alpha: 0.92 }).stroke({ color: act.ult ? 0xffb040 : 0x9ab8f0, width: 2 });
       box.position.set((w - bw) / 2, up ? 96 : 48);
       label.position.set((w - bw) / 2 + 14, (up ? 96 : 48) + 5);
       this.hud.addChild(box, label);
@@ -906,7 +908,8 @@ export class TacticsScene {
   private unitBox(u: TacUnitView, x: number, y: number, w: number): void {
     const col = u.foe ? 0x5a1a14 : u.tower ? 0x3a3a3a : 0x14284a;
     const tall = boxHeight(u) - 72; // (a caster's mana bar takes a row of its own under the health: drawBars)
-    const g = new Graphics().roundRect(0, 0, w, 72 + tall, 6).fill({ color: col, alpha: 0.92 }).stroke({ color: u.foe ? 0xe07060 : 0x8ab4f0, width: 2 });
+    // (the menus' frame set where it's tinted, a foe's reddened, a tower's greyed: ui/pixiFrame.ts)
+    const g = uiPlate(u.tower ? 'btn-off' : 'btn', w, 72 + tall, u.foe ? 0xff9080 : 0xffffff) ?? new Graphics().roundRect(0, 0, w, 72 + tall, 6).fill({ color: col, alpha: 0.92 }).stroke({ color: u.foe ? 0xe07060 : 0x8ab4f0, width: 2 });
     g.position.set(x, y);
     this.hud.addChild(g);
     const name = new Text({ text: `${u.leader ? '★ ' : ''}${u.name}`, style: style(13, 0xffffff, true, 3) });
@@ -935,8 +938,9 @@ export class TacticsScene {
     }
   }
 
-  private button(label: string, x: number, y: number, w: number, h: number, fn: () => void, on = false, enabled = true): Graphics {
-    const g = new Graphics().roundRect(0, 0, w, h, 6).fill({ color: !enabled ? 0x2a2a2a : on ? 0x2a5a2a : 0x2a2440, alpha: 0.95 }).stroke({ color: enabled ? 0xd8c890 : 0x666666, width: 2 });
+  private button(label: string, x: number, y: number, w: number, h: number, fn: () => void, on = false, enabled = true): Container {
+    // (the menus' buttons where they're tinted: ui/pixiFrame.ts)
+    const g = uiPlate(!enabled ? 'btn-off' : on ? 'btn-on' : 'btn', w, h) ?? new Graphics().roundRect(0, 0, w, h, 6).fill({ color: !enabled ? 0x2a2a2a : on ? 0x2a5a2a : 0x2a2440, alpha: 0.95 }).stroke({ color: enabled ? 0xd8c890 : 0x666666, width: 2 });
     g.position.set(x, y);
     const t = new Text({ text: label, style: { fontFamily: FONT, fontSize: 12, fill: enabled ? 0xffffff : 0x888888, fontWeight: 'bold' } });
     t.anchor.set(0.5);

@@ -668,6 +668,8 @@ async function start(): Promise<void> {
   // the land's soundscape, on with the music (ambience.ts)
   const ambience = createAmbience();
   (window as unknown as { __ambience?: typeof ambience }).__ambience = ambience; // (for previews)
+  // (a button tapped in any of the pages clicks softly: a page turned, ui/frame.ts)
+  (window as unknown as { __uiClick?: () => void }).__uiClick = () => ambience.cue('page', 0);
   // (how loud the music and the sound effects are: the ☰ menu's sliders set them here, and the phone remembers them)
   const levels = { music: readLevel('music'), sfx: readLevel('sfx') };
   music.setLevel(levels.music);
