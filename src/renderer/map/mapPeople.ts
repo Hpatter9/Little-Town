@@ -15,6 +15,7 @@ import { CREATURE_FRAME, creatureFrame, creatureSize, type CreatureSheet } from 
 import { EMOTE_SIZE, emoteFrame, levelUpFrame, HOLY_SIZE, holyFrame, REVIVE_SIZE, reviveFrame, SPELL_SIZE, spellFrame, spellFrames, SPLAT_SIZE, splatFrame, pixelFxFrame, type Emote } from '../art/effects';
 import { COUGH_FOR, coughing } from './moodRules';
 import { motionOf } from '../fight/fightMotion';
+import { isMythic } from '../../shared/data/paths';
 import { fightAnim, fightPose, founderSheet, heroFrame, heroScale, heroSheet, roadForm, SHOOT_TICKS, skeletonSheet, WOLF_FORMS, WOLF_SCALE } from '../art/combatPoses';
 import { creatureFlip } from '../art/creatures';
 import { loadImage } from '../art/loadImage';
@@ -729,7 +730,8 @@ export class MapPeople {
       const breath = anim === 'walk' && frame === 0 && !fighting ? idleBreath(now, d.view.id) : 0;
       s.position.set(Math.round(x), Math.round(y) - breath);
       s.zIndex = z;
-      const glow = d.view.rally === 'on' ? (Math.sin(now / 90) > 0 ? 0xffe070 : 0xffc040) : null;
+      // (a mythic calling shimmers, slow and pale violet: data/mythic.ts)
+      const glow = d.view.rally === 'on' ? (Math.sin(now / 90) > 0 ? 0xffe070 : 0xffc040) : isMythic(d.view.roadId) && Math.sin(now / 400 + d.view.id) > 0.55 ? 0xf0e0ff : null;
       s.tint = glow ?? (d.view.monster === 'undead' ? 0xb0c8a8 : d.view.monster === 'vampire' ? 0xe8e0f0 : 0xffffff);
       // (hurt legs: a hitch in the walk)
       if (riderMoving) s.y += limpDip(v.body.moving, d.walked);

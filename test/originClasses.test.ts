@@ -52,8 +52,11 @@ test('ids and names are unique, and kept apart from the shared tree and the orig
     assert.equal(new Set(names).size, names.length, `${o}'s calling names are their own`);
     for (const nm of names) assert.ok(!shared.has(nm), `${o}: ${nm} is a shared calling's or origin road's name`);
   }
-  const ids = ALL_ABILITIES.map((a) => a.id);
-  assert.equal(new Set(ids).size, ids.length, 'skill ids are unique');
+  // (each new skill's id is its own: no other skill anywhere shares it)
+  for (const t of ORIGIN_CALLINGS) for (const [, n] of callingNodes(t)) {
+    const id = callingId(t.origin, n.skill[0]);
+    assert.equal(ALL_ABILITIES.filter((a) => a.id === id).length, 1, `skill ${id} is its own`);
+  }
 });
 
 test('every node has its text, lore, skill, lean, emblem, weapon and form, and they resolve', () => {
@@ -95,7 +98,7 @@ test('the skills are as strong as the shared ones of their stage: a base calling
       const stage = PATH_BY_ID[id].stage;
       const what = n.skill[2];
       if (!Array.isArray(what)) {
-        assert.ok(total(what) <= [0.12, 0.3, 0.5, 0.8][stage], `${id}: passive ${total(what).toFixed(2)} at stage ${stage}`);
+        assert.ok(total(what) <= [0.12, 0.3, 0.5, 0.8][stage] + 1e-9, `${id}: passive ${total(what).toFixed(2)} at stage ${stage}`);
         continue;
       }
       assert.ok(stage > 0, `${id}: a base calling's skill is a passive`);

@@ -4,6 +4,7 @@
 // is told as a scene; LORE is each node's passage; ASCENDED tells the last step.
 
 import { callingId, ORIGIN_CALLINGS } from './originCallings';
+import { MYTHIC_CALLINGS, mythicId } from './mythic';
 
 /** How the fork is told, by the base calling, with {name} for the townsperson. */
 export const FORK: Record<string, string> = {
@@ -19,6 +20,7 @@ export const FORK: Record<string, string> = {
 
 // (the peoples' own base callings tell their own crossroads: data/originCallings.ts)
 for (const t of ORIGIN_CALLINGS) FORK[callingId(t.origin, t.base.id)] = t.fork;
+for (const t of MYTHIC_CALLINGS) FORK[mythicId(t.base.id)] = t.fork;
 
 /** How a founder's evolution is told: the line the stories expect, or a road of their own. */
 export const FOUNDER_FORK = 'The town has grown up round {name} like a village round a well. The songs they sing about the founder already say what comes next, and {name} could become exactly that. Or they could become something the songs never imagined.';

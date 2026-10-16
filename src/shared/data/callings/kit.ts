@@ -63,3 +63,26 @@ export const GLYPH_CELLS: Readonly<Record<Glyph[0], number>> = {
   ShortWep: 40, MedWep: 16, LongWep: 56, Wand: 56, Shield: 8, Hat: 32, Amulet: 24, Scroll: 48, Magic: 45, Tool: 24,
   Light: 8, Potion: 40, Ring: 48, Ammo: 48, Armor: 72, Book: 72, Music: 48, Money: 64,
 };
+
+/** A mythic calling (data/mythic.ts): a whole tree like the others, open to anyone but given to very few. */
+export interface MythicTree {
+  base: CallingTree['base'];
+  colours: EmblemColours;
+  fork: string;
+  /** What the chronicle and the news say when one appears: {name} the townsperson, {town} the town. */
+  born: string;
+  /** The title they carry from then on. */
+  title: string;
+  /** Its two stage-1 roads; 'summoner' grafts the shared tree's Summoner road (and all after it) on here. */
+  roads: [Road1 | 'summoner', Road1];
+}
+/** A Road1's written nodes, the stage-1 first, each with its stage. */
+export function roadNodes(road: Road1): [CallingNode, number][] {
+  const [r1, roads2] = road;
+  const out: [CallingNode, number][] = [[r1, 1]];
+  for (const [r2, roads3] of roads2) {
+    out.push([r2, 2]);
+    for (const r3 of roads3) out.push([r3, 3]);
+  }
+  return out;
+}

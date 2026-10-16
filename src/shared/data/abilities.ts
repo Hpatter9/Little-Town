@@ -10,6 +10,8 @@ import { MORE_ABILITIES } from './moreAbilities';
 import { lineage, PATH_BY_ID } from './paths';
 import { ORIGIN_ROADS } from './originPaths';
 import { callingId, callingNodes, ORIGIN_CALLINGS } from './originCallings';
+import { MYTHIC_CALLINGS, mythicId, mythicNodes, WANDERER_ROAD } from './mythic';
+import { roadNodes } from './callings/kit';
 import { ASCENDANCY, PATH_SKILL_ROWS } from './pathSkills';
 
 /** What a passive skill adds: shares (damage 0.1: a tenth more) or chances (counter 0.2: one blow in five). */
@@ -430,6 +432,9 @@ export const PATH_ABILITIES: readonly AbilityDef[] = [
     ...ORIGIN_ROADS.flatMap((r) => [r.two, r.three, r.high].map((n) => [n.id, ...n.skill] as const)),
     // (the peoples' own base callings': ids `oc_<people>_<skill>`, kept apart like the nodes')
     ...ORIGIN_CALLINGS.flatMap((t) => callingNodes(t).map(([id, n]) => [id, callingId(t.origin, n.skill[0]), n.skill[1], n.skill[2]] as const)),
+    // (the mythic callings': `my_<skill>`; the Wanderer's new road's as written, like the shared tree's)
+    ...MYTHIC_CALLINGS.flatMap((t) => mythicNodes(t).map(([id, n]) => [id, mythicId(n.skill[0]), n.skill[1], n.skill[2]] as const)),
+    ...(WANDERER_ROAD ? roadNodes(WANDERER_ROAD).map(([n]) => [n.id, ...n.skill] as const) : []),
   ].map(([node, id, name, what]): AbilityDef => {
     const level = STAGE_AT[PATH_BY_ID[node]?.stage ?? 1];
     return Array.isArray(what) ? { id, name, cls: null, path: node, level, active: { cooldown: what[0], effects: what[1] }, use: useOf(what[1]) } : { id, name, cls: null, path: node, level, passive: what, use: 'passive' as const };
