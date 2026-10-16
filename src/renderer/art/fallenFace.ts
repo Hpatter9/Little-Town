@@ -24,6 +24,7 @@ export function fallenFace(f: Pick<Fallen, 'id' | 'founder' | 'obit'>, size = 64
     g.clearRect(0, 0, c.width, c.height);
     g.imageSmoothingEnabled = false;
     g.drawImage(cell, 14, 0, 100, 100, 0, 0, c.width, c.height);
+    c.dataset.ready = '1'; // (painted: a copy taken now has the face)
     return true;
   };
   if (!paint()) onHkLoad(paint);

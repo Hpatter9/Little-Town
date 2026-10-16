@@ -1,15 +1,14 @@
 // Obituaries on the phone (sim/obituary.ts): a favourite's death opens their card by itself, once (`watchFavourites`,
 // the ids seen kept in `littletown.favouritesMourned`); anyone else's opens from the news (`showObituary`). The card
-// has their face (drawn in the strip, `__picture({ fallen })`), their last lines, and one button, "Watch", that takes
-// the camera to their funeral, or their grave (`__showOnMap({ funeral })`). Read-only: nothing here changes the town.
+// (mobile/revealCard.ts) has their face (drawn in the strip, `__picture({ fallen })`) and their last lines; the news
+// line of their funeral has "Watch" (`__showOnMap({ funeral })`). Read-only: nothing here changes the town.
 
 import { obituaryLines } from '../../shared/sim/obituary';
 import type { Snapshot } from '../../shared/sim/snapshot';
-import { showReveal } from './revealStub';
+import { showReveal } from './revealCard';
 
 type StripWindow = Window & {
   __picture?: (p: { fallen?: number }) => HTMLCanvasElement | null;
-  __showOnMap?: (a: { funeral?: number }) => boolean;
 };
 
 /** Open someone's obituary card (false: nobody by that id among the fallen). */
@@ -17,17 +16,23 @@ export function showObituary(snap: Snapshot, id: number, strip: HTMLIFrameElemen
   const f = snap.annals.fallen.find((q) => q.id === id);
   if (!f) return false;
   const w = strip.contentWindow as StripWindow | null;
-  const art = w?.__picture?.({ fallen: id }) ?? null;
+  const face = w?.__picture?.({ fallen: id }) ?? null;
   const lines = obituaryLines(f);
-  showReveal({
-    key: `obit:${id}`,
-    kicker: favourite ? '♥ In memory' : 'In memory',
+  // (the card takes a copy of their face: wait a little for its layers to load, then show it all the same)
+  const show = (tries: number) => {
+    if (face && !face.dataset.ready && tries > 0) return void setTimeout(() => show(tries - 1), 150);
+    reveal();
+  };
+  const reveal = () => showReveal({
+    kind: favourite ? 'In memory' : 'Obituary',
+    icon: favourite ? '♥' : '✝',
     title: f.name,
-    lines: favourite ? [...lines, 'Your place among the followed is free.'] : lines,
-    art,
-    tone: 'red',
-    actions: [{ label: 'Watch', run: () => void w?.__showOnMap?.({ funeral: id }) }],
+    lore: (favourite ? [...lines, 'Your place among the followed is free. Watch their funeral from the news.'] : lines).join('\n'),
+    img: face?.toDataURL(),
+    tone: 'dark',
+    key: String(id),
   });
+  show(20);
   return true;
 }
 
