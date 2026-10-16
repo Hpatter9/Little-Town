@@ -8,6 +8,8 @@ import { el } from './dom';
 import { renderBestiary } from './bestiaryPanel';
 import { renderHeroes } from './heroesPanel';
 import { renderLegends } from './legendsPanel';
+import { renderShelf } from './shelfPanel';
+import type { RareView } from '../../shared/sim/rare';
 import type { AnnalsView } from '../../shared/sim/snapshot';
 import type { FestivalsView } from '../../shared/sim/festivals';
 import { renderFestivals } from './festivalsPanel';
@@ -15,7 +17,7 @@ import { renderCulture } from './culturePanel';
 import type { CultureView } from '../../shared/sim/culture';
 import { timelineStrip } from './timelineStrip';
 
-type Filter = 'all' | 'key' | 'deaths' | 'festivals' | 'culture' | 'heroes' | 'legends' | 'bestiary' | 'scenes';
+type Filter = 'all' | 'key' | 'deaths' | 'festivals' | 'culture' | 'heroes' | 'legends' | 'shelf' | 'bestiary' | 'scenes';
 const FILTERS: [Filter, string][] = [
   ['all', 'All'],
   ['key', 'Key events'],
@@ -24,6 +26,7 @@ const FILTERS: [Filter, string][] = [
   ['culture', 'Culture'],
   ['heroes', 'Heroes'],
   ['legends', 'Legends'],
+  ['shelf', 'Shelf'],
   ['bestiary', 'Bestiary'],
   ['scenes', 'Scenes'],
 ];
@@ -32,7 +35,7 @@ let filter: Filter = 'all';
 
 const isDeath = (e: JournalEntryView) => / has died /.test(e.text);
 
-export function renderJournal(entries: JournalEntryView[], met: readonly string[] = [], annals?: AnnalsView, scenes: { key: number; title: string; tick: number }[] = [], watch?: (key: number) => void, ancestry?: AncestryView | null, festivals?: FestivalsView, culture?: CultureView, guildMark?: (personId: number) => HTMLElement | null, nowDay = 1): HTMLElement[] {
+export function renderJournal(entries: JournalEntryView[], met: readonly string[] = [], annals?: AnnalsView, scenes: { key: number; title: string; tick: number }[] = [], watch?: (key: number) => void, ancestry?: AncestryView | null, festivals?: FestivalsView, culture?: CultureView, guildMark?: (personId: number) => HTMLElement | null, nowDay = 1, rare?: RareView): HTMLElement[] {
   const list = el('div');
   const row = el('div', 'row inv-tabs menu-tabs');
   const draw = () => {
@@ -53,6 +56,11 @@ export function renderJournal(entries: JournalEntryView[], met: readonly string[
     }
     if (filter === 'culture') {
       list.replaceChildren(...renderCulture(culture));
+      return;
+    }
+    // (every rare thing the town has seen: shelfPanel.ts)
+    if (filter === 'shelf') {
+      list.replaceChildren(...renderShelf(rare));
       return;
     }
     if (filter === 'legends') {

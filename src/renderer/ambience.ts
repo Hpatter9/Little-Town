@@ -30,6 +30,8 @@ export type Cue =
   | 'built' | 'timber' | 'crumble' | 'reap' | 'till' | 'loom' | 'pound' | 'bubble' | 'chisel' | 'machine' | 'page'
   // the wider world: geese passing over, a wind chime in a gust (map/wideWorld.ts)
   | 'honk' | 'windchime'
+  // a rare thing revealed: a soft rising bell (mobile/revealCard.ts, sfx.ts `REVEAL_SOUND`)
+  | 'reveal'
   // a busker's soft tune in the square (map/mapScenes.ts), heard only near them
   | 'busk';
 
@@ -990,6 +992,13 @@ export function createAmbience(): Ambience {
         tone('square', f * 2.2, f * 2, 0.1, 0.004, pan, at);
         burst('bandpass', f * 3, 4, 0.1, 0.006, pan, at, 0.01);
       }
+    },
+    // a rare thing revealed: three soft bell notes rising, the last left to ring
+    reveal: (pan, delay) => {
+      [659, 880, 1319].forEach((f, i) => {
+        tone('sine', f, f, i === 2 ? 1.8 : 0.9, 0.022, pan, delay + i * 0.14);
+        tone('sine', f * 2.76, f * 2.76, 0.4, 0.004, pan, delay + i * 0.14);
+      });
     },
     // a wind chime: four or five metal tubes struck at random as the gust swings them, ringing out
     windchime: (pan, delay) => {

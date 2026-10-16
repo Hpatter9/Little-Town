@@ -3,6 +3,7 @@ import { test } from 'node:test';
 import { EVENTS, EVENT_BY_ID } from '../src/shared/data/events';
 import { Rng } from '../src/shared/rng';
 import { EVENT_HOURS, answerEvent, maybeEvent, startEvent } from '../src/shared/sim/events';
+import { FATE_LATER_DAYS } from '../src/shared/data/fatefulEvents';
 import { catchUp } from '../src/shared/sim/offline';
 import { markMult } from '../src/shared/sim/origin';
 import { Sim } from '../src/shared/sim/sim';
@@ -23,7 +24,7 @@ function town(): GameState {
 }
 
 test('the events: five hundred and the fateful ones, each with two or three answers and exactly one default', () => {
-  assert.equal(EVENTS.length, 562); // (500, the 25 fateful ones, the fire's follow-up, the Calamity's ten, the festivals' seventeen, and the nine of alignment: data/alignEvents.ts)
+  assert.equal(EVENTS.length, 567); // (500, the 30 fateful ones, the fire's follow-up, the Calamity's ten, the festivals' seventeen, and the nine of alignment: data/alignEvents.ts)
   assert.equal(new Set(EVENTS.map((e) => e.id)).size, EVENTS.length);
   for (const e of EVENTS) {
     assert.ok(e.options.length >= 2 && e.options.length <= 3, e.id);
@@ -47,7 +48,8 @@ test('every answer to every event can be given, and what comes of it later happe
       // (anything that comes later: up to three days on; the clock jumps hour to hour rather than the town running
       // all that while, which made this the slowest test by far)
       const rng = new Rng(o + 7);
-      const end = s.tick + 3 * TICKS_PER_DAY;
+      // (a fateful choice's consequences are slower to land: up to FATE_LATER_DAYS, since the choice is meant to be remembered)
+      const end = s.tick + (def.fateful ? FATE_LATER_DAYS : 3) * TICKS_PER_DAY;
       while (!s.gameOver && (s.eventLater?.length ?? 0) > 0 && s.tick < end) {
         const next = Math.min(...s.eventLater!.map((l) => l.tick));
         s.tick = Math.max(s.tick + 1, Math.ceil(next / TICKS_PER_HOUR) * TICKS_PER_HOUR);
@@ -183,6 +185,7 @@ test('events with weight: the fireline holds the town to it for a day; a fire le
   let fizzled = 0;
   for (let seed = 1; seed <= 12; seed++) {
     const t2 = town();
+    t2.seed = `fire-${seed}`; // (a fateful answer is resolved on the seed's own stream, so the towns differ by seed)
     t2.nextEventTick = Number.MAX_SAFE_INTEGER;
     const r = new Rng(seed);
     startEvent(t2, EVENT_BY_ID.great_fire, r);

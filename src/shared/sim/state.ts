@@ -630,6 +630,8 @@ export interface Person {
   felled?: number;
   /** Deeds counted toward titles (sim/deeds.ts, data/deeds.ts). */
   deeds?: Partial<Record<import('../data/deeds').DeedKind, number>>;
+  /** Their last close calls (sim/closeCalls.ts): for their diary, and "Shaken" on their card for a while. */
+  closeCalls?: { tick: number; text: string }[];
   /** A knight of the Order who has kept a vow (sim/chivalry.ts): worthy of being dubbed. */
   keptVow?: boolean;
   /** The class stage last announced (an evolution is told once). */
@@ -781,6 +783,22 @@ export interface Secret {
 }
 
 /** A question waiting for the player, answered by default when the timer runs out. */
+/** The result of a party the player sent (sim/muster.ts): led by who came home and who did not, then the haul. */
+export interface Debrief {
+  place: string;
+  /** Whole days they were gone (0: less than a day). */
+  days: number;
+  recalled?: boolean;
+  cleared?: boolean;
+  /** Those who came back, with a word on how (rose a level, hurt, carried in). */
+  back: { id: number; name: string; note: string }[];
+  /** Those who did not. */
+  lost: { name: string; level: number }[];
+  /** What they brought, one line a kind ("12 wood"), and a word on how the trip ended (a wreck, a crash). */
+  haul: string[];
+  ending: string | null;
+}
+
 export interface Prompt {
   id: number;
   kind: 'strangers' | 'raid' | 'rite' | 'lich' | 'gate' | 'event' | 'thirst' | 'visitor' | 'secret' | 'saga' | 'road' | 'debrief' | 'envoy' | 'watch' | 'dragon' | 'evolve' | 'refugees' | 'village' | 'council' | 'trial' | 'revolt' | 'ways' | 'enemy';
@@ -808,6 +826,10 @@ export interface Prompt {
   recommended?: number;
   why?: string;
   expiresTick: number;
+  /** A commanded party's homecoming (sim/muster.ts `debrief`): who came back and how, who did not, and the haul. */
+  debrief?: Debrief;
+  /** A fateful event (data/fatefulEvents.ts): the box wears its heavier frame and reveals slowly. */
+  fateful?: boolean;
   /** A choice event's fuller telling (the scene, the event, more of it), its picture (a painted background, data/
    *  eventScenes.ts), and who it's about: for the full-screen event box. */
   story?: string;
@@ -1246,6 +1268,12 @@ export interface GameState {
    *  from there), a wedding where the couple set out from and who they are; a gathering's `walk` is its procession
    *  (from where, till when: sim/ceremonies.ts). */
   funeralsDue?: { name: string; close: number[]; tick: number; x?: number; y?: number }[];
+  /** The townsfolk the player follows (sim/favourites.ts): a view preference only, no rule reads it. */
+  favourites?: number[];
+  /** Favourites who died, for their last card (the newest last). */
+  favouritesGone?: number[];
+  /** The town's close calls, for the Journal and the raid's recap (sim/closeCalls.ts). */
+  closeCalls?: import('./closeCalls').CloseCall[];
   feastDue?: { kind: 'wedding' | 'feast'; text: string; x?: number; y?: number; lead?: number[] };
   gathering?: { kind: 'funeral' | 'great_funeral' | 'wedding' | 'feast' | 'rite' | 'festival'; ids: number[]; until: number; text: string; x: number; y: number; from?: number; walk?: { x: number; y: number; until: number }; festival?: string };
   /** The season's festival under way or being made ready, and those of the years before (sim/festivals.ts). */
@@ -1324,6 +1352,10 @@ export interface GameState {
   /** The mythic callings the town has seen (data/mythic.ts): who, which, the line told, and when; and an omen after
    *  an ascension, spent on the next to take a calling (sim/classes.ts `mythicRoll`). */
   mythics?: { id: number; road: string; line: string; tick: number }[];
+  /** The rare things the town has seen that nothing else keeps, for the legends shelf (panel/shelfPanel.ts): the bosses
+   *  slain (by enemy id), the top deed titles won, the special newcomers found out (by kind). Each id once, in the order
+   *  seen; filled where the thing already happens (sim/seen.ts). */
+  seen?: { bosses?: string[]; deeds?: string[]; specials?: string[] };
   mythicOmen?: boolean;
   yearStart?: YearStart;
   yearRaids?: { came: number; won: number; pillaged: number; watched?: number };
@@ -1431,6 +1463,10 @@ export interface GameState {
   nextEventTick?: number;
   /** When the last fateful event (data/fatefulEvents.ts) came. */
   lastFateful?: number;
+  /** The fateful choices the player has made, and what came of each (sim/fates.ts), oldest first. */
+  fates?: import('./fates').Fate[];
+  /** The founder's chosen heir (a stranger taken in by a fateful choice: sim/events.ts `adopt`); heirOf prefers them. */
+  heirId?: number;
   /** The town's alignment, good to evil (sim/alignment.ts). */
   align?: import('./alignment').AlignState;
   /** When a wanderer last came to the gate (arrivals are a question to the player, and come no oftener than
@@ -1457,8 +1493,10 @@ export interface GameState {
   taxHeavySince?: number;
   eventLog?: string[];
   marks?: { lever: string; value: number; until: number; text: string }[];
+  /** A homecoming the player should see (sim/expeditions.ts `comeHome`): where the party came in at the gate. */
+  homecoming?: { tick: number; x: number; y: number; expedition: number };
   /** Effects waiting their hour: a top-level `later` of an answer (by its place), or one met deeper (its effects kept). */
-  eventLater?: { tick: number; event: string; option: number; index: number; who?: number; effects?: EventEffect[] }[];
+  eventLater?: { tick: number; event: string; option: number; index: number; who?: number; effects?: EventEffect[]; fate?: number }[];
   /** Where the town's coins came from and went, today and yesterday (see earn). */
   ledger?: { day: number; today: Ledger; yesterday: Ledger | null };
 }

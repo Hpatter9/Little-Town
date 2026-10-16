@@ -52,7 +52,15 @@ export function renderResearch(s: Snapshot, bridge: Bridge | undefined, rerender
     const fill = el('div', 'bar-fill');
     fill.style.width = `${Math.floor(p * 100)}%`;
     bar.append(fill);
-    row.append(el('span', 'queue-name', `${i + 1}. ${pick >= 0 ? '✋ ' : ''}${nameOf(s, id)}`), bar, el('span', 'queue-time', `${Math.floor(p * 100)}% · ${duration(remaining(s, t))} left · ${pick >= 0 ? 'your pick' : 'the town\'s choice'}`));
+    // (the name is tappable: its card, with what the topic unlocks, opens under the row)
+    const open = selected === id;
+    const name = el('span', open ? 'queue-name tappable open' : 'queue-name tappable', `${i + 1}. ${pick >= 0 ? '✋ ' : ''}${nameOf(s, id)} ${open ? '▾' : '▸'}`);
+    name.title = 'What this research does';
+    name.addEventListener('click', () => {
+      selected = open ? null : id;
+      rerender();
+    });
+    row.append(name, bar, el('span', 'queue-time', `${Math.floor(p * 100)}% · ${duration(remaining(s, t))} left · ${pick >= 0 ? 'your pick' : 'the town\'s choice'}`));
     if (pick >= 0) {
       // (reordered among the player's picks)
       if (pick > 0) row.append(button('▲', () => move(id, -1), { cls: 'place small', title: 'Earlier' }));
@@ -62,9 +70,10 @@ export function renderResearch(s: Snapshot, bridge: Bridge | undefined, rerender
     }
     row.append(button('Remove', () => send('cancelResearch', id), { cls: 'place small', title: 'Progress is kept if you pick it again' }));
     queue.append(row);
+    if (open) queue.append(card(t, s, bridge));
   });
   out.push(queue);
-  out.push(el('div', 'hint', r.picked.length ? '✋ Your picks are studied first, in your order. The town fills the rest of the queue itself.' : 'The town chooses what to study. Tap a topic in the tree and Pick it to have it studied first.'));
+  out.push(el('div', 'hint', `Tap a topic's name to see what it does. ${r.picked.length ? '✋ Your picks are studied first, in your order. The town fills the rest of the queue itself.' : 'The town chooses what to study. Tap a topic in the tree and Pick it to have it studied first.'}`));
   if (r.seat) out.push(el('div', r.seat.next && !r.seat.building ? 'lock' : 'hint', seatLine(r.seat)));
 
   // where it's studied: one person at each station, each on a topic of their own where there is one
@@ -86,7 +95,8 @@ export function renderResearch(s: Snapshot, bridge: Bridge | undefined, rerender
       rerender();
     }),
   );
-  if (selected && TOPIC_BY_ID[selected]) out.push(card(TOPIC_BY_ID[selected], s, bridge));
+  // (a queued topic's card is already open under its queue row)
+  if (selected && TOPIC_BY_ID[selected] && !r.queue.includes(selected)) out.push(card(TOPIC_BY_ID[selected], s, bridge));
   const next = nextEra(era);
   if (next && TOPICS.some((t) => t.era === next)) out.push(el('div', 'hint', `More research opens in the ${ERA_NAMES[next]} era.`));
   return out;

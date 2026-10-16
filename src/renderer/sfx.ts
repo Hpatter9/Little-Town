@@ -32,6 +32,9 @@ export interface View {
   h: number;
 }
 
+/** A rare thing revealed on the phone (mobile/revealCard.ts): a soft rising bell, in the middle. */
+export const REVEAL_SOUND: Sound = { cue: 'reveal', pan: 0, delay: 0 };
+
 /** The most of one kind a snapshot plays. */
 const MOST = 2;
 /** Ticks: a blow struck or landed since the last snapshot. */

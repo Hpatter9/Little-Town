@@ -71,6 +71,7 @@ import { isChild } from './social';
 import { childTask, lessonSpot } from './lineage';
 import { pastimeActivity, pastimeFor } from './pastimes';
 import { tagStep, TAG_RETARGET } from './idleScenes';
+import { closeCall } from './closeCalls';
 
 /** Walking speed in world pixels per second. */
 export const WALK_SPEED = 48;
@@ -593,6 +594,7 @@ function doTend(s: GameState, p: Person, task: Extract<Task, { type: 'tend' }>, 
   if (dressing) s.items[dressing] -= 1;
   if (dressing || rng.chance(tendChance(p.skills.medicine.level))) {
     stabilize(q);
+    closeCall(s, q, `${q.name} nearly bled out${s.raid?.phase === 'active' ? ' in the raid' : ''}; ${p.name} stopped the bleeding.`); // (sim/closeCalls.ts)
     addDeed(p, 'healed');
     notify(s, `${p.name} stopped ${q.name}'s bleeding${dressing ? ` with a ${dressing}` : ''}.`);
     p.task = null;

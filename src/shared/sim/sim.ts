@@ -132,6 +132,7 @@ import { boatsHourly } from './boats';
 import { seafaringHourly } from './seafaring';
 import { oddsHourly } from './raidOdds';
 import { voteSettlementName } from './settlementName';
+import { setFavourite } from './favourites';
 
 /** How the town trades at its shop: the planner decides what's spare and what to buy. */
 const SHOP_TOWN: ShopTown = { forSale, wants: shoppingList };
@@ -516,6 +517,9 @@ export class Sim {
         break;
       case 'battleCast':
         castAt(s, c.power, this.rng, [c.x, c.y]);
+        break;
+      case 'favourite':
+        setFavourite(s, c.id, c.on);
         break;
       case 'watch':
         s.watching = c.expedition !== null && (s.expeditions.some((e) => e.id === c.expedition) || !!skirmishTrip(s, c.expedition) || !!arenaTrip(s, c.expedition)) ? c.expedition : undefined;

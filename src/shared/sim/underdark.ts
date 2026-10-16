@@ -36,6 +36,7 @@ import { askWays } from './telling';
 import { foundVillage, pickSettlers, villageById } from './villages';
 import { addStock, earn, maxHp, notify, type Building, type GameState, type Person, type Prompt } from './state';
 import { calendar, paceDay, TICKS_PER_DAY, TICKS_PER_HOUR } from './time';
+import { closeCall } from './closeCalls';
 
 export interface UnderSite {
   id: number;
@@ -512,6 +513,7 @@ export function caveIn(s: GameState, p: Person, g: Rng, cell?: number): void {
   p.hp = Math.max(1, p.hp - hurt);
   woundPerson(s, p, hurt, 'fracture', g);
   notify(s, `The roof comes down in the tunnels below: ${p.name} is dug out with broken bones.`, true);
+  closeCall(s, p, `${p.name} was nearly buried when the roof came down below, and was dug out alive.`); // (sim/closeCalls.ts)
 }
 
 /* ------------------------------------------------------------ the hour */
@@ -877,6 +879,7 @@ function dangers(s: GameState, u: Underdark, r: Uint8Array, dark: boolean): void
         const hurt = maxHp(p) * 0.35;
         p.hp = Math.max(1, p.hp - hurt);
         woundPerson(s, p, hurt, 'bruise', g);
+        closeCall(s, p, `${p.name} was nearly drowned when the river flooded the tunnels below.`); // (sim/closeCalls.ts)
       }
     }
     notify(s, `The underground river breaks into the town's tunnels and floods the shaft${lost.length ? `: ${lost.join(' and ')} drowned` : ''}. The miners are driven out, and nobody works the ways down until it drains.`, true);

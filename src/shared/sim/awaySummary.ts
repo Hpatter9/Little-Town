@@ -8,6 +8,8 @@ import { ITEM_BY_ID } from '../data/items';
 import { PLACE_DEFS } from '../data/places';
 import type { RaidRecap } from './raidRecap';
 import type { GameState } from './state';
+import { favouriteAwayLines, favouritesOf } from './favourites';
+import { describe } from './snapshot';
 
 export interface AwayBefore {
   tick: number;
@@ -18,6 +20,8 @@ export interface AwayBefore {
   uniques: number;
   raids: RaidRecap[];
   lastRecap: RaidRecap | undefined;
+  /** The favourites when the player left (sim/favourites.ts). */
+  favourites?: { id: number; name: string }[];
 }
 
 export type AwayTone = 'bad' | 'good' | 'ask' | 'news';
@@ -36,6 +40,7 @@ export function awayBefore(s: GameState): AwayBefore {
     uniques: s.uniques?.length ?? 0,
     raids: [],
     lastRecap: s.raidRecap,
+    favourites: favouritesOf(s).map((id) => ({ id, name: s.people.find((p) => p.id === id)?.name ?? '' })),
   };
 }
 
@@ -55,12 +60,15 @@ export function awaySummary(s: GameState, b: AwayBefore): AwayLine[] {
   awayWatch(s, b);
   const out: AwayLine[] = [];
   const now = new Set(s.people.map((p) => p.id));
+  // the favourites first, one line each (sim/favourites.ts), and not told again below
+  const fav = new Set((b.favourites ?? []).map((f) => f.id));
+  const favs = favouriteAwayLines(s, b.favourites ?? [], b.tick, (p) => describe(s, p));
   // the dead (from the annals, with how), and anyone else gone from the town
-  const dead = (s.fallen ?? []).filter((f) => !b.fallen.has(f) && b.people.has(f.id));
+  const dead = (s.fallen ?? []).filter((f) => !b.fallen.has(f) && b.people.has(f.id) && !fav.has(f.id));
   for (const f of dead.slice(0, MOST_NAMED)) out.push({ tone: 'bad', text: `${f.name} died ${f.cause}.` });
   if (dead.length > MOST_NAMED) out.push({ tone: 'bad', text: `${dead.length - MOST_NAMED} more died.` });
   const deadIds = new Set(dead.map((f) => f.id));
-  const left = [...b.people].filter((id) => !now.has(id) && !deadIds.has(id)).length;
+  const left = [...b.people].filter((id) => !now.has(id) && !deadIds.has(id) && !fav.has(id)).length;
   if (left) out.push({ tone: 'bad', text: `${left === 1 ? 'One' : left} left the town.` });
   // raids and how they ended
   for (const r of b.raids) {
@@ -83,5 +91,6 @@ export function awaySummary(s: GameState, b: AwayBefore): AwayLine[] {
   // what waits on the player
   const asks = s.prompts.length;
   if (asks) out.push({ tone: 'ask', text: asks === 1 ? `A question waits: ${s.prompts[0].title}.` : `${asks} questions wait for you.` });
-  return out;
+  // (a favourite who is simply well is no reason for the card by itself)
+  return out.length || favs.some((l) => l.tone !== 'good') ? [...favs, ...out] : [];
 }

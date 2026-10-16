@@ -38,6 +38,8 @@ export interface SheetHooks {
   /** Go on to the older page with every detail. */
   more: () => void;
   rerender: () => void;
+  /** The ♥: whether they're followed, whether another can be (sim/favourites.ts: three at most), and the tap. */
+  favourite?: { on: boolean; full: boolean; toggle: () => void };
 }
 
 const bar = (cls: string, value: number, text: string): HTMLElement => {
@@ -94,7 +96,17 @@ function head(p: PersonView, s: Snapshot, hooks: SheetHooks): HTMLElement {
   }
 
   const who = el('div', 'pc-who');
-  who.append(el('div', 'pc-name', `${p.name}${p.id === s.mainId ? ' (you)' : ''}`), el('div', 'pc-doing', p.away !== null ? `Away on an expedition: ${p.away}` : p.doing));
+  const name = el('div', 'pc-name', `${p.name}${p.id === s.mainId ? ' (you)' : ''}`);
+  // (the ♥: follow them, a view preference only: sim/favourites.ts)
+  const fav = hooks.favourite;
+  if (fav) {
+    const heart = el('button', `pc-fav${fav.on ? ' on' : ''}`, fav.on ? '♥\uFE0E' : '♡');
+    heart.title = fav.on ? 'Following: tap to stop' : fav.full ? 'You follow three already: unfollow one first' : 'Follow them';
+    heart.disabled = !fav.on && fav.full;
+    heart.addEventListener('click', fav.toggle);
+    name.append(heart);
+  }
+  who.append(name, el('div', 'pc-doing', p.away !== null ? `Away on an expedition: ${p.away}` : p.doing));
   const chips = el('div', 'pc-chips');
   if (p.clsName) chips.append(chip(`${p.clsName} · Lv ${p.level}`, 'calling'));
   else chips.append(chip(p.typeName));
@@ -108,6 +120,7 @@ function head(p: PersonView, s: Snapshot, hooks: SheetHooks): HTMLElement {
   }
   if (p.sick) chips.append(chip('Sick', 'warn'));
   if (p.grieving) chips.append(chip('Grieving', 'warn'));
+  if (p.shaken) chips.append(chip('Shaken', 'warn')); // (a close call a little while ago: sim/closeCalls.ts)
   if (p.breakdown) chips.append(chip(p.breakdown, 'warn'));
   if (p.freePts > 0) chips.append(chip(`${p.freePts} stat ${p.freePts === 1 ? 'point' : 'points'} to spend`, 'title'));
   who.append(chips);

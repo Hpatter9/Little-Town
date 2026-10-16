@@ -7314,3 +7314,187 @@ by day 40 where 170 to 410 were before) and its ring's box is often a step wider
 town (the fixture and hash-a..d: buildings stand elsewhere); `tools/perf-sim.mjs` on the fixture: step 1.22 ms against
 1.29, catching up two days 25.1 s against 24.8 s. `layoutSpot` costs 5 to 20 ms a call on the fixture (desktop), asked
 only when something is placed.
+
+## A queued study's card opens under its row (0.137.0)
+
+The research queue's rows name the topics but gave no way to see what each does: the card lived only under the
+tech tree. Now a queue row's name is tappable (`.queue-name.tappable` in `panel/researchPanel.ts`, a dotted
+underline and a ▸/▾ caret): tapping it opens the topic's card (what it unlocks, what it needs, the seat's stage,
+the pace for this people) right under that row, and tapping again closes it. The card uses the same `selected`
+the tree uses, so it is in the panel's redraw key; when the selected topic is in the queue the tree no longer
+shows a second copy under itself. The queue hint now opens with "Tap a topic's name to see what it does."
+Renderer only.
+
+## Reveals: rare moments, opened hauls and the legends shelf
+
+The owner's aim: rare things should feel rare, and rewards should be opened, not listed. Three parts, all on the phone,
+none adding a draw or a control.
+
+**The rare-moment cards** (`mobile/revealCard.ts`, the words in `mobile/reveals.ts`). A full-screen card slides up
+(under 250 ms; still with reduced motion) when something rare happens: a mythic calling comes among the town (violet,
+the calling's emblem), a unique weapon is found or forged (gold, its icon), a legend at the gate is found out (the
+veiled Champion, the Archmage, the heir: `LEGENDARY_SPECIALS`; the troubles, plague, curse and the rest, aren't cards),
+a dweller of the Underdark slain, the dragon sighted and slain, a saga ended, a deed ladder's top title won. Each shows
+the picture large, the kind, the name, a line of lore and a rarity line in the game's voice ("Few towns ever see one").
+One tap closes it; several queue. They are held while a raid, the tactics board, a watched fight, the mine or the
+Deep, a cutscene, the event box or the "While you were away" card has the screen, and while the town catches up, and
+show after. The keys shown are kept per town seed (`littletown.reveals`), so each comes once; a town first seen on the
+phone (or a new one founded) starts with all it already has, unshown. The ☰ menu's "Reveal cards: on/off" turns them
+off (`littletown.revealsOff`). A soft rising bell plays with each (`reveal` cue in `ambience.ts`, `REVEAL_SOUND` in
+`sfx.ts`, through the strip's `__ambience`). The API for other pages (milestones, a favourite's death):
+`showReveal({ kind, title, lore?, rarity?, tone?, img?, art?, icon?, key?, haul? })`, tone one of `mythic`, `unique`,
+`legend`, `dark`, `gold`; `key` drops a repeat. `window.__reveal` is the same, for previews.
+
+**Hauls opened like a chest** (in `revealCard.ts`; the order in `reveals.ts` `haulOrder`). The renderer keeps each
+party's loot as last seen in the snapshot; when the party leaves the list (home: `comeHome` in sim/expeditions.ts), its
+haul opens line by line (`LINE_MS` 320), the commonest first by `WORTH` (data/trade.ts), the dearest last after a pause
+(`RARE_PAUSE_MS` 650) with a glow when it's worth `RARE_WORTH` (9: gold and up) or more. A unique found as it came home
+comes last of all, glowing, and takes the place of its own card. A dweller slain on that trip adds its hoard
+(`DEPTH_BY_N[n].hoard`), so the Lost Hold and the deep lairs open the same way; delves too ("The delvers are home"). The
+first tap lays out what's left; the next closes. Hauls that came home while the town caught up are left to the away card.
+
+**The legends shelf** (`panel/shelfPanel.ts`, the Chronicle's new **Shelf** tab beside Legends in
+`panel/journalPanel.ts`; its key `shelfKey` joins the Chronicle's redraw key in `panel/panel.ts`). Every rare thing the
+town has seen, as folded sections with counts ("Mythic callings: 1 of 5 mythic lines"): the mythic trees, the unique
+weapons, the secrets at the gate, the sagas, the Underdark's dwellers, the Dragon, the legendary deeds, and the bosses
+(`SHELF_BOSSES`: every foe with a boss's kit but the dragons and the dwellers). A tile is the sprite when seen (glowing
+for a mythic, a unique or the dark), a dark shape with a "?" while not; hold one for its lore (`data-tip`). The
+Chronicle draws its own filter tabs rather than `GROUPS` sub-tabs, so `panel/subtabs.ts` is unchanged.
+
+**The record** (`sim/rare.ts` `rareView`, the snapshot's optional `rare`). Read from what the sim already keeps:
+`s.mythics`, `s.uniques`, `s.sagasDone`, the Underdark's `deeps[n - 1].slain`, `s.dragon`. What nothing kept is noted in
+a new optional `s.seen` (`sim/seen.ts` `noteSeen`: each id once, with the autopilot on only): `bosses` (in `bossSlain`,
+sim/bosses.ts), `deeds` (a ladder's top title, `TOP_DEED_TITLES`, in `awardDeedTitles`, sim/deeds.ts), `specials` (a
+secret found out, in `reveal` and the saboteur's strike, sim/specials.ts). No draws: the sim-hash with `seen` left out
+is the same as before. Tests: `test/seen.test.ts`, `test/reveals.test.ts`.
+
+Changes the HISTORY.md sections "Titles from deeds", "Special newcomers", "Epic bosses" (the bosses' notes under
+"Raids") and "The annals" (the Chronicle's tabs) only by the recording above.
+
+## Favourites, obituaries and close calls
+
+Stakes you feel (the owner's aim: the player cares about particular people, and a death lands). Three parts, none of
+which changes how a town plays: no draws from the town's stream, no ids taken, and no rule reads any of it.
+
+**Favourites** (`sim/favourites.ts`). The player may follow up to `FAVOURITES_MOST` (3) townsfolk: the ♥ beside the name
+on the character sheet (`panel/personCard.ts`, the `favourite` command: `{ type: 'favourite', id, on }`, checked in
+`sim/commands.ts`, applied in `sim/sim.ts` through `setFavourite`; `favouriteRefusal` says why not). Kept on the optional
+`GameState.favourites` (dropped when empty); older saves have none. A view preference only.
+- The "While you were away" card (`sim/awaySummary.ts`, changes "A plain return"): `awayBefore` notes the favourites
+  (`favourites`, with their names), and `favouriteAwayLines` puts one line each first: died (and how), their close call
+  since, or "♥ Mira is well: working at the forge" (`describe`, now exported from `sim/snapshot.ts`). A favourite's death
+  or leaving is not told again below. A favourite who is simply well is no reason for the card by itself.
+- The news bubble (`mobile/notices.ts`, changes "The news bubble"): `stakeNotices`, one separate pass over the Journal's
+  notices: a line naming a favourite (living, or died since) gets a ♥ (title and mark); a close call is gold, marked ✚,
+  with who it befell; "X has died" gets an "Obituary" button (kind `obit`); a dead favourite's funeral line ("…to lay X
+  to rest", "…to bury its dead: …") gets "Watch" (kind `funeral`).
+- The top bar's turn of lines (`ui/topBar.ts` `topLines`): "♥ Mira: working at the forge", a different favourite each
+  game hour.
+- The People tab (`panel/townsfolkPanel.ts` `followedRow`): their faces at the top, a tap opens each (with "Away",
+  "Down!", "Shaken" or their doing). With nobody followed, the tip "Tap ♥ on someone to follow them." shows in one
+  sitting only (`littletown.favouriteTip`). `townsfolkKey` has `s.favourites` and the inspected one's `shaken`.
+- A favourite's death (`favouriteDied`, from `recordFallen`): their slot frees, and their id goes on
+  `s.favouritesGone` (the last `FAVOURITES_GONE_KEPT`, 6). The phone page (`mobile/obituaryReveal.ts`
+  `watchFavourites`) shows their obituary card once (`littletown.favouritesMourned`), with the last line "Your place
+  among the followed is free."
+- Name-days for the calendar: `nameDays(s)` gives each favourite's season and day (the day they were born; for those
+  born before the town or come from elsewhere, a day their id gives).
+
+**Obituaries** (`sim/obituary.ts`, changes "The annals"). `recordFallen` keeps `Fallen.obit` (optional; older fallen have
+none), written once as they die so it never shifts: `age`, `line` (their nature's own words for how they died,
+`data/natures.ts` `say` by `topicOfCause`: old, hungry, sick, sea, raid, else idle; picked on the side stream
+`${seed}:obit:${id}`), `leaves` (partner, children), `known` (their two biggest deeds in words, `DEED_WORDS`, raiders
+felled, trips; "leading the town" for the leader), and their `look`, `gear`, `cls`, `stage`, `founder` for a portrait.
+`obituaryLines(f)` tells it in a few lines. Note `s.honoured` (sim/memorials.ts) holds the same fallen record, so the
+obituary shows there too.
+- The portrait of the dead: `art/fallenFace.ts` `fallenFace(f, size)`, from the kept look (Himeko layers); the strip's
+  `__picture({ fallen })` draws it for the page.
+- Shown as a card (`mobile/obituaryReveal.ts` `showObituary`, through claude/reveals' `showReveal` with tone `dark`, the
+  portrait canvas as `art`, and a key for a favourite's card only, so the news can open anyone's again): for favourites, by itself; for anyone, from the news line's "Obituary";
+  and in the Chronicle's Heroes tab, where each of the fallen now opens on a tap to show it (`panel/heroesPanel.ts`
+  `obituaryBox`, open ones kept in `openFallen` across redraws).
+- "Watch": the reveal card has no buttons (one tap closes it), so "Watch" is on the news line of a favourite's funeral:
+  the strip's `__showOnMap({ funeral: id })` (`main.ts`) takes the camera to a funeral under way, else their grave
+  (`graves.posOf`), else the graveyard. Read-only. Funerals themselves are unchanged ("Step 7, life's ceremonies"):
+  every funeral is already announced in the Journal, naming the dead; a favourite's gets the ♥ and "Watch".
+**Close calls** (`sim/closeCalls.ts`). `closeCall(s, p, text)` where someone nearly died and did not, at events that
+already fire:
+- bleeding stopped by a townsperson (`sim/people.ts` `doTend`): "Bram nearly bled out in the raid; Osric stopped the
+  bleeding.";
+- a medkit on the spot (`sim/health.ts` `knockDown`);
+- a raid that left someone standing with `SLIVER` (20%) of their health or less, told as the recap is put together
+  (`raidCloseCalls`, from `sim/raidRecap.ts`), which also adds the raid's close calls of those who fought to the
+  recap's story;
+- a cave-in dug out alive, a flood below survived (`sim/underdark.ts`);
+- a plague that turned (`sim/doom.ts` `spreadPlague`).
+Kept on the person (`Person.closeCalls`, the last `CLOSE_CALLS_KEPT`, 3) and the town (`GameState.closeCalls`, the last
+`TOWN_CLOSE_CALLS`, 40, each with `after`: the last id taken when it happened). The Journal's view (`journalView` in
+`sim/snapshot.ts`) weaves them in just after that entry (a fractional id, `close` naming who), so they are in the
+Chronicle and the news without taking an id or a place in `s.journal`. "Shaken" shows on their card and in the
+followed row for `SHAKEN_HOURS` (12) after (`PersonView.shaken`, `isShaken`): a label, no effect. Their diary
+(`sim/diary.ts` `nearly`) tells it in their words that day ("I nearly bled out; Osric stopped the bleeding. I could have
+died.", `nearlyMine`) and for `NEARLY_DAYS` (3) after ("I keep thinking of how close I came.").
+
+**Checks.** `test/favourites.test.ts`: the command's limits, a favourite's death, older saves, the obituary builder, the
+close calls (medkit, tending, a raid's sliver) and their place in the Journal, the away card's order, the news marks.
+`tools/sim-hash.mjs`: hash-b, hash-c and hash-d unchanged; the fixture and hash-a change only by the new fields (an
+obituary on each of the fallen and on `s.honoured`, close calls on people and the town, recap lines): with those
+stripped, all five match main.
+
+## The stakes: an expedition is a bet, a fateful choice is remembered (changes HISTORY "Sending a party yourself", "Expedition stakes", "Fateful events", "Events told in full")
+
+The two levers the player has, made weighty. No new controls: the existing send flow and the event box are richer.
+
+**The stake card** (`src/shared/sim/stakes.ts`, drawn by `panel/musterPanel.ts`). On the sheet for raising a party,
+above the roster: the odds in words, the party's portraits (the leader in gold), "They seek" (the errand, likely finds,
+a bounty, a quest on the place), "The town risks" (the lives with their levels, the pieces of gear that go with them,
+the food packed, any purse) and how long they'll be gone, then one warning line. `musterView().stake` is the card
+(`stakeCard`). The odds are worked out, never drawn: `homeShare(ratio)` is the share of the party expected home, a
+logistic in the party's strength over the place's danger (`HALF_AT` 0.7, `STEEPNESS` 3.2; a bold trip counts the danger
+`BOLD_DANGER` 1.25 times, as `oddsLine` already did); the words are the bands of that share (`ODDS_WORDS`: Sure to come
+home, Likely to return, A hard road: some may fall, Half may not come home, Most may not come home, They go to their
+deaths; a place with nothing to fight reads "Nothing to fear but the road"). `oddsWordFor` is the only place a word is
+chosen, and `test/stakesCard.test.ts` checks the word is only said inside its band at every ratio. The warning
+(`warningFor`): the founder goes, else a favourite goes (`favouritesOf(s)` reads `s.favourites?: number[]` from
+claude/favourites if present; none is added here), else the leader. The leader's own quote (`oddsLine`, `ODDS`) is
+unchanged.
+
+**The homecoming** (`sim/muster.ts` `debrief`, `Prompt.debrief`, `PromptView.debrief`). The result prompt now carries
+`Debrief`: who came back (with a word on how: a level, wounds, carried in), who did not, and the haul. The title says
+how many came home ("The Ruined Keep: 3 of 4 came home"). `mobile/eventSheet.ts` `debriefBlock` leads with "Came
+home" (portraits), then "Did not come home" (a red panel with ✝), then "What they brought". **The haul sits in
+`.debrief-haul` with `data-slot="loot-reveal"`: that is the place for claude/reveals' item-by-item reveal**; for now
+it lists the haul plainly. `comeHome` (sim/expeditions.ts) sets `s.homecoming` for a commanded or watched party, and
+`snapshot.homecoming` makes `main.ts` centre the camera on the gate they come in at, once (`homecomingSeen`), when
+the player is not on a watch screen.
+
+**Fateful events, rarer and bigger** (`data/fatefulEvents.ts`). `FATEFUL_GAP_DAYS` 4 to 10 and `FATEFUL_WEIGHT` 6 to 3
+(about one fateful event in ten, a town meets one every couple of weeks). Five new events, each with a delayed
+consequence (`later`): `stranger_at_the_gate` (a stranger named heir, `s.heirId`, who `heirOf` prefers; hunters
+follow, then a lord pays), `hollow_tithe` (good years, and a life at the end: `later` kill of the event's person),
+`shrine_in_the_wood` (a god's favour moved, a wayside shrine laid down, a blessing lands), `warlords_oath` (a peace
+now, a call on the town's coin and young later), `the_deep_well` (learning and gems, then sickness). New effects in
+`eventKit.ts`/`sim/events.ts`: `adopt(type)` and `favour(god | 'all', by)`. `FATE_LATER_DAYS` (21) is how long a
+fateful consequence may take to land (the all-answers test waits that long for fateful events, 3 days for the rest).
+`EventDef.remember` is how the Chronicle names a choice.
+
+**Remembered** (`sim/fates.ts`, `s.fates?: Fate[]`, at most `FATES_KEPT` 40). `answerEvent` records a fateful answer
+(day, title, the answer, what came of it at once: the effects' lines plus notes and deaths) with `recordFate`; a
+`later` met under it carries `fate` (the tick answered) and `fateLanded` adds the consequence line. A fateful answer
+is resolved on its own stream `new Rng(hashSeed(`${seed}:fates:${tick}`))` (`fateRng` in sim/events.ts), so it draws
+nothing from the town's. `snapshot.annals.fates` feeds a "Fateful choices" section at the top of the Chronicle's
+Heroes tab (`panel/heroesPanel.ts`; folded by `foldSections`, its entries keyed into the Chronicle's redraw key in
+`panel.ts`): "Day 34: the night you let the stranger in", the answer, the result, and "Later: ..." (or "the
+consequence has not landed yet").
+
+**The event box** (`mobile/eventSheet.ts`, `mobile/index.html`). `Prompt.fateful`: `#event-sheet.fateful` has a frame
+2.4 cuts thick (the 0.133.0 `--ui-cut` variable, with the `ui-frame-big` class on the body), a vignette on the picture,
+a centred title, and a reveal: the title, then the telling a paragraph at a time (300 ms apart, each step 380 ms), then
+the answers, which cannot be tapped until they're there. Nothing moves with reduced motion.
+
+Tests: `test/stakesCard.test.ts` (odds words in their bands, a bold trip reads worse, the card, the result's parts, the
+fateful rate constant, fate recording and its own stream, the bargain and the shrine); `test/events.test.ts` (the event
+count is 567; the all-answers test waits `FATE_LATER_DAYS` for fateful events; the let-it-burn test varies the seed,
+since a fateful answer no longer takes its dice from the stream passed in).
+
+**Checks.** `tools/sim-hash.mjs`, before to after. 6 days: the late-town fixture 9803566bfd19 (unchanged: it runs with no events), settlers 41304b3d20b4 to 96ba0eda5025, knights e92bb1b03214 (unchanged), vampire 9844858b381f to 8e33bd79c9d1, dwarves 3db54df8a874 to 9d60d32c0266. 20 days: fixture unchanged; settlers 267ab49a06cd to 9bdcb177f697, knights de8465d020e3 to 3606de46d237, vampire 1a3b3ebe1de3 to fb5ff738fdde, dwarves d3ec56f098b9 to 637712daf992. The moves are the fateful events' rate (a fateful event now comes later, so the town's events differ from the first one on) and their stream (a fateful answer no longer draws from the town's). `tools/soak.mjs 40 2 settlers,vampire`, before to after: settlers deaths 7.0 to 10.5 (people 13.0 to 8.0), vampire deaths 6.5 to 5.5 (people 6.5 to 8.0), none wiped out: the deaths did not collapse. Phone screenshots (393x852 and 852x393): `docs/notes/stakes-shots/` (the fateful box, the stake card, the homecoming).
