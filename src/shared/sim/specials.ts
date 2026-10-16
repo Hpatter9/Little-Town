@@ -28,6 +28,7 @@ import { minorWound } from './injuries';
 import { canQueue } from './research';
 import { assignBeds, gainSkill } from './townsfolk';
 import { take } from './events';
+import { noteSeen } from './seen';
 import { topicName } from '../data/originResearch';
 
 const def = (p: Person): SpecialDef => SPECIALS[p.secret!.id];
@@ -241,6 +242,7 @@ function strike(s: GameState, p: Person, rng: Rng, hour: number): boolean {
       s.people = s.people.filter((q) => q !== p);
       assignBeds(s);
       sec.struck = sec.found = sec.settled = true;
+      noteSeen(s, 'specials', sec.id);
       notify(s, `Before dawn the town woke to find ${gates ? 'the gate standing open, its bar sawn through, ' : ''}the traps sprung and the bowstrings on the towers cut. ${p.name} is gone. They were never a refugee: they were sent.`, true);
       const raid = menRaid(s, rng, 1.2, `${p.name}'s clan is at the gate!`, `They came out of the dark the moment the traps were sprung. There is no time.`);
       raid.arrivesTick = s.tick + Math.round(TICKS_PER_HOUR / 12);
@@ -301,6 +303,7 @@ function reveal(s: GameState, p: Person, how: string): void {
   const sec = p.secret!;
   const d = def(p);
   sec.found = true;
+  noteSeen(s, 'specials', sec.id); // (the legends shelf: sim/seen.ts)
   const truth = named(d.truth, p);
   const options = d.options.map((o, i) => (sec.id === 'cursed' && i === 0 && (s.coins ?? 0) < CURSE_PRICE ? `${o.replace(/ \(\d+ coins\)/, '')} (the treasury has ${s.coins ?? 0})` : o));
   notify(s, `${d.name}: ${how}`, true);

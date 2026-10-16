@@ -2,6 +2,7 @@
 
 import { ancestryView, type AncestryView } from './ancestors';
 import { fightOnScreen } from './raidWait';
+import { rareView, type RareView } from './rare';
 import { townWhy, type WhyLines } from './whyLines';
 import { RING_SHAPE_NAMES } from '../data/ringShapes';
 import { deedLines } from './deeds';
@@ -1076,6 +1077,8 @@ export interface Snapshot {
   regions: string[];
   /** The unique weapons found (data/uniques.ts), in the order found, and who has each now (null: in storage). */
   uniques: { id: string; holder: string | null }[];
+  /** The rare things the town has seen (sim/rare.ts): the phone's reveal cards and the legends shelf. */
+  rare?: RareView;
   raid: RaidView | null;
   reputation: number;
   /** The town's alignment: the bar, its label, and the cast the town is tinted by (sim/alignment.ts). */
@@ -1381,6 +1384,7 @@ export function snapshot(s: GameState): Snapshot {
     scenesSeen: (s.scenesSeen ?? []).map((r) => ({ key: r.key, id: r.id, title: r.title, tick: r.tick })),
     blight: blightSources(s),
     uniques: (s.uniques ?? []).map((id) => ({ id, holder: s.people.find((p) => p.gear.weapon === id)?.name ?? null })),
+    rare: rareView(s),
     wild: wildView(s),
     roamers: (s.roamers ?? []).map((r) => ({
       id: r.id,

@@ -149,6 +149,15 @@
         min-width: 150px;
         font-weight: 700;
       }
+      /* (a research queue row's name opens the topic's card under it) */
+      .queue-name.tappable {
+        cursor: pointer;
+        text-decoration: underline dotted;
+        text-underline-offset: 3px;
+      }
+      .queue-name.tappable.open {
+        color: var(--accent, #e0b864);
+      }
       .queue-time {
         min-width: 110px;
         color: var(--text-dim);

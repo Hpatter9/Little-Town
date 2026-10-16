@@ -1336,6 +1336,10 @@ export interface GameState {
   /** The mythic callings the town has seen (data/mythic.ts): who, which, the line told, and when; and an omen after
    *  an ascension, spent on the next to take a calling (sim/classes.ts `mythicRoll`). */
   mythics?: { id: number; road: string; line: string; tick: number }[];
+  /** The rare things the town has seen that nothing else keeps, for the legends shelf (panel/shelfPanel.ts): the bosses
+   *  slain (by enemy id), the top deed titles won, the special newcomers found out (by kind). Each id once, in the order
+   *  seen; filled where the thing already happens (sim/seen.ts). */
+  seen?: { bosses?: string[]; deeds?: string[]; specials?: string[] };
   mythicOmen?: boolean;
   yearStart?: YearStart;
   yearRaids?: { came: number; won: number; pillaged: number; watched?: number };
