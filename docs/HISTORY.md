@@ -7314,3 +7314,13 @@ by day 40 where 170 to 410 were before) and its ring's box is often a step wider
 town (the fixture and hash-a..d: buildings stand elsewhere); `tools/perf-sim.mjs` on the fixture: step 1.22 ms against
 1.29, catching up two days 25.1 s against 24.8 s. `layoutSpot` costs 5 to 20 ms a call on the fixture (desktop), asked
 only when something is placed.
+
+## A queued study's card opens under its row (0.137.0)
+
+The research queue's rows name the topics but gave no way to see what each does: the card lived only under the
+tech tree. Now a queue row's name is tappable (`.queue-name.tappable` in `panel/researchPanel.ts`, a dotted
+underline and a ▸/▾ caret): tapping it opens the topic's card (what it unlocks, what it needs, the seat's stage,
+the pace for this people) right under that row, and tapping again closes it. The card uses the same `selected`
+the tree uses, so it is in the panel's redraw key; when the selected topic is in the queue the tree no longer
+shows a second copy under itself. The queue hint now opens with "Tap a topic's name to see what it does."
+Renderer only.
