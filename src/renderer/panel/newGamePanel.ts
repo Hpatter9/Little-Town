@@ -21,6 +21,7 @@ import { TICKS_PER_HOUR } from '../../shared/sim/time';
 import { loadLpc, lpcCanvas } from '../art/lpc/lpcCompose';
 import { FOUNDER_ID } from '../art/heroForms';
 import { button, el } from './dom';
+import { BIOME_SCENE, closeSheet, DANGER_GLYPH, DANGER_SCENE, figureSymbol, glyphSymbol, ORIGIN_GLYPH, ORIGIN_SCENE, SCENARIO_GLYPH, SCENARIO_SCENE, sceneSymbol, sceneWith, tileGrid, type Tile } from './newTownTiles';
 
 
 /* (kept while the panel re-renders, and between openings) */
@@ -72,32 +73,92 @@ function drawFounderArt(art: HTMLCanvasElement, id: string, look: (typeof FOUNDE
   });
 }
 
+/** A founder's picture for a tile or a scene. */
+function doll(f: (typeof FOUNDERS)[OriginId][number]): HTMLCanvasElement {
+  lpcReady ??= loadLpc();
+  const c = el('canvas', 'founder-art nt-doll');
+  c.width = c.height = 64;
+  drawFounderArt(c, f.id, f.look);
+  return c;
+}
+
 export function renderNewGame(snap: Snapshot, bridge: Bridge): HTMLElement[] {
-  const origins = el('div', 'cards');
-  const scenarios = el('div', 'cards');
+  const origins = el('div', 'nt-group');
+  const scenarios = el('div', 'nt-group');
   const founder = el('div', 'founder');
-  const biomes = el('div', 'cards');
-  const dangers = el('div', 'cards');
+  const biomes = el('div', 'nt-group');
+  const dangers = el('div', 'nt-group');
   const found = button('', () => {
     step = 0;
+    closeSheet();
     bridge.newGame(choices());
   }, { cls: 'place found next' });
 
   const drawOrigins = () =>
     origins.replaceChildren(
-      ...ORIGINS.map((id) => {
-        const o = ORIGIN_DEFS[id];
-        return pickCard(id === origin, o.name, `${o.description}\n${o.features.map((f) => `• ${f}`).join('\n')}`, () => ((origin = id), drawOrigins(), drawPlaces(), drawFounders()));
-      }),
+      tileGrid(
+        ORIGINS.map((id): Tile => {
+          const o = ORIGIN_DEFS[id];
+          return {
+            id,
+            name: o.name,
+            symbol: () => glyphSymbol(ORIGIN_GLYPH[id]),
+            scene: () => sceneWith(ORIGIN_SCENE[id], FOUNDERS[id].slice(0, 2).map(doll)),
+            lines: () => [o.description, ...o.features.map((f) => `• ${f}`)],
+          };
+        }),
+        origin,
+        (id) => ((origin = id as OriginId), drawOrigins(), drawPlaces(), drawFounders(), refreshChosen()),
+      ),
     );
   const drawScenarios = () =>
-    scenarios.replaceChildren(...SCENARIOS.map((sc) => pickCard(sc.id === scenario, sc.name, sc.description, () => ((scenario = sc.id), drawScenarios()))));
+    scenarios.replaceChildren(
+      tileGrid(
+        SCENARIOS.map((sc): Tile => ({
+          id: sc.id,
+          name: sc.name,
+          symbol: () => glyphSymbol(SCENARIO_GLYPH[sc.id] ?? ['Food', 7, 2]),
+          scene: () => sceneWith(SCENARIO_SCENE, Array.from({ length: Math.min(3, 1 + sc.companions.length) }, (_, i) => doll(FOUNDERS[origin][i % FOUNDERS[origin].length]))),
+          lines: () => [sc.description],
+        })),
+        scenario,
+        (id) => ((scenario = id), drawScenarios(), refreshChosen()),
+      ),
+    );
   const drawPlaces = () => {
     // (a shore people settles the coast and nowhere else: sim/sea.ts)
     const shore = ORIGIN_DEFS[origin].rules.shape === 'sea';
     if (shore) biome = 'coast';
-    biomes.replaceChildren(...(shore ? [el('div', 'hint', `${ORIGIN_DEFS[origin].name} settle the coast: half their land is the sea.`)] : BIOMES.map((b) => pickCard(b === biome, BIOME_DEFS[b].name, BIOME_DEFS[b].description, () => ((biome = b), drawPlaces())))));
-    dangers.replaceChildren(...DIFFICULTIES.map((d) => pickCard(d === difficulty, DIFFICULTY_DEFS[d].name, DIFFICULTY_DEFS[d].description, () => ((difficulty = d), drawPlaces()))));
+    biomes.replaceChildren(
+      ...(shore
+        ? [el('div', 'hint', `${ORIGIN_DEFS[origin].name} settle the coast: half their land is the sea.`)]
+        : [
+            tileGrid(
+              BIOMES.map((b): Tile => ({
+                id: b,
+                name: BIOME_DEFS[b].name,
+                symbol: () => sceneSymbol(BIOME_SCENE[b]),
+                scene: () => sceneWith(BIOME_SCENE[b], [doll(FOUNDERS[origin][0])]),
+                lines: () => [BIOME_DEFS[b].description],
+              })),
+              biome,
+              (id) => ((biome = id as Biome), drawPlaces(), refreshChosen()),
+            ),
+          ]),
+    );
+    dangers.replaceChildren(
+      tileGrid(
+        DIFFICULTIES.map((d): Tile => ({
+          id: d,
+          name: DIFFICULTY_DEFS[d].name,
+          symbol: () => glyphSymbol(DANGER_GLYPH[d]),
+          scene: () => sceneWith(DANGER_SCENE[d], [doll(FOUNDERS[origin][0])]),
+          lines: () => [DIFFICULTY_DEFS[d].description],
+        })),
+        difficulty,
+        (id) => ((difficulty = id as Difficulty), drawPlaces(), refreshChosen()),
+      ),
+    );
     found.textContent = origin === 'settlers' ? `Found a ${BIOME_DEFS[biome].name.toLowerCase()} town` : `Found ${ORIGIN_DEFS[origin].town} (${BIOME_DEFS[biome].name.toLowerCase()})`;
   };
 
@@ -108,39 +169,36 @@ export function renderNewGame(snap: Snapshot, bridge: Bridge): HTMLElement[] {
   nameInput.maxLength = MAX_NAME_LENGTH;
   nameInput.value = name;
   nameInput.addEventListener('input', () => (name = nameInput.value));
-  const cards = el('div', 'cards founders');
+  const cards = el('div', 'nt-group');
   const drawFounders = () => {
     const list = FOUNDERS[origin];
     if (!list.some((f) => f.id === pick)) pick = list[0].id;
     nameInput.placeholder = `Rename (or keep ${FOUNDER_BY_ID[pick].name})`;
-    lpcReady ??= loadLpc();
     cards.replaceChildren(
-      ...list.map((f) => {
-        const on = f.id === pick;
-        const c = el('button', `card pick founder-card${on ? ' on' : ''}`);
-        const art = el('canvas', 'founder-art');
-        art.width = art.height = 64;
-        drawFounderArt(art, f.id, f.look);
-        const body = el('div', 'founder-body');
-        const top = el('div', 'card-top');
-        top.append(el('span', 'card-name', f.name), el('span', 'card-size', on ? 'Chosen' : ''));
-        const levels = founderSkills(f.background);
-        const best = SKILLS.filter((k) => levels[k] > 2).sort((x, y) => levels[y] - levels[x]);
-        const skills = best.map((k) => `${SKILL_NAMES[k]} ${levels[k]}${f.background.passions.includes(k) ? ' ★' : ''}`).join(' · ');
-        const traitNames = f.traits.map((id) => TRAITS.find((x) => x.id === id)?.name ?? id).join(', ');
-        body.append(
-          top,
-          el('span', 'founder-title', f.title),
-          el('span', 'purpose', f.story),
-          el('span', 'founder-skills', `${f.background.name}: ${skills}`),
-          ...(FOUNDER_CLASS[f.id] ? [el('span', 'founder-skills founder-calling', `Calling: ${FOUNDER_CLASS[f.id].stages[0]} (theirs alone)`)] : []),
-          ...(traitNames ? [el('span', 'founder-skills', traitNames)] : []),
-          ...(f.brings?.length ? [el('span', 'founder-skills', `Comes with ${f.brings.map((b) => `${/^[aeiou]/.test(b) ? 'an' : 'a'} ${b}`).join(' and ')}`)] : []),
-        );
-        c.append(art, body);
-        c.addEventListener('click', () => ((pick = f.id), drawFounders()));
-        return c;
-      }),
+      tileGrid(
+        list.map((f): Tile => ({
+          id: f.id,
+          name: f.name,
+          symbol: () => figureSymbol(doll(f)),
+          scene: () => sceneWith(ORIGIN_SCENE[origin], [doll(f)]),
+          lines: () => {
+            const levels = founderSkills(f.background);
+            const best = SKILLS.filter((k) => levels[k] > 2).sort((x, y) => levels[y] - levels[x]);
+            const skills = best.map((k) => `${SKILL_NAMES[k]} ${levels[k]}${f.background.passions.includes(k) ? ' ★' : ''}`).join(' · ');
+            const traitNames = f.traits.map((id) => TRAITS.find((x) => x.id === id)?.name ?? id).join(', ');
+            return [
+              f.title,
+              f.story,
+              `${f.background.name}: ${skills}`,
+              ...(FOUNDER_CLASS[f.id] ? [`Calling: ${FOUNDER_CLASS[f.id].stages[0]} (theirs alone)`] : []),
+              ...(traitNames ? [traitNames] : []),
+              ...(f.brings?.length ? [`Comes with ${f.brings.map((b) => `${/^[aeiou]/.test(b) ? 'an' : 'a'} ${b}`).join(' and ')}`] : []),
+            ];
+          },
+        })),
+        pick,
+        (id) => ((pick = id), drawFounders(), refreshChosen()),
+      ),
     );
   };
   founder.append(cards, nameInput);
@@ -165,7 +223,15 @@ export function renderNewGame(snap: Snapshot, bridge: Bridge): HTMLElement[] {
 
   // one step at a time: the question, its choices, and Back / Next
   const wrap = el('div', 'wizard');
+  /** The step's current pick, named under its question. */
+  const chosenName = (): string =>
+    [ORIGIN_DEFS[origin].name, FOUNDER_BY_ID[pick].name, SCENARIOS.find((x) => x.id === scenario)?.name ?? '', BIOME_DEFS[biome].name, DIFFICULTY_DEFS[difficulty].name][step] ?? '';
+  const chosen = el('div', 'nt-chosen');
+  const refreshChosen = () => {
+    chosen.textContent = chosenName() ? `Chosen: ${chosenName()}` : '';
+  };
   const draw = () => {
+    closeSheet();
     const page: HTMLElement[] = [];
     if (step === 0) page.push(origins, el('div', 'hint', 'Each changes how the whole game plays and looks. Settlers are the classic game.'));
     else if (step === 1) page.push(founder);
@@ -186,7 +252,8 @@ export function renderNewGame(snap: Snapshot, bridge: Bridge): HTMLElement[] {
       button('‹ Back', () => go(step - 1), { cls: 'place quiet', disabled: step === 0 }),
       step < STEPS.length - 1 ? button('Next ›', () => go(step + 1), { cls: 'place next' }) : found,
     );
-    wrap.replaceChildren(el('div', 'wizard-step', `Step ${step + 1} of ${STEPS.length}`), el('h3', 'newgame-head', STEPS[step]), ...page, nav, dots);
+    wrap.replaceChildren(el('div', 'wizard-step', `Step ${step + 1} of ${STEPS.length}`), el('h3', 'newgame-head', STEPS[step]), ...(step <= 4 ? [chosen] : []), ...page, nav, dots);
+    refreshChosen();
   };
   const go = (i: number) => {
     step = Math.max(0, Math.min(STEPS.length - 1, i));
