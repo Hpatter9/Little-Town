@@ -6,8 +6,6 @@ import { withDeltas } from './deltaBridge';
 import { biomeById } from '../shared/data/biomes';
 import { hkCell, hkDraw, hkKnow, hkLayers, hkWhoOf, onHkLoad } from './art/hkFolk';
 import { fallenFace } from './art/fallenFace';
-import { seatArt } from './art/seatArt';
-import { seatPack } from './map/seatPacks';
 import { SEAT_STAGE } from '../shared/data/seats';
 import { CHATTER } from './chatter';
 import { MapBattle } from './map/mapBattle';
@@ -88,7 +86,7 @@ import { OPERATORS } from '../shared/data/operators';
 import { SKILL_NAMES, SKILLS } from '../shared/data/skills';
 import { TERRAIN } from '../shared/data/terrain';
 import type { Bridge, InspectInfo, StripState } from '../shared/ipc';
-import { blueprintCount, buildingCentre, buildingDoor, canPlace, defOf, depthOf, isUnlocked, type PlaceCheck } from '../shared/sim/buildings';
+import { blueprintCount, buildingCentre, buildingDoor, canPlace, defOf, isUnlocked, type PlaceCheck } from '../shared/sim/buildings';
 import type { PersonView, RaiderView, RoamerView, Snapshot, TravellerView } from '../shared/sim/snapshot';
 import { lineOfDef, venueOfDef } from '../shared/data/shop';
 import { storePanel, type PanelId } from '../shared/ipc';
@@ -179,9 +177,10 @@ import { loadEffects } from './art/effects';
 import { loadStills } from './art/stills';
 import { loadLpc, loadLpcFaces, lpcFrame } from './art/lpc/lpc';
 import { topDownArt } from './art/topDown';
-import { packArt, pickCovered } from './map/packBuildings';
+import { buildingPicture } from './art/buildingPicture';
+import { pickCovered } from './map/packBuildings';
 import { airFor } from './town/ambientView';
-import { noTone, textureCanvas } from './art/pixelArt';
+import { textureCanvas } from './art/pixelArt';
 import { MapCamera } from './map/mapCamera';
 import { MapView } from './map/mapView';
 import { MapPeople } from './map/mapPeople';
@@ -1872,21 +1871,15 @@ async function start(): Promise<void> {
     snow.heavy = freeze && !!next.doom?.cold;
     pane.setDaylight(next.calendar.daylight);
     // (the phone page's feed borrows the town's pictures: a townsperson, or a building in the town's own style, as the
-    // map draws it: the pack's picture where there is one, else the top-down painter's)
+    // map draws it: art/buildingPicture.ts)
     hkKnow(next.people); // (who's who, for the views that know someone only by id: the fight screen, the mine)
-    const cardArt = (id: string) => {
-      const def = BUILDING_BY_ID[id];
-      const seat = SEAT_STAGE[id];
-      if (seat) return seatPack(seat.origin, seat.stage, def.width) ?? seatArt(seat.origin, seat.stage, def.width, depthOf(def), noTone, 'card');
-      return packArt(id, def.width, buildStyle || 'town') ?? topDownArt(id, def.width, depthOf(def), noTone, 'card', buildStyle || 'town');
-    };
     (window as unknown as { __picture?: (p: { person?: number; building?: string; fallen?: number }) => HTMLCanvasElement | null }).__picture = (h) => {
       // (the dead, from the look their obituary keeps: art/fallenFace.ts)
       const gone = h.fallen != null ? next.annals.fallen.find((f) => f.id === h.fallen) : undefined;
       if (gone) return fallenFace(gone, 64);
       const who = h.person != null ? next.people.find((p) => p.id === h.person) : undefined;
       if (who) return personPicture(who);
-      if (h.building && BUILDING_BY_ID[h.building]) return textureCanvas(cardArt(h.building).texture, 96, 64);
+      if (h.building && BUILDING_BY_ID[h.building]) return buildingPicture(h.building, buildStyle || 'town', 96, 64);
       return null;
     };
     const q = next.prompts[0];
