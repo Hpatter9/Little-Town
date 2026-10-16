@@ -38,7 +38,7 @@ import { lookFor, type SceneLook } from '../../shared/data/scenes';
 import type { BackdropId } from '../../shared/data/backdrops';
 import type { Biome } from '../../shared/data/biomes';
 import { attackAnim, enemyLook } from '../art/rivals';
-import { fightAnim, heroFrame, heroScale, heroSheet, skeletonSheet, WOLF_FORMS } from '../art/combatPoses';
+import { fightAnim, heroFrame, heroScale, heroSheet, roadForm, skeletonSheet, WOLF_FORMS } from '../art/combatPoses';
 import { stillTexture } from '../art/stills';
 import { HK_FIGURE, hkLayers, hkPose, hkWhoById } from '../art/hkFolk';
 import { TAIL_W, tailTexture, WAIST } from '../art/merTail';
@@ -878,8 +878,9 @@ export class FightScene {
     if (!look) return false;
     const wear = enemy ? enemy.wear : wornLayers(f.gear);
     // a townsperson in the Himeko look, as the map draws them (art/hkFolk.ts; the founders too): all but a werewolf,
-    // who fights in wolf form
-    if (!hs && !f.wolf && f.look) {
+    // who fights in wolf form, and one of a people's own callings with a form from the packs (data/originCallings.ts)
+    const form = !hs ? roadForm(f.road) : null;
+    if (!hs && !f.wolf && !form && f.look) {
       const keys = hkLayers(hkWhoById(f.ref, f.look, f.gear), { fighting: true, activity: 'fight' });
       // (on a tail they fall standing: the motion topples them, as there's no lying frame to cut at the waist)
       const finned = this.wet && this.mers.has(f.ref);
@@ -897,7 +898,7 @@ export class FightScene {
     }
     // a party member of a fighting calling in their combat form (a Craftpix hero: art/combatPoses.ts)
     // (a werewolf fights in wolf form: the Craftpix werewolves, by who they are)
-    const hero = !hs ? (f.wolf ? WOLF_FORMS[f.ref % WOLF_FORMS.length] : f.undead ? skeletonSheet(f.ranged, f.ref) : heroSheet(f.cls, f.ref)) : null;
+    const hero = !hs ? (form ?? (f.wolf ? WOLF_FORMS[f.ref % WOLF_FORMS.length] : f.undead ? skeletonSheet(f.ranged, f.ref) : heroSheet(f.cls, f.ref))) : null;
     if (hero) {
       const facing = faceLeft ? 'left' : 'right';
       s.texture = heroFrame(hero, { facing, moving: false, walked: 0, sinceBlow: acting ? f.sinceAction : 999, sinceHit: f.sinceHit, sinceBlock: 999, down: f.down, now, ref: f.ref, sinceDown: Math.max(0, f.sinceHit - 2) });

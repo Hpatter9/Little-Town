@@ -15,7 +15,8 @@ import { CREATURE_FRAME, creatureFrame, creatureSize, type CreatureSheet } from 
 import { EMOTE_SIZE, emoteFrame, levelUpFrame, HOLY_SIZE, holyFrame, REVIVE_SIZE, reviveFrame, SPELL_SIZE, spellFrame, spellFrames, SPLAT_SIZE, splatFrame, pixelFxFrame, type Emote } from '../art/effects';
 import { COUGH_FOR, coughing } from './moodRules';
 import { motionOf } from '../fight/fightMotion';
-import { fightAnim, fightPose, founderSheet, heroFrame, heroScale, heroSheet, SHOOT_TICKS, skeletonSheet, WOLF_FORMS, WOLF_SCALE } from '../art/combatPoses';
+import { isMythic } from '../../shared/data/paths';
+import { fightAnim, fightPose, founderSheet, heroFrame, heroScale, heroSheet, roadForm, SHOOT_TICKS, skeletonSheet, WOLF_FORMS, WOLF_SCALE } from '../art/combatPoses';
 import { creatureFlip } from '../art/creatures';
 import { loadImage } from '../art/loadImage';
 import barrowUrl from '../art/shops/gb_barrow.png';
@@ -729,7 +730,8 @@ export class MapPeople {
       const breath = anim === 'walk' && frame === 0 && !fighting ? idleBreath(now, d.view.id) : 0;
       s.position.set(Math.round(x), Math.round(y) - breath);
       s.zIndex = z;
-      const glow = d.view.rally === 'on' ? (Math.sin(now / 90) > 0 ? 0xffe070 : 0xffc040) : null;
+      // (a mythic calling shimmers, slow and pale violet: data/mythic.ts)
+      const glow = d.view.rally === 'on' ? (Math.sin(now / 90) > 0 ? 0xffe070 : 0xffc040) : isMythic(d.view.roadId) && Math.sin(now / 400 + d.view.id) > 0.55 ? 0xf0e0ff : null;
       s.tint = glow ?? (d.view.monster === 'undead' ? 0xb0c8a8 : d.view.monster === 'vampire' ? 0xe8e0f0 : 0xffffff);
       // (hurt legs: a hitch in the walk)
       if (riderMoving) s.y += limpDip(v.body.moving, d.walked);
@@ -798,6 +800,16 @@ export class MapPeople {
         const wk = heroScale(wolf) * k * WOLF_SCALE;
         s.anchor.set(0.5, 1);
         s.scale.set(wk * creatureFlip(wolf, facing), wk);
+      }
+      // a people's own calling fights in its form from the packs (data/originCallings.ts: a Bonewright's skeleton, a
+      // Gearwright's robot), over the Himeko look and the wolf, as the werewolves do
+      const form = inCombat && !hidden && !founder ? roadForm(d.view.roadId) : null;
+      if (form) {
+        plain = false;
+        s.texture = heroFrame(form, { facing, moving: riderMoving, walked: d.walked, sinceBlow: v.sinceBlow, sinceHit: v.sinceHit, sinceBlock: v.sinceBlock, down: v.downed !== null, now, ref: v.id });
+        const fk = heroScale(form) * k;
+        s.anchor.set(0.5, 1);
+        s.scale.set(fk * creatureFlip(form, facing), fk);
       }
       // a shapeshifter fights in their beast's shape (data/levels.ts `beastForm`: wolf, lion, bear, drake, wyvern by
       // stage; a druid's bear)

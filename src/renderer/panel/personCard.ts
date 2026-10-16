@@ -10,6 +10,7 @@ import type { PersonView, Snapshot } from '../../shared/sim/snapshot';
 import type { KinNode } from '../../shared/sim/lineage';
 import { itemIcon } from '../art/icons';
 import { emblemCanvas } from '../art/emblems';
+import { isMythic } from '../../shared/data/paths';
 import { guildBadge, guildsOf } from '../art/guildMarks';
 import { bleedLeft } from '../../shared/format';
 import { el } from './dom';
@@ -77,12 +78,20 @@ function head(p: PersonView, s: Snapshot, hooks: SheetHooks): HTMLElement {
     else c.textContent = `L${p.level}`;
     port.append(c);
   }
+  // (a mythic calling, data/mythic.ts: its emblem glows, and a chip says what it is)
+  const mythic = isMythic(p.roadId);
+  if (mythic) port.classList.add('mythic');
   const bars = el('div', 'pc-bars');
   const hurt = p.downed === 'bleeding' ? `bleeding out: ${bleedLeft(p.bleedMinutes)}` : p.downed ? 'down, recovering' : `${Math.round(p.hp)}/${p.maxHp}`;
   bars.append(bar('hp', p.hp / p.maxHp, `Health ${hurt}`));
   if (p.mana) bars.append(bar('mp', p.mana[1] ? p.mana[0] / p.mana[1] : 0, `Mana ${Math.round(p.mana[0])}/${Math.round(p.mana[1])}`));
   bars.append(bar('mood', p.morale / 100, `Mood ${Math.round(p.morale)}`), bar('food', p.needs.food, `Fed ${Math.round(p.needs.food * 100)}%`));
   col.append(port, bars);
+  if (mythic) {
+    const chip = el('span', 'ui-chip pc-mythic', '✨ Mythic');
+    chip.dataset.tip = 'A mythic calling|One of the rarest callings there are: a town may see one in a long lifetime.';
+    col.append(chip);
+  }
 
   const who = el('div', 'pc-who');
   who.append(el('div', 'pc-name', `${p.name}${p.id === s.mainId ? ' (you)' : ''}`), el('div', 'pc-doing', p.away !== null ? `Away on an expedition: ${p.away}` : p.doing));

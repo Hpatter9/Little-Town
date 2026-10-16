@@ -1313,6 +1313,10 @@ export interface GameState {
   empire?: import('./tradeEmpire').EmpireState;
   lastDisaster?: { kind: import('./disasters').DisasterKind; tick: number; burnt?: [number, number][] };
   chronicles?: Chronicle[];
+  /** The mythic callings the town has seen (data/mythic.ts): who, which, the line told, and when; and an omen after
+   *  an ascension, spent on the next to take a calling (sim/classes.ts `mythicRoll`). */
+  mythics?: { id: number; road: string; line: string; tick: number }[];
+  mythicOmen?: boolean;
   yearStart?: YearStart;
   yearRaids?: { came: number; won: number; pillaged: number; watched?: number };
   /** The town's purse (none when left out), strangers in town, and when the next is due at the shop. */

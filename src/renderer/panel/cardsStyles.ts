@@ -20,6 +20,8 @@ export const CARDS_CSS = `
 .pc-badge { position: absolute; right: 3px; bottom: 3px; background: #1c140ccc; border-radius: 6px; padding: 1px; display: flex; }
 .pc-calling { position: absolute; left: 3px; bottom: 3px; min-width: 22px; height: 22px; border-radius: 6px; background: #1c140ccc; color: #ffd84a; font-size: 11px; font-weight: 700; display: flex; align-items: center; justify-content: center; padding: 0 3px; }
 .pc-calling canvas { width: 20px; height: 20px; }
+.pc-portrait.mythic { box-shadow: 0 0 8px 1px currentColor; }
+.pc-mythic { align-self: center; margin: 2px 0; font-size: var(--ui-fs-small, 11px); }
 .pc-bars { display: flex; flex-direction: column; gap: 3px; }
 .pc-bar { position: relative; height: 12px; border-radius: 6px; background: #00000066; overflow: hidden; }
 .pc-bar > i { position: absolute; inset: 0 auto 0 0; border-radius: 6px; transition: width 300ms ease-out; }

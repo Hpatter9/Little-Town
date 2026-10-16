@@ -3,6 +3,7 @@
 
 import { CLASS_DEFS, type ClassId } from '../../shared/data/classes';
 import type { PackSheetId } from '../../shared/data/packSheets';
+import { formOf } from '../../shared/data/paths';
 import { PACK_LAYOUT, packUrl } from './creatures/packs';
 import { loadImage } from './loadImage';
 
@@ -28,6 +29,12 @@ export const HERO_FORM: Partial<Record<ClassId, PackSheetId[]>> = {
 export function heroSheet(cls: ClassId | null, id: number): PackSheetId | null {
   const list = cls ? HERO_FORM[cls] : undefined;
   return list ? list[id % list.length] : null;
+}
+/** The form a people's own calling fights in (data/originCallings.ts: the nearest `form` up their road), over the
+ *  Himeko look; none for 'doll' (they fight as themselves, in their people's dress) or off those callings. */
+export function roadForm(road: string | null | undefined): PackSheetId | null {
+  const f = formOf(road);
+  return f && f !== 'doll' ? f : null;
 }
 /** A founder's form, worn always (the owner's ask: the founders stand out as special everywhere): their calling's
  *  hero, else one by how their class fights (a shooter the archer, a caster or healer a wizard, the rest the samurai).

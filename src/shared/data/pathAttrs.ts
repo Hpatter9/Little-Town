@@ -7,6 +7,9 @@
 import { ATTR_KEYS, classAttrs, type Attrs } from './attributes';
 import { lineage, PATH_BY_ID } from './paths';
 import { ORIGIN_ROADS } from './originPaths';
+import { callingNodes, ORIGIN_CALLINGS } from './originCallings';
+import { MYTHIC_CALLINGS, mythicNodes, WANDERER_ROAD } from './mythic';
+import { roadNodes } from './callings/kit';
 import type { ClassId } from './classes';
 
 type Lean = Partial<Attrs>;
@@ -56,6 +59,9 @@ export const LEANS: Record<string, Lean> = {
 
 // (the peoples' own roads carry their leans with them)
 for (const r of ORIGIN_ROADS) for (const n of [r.two, r.three, r.high]) LEANS[n.id] = n.lean;
+for (const t of ORIGIN_CALLINGS) for (const [id, n] of callingNodes(t)) LEANS[id] = n.lean;
+for (const t of MYTHIC_CALLINGS) for (const [id, n] of mythicNodes(t)) LEANS[id] = n.lean;
+if (WANDERER_ROAD) for (const [n] of roadNodes(WANDERER_ROAD)) LEANS[n.id] = n.lean;
 
 const cache = new Map<string, Attrs>();
 /** The shares a townsperson's points are spent by: their archetype's growth leaned the way of their road (the
