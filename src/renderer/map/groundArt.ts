@@ -181,7 +181,7 @@ function wornLevel(m: LandMap, x: number, y: number): number {
   if (v < WEAR_SHOW) return 0;
   return v >= WEAR_FULL ? 3 : v >= (WEAR_SHOW + WEAR_FULL) / 2 ? 2 : 1;
 }
-const WORN_ALPHA = [0, 0.4, 0.7, 1];
+const WORN_ALPHA = [0, 0.5, 0.75, 1];
 
 /** Paint one chunk (a 2D canvas, one canvas pixel per world pixel). */
 /** Ice: its plain colour, the bright rim at the banks, clear black ice. */

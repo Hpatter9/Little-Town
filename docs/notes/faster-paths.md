@@ -1,0 +1,15 @@
+## Faster paths (footpaths worn in sooner, streets paved as one job)
+
+The owner: "pathways are really slow to be built up." Measured first (`tools/paths-soak.mjs <origin|fixture> <seed> <days> <every>`: worn, planned and paved cells by day).
+
+**Before (0.128.0).** A step added `WEAR_STEP` 2 and every hour took `WEAR_DECAY` 2, so a cell held only above 24 crossings a day; a route walked 8 times a day never showed. Streets were planned at once (a building's way to the street is planned when it is placed: day 2 in a fresh settlers town) but laid only when someone had *no* task, so paving stalled: settlers soak-a had 17 cells paved from day 10 to day 30 while 20 to 33 stood planned; knights soak-a at day 40: 166 planned, 77 paved. Wear counted every walker already (all go through `walk()`).
+
+**What changed.**
+- Footpaths (`land.ts`): `WEAR_STEP` 3; decay `WEAR_DECAY` 1 every `WEAR_DECAY_HOURS` 1 (24 a day, was 48), so a route walked about 12 times a day shows in a day and is plain in two, and an unused clear path fades over a day and a half. `decayWear(m, hour?)` skips hours not on the interval. Changes the HISTORY.md "Footpaths (done)" and "The wild grows back" (footpaths grass over twice as fast) sections.
+- Streets (`streets.ts`, changes "Streets are built"): the planned cells are one job. All pavers add to one pool (`GameState.streetSec`, `streetWork`) and the cells go down in `paveOrder` (outward from the streets already laid, a cut-off plan from its lowest cell), so several cells go down at once when several hands work. The `pave` task is now just "stand at the next cell"; `taskDone` shows `streetShare`. Builders pave when there is nothing to build or mend (`findJob` construct → `paveTask`), at most `PAVERS_SHARE` 0.25 of the grown-ups (at least one) so the rest of the work isn't starved; an idle person always may (`spare`). `STREET_WEAR` 14 → 20 (the wear scale moved).
+- Art: faintest worn grade alpha 0.4 → 0.5 (`WORN_ALPHA`, groundArt.ts), middle 0.7 → 0.75. The planned ghost is already one strip (dashes only on its outer sides), not a box per cell.
+- Not changed: planning (already early), no roads through the ring, gate paths, bridges and their wood. There are no stone/gravel costs in paving today.
+
+**After (day 40, 3 seeds each, before → after; worn = showing).** Settlers paved 22/213/(c) → 410/197/266, planned left 40/7/- → 2/0/0; knights paved 77 → 169/206/286, planned left 166 → 0/1/0. Worn at day 40: settlers 298/112/- → 245/316/224, knights 136 → 357/317/171; fixture day 6: 230 → 851 (the late town). People and deaths vary by seed as the sim moves (paving now takes hands): settlers people 20/12 → 16/11/5, dead 3/7 → 7/10/10; knights people 10 → 12/12/12, dead 8 → 7/6/6.
+
+Tests: `footpaths.test.ts` (day 1 faint, day 2 plain, clear in four days; unused path outlasts a day and a half; decay interval), `streets.test.ts` (paved as one job in order; hands, quarter cap, founder paves; streets planned from the first buildings). `sim-hash` changed for all four towns and the fixture (wear and paving now differ by design).
