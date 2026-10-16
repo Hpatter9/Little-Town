@@ -1135,7 +1135,7 @@ async function start(): Promise<void> {
         const actions = list.map((a, i) => act(`b${i}`, a.label, a.onClick, { danger: a.danger }));
         const venue = venuePanel(b.def);
         if (venue && inspectMenu === 'main') actions.unshift(act('venue', 'Look inside…', () => bridge.openPanel(venue), { primary: true }));
-        return { title: d.title, lines: d.lines, actions };
+        return { title: d.title, lines: d.lines, actions, building: b.id };
       }
       case 'person': {
         const v = snap.visitor;
