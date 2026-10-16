@@ -101,6 +101,8 @@ let watchOn = false;
 const SNAP_NEAR = 0.04;
 
 function layout(): void {
+  // (the title bar's height, for what hangs from it in the CSS: the ☰ menu and the news feed)
+  document.documentElement.style.setProperty('--top-h', `${$('top').offsetHeight}px`);
   const free = window.innerHeight - $('tabs').offsetHeight - (sideways.matches ? 0 : $('top').offsetHeight);
   // (the town has all the room under the title bar and over the tabs; the news is a bubble over it: notices.ts)
   const room = free;
