@@ -203,6 +203,12 @@ function folkRow(p: PersonView, s: Snapshot, open: () => void): HTMLElement {
   race.setAttribute('aria-label', ORIGIN_DEFS[origin].name);
   name.append(race);
   const gm = guildMark(s, p.id);
+  if (p.roadId) {
+    const cm = emblemCanvas(p.roadId, 18);
+    cm.classList.add('calling-mark');
+    cm.title = p.clsName ?? "";
+    name.append(cm);
+  }
   if (gm) name.append(gm);
   mid.append(name, el('span', 'folk-class'), el('span', 'folk-doing'));
   const right = el('span', 'folk-right');
