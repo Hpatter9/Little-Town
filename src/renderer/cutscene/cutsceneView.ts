@@ -25,7 +25,8 @@ import { enemyLook } from '../art/rivals';
 import { lookFilter } from '../fight/fightView';
 import { glowTexture } from '../town/layer';
 import { sheetOf } from '../town/spellsView';
-import { actorsAt, cameraAt, lineNow, lookAt, next, shotLength, start, tick, TYPE_RATE, typedChars, type ActorNow, type Cursor } from './sceneClock';
+import { actorsAt, cameraAt, lineNow, lineStart, lookAt, next, propsAt, shotLength, start, tick, TYPE_RATE, typedChars, type ActorNow, type Cursor } from './sceneClock';
+import { SceneProps, type Light } from './sceneProps';
 
 /** A townsperson's height on the stage (art px), and how big a foe's sheet is drawn (as on the fight screen). */
 const PERSON_H = 40;
@@ -48,6 +49,9 @@ export class CutsceneScene {
   private readonly veil = new Graphics();
   private readonly glow = new Sprite(glowTexture());
   private readonly sprites = new Map<string, Sprite>();
+  /** The props on the stage and what's in hand (sceneProps.ts); the light of whatever burns, this frame. */
+  private readonly props = new SceneProps();
+  private lights: Light[] = [];
   private lookKey = '';
   private w = 1;
   private h = 1;
@@ -69,11 +73,13 @@ export class CutsceneScene {
     this.ground.visible = false;
     this.ground.y = FEET - 8;
     this.ground.x = -STAGE_W * 1.5;
-    this.world.addChild(this.back, this.ground, this.actors, this.bursts);
+    this.world.addChild(this.back, this.ground, this.props.back, this.actors, this.props.front, this.bursts);
     this.actors.sortableChildren = true;
+    this.actors.addChild(this.props.held);
     this.glow.anchor.set(0.5);
     this.glow.blendMode = 'add';
-    this.root.addChild(this.cover, this.world, this.glow, this.veil);
+    // (fire, its light and the weather over the scene's darkening, moved with the stage)
+    this.root.addChild(this.cover, this.world, this.glow, this.veil, this.props.over);
     this.hud = new Hud(page, {
       watch: (key) => this.send({ type: 'scene', op: 'watch', key }),
       skipOffer: (key) => this.send({ type: 'scene', op: 'skip', key }),
@@ -112,6 +118,8 @@ export class CutsceneScene {
     for (const s of this.sprites.values()) s.destroy();
     this.sprites.clear();
     this.bursts.removeChildren();
+    this.props.clear();
+    this.lights = [];
     this.lookKey = '';
   }
 
@@ -160,7 +168,30 @@ export class CutsceneScene {
     this.cover.clear().rect(0, 0, w, h).fill(0x000000);
   }
 
+  /** The last frames' cost (ms): this render's own work, and the whole frame's (the gap between renders). For
+   *  `window.__scenePerf()`, to keep the phone's frame time in check as the scenes get dressed. */
+  private readonly costs: number[] = [];
+  private readonly gaps: number[] = [];
+  perf(): { frames: number; renderMs: number; frameMs: number } {
+    const mean = (a: number[]) => (a.length ? a.reduce((n, v) => n + v, 0) / a.length : 0);
+    return { frames: this.costs.length, renderMs: +mean(this.costs).toFixed(3), frameMs: +mean(this.gaps).toFixed(2) };
+  }
+
+  /** Jump to a line of a shot (and `sec` into it), for previews and screenshots (`window.__sceneSeek`). */
+  seek(shot: number, beat = 0, sec = 0): void {
+    if (!this.script?.shots[shot]) return;
+    this.cursor = { shot, beat, t: sec, shotT: lineStart(this.script.shots[shot], beat) + sec };
+  }
+
   render(now: number, dt: number): void {
+    const t0 = performance.now();
+    this.renderScene(now, dt);
+    const keep = (a: number[], v: number) => (a.push(v), a.length > 200 && a.shift());
+    keep(this.costs, performance.now() - t0);
+    keep(this.gaps, dt * 1000);
+  }
+
+  private renderScene(now: number, dt: number): void {
     const script = this.script;
     if (!script || !this.cursor || !this.run) return;
     const moved = tick(this.cursor, script, dt);
@@ -170,7 +201,8 @@ export class CutsceneScene {
     const shot = script.shots[c.shot];
     this.setLook(lookAt(script, c.shot));
     const actors = actorsAt(script, c);
-    const cam = cameraAt(script, c, actors);
+    const props = propsAt(script, c);
+    const cam = cameraAt(script, c, { ...props, ...actors });
     // the camera: the stage scaled so the band holds its height (and its width, sideways), then the shot's zoom
     const base = Math.max(this.w / STAGE_W, this.bandH / STAGE_H);
     const k = base * cam.zoom;
@@ -192,9 +224,16 @@ export class CutsceneScene {
       sy += Math.cos(now / 29) * 1.2;
     }
     this.world.position.set(this.w / 2 + sx, this.bandTop + this.bandH / 2 + sy);
+    const over = this.props.over;
+    over.scale.copyFrom(this.world.scale);
+    over.pivot.copyFrom(this.world.pivot);
+    over.position.copyFrom(this.world.position);
+    over.rotation = this.world.rotation;
     // (the layers drift at their own pace as the camera pans: far ones slower)
     this.photo.forEach((l, i) => (l.tilePosition.x = cam.x * (1 - (i + 1) / this.photo.length) * 0.6));
+    this.lights = this.props.draw(props, now);
     this.drawActors(actors, now, c);
+    this.props.drawHeld(actors, this.sprites, now, dt, this.lights);
     this.drawBursts(shot, actors, c.shotT);
     this.drawVeil(shot, c.shotT, now);
     // the words
@@ -271,8 +310,18 @@ export class CutsceneScene {
         s.filters = [];
         s.tint = 0xffffff;
       }
+      // (a fire close by warms whoever stands near it, flickering as it does)
+      const warm = this.warmth(a.x);
+      if (warm > 0.01) s.tint = mixTint(s.tint as number, 0xffb478, warm);
       s.zIndex = FEET + (who.foe ? -1 : 0);
     }
+  }
+
+  /** How warm the firelight is where an actor stands (0..1, flickering with the fires). */
+  private warmth(x: number): number {
+    let w = 0;
+    for (const l of this.lights) w = Math.max(w, Math.max(0, 1 - Math.abs(x - l.x) / l.r) * l.k);
+    return Math.min(0.6, w * 0.7);
   }
 
   /** A foe as the fight screen draws it: from its creature sheet, a still, a machine, or a person in its people's dress. */
@@ -362,6 +411,9 @@ export class CutsceneScene {
       if (left < 1.4) v.rect(0, 0, w, h).fill({ color: 0x000000, alpha: Math.min(1, 1 - left / 1.4) });
     }
     if (fx.includes('flash') && t > 0.35 && t < 0.85) v.rect(0, 0, w, h).fill({ color: 0xffffff, alpha: 0.9 * (1 - (t - 0.35) / 0.5) });
+    // (the picture takes the fires' warmth, flickering with them)
+    const heat = Math.min(1, this.lights.reduce((n, l) => n + l.k * (l.r / 60), 0));
+    if (heat > 0.02) v.rect(0, 0, w, h).fill({ color: 0xff8a30, alpha: 0.07 * heat });
     if (fx.includes('lightning')) {
       const f = t % 3.2;
       if (f < 0.12 || (f > 0.22 && f < 0.3)) v.rect(0, 0, w, h).fill({ color: 0xd8e4ff, alpha: 0.75 });
@@ -385,6 +437,11 @@ export class CutsceneScene {
 }
 
 const cap = (t: string) => t.charAt(0).toUpperCase() + t.slice(1);
+/** A tint moved `k` of the way toward another. */
+function mixTint(a: number, b: number, k: number): number {
+  const ch = (s: number) => Math.round(((a >> s) & 255) + (((b >> s) & 255) - ((a >> s) & 255)) * k);
+  return (ch(16) << 16) | (ch(8) << 8) | ch(0);
+}
 
 /* ------------------------------------------------------------ the page's part */
 
