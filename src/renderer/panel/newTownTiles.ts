@@ -1,7 +1,7 @@
 // The New Town screen's choices as tiles (the owner's ask): each choice is a symbol with its name beneath, in a grid;
 // tapping one opens a description sheet (from the bottom on the phone, at the side when it's held sideways) with a scene
 // that stands for the choice, the text, and Choose / Close. The scenes are slices of the parallax backdrops in
-// art/backdrops (their layers stacked far to near, as the fights use them) with the people's own figures standing in them.
+// art/backdrops (their layers stacked far to near, as the fights use them) with the people's own figures in them (the sheets' scenes move: scenePlayer.ts).
 
 import type { IconSheet } from '../../shared/data/items';
 import type { OriginId } from '../../shared/data/origins';
@@ -12,22 +12,7 @@ import { button, el } from './dom';
 
 /* ------------------------------------------------------------ which scene and symbol stand for what */
 
-/** A backdrop (art/backdrops/<id>.webp) for each people, land, scenario and danger. */
-export const ORIGIN_SCENE: Record<OriginId, string> = {
-  settlers: 'summer_1',
-  lich: 'battle_graves',
-  druid: 'forest_1',
-  vampire: 'moon_3',
-  werewolf: 'moon_2',
-  robot: 'industrial_day',
-  dwarves: 'crystal_2',
-  merfolk: 'underwater_1',
-  nomads: 'oasis_1',
-  fae: 'forest_5',
-  alchemists: 'steampunk_3',
-  knights: 'battle_hall',
-  orcs: 'wasteland_3',
-};
+/** A backdrop (art/backdrops/<id>.webp) for each land, for its round symbol (the moving scenes: sceneScripts.ts). */
 export const BIOME_SCENE: Record<Biome, string> = {
   forest: 'forest_4',
   desert: 'oasis_3',
@@ -40,8 +25,6 @@ export const BIOME_SCENE: Record<Biome, string> = {
   steppe: 'summer_2',
   taiga: 'winter_1',
 };
-export const DANGER_SCENE: Record<Difficulty, string> = { easy: 'summer_4', normal: 'skies_2', hard: 'skies_4' };
-export const SCENARIO_SCENE = 'summer_2';
 
 type Glyph = [IconSheet, number, number];
 /** A DawnLike cell (sheet, column, row) for each symbol. */
@@ -82,18 +65,6 @@ export function scene(id: string): HTMLElement {
     box.append(l);
   }
   return box;
-}
-
-/** A scene with figures (canvases or other elements) standing along its foot, left to right. */
-export function sceneWith(id: string, figures: HTMLElement[]): HTMLElement {
-  const s = scene(id);
-  const row = el('div', 'nt-figures');
-  for (const f of figures) {
-    f.classList.add('nt-figure');
-    row.append(f);
-  }
-  s.append(row);
-  return s;
 }
 
 /** A symbol: a DawnLike cell on a dark badge. */
