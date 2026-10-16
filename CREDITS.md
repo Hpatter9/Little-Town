@@ -415,3 +415,20 @@ button's bevelled face and the stone peoples' rim (`stone.png`) is the raised sl
 the raw files are not redistributed): https://craftpix.net/file-licenses/. The rounded chip, the divider's rod and the
 stat marks (hearts, the small stat icons and the speech-bubble marks) are **DawnLike**'s `GUI/GUI0.png` (`gui0.png`) by
 **DragonDePlatino**, on **DawnBringer**'s palette, **CC-BY 4.0**.
+
+## The cutscenes' props (the stage dressed)
+
+The props and held things of the cutscenes (`src/renderer/art/scene/`, cut by `tools/compose-scene-props.cjs`; the kinds
+in `src/shared/data/sceneProps.ts`): the barrel, the handcart, the loaded wagon, the board sign, the picnic table, the
+rock, the hay and the bucket are **Craftpix.net**'s free Medieval Field Work 2D tileset's, shrunk; the firepit and its
+cold ring, the tents, the crate, the stump, the log (and, dyed, the bedroll), the lantern post, the signpost and the
+scorch mark (a dirt patch, darkened) are the camp and decor pieces of its free Fields Tileset for tower defence; both
+under Craftpix's free licence (use in the game; the raw files are not redistributed): https://craftpix.net/file-licenses/.
+The banners are that tileset's flag already in the game (`fields/flag.png`), tinted. The gravestone, the skull, the
+cauldron (a pot darkened), the sword, the axe, the torch, the lantern, the scrolls (the worrier's list, a map, a
+pamphlet), the ladle, the bread, the pie, the cheese, the apple and the tankard are cells of **DawnLike**'s
+`Objects/Decor0.png` and `Items/` sheets by **DragonDePlatino**, on **DawnBringer**'s palette, **CC-BY 4.0**. Duchess
+the goat is **whtdragon**'s RPG Maker MV white goat (`animals/goats.png`, walking left and right; see Creatures for
+its terms). Already in the game and shared: the burning warren (`nests/warren.png`), the bones (`deep/skeleton.png`),
+the skulls (`nests/skulls.png`), the chest and gold (`clutter/`), the birds (`birds.png`), and the flames and smoke over
+whatever burns (the **5000 Pixel Effects** flame and the pvfx smoke; see Effects).

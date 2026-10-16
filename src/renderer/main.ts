@@ -554,6 +554,7 @@ async function start(): Promise<void> {
   // a cutscene (cutscene/cutsceneView.ts): over everything, offered first, then played full screen
   const cutscene = new CutsceneScene((c) => bridge.command(c), document.body);
   app.stage.addChild(cutscene.root);
+  Object.assign(window, { __scenePerf: () => cutscene.perf(), __sceneSeek: (shot: number, beat?: number, sec?: number) => cutscene.seek(shot, beat, sec) });
   const fightHud = createFightHud({
     back: () => {
       bridge.command({ type: 'watch', expedition: null });
