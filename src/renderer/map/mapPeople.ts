@@ -70,8 +70,8 @@ const EMOTE_EVERY = 11;
 const EMOTE_FOR = 3;
 const PILLAR_SCALE = 2;
 const HORSE_SCALE = 0.85;
-const SADDLE_LIFT = 21;
-const HORSE_LEG_CUT = 0.38;
+const SADDLE_LIFT = 5;
+const HORSE_LEG_CUT = 0.5;
 const BLEED_MINUTES = 120;
 const CHILD_SCALE = 0.7;
 /** A Himeko figure drawn as tall as the side-on townsfolk were (about 48px). */

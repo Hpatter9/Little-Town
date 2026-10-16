@@ -7747,3 +7747,13 @@ but may grow to 66% of the width (was 50%) with the name capped at 120px. In the
 Food" head scrolled away under the sticky sub-tab bar: `subtabs.ts` now moves any element marked `pin-tabs` into the
 sticky bar under its buttons (`.menu-tabs .pin-tabs` in `panel/structure.ts`), and `townsfolkPanel.ts` marks that
 head. Renderer only.
+
+## Riders seated in the saddle (0.146.0; the owner: "the couriers still stand on the horses")
+
+The horse sheet's side frames carry the back at row 19 of the 48px cell, so with `HORSE_SCALE` 0.85 the back sits
+about 23px above the feet line; `SADDLE_LIFT` was 21, which put the rider's feet on the horse's back: couriers, envoys
+and cavalry stood on their horses. `mapPeople.ts` now lifts the rider 5px (`SADDLE_LIFT`), which puts the hips just
+over the back, and the front crop drawn over the rider starts at half the frame (`HORSE_LEG_CUT` 0.5, was 0.38) so the
+horse's body hides the rider's legs from the thigh down. Measured on the phone build: the rider's feet were level with
+the horse's back before and are 18px below it after. The same code seats every mounted figure (couriers in
+`main.ts courierPerson`, the envoy, cavalry). Renderer only.
