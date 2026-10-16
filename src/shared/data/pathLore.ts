@@ -4,7 +4,8 @@
 // is told as a scene; LORE is each node's passage; ASCENDED tells the last step.
 
 import { callingId, ORIGIN_CALLINGS } from './originCallings';
-import { MYTHIC_CALLINGS, mythicId } from './mythic';
+import { MYTHIC_CALLINGS, mythicId, WANDERER_ROAD } from './mythic';
+import { roadNodes } from './callings/kit';
 
 /** How the fork is told, by the base calling, with {name} for the townsperson. */
 export const FORK: Record<string, string> = {
@@ -172,4 +173,6 @@ export const ASCENDED = 'The last of the line. There is nothing past {name}: the
 export function loreOf(id: string, name: string, from?: string): string {
   return L[id] ?? ASCENDED.replace('{name}', name).replace('{from}', from ?? 'calling');
 }
+// (the Wanderer's new road carries its own)
+if (WANDERER_ROAD) for (const [n] of roadNodes(WANDERER_ROAD)) L[n.id] = n.lore;
 export const LORE_IDS: readonly string[] = Object.keys(L);

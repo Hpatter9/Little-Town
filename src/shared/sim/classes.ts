@@ -14,7 +14,7 @@ import { LEVEL_SHARE_FIGHT, LEVEL_SHARE_WORK, levelOf, levelPower, MAX_LEVEL, st
 import { armsOf, BASE_PATHS, callingBases, founderRoot, lineage, PATH_BY_ID, PATHS, roadsFrom, type PathNode } from '../data/paths';
 import { ORIGIN_CALLING_LEAN } from '../data/originCallings';
 import { MYTHIC_CALLINGS, MYTHIC_HEIR_ODDS, MYTHIC_ODDS, MYTHIC_OMEN_ODDS, mythicId } from '../data/mythic';
-import { MYTHIC_BASES } from '../data/paths';
+import { MYTHIC_BASES, MYTHIC_PATHS } from '../data/paths';
 import { FORK, FOUNDER_FORK } from '../data/pathLore';
 import type { Skill } from '../data/skills';
 import { hashSeed, mixSeed, Rng } from '../rng';
@@ -191,7 +191,8 @@ export function adoptPath(p: Person): void {
   let st = 0;
   for (let i = 0; i < STAGE_LEVELS.length; i++) if (lv >= STAGE_LEVELS[i]) st = i;
   if (!p.ascended) st = Math.min(st, 3);
-  const ofClass = PATHS.filter((n) => n.cls === p.cls);
+  // (the shared tree, and the Summoner's road, which grows from a mythic calling now)
+  const ofClass = [...PATHS, ...MYTHIC_PATHS].filter((n) => n.cls === p.cls && !n.id.startsWith('my_'));
   const node = ofClass.find((n) => n.stage === st) ?? [...ofClass].sort((a, b) => Math.abs(a.stage - st) - Math.abs(b.stage - st))[0];
   if (!node) return;
   // (a node past their stage: the one of its line at their stage)

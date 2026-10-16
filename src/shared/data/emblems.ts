@@ -3,7 +3,7 @@
 // item sheets (and the Magic Items pack), and its stage told by the rim and the device. Here are the colours and the
 // glyphs; a node without a glyph of its own takes the nearest on its road.
 
-import { lineage, PATHS } from './paths';
+import { lineage, MYTHIC_PATHS, PATHS } from './paths';
 import { ORIGIN_ROADS } from './originPaths';
 import { callingId, callingNodes, ORIGIN_CALLINGS } from './originCallings';
 import { MYTHIC_CALLINGS, mythicId, mythicNodes, WANDERER_ROAD } from './mythic';
@@ -216,7 +216,7 @@ export function emblemOf(nodeId: string): Emblem | null {
   // (a founder's line: the device of the first shared calling of their base class, in the founder's colours, and a
   // charge telling the line's own stage from a road of their own)
   if (last.founder) {
-    const like = PATHS.find((n) => n.cls === last.cls && n.stage > 0) ?? PATHS[0];
+    const like = [...PATHS, ...MYTHIC_PATHS].find((n) => n.cls === last.cls && n.stage > 0) ?? PATHS[0];
     const e = emblemOf(like.id)!;
     const charge = last.stage === 0 ? e.charge : last.own ? OWN_CHARGE : ALT_CHARGE;
     return { ...e, colours: FOUNDER_COLOURS, charge, gem: last.stage >= 3, crown: last.stage >= 4, stage: last.stage, base: line[0].id };

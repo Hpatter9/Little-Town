@@ -287,9 +287,7 @@ for (const base of BASES) {
 
 // (the Wanderer's second road, in the Summoner's place now the Summoner has gone up to the mythic callings)
 const summonerRoad = nodes.find((n) => n.id === 'summoner')!;
-/** Where each shared stage-1 road first grew from (the origin roads open beside it there: the merfolk's Tidecaller
- *  beside the Summoner, at the Wanderer's fork, wherever the Summoner's road grows from now). */
-const firstFrom = new Map(nodes.map((n) => [n.id, n.from]));
+
 if (WANDERER_ROAD) {
   const [r1, roads2] = WANDERER_ROAD;
   const mk = (n: CallingNode, stage: number, from: string) => add(n.id, n.name, stage, from, n.cls, n.text, { lore: n.lore, ...(n.companion ? { companion: n.companion } : {}), ...(n.stats ? { stats: n.stats } : {}) });
@@ -303,8 +301,10 @@ if (WANDERER_ROAD) {
   }
 }
 
-/** The shared tree, open to everyone (with the Summoner's road, which grows from the first mythic calling). */
-export const PATHS: readonly PathNode[] = [...nodes];
+/** The shared tree, open to everyone (all but the Summoner's road, which grows from the first mythic calling now:
+ *  filled in below, once the mythic callings are grown). */
+const shared: PathNode[] = [];
+export const PATHS: readonly PathNode[] = shared;
 
 /* ------------------------------------------------------------ the mythic callings */
 
@@ -337,7 +337,7 @@ for (const t of MYTHIC_CALLINGS) {
     }
   }
 }
-/** The mythic callings, whole trees (ids `my_<id>`; the grafted Summoner road is in PATHS). */
+/** The mythic callings, whole trees (ids `my_<id>`, and the grafted Summoner road with its own). */
 export const MYTHIC_PATHS: readonly PathNode[] = mythicNodeList;
 /** The mythic callings' starting nodes. */
 export const MYTHIC_BASES: readonly PathNode[] = mythicNodeList.filter((n) => n.stage === 0);
@@ -347,7 +347,7 @@ export const MYTHIC_BASES: readonly PathNode[] = mythicNodeList.filter((n) => n.
 const originNodes: PathNode[] = [];
 for (const r of ORIGIN_ROADS) {
   const mk = (n: (typeof r)['two'], stage: number, from: string): PathNode => ({ id: n.id, name: n.name, stage, from, cls: n.cls, text: n.text, lore: n.lore, origin: r.origin, ...(n.stats ? { stats: n.stats } : {}), ...(n.companion ? { companion: n.companion } : {}) });
-  const base = firstFrom.get(r.from)!;
+  const base = nodes.find((n) => n.id === r.from)!.from!;
   originNodes.push(mk(r.two, 1, base), mk(r.three, 2, r.two.id), mk(r.high, 3, r.three.id));
   originNodes.push({ id: r.asc[0], name: r.asc[1], stage: 4, from: r.high.id, cls: r.high.cls, text: `${r.high.text} Ascended: the last and greatest of their people's road.`, origin: r.origin, ...(r.high.companion ? { companion: r.high.companion } : {}) });
 }
@@ -417,8 +417,10 @@ export const FOUNDER_PATHS: readonly PathNode[] = founderNodes;
 export const founderRoot = (fid: string) => `f_${fid}`;
 
 export const PATH_BY_ID: Readonly<Record<string, PathNode>> = Object.fromEntries([...nodes, ...originNodes, ...callingNodes, ...mythicNodeList, ...founderNodes].map((n) => [n.id, n]));
-// (the grafted Summoner road is mythic too, wherever it grows from)
+// (the grafted Summoner road is mythic too, wherever it grows from: it leaves the shared tree for the mythic one)
 for (const n of nodes) if (n.from && lineage(n.id)[0]?.mythic) n.mythic = true;
+shared.push(...nodes.filter((n) => !n.mythic));
+mythicNodeList.push(...nodes.filter((n) => n.mythic));
 export const BASE_PATHS: readonly PathNode[] = nodes.filter((n) => n.stage === 0);
 const kids = new Map<string, PathNode[]>();
 for (const n of Object.values(PATH_BY_ID)) if (n.from) kids.set(n.from, [...(kids.get(n.from) ?? []), n]);
