@@ -9,6 +9,7 @@ import type { Biome, Difficulty } from '../../shared/data/biomes';
 import manifest from '../art/backdrops.json';
 import { iconSheet } from '../art/icons';
 import { button, el } from './dom';
+import { addNewTownStyles } from './newTownStyles';
 
 /* ------------------------------------------------------------ which scene and symbol stand for what */
 
@@ -116,6 +117,7 @@ export const closeSheet = (): void => {
 
 function openSheet(t: Tile, chosen: boolean, choose: () => void): void {
   closeSheet();
+  addNewTownStyles();
   const back = el('div', 'nt-back');
   const sheet = el('div', 'nt-sheet');
   const body = el('div', 'nt-sheet-body');
@@ -136,6 +138,7 @@ function openSheet(t: Tile, chosen: boolean, choose: () => void): void {
 
 /** A grid of tiles, the chosen one framed; a tap opens its sheet, and Choose there calls `onChoose`. */
 export function tileGrid(tiles: Tile[], chosen: string, onChoose: (id: string) => void): HTMLElement {
+  addNewTownStyles();
   const grid = el('div', 'nt-grid');
   for (const t of tiles) {
     const on = t.id === chosen;

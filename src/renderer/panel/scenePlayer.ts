@@ -23,6 +23,16 @@ const frac = (x: number) => x - Math.floor(x);
 /** A steady pseudo-random number for particle `i`, stream `k`. */
 const rnd = (i: number, k: number) => frac(Math.sin(i * 12.9898 + k * 78.233) * 43758.5453);
 
+/** Play a scene into any container (the New Town sheets, and whatever else wants a moving picture): `script` is a
+ *  SceneScript, or the name of one in `scripts`. Returns the canvas; it stops by itself once removed from the page. */
+export function playScene(container: HTMLElement, script: SceneScript | string, dolls: string[][] = [], scripts: Record<string, SceneScript> = {}): HTMLCanvasElement | null {
+  const sc = typeof script === 'string' ? scripts[script] : script;
+  if (!sc) return null;
+  const c = animScene(sc, dolls);
+  container.append(c);
+  return c;
+}
+
 /** A canvas that plays `script`; `dolls` are the paper dolls' layer keys (hkFolk.ts), the one an actor's `who` names. */
 export function animScene(script: SceneScript, dolls: string[][]): HTMLCanvasElement {
   const c = document.createElement('canvas');
