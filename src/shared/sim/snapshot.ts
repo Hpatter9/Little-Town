@@ -157,6 +157,8 @@ import { villageBuildings, villageDestinations, villageViews, type VillageView }
 import { interiorView, type InteriorView } from './interiors';
 import { dynastyView, type DynastyView } from './dynasty';
 import { alignView, townTitle } from './alignment';
+import { generationLines, tierName, tierPhrase } from './tiers';
+import { MILESTONE_BY_ID, type MilestoneId } from '../data/tiers';
 import { intrigueView, type IntrigueView } from './intrigue';
 import { familiesView, type FamilyLine } from './lineage';
 import { guildsView, type GuildView } from './guilds';
@@ -1043,6 +1045,8 @@ export interface Snapshot {
   /** The hall of heroes (sim/annals.ts): the fallen, newest first; the year's chronicles, newest first; and the famous
    *  among the living. */
   annals: AnnalsView;
+  /** The town's rank (sim/tiers.ts). */
+  rank: RankView;
   faith: FaithView;
   /** The townsfolk's faith: priests, followers, feast days, miracles, the cult (sim/religion.ts). */
   religion: ReligionView;
@@ -1359,6 +1363,7 @@ export function snapshot(s: GameState): Snapshot {
     sagas: sagasView(s),
     met: s.met ?? [],
     annals: annalsView(s),
+    rank: rankView(s),
     faith: faithView(s),
     religion: religionView(s),
     disaster: disasterView(s),
@@ -2531,6 +2536,19 @@ export interface AnnalsView {
   fallen: Fallen[];
   chronicles: Chronicle[];
   famous: FamousView[];
+  /** The firsts the town has seen (sim/milestones.ts), newest first, and the day they began to be kept. */
+  milestones?: { id: string; title: string; line: string; icon: string; day: number }[];
+  milestonesFrom?: number;
+  /** The generation lines of the Chronicle (sim/tiers.ts). */
+  generations?: string[];
+}
+/** The town's rank (sim/tiers.ts): the rung, its name and "a Market Town", and the latest change for the card. */
+export interface RankView {
+  tier: number;
+  name: string;
+  phrase: string;
+  since: number;
+  last: import('./tiers').RankChange | null;
 }
 /** Kept in the hall: the fallen and the chronicles shown, and the famous. */
 const HALL_FALLEN = 100;
@@ -2548,7 +2566,16 @@ function annalsView(s: GameState): AnnalsView {
     .sort((a, b) => worth(b) - worth(a))
     .slice(0, HALL_FAMOUS)
     .map((p) => ({ id: p.id, name: p.name, calling: callingName(p, stageOf(p)), level: levelOf(p), felled: p.felled ?? 0, trips: p.trips ?? 0, titles: [...(p.titles ?? [])], founder: p.id === s.mainId }));
-  return { fallen: annalsCache.fallen, chronicles: annalsCache.chronicles, famous };
+  const milestones = [...(s.milestones ?? [])].reverse().flatMap((m) => {
+    const d = MILESTONE_BY_ID[m.id as MilestoneId];
+    return d ? [{ id: d.id, title: d.title, line: d.line, icon: d.icon, day: m.day }] : [];
+  });
+  return { fallen: annalsCache.fallen, chronicles: annalsCache.chronicles, famous, milestones, milestonesFrom: s.milestonesFrom, generations: generationLines(s) };
+}
+
+function rankView(s: GameState): RankView {
+  const tier = s.rank?.tier ?? 0;
+  return { tier, name: tierName(s, tier), phrase: tierPhrase(s, tier), since: s.rank?.since ?? 1, last: s.rank?.last ?? null };
 }
 
 /** Whether someone stands on top of a gate: a sentry at their post (people.ts `gatePost`), or a fighter at a wall spot

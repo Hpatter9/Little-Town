@@ -96,7 +96,7 @@ function keyOf(): string {
           : shown === 'expeditions'
             ? 'e' + expeditionsKey(snap)
             : shown === 'journal'
-              ? 'j' + festivalsKey(snap.festivals) + '|' + cultureKey(snap.culture) + '|' + snap.journalHead + '|' + snap.calendar.day + '|' + legendsVersion() + '|' + JSON.stringify(snap.ancestry ? [snap.ancestry.visits, snap.ancestry.log.length, snap.ancestry.place, snap.ancestry.heirloom] : null) + '|' + snap.met.length + '|' + snap.scenesSeen.length + '|' + snap.annals.fallen.length + '|' + snap.annals.chronicles.length + '|' + snap.annals.famous.map((f) => `${f.id}:${f.felled}:${f.level}:${f.titles.length}:${guildsOf({ guilds: snap?.guilds ?? [] }, f.id)[0]?.role ?? ''}`).join(',')
+              ? 'j' + (snap.annals.milestones?.length ?? 0) + (snap.annals.generations?.join('') ?? '') + festivalsKey(snap.festivals) + '|' + cultureKey(snap.culture) + '|' + snap.journalHead + '|' + snap.calendar.day + '|' + legendsVersion() + '|' + JSON.stringify(snap.ancestry ? [snap.ancestry.visits, snap.ancestry.log.length, snap.ancestry.place, snap.ancestry.heirloom] : null) + '|' + snap.met.length + '|' + snap.scenesSeen.length + '|' + snap.annals.fallen.length + '|' + snap.annals.chronicles.length + '|' + snap.annals.famous.map((f) => `${f.id}:${f.felled}:${f.level}:${f.titles.length}:${guildsOf({ guilds: snap?.guilds ?? [] }, f.id)[0]?.role ?? ''}`).join(',')
               : shown === 'crafting'
                 ? 'c' + craftingKey(snap)
                 : shown === 'trade'

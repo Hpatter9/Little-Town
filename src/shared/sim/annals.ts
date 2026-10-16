@@ -24,6 +24,7 @@ import { alignmentYearLines } from './alignment';
 import { religionYearLines } from './religion';
 import { topicName } from '../data/originResearch';
 import type { GuildRole } from '../data/guilds';
+import { markMilestone } from './milestones';
 import { warFallen, warYearLines } from './war/memory';
 
 /** Midwinter: the middle day of winter, of an evening. */
@@ -101,6 +102,7 @@ export function tallyRaid(s: GameState, outcome: 'victory' | 'driven' | 'pillage
   y.came++;
   if (outcome === 'pillaged') y.pillaged++;
   else y.won++;
+  markMilestone(s, outcome === 'pillaged' ? 'raidLost' : 'raidWon');
 }
 
 const doneBuildings = (s: GameState) => s.buildings.filter((b) => b.status === 'done').map((b) => b.id);

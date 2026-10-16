@@ -4,6 +4,9 @@
 
 import type { AnnalsView } from '../../shared/sim/snapshot';
 import { el } from './dom';
+import { foldedSection } from './structure';
+import { icon } from '../ui/icon';
+import { MILESTONES } from '../../shared/data/tiers';
 import { fallenGuildMark } from '../art/guildMarks';
 
 const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`;
@@ -26,6 +29,26 @@ function titles(list: string[]): HTMLElement | null {
  *  fell in on their record). */
 export function renderHeroes(a: AnnalsView, guildMark?: (personId: number) => HTMLElement | null): HTMLElement[] {
   const out: HTMLElement[] = [];
+  // the generations and the firsts (sim/tiers.ts, sim/milestones.ts)
+  if (a.generations?.length) {
+    out.push(el('h2', '', 'The generations'));
+    for (const g of a.generations) out.push(el('p', 'hall-line', g));
+  }
+  const firsts: HTMLElement[] = [];
+  if (a.milestonesFrom && a.milestonesFrom > 1) firsts.push(el('p', 'hint', `The town’s firsts are kept from day ${a.milestonesFrom}; older ones were not written down.`));
+  if (!a.milestones?.length) firsts.push(el('p', 'empty', 'The town’s firsts are written here as they happen.'));
+  for (const m of a.milestones ?? []) {
+    const c = el('div', 'card hall-card milestone');
+    const top = el('div', 'card-top');
+    const name = el('span', 'card-name');
+    const mark = icon(m.icon);
+    if (mark) name.append(mark, ' ');
+    name.append(m.title);
+    top.append(name, el('span', 'card-size', `Day ${m.day}`));
+    c.append(top, el('div', 'hint', m.line));
+    firsts.push(c);
+  }
+  out.push(foldedSection('journal', 'Milestones', firsts, `${a.milestones?.length ?? 0} of ${MILESTONES.length}`));
   out.push(el('h2', '', 'The famous'));
   if (!a.famous.length) out.push(el('p', 'empty', 'Nobody has made a name for themselves yet.'));
   for (const f of a.famous) {
