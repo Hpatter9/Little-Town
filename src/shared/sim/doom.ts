@@ -52,6 +52,7 @@ import { RAID_KIND_BY_ID } from '../data/raids';
 import { ENEMIES } from '../data/enemies';
 import { tireless, addStock, ERA_MULTIPLIER, notify, personFx, type GameState, type Person } from './state';
 import { TICKS_PER_DAY, TICKS_PER_HOUR } from './time';
+import { closeCall } from './closeCalls';
 
 export interface Doom {
   kind: DoomKind;
@@ -242,6 +243,7 @@ function spreadPlague(s: GameState, rng: Rng): void {
     if (s.tick >= p.sick!.until) {
       p.sick = null;
       notify(s, `${p.name} has recovered.`);
+      closeCall(s, p, `${p.name}'s fever turned, and the plague let go.`); // (sim/closeCalls.ts)
     }
   }
 }

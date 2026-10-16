@@ -152,6 +152,8 @@ export interface DiaryFacts {
   faith?: string | null;
   /** A secret of their own that they keep (sim/intrigue.ts `secretsAbout`), in their own words, if they have one. */
   secret?: string | null;
+  /** Their last close call (sim/closeCalls.ts), if any in the last few days: what happened, and whether today. */
+  nearly?: { text: string; today: boolean } | null;
 }
 
 /** The facts of someone's day. */
@@ -209,7 +211,19 @@ export function diaryFacts(s: GameState, p: Person): DiaryFacts {
     dream: dreamOf(s, p),
     faith: faithDiaryLine(s, p, roll01(p.id, today, 11)),
     secret: isChild(p) ? null : secretLine(secretsAbout(s, p)[0]),
+    nearly: nearlyOf(s, p, dayStart),
   };
+}
+
+/** A close call as they write it ("Bram nearly bled out" as "I nearly bled out", "Bram's fever" as "My fever"). */
+export const nearlyMine = (text: string, name: string): string => (text.startsWith(`${name}'s `) ? `My ${text.slice(name.length + 3)}` : text.startsWith(`${name} `) ? `I ${text.slice(name.length + 1)}` : text);
+
+/** Days a close call stays in someone's diary. */
+const NEARLY_DAYS = 3;
+function nearlyOf(s: GameState, p: Person, dayStart: number): DiaryFacts['nearly'] {
+  const c = p.closeCalls?.at(-1);
+  if (!c || s.tick - c.tick > NEARLY_DAYS * 24 * TICKS_PER_HOUR) return null;
+  return { text: c.text, today: c.tick >= dayStart };
 }
 
 /** A secret kept, as its keeper writes it down (the facts are told of them in the third person). */
@@ -306,12 +320,14 @@ export function writeDiary(f: DiaryFacts): string[] {
     events.push(said ? `Everyone's talking about it: ${lowerFirst(said)}` : gossipLine(f.talk, f.nature, r(6)));
   }
   if (f.secret && r(41) < 0.5) events.push(f.secret);
+  if (f.nearly?.today) events.push(`${firstPerson(nearlyMine(f.nearly.text, f.name))} I could have died.`);
   if (events.length) out.push(events.join(' '));
   // how they feel, and why; the body; grief and love
   const feel: string[] = [];
   feel.push(pick(f.morale >= 65 ? v.happy : f.morale >= 35 ? v.fine : v.low, r(7)));
   if (f.up && f.morale >= 35) feel.push(`What lifted me: ${lower(f.up)}.`);
   if (f.down && (f.morale < 65 || r(8) < 0.5)) feel.push(`What weighs on me: ${lower(f.down)}.`);
+  if (f.nearly && !f.nearly.today) feel.push('I keep thinking of how close I came. My hands still shake.');
   if (f.dream) feel.push(`Last night I dreamed ${f.dream}. I can't shake it.`);
   if (f.faith) feel.push(f.faith);
   if (f.grief) feel.push(`I keep thinking of ${f.grief}.`);

@@ -5,6 +5,24 @@
 import type { AnnalsView } from '../../shared/sim/snapshot';
 import { el } from './dom';
 import { fallenGuildMark } from '../art/guildMarks';
+import { fallenFace } from '../art/fallenFace';
+import { obituaryLines } from '../../shared/sim/obituary';
+import type { Fallen } from '../../shared/sim/annals';
+
+/** The fallen whose obituary is open. */
+const openFallen = new Set<number>();
+
+/** Someone's obituary: their face and a few lines (sim/obituary.ts). */
+export function obituaryBox(f: Fallen): HTMLElement {
+  const box = el('div', 'obit');
+  const face = fallenFace(f, 56);
+  if (face) box.append(face);
+  const words = el('div', 'obit-words');
+  for (const line of obituaryLines(f).slice(1)) words.append(el('p', line.startsWith('“') ? 'obit-line said' : 'obit-line', line));
+  if (!f.obit) words.append(el('p', 'obit-line', 'Their story was not written down.'));
+  box.append(words);
+  return box;
+}
 
 const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`;
 
@@ -53,8 +71,11 @@ export function renderHeroes(a: AnnalsView, guildMark?: (personId: number) => HT
   out.push(el('h2', '', 'The fallen'));
   if (!a.fallen.length) out.push(el('p', 'empty', 'Nobody has died. Yet.'));
   for (const f of a.fallen) {
-    const c = el('div', 'card hall-card fallen');
-    const top = el('div', 'card-top');
+    // (tap for their obituary: sim/obituary.ts; kept open across the menu's redraws)
+    const c = el('details', 'card hall-card fallen') as HTMLDetailsElement;
+    c.open = openFallen.has(f.id);
+    c.addEventListener('toggle', () => (c.open ? openFallen.add(f.id) : openFallen.delete(f.id)));
+    const top = el('summary', 'card-top');
     const fname = el('span', 'card-name', `${f.founder ? '★ ' : ''}${f.name}`);
     const fgm = fallenGuildMark(f);
     if (fgm) fname.append(' ', fgm);
@@ -62,6 +83,7 @@ export function renderHeroes(a: AnnalsView, guildMark?: (personId: number) => HT
     c.append(top, el('div', 'hall-cause', `Died ${f.cause}.`), el('div', 'hint', deeds(f)));
     const t = titles(f.titles);
     if (t) c.append(t);
+    c.append(obituaryBox(f));
     out.push(c);
   }
   return out;
