@@ -33,6 +33,7 @@ import { heritageView, type HeritageView } from './heritage';
 import { cellsOf } from './prisoners';
 import { patientsIn, sickbedsIn } from './sickbeds';
 import type { Chronicle, Fallen } from './annals';
+import { fatesView, type Fate } from './fates';
 import { honouredView, type HonouredView } from './memorials';
 import { ruinsView, type RuinView } from './ruins';
 import { RECAP_HOURS, type RaidRecap } from './raidRecap';
@@ -136,7 +137,7 @@ import { TERRAIN } from '../data/terrain';
 import { buildingCentre, buildingCentreX, buildSlots, defOf, enclosure, footprint, totalCapacity, totalStock } from './buildings';
 import { destinationHidden, destinationOf, destinationUnlocked, foodNeeded, partyCarry, planParty } from './expeditions';
 import { modifiers, researchStation, researchStations, seatStageNow } from './research';
-import { tireless, carryCapacity, ERA_MULTIPLIER, FX_TICKS, maxHp, RESEARCH_MULTIPLIER, poolSize, type PersonFx, type RaiderHitFx, type SpellTarget, SPELL_FX_TICKS, type Activity, type Building, type CraftOrder, type Expedition, type ExpeditionPhase, type GameState, type JournalEntry, type Ledger, type Needs, type Notice, type Person, type TileState, campCell, campX, campXY, BLOOD_LASTS, DEBRIS_LASTS, type DebrisKind, type ShopTalk } from './state';
+import { tireless, carryCapacity, ERA_MULTIPLIER, FX_TICKS, maxHp, RESEARCH_MULTIPLIER, poolSize, type PersonFx, type RaiderHitFx, type SpellTarget, SPELL_FX_TICKS, type Activity, type Building, type CraftOrder, type Debrief, type Expedition, type ExpeditionPhase, type GameState, type JournalEntry, type Ledger, type Needs, type Notice, type Person, type TileState, campCell, campX, campXY, BLOOD_LASTS, DEBRIS_LASTS, type DebrisKind, type ShopTalk } from './state';
 import { cellAt, groundAt, inMap, type LandMap, wet, CELL } from './land';
 import { calendar, TICK_HZ, TICKS_PER_HOUR, type Calendar } from './time';
 import { ABILITIES, abilitiesKnown } from '../data/abilities';
@@ -524,6 +525,10 @@ export interface PromptView {
   story: string | null;
   picture: string | null;
   who: number | null;
+  /** A fateful event: the box wears its heavier frame and reveals slowly (renderer/mobile/eventSheet.ts). */
+  fateful?: boolean;
+  /** A commanded party's result: who came home and who did not, then the haul (sim/muster.ts `debrief`). */
+  debrief?: Debrief;
   /** Until the default is taken; null when it waits as long as it takes. */
   secondsLeft: number | null;
   /** An evolution's roads (data/paths.ts, data/pathLore.ts): each with its archetype's role, its telling and its
@@ -986,6 +991,8 @@ export interface Snapshot {
   hero: number | null;
   /** The expedition the player is watching, in place of the town. */
   watch: ExpeditionView | null;
+  /** A party just come home through the gate (a commanded one, or one being watched): where, for the camera. */
+  homecoming: { tick: number; x: number; y: number } | null;
   /** Hostile bands roaming the land, and the fights they're in (sim/roamers.ts). */
   roamers: RoamerView[];
   /** The herds and predator packs of the wilderness (sim/wild.ts); absent until the town runs itself. */
@@ -1397,6 +1404,8 @@ export function snapshot(s: GameState): Snapshot {
       over: k.ended !== undefined,
       won: k.e.result ? k.e.result.outcome === 'won' : null,
     })),
+    // (a party that has just come home through the gate: the camera meets them, once; main.ts)
+    homecoming: s.homecoming && s.tick - s.homecoming.tick < 3000 ? { tick: s.homecoming.tick, x: s.homecoming.x, y: s.homecoming.y } : null,
     watch: ((e) => (e ? expeditionView(s, e) : null))(s.expeditions.find((e) => e.id === s.watching) ?? skirmishTrip(s, s.watching) ?? arenaTrip(s, s.watching)),
     mine: mineView(s),
     deep: deepSummary(s),
@@ -1433,6 +1442,8 @@ export function snapshot(s: GameState): Snapshot {
       story: p.story ?? null,
       picture: p.picture ?? null,
       who: p.who ?? null,
+      ...(p.fateful ? { fateful: true } : {}),
+      ...(p.debrief ? { debrief: p.debrief } : {}),
       // (none for a question that waits as long as it takes: raiders held at the gate)
       secondsLeft: p.expiresTick >= Number.MAX_SAFE_INTEGER ? null : Math.max(0, (p.expiresTick - s.tick) / TICK_HZ),
       ...(p.roads ? { roads: p.roads.map(roadOf).filter((r): r is RoadView => !!r) } : {}),
@@ -2528,6 +2539,8 @@ export interface FamousView {
   founder: boolean;
 }
 export interface AnnalsView {
+  /** The fateful choices made and what came of them, newest first (sim/fates.ts). */
+  fates?: Fate[];
   fallen: Fallen[];
   chronicles: Chronicle[];
   famous: FamousView[];
@@ -2536,11 +2549,11 @@ export interface AnnalsView {
 const HALL_FALLEN = 100;
 const HALL_CHRONICLES = 12;
 const HALL_FAMOUS = 12;
-let annalsCache: { key: string; fallen: Fallen[]; chronicles: Chronicle[] } | null = null;
+let annalsCache: { key: string; fallen: Fallen[]; chronicles: Chronicle[]; fates: Fate[] } | null = null;
 
 function annalsView(s: GameState): AnnalsView {
-  const key = `${s.seed}|${s.fallen?.length ?? 0}|${s.fallen?.at(-1)?.id ?? 0}|${s.chronicles?.length ?? 0}`;
-  if (annalsCache?.key !== key) annalsCache = { key, fallen: (s.fallen ?? []).slice(-HALL_FALLEN).reverse(), chronicles: (s.chronicles ?? []).slice(-HALL_CHRONICLES).reverse() };
+  const key = `${s.seed}|${s.fallen?.length ?? 0}|${s.fallen?.at(-1)?.id ?? 0}|${s.chronicles?.length ?? 0}|${s.fates?.length ?? 0}|${s.fates?.filter((f) => f.later).length ?? 0}`;
+  if (annalsCache?.key !== key) annalsCache = { key, fates: fatesView(s), fallen: (s.fallen ?? []).slice(-HALL_FALLEN).reverse(), chronicles: (s.chronicles ?? []).slice(-HALL_CHRONICLES).reverse() };
   // (the famous: deeds, titles and standing, the founder always among them)
   const worth = (p: Person) => (p.felled ?? 0) * 3 + (p.titles?.length ?? 0) * 15 + (p.trips ?? 0) * 2 + levelOf(p) + (p.id === s.mainId ? 1000 : 0);
   const famous = s.people
@@ -2548,7 +2561,7 @@ function annalsView(s: GameState): AnnalsView {
     .sort((a, b) => worth(b) - worth(a))
     .slice(0, HALL_FAMOUS)
     .map((p) => ({ id: p.id, name: p.name, calling: callingName(p, stageOf(p)), level: levelOf(p), felled: p.felled ?? 0, trips: p.trips ?? 0, titles: [...(p.titles ?? [])], founder: p.id === s.mainId }));
-  return { fallen: annalsCache.fallen, chronicles: annalsCache.chronicles, famous };
+  return { fates: annalsCache.fates, fallen: annalsCache.fallen, chronicles: annalsCache.chronicles, famous };
 }
 
 /** Whether someone stands on top of a gate: a sentry at their post (people.ts `gatePost`), or a fighter at a wall spot

@@ -13,6 +13,7 @@ import { hkLayers, hkWhoOf } from '../art/hkFolk';
 import { playScene } from '../panel/scenePlayer';
 import { EVENT_SCRIPTS, eventFamily } from '../panel/sceneScripts';
 import { addCardStyles } from '../panel/cardsStyles';
+import { reducedMotion } from '../ui/motion';
 
 const W = 576;
 const H = 324;
@@ -91,6 +92,11 @@ export function createEventSheet(onAnswer: (prompt: number, option: number) => v
     const evolve = p.kind === 'evolve' && !!p.roads?.length;
     if (evolve) el.classList.add('evolve');
     else el.classList.remove('evolve');
+    // a fateful event: the heavier frame and the slower reveal (the title, then the telling a paragraph at a time,
+    // then the answers, which can't be tapped until they are there)
+    const fateful = !!p.fateful;
+    el.classList.toggle('fateful', fateful);
+    body.classList.toggle('ui-frame-big', fateful);
     const title = document.createElement('div');
     title.className = evolve ? 'event-title evolve-title' : 'event-title';
     title.textContent = p.title;
@@ -106,6 +112,8 @@ export function createEventSheet(onAnswer: (prompt: number, option: number) => v
       para2.textContent = para;
       text.append(para2);
     }
+    // a commanded party's result leads with who came home and who did not, then the haul (sim/muster.ts `debrief`)
+    if (p.debrief) text.replaceChildren(...debriefBlock(p.debrief));
     const options = document.createElement('div');
     options.className = evolve ? 'event-options evolve-options' : 'event-options';
     // the answer taken: a gold flash and a burst of sparks over the scene
@@ -209,6 +217,20 @@ export function createEventSheet(onAnswer: (prompt: number, option: number) => v
       });
       options.append(b);
     });
+    if (fateful && !reducedMotion()) {
+      const STEP = 300;
+      let at = 0;
+      title.classList.add('reveal');
+      for (const para of Array.from(text.children) as HTMLElement[]) {
+        at += STEP;
+        para.classList.add('reveal');
+        para.style.setProperty('--d', `${at}ms`);
+      }
+      at += STEP;
+      options.classList.add('reveal', 'holding');
+      options.style.setProperty('--d', `${at}ms`);
+      setTimeout(() => options.classList.remove('holding'), at + 380);
+    }
     count = document.createElement('div');
     count.className = 'event-count';
     // the town's own pick and why (sim/alignment.ts), under the answers
@@ -218,6 +240,66 @@ export function createEventSheet(onAnswer: (prompt: number, option: number) => v
     body.append(title, text, options, advice, count);
     el.replaceChildren(art, body);
     el.scrollTop = 0;
+  };
+
+  /** The result of a party the player sent: those who came home (with a word on how), those who did not, then the
+   *  haul. The haul has a place of its own (`.debrief-haul`, data-slot "loot-reveal") where the item-by-item reveal
+   *  of what they brought hangs: for now it lists the haul plainly. */
+  const debriefBlock = (d: NonNullable<PromptView['debrief']>): HTMLElement[] => {
+    const out: HTMLElement[] = [];
+    const head = (text: string, cls = '') => {
+      const h = document.createElement('div');
+      h.className = `debrief-head ${cls}`.trim();
+      h.textContent = text;
+      return h;
+    };
+    out.push(head(d.lost.length ? (d.back.length ? 'Came home' : 'Nobody came home') : 'All came home'));
+    if (d.back.length) {
+      const row = document.createElement('div');
+      row.className = 'debrief-row';
+      for (const b of d.back) {
+        const one = document.createElement('div');
+        one.className = 'debrief-one';
+        const face = win()?.__picture?.({ person: b.id });
+        if (face) one.append(face);
+        const name = document.createElement('div');
+        name.className = 'debrief-name';
+        name.textContent = b.name;
+        one.append(name);
+        if (b.note) {
+          const note = document.createElement('div');
+          note.className = 'debrief-note';
+          note.textContent = b.note;
+          one.append(note);
+        }
+        row.append(one);
+      }
+      out.push(row);
+    }
+    if (d.lost.length) {
+      out.push(head('Did not come home', 'lost'));
+      const row = document.createElement('div');
+      row.className = 'debrief-lost';
+      for (const l of d.lost) {
+        const one = document.createElement('div');
+        one.textContent = `✝ ${l.name}, level ${l.level}`;
+        row.append(one);
+      }
+      out.push(row);
+    }
+    out.push(head(d.recalled ? 'What they brought (called back)' : 'What they brought'));
+    const haul = document.createElement('div');
+    haul.className = 'debrief-haul';
+    haul.dataset.slot = 'loot-reveal';
+    haul.textContent = d.ending ?? (d.haul.length ? d.haul.join(', ') : 'Nothing: they come home empty-handed.');
+    out.push(haul);
+    if (d.cleared) {
+      const c = document.createElement('div');
+      c.className = 'debrief-cleared';
+      c.textContent = `${d.place} is cleared.`;
+      out.push(c);
+    }
+    return out;
   };
 
   /** In the answers' place once one is taken: the choice, then what came of it, then Continue. */

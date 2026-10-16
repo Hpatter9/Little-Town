@@ -434,6 +434,82 @@
         font-size: 16px;
         font-style: italic;
       }
+      /* the stake card: the odds in words over who goes, what they seek and what the town risks (musterPanel.ts) */
+      .stake-card {
+        margin: 6px 0 4px;
+        padding: 8px 10px;
+        background: var(--header);
+        border: 1px solid var(--wood-edge);
+        border-left-width: 5px;
+        border-radius: 6px;
+      }
+      .stake-card.stake-safe {
+        border-left-color: #7fbf6a;
+      }
+      .stake-card.stake-fair {
+        border-left-color: #e0b04a;
+      }
+      .stake-card.stake-grim {
+        border-left-color: #d4574a;
+      }
+      .stake-word {
+        font-family: var(--font-display);
+        font-size: 18px;
+        color: #ffe08a;
+      }
+      .stake-grim .stake-word {
+        color: #f09a8a;
+      }
+      .stake-faces {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        margin: 8px 0 4px;
+      }
+      .stake-one {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        width: 52px;
+        font-size: 10.5px;
+        color: var(--text-dim);
+      }
+      .stake-one.lead .stake-name {
+        color: #ffe08a;
+      }
+      .stake-one canvas {
+        width: 44px;
+        height: 44px;
+      }
+      .stake-name {
+        max-width: 52px;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+      .stake-h {
+        margin-top: 6px;
+        font-size: 10.5px;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        color: var(--text-dim);
+      }
+      .stake-line {
+        font-size: 13px;
+        line-height: 1.4;
+      }
+      .stake-time {
+        margin-top: 6px;
+        color: var(--text-dim);
+      }
+      .stake-warning {
+        margin-top: 6px;
+        padding: 6px 8px;
+        font-size: 13px;
+        font-style: italic;
+        background: rgba(212, 87, 74, 0.16);
+        border-radius: 4px;
+      }
       .muster-h {
         margin: 14px 0 6px;
         font-family: var(--font-display);
