@@ -23,6 +23,7 @@ import { DIRECTION_DEFS, DIRECTIONS } from '../../shared/sim/planner';
 import { blueprintCount, isUnlocked } from '../../shared/sim/buildings';
 import type { Snapshot } from '../../shared/sim/snapshot';
 import { button, duration, el } from './dom';
+import { thumb } from './structure';
 import { materialIcon } from '../art/materialIcons';
 import { BUILD_MULTIPLIER } from '../../shared/sim/state';
 import { hiddenNote, HidePrefs } from './hide';
@@ -250,6 +251,7 @@ export function renderBuild(s: Snapshot, bridge: Bridge | undefined, rerender: (
     const need = (Object.entries(def.cost) as [Material, number][]).filter(([m, n]) => (b.delivered[m] ?? 0) < n);
     const row = el('div', 'queue-row');
     row.append(
+      thumb(b.def, 28, s),
       el('span', 'queue-name', def.name),
       el('span', 'queue-time', b.progress > 0 ? `${Math.floor(b.progress * 100)}% built` : need.length ? `waiting on ${need.map(([m, n]) => `${MATERIAL_NAMES[m].toLowerCase()} ${b.delivered[m] ?? 0}/${n}`).join(', ')}` : 'ready to build'),
     );
@@ -261,7 +263,11 @@ export function renderBuild(s: Snapshot, bridge: Bridge | undefined, rerender: (
     out.push(row);
   }
   const plan = s.plan;
-  if (plan?.build) out.push(el('div', 'hint', `Last decided: a ${BUILDING_BY_ID[plan.build.def]?.name ?? plan.build.def}, because ${plan.build.why}.`));
+  if (plan?.build) {
+    const last = el('div', 'hint', `Last decided: a ${BUILDING_BY_ID[plan.build.def]?.name ?? plan.build.def}, because ${plan.build.why}.`);
+    if (BUILDING_BY_ID[plan.build.def]) last.prepend(thumb(plan.build.def, 28, s));
+    out.push(last);
+  }
   for (const w of plan?.waiting ?? []) out.push(el('div', 'hint', w));
   if (plan?.gathering.length) out.push(el('div', 'hint', `Gathering for: ${plan.gathering.join(', ').toLowerCase()}.`));
 
@@ -331,7 +337,7 @@ function card(def: BuildingDef, s: Snapshot, bridge: Bridge | undefined): HTMLEl
   const unlocked = isUnlocked({ unlockAll: s.unlockAll, done: s.research.done, era: s.era, origin: s.origin.id }, def);
   const c = el('div', unlocked ? 'card' : 'card locked');
   const top = el('div', 'card-top');
-  top.append(el('span', 'card-name', def.name), el('span', 'card-size', `${def.width} wide · ~${duration(def.buildSeconds * BUILD_PACE * BUILD_MULTIPLIER[earlier(s.era, eraOfResearch(def.research))])} of work · Construction ${buildSkill(def)}+`));
+  top.append(thumb(def.id, 36, s), el('span', 'card-name', def.name), el('span', 'card-size', `${def.width} wide · ~${duration(def.buildSeconds * BUILD_PACE * BUILD_MULTIPLIER[earlier(s.era, eraOfResearch(def.research))])} of work · Construction ${buildSkill(def)}+`));
   const cost = el('div', 'cost');
   for (const [m, n] of Object.entries(def.cost) as [Material, number][]) {
     const chip = el('span', (s.stock[m] ?? 0) >= n ? 'chip' : 'chip short', `${MATERIAL_NAMES[m]} ${n}`);
