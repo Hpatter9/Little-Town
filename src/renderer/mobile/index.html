@@ -105,6 +105,16 @@
         border: 2px solid var(--wood-edge);
         border-radius: 6px;
       }
+      /* (opened from the main menu's Settings: the same list, centred over the menu) */
+      body.mm-settings #menu {
+        z-index: 1001;
+        top: 50%;
+        left: 50%;
+        right: auto;
+        transform: translate(-50%, -50%);
+        width: min(92vw, 330px);
+        max-height: calc(100dvh - 24px);
+      }
       #menu .item {
         min-height: 40px;
         padding: 0 12px;

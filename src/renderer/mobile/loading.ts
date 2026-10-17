@@ -17,6 +17,7 @@ import { drawMark, LOGO_H, LOGO_W, loadPieces, Logo, WINDOWS, type Pieces } from
 import type { TownSketch } from '../loading/sketch';
 import type { StripReport } from '../loading/stripLoad';
 import { TIPS } from './tips';
+import { createMainMenu, ENTER_KEY, MENU_CSS, type MainMenu, type TownSummary } from './mainMenu';
 
 export interface LoadingHost {
   /** A file of the page's own has come: its script, the town from the save. */
@@ -25,14 +26,43 @@ export interface LoadingHost {
   town(s: TownSketch): void;
   /** The strip's report (loading/stripLoad.ts). */
   strip(r: StripReport): void;
-  /** Called once the screen has gone (at once if it already has). */
+  /** Called each time the screen has gone and the game is let in (at once if it already has). */
   onReveal(cb: () => void): void;
   readonly revealed: boolean;
+  /** The main menu is up (the clock held; the screen hasn't begun loading a town). */
+  readonly menuUp: boolean;
+  /** The town in play, for the menu's Continue. */
+  summary(s: TownSummary): void;
+  /** What the menu's New game and Settings do (the page owns the bridge and the ☰ menu). */
+  setActions(a: MenuActions): void;
+  /** Show the menu again, from the game (the page has held the clock and saved). */
+  showMenu(): void;
+  /** Hide the screen for a moment (the founding panel, the settings) or bring it back. */
+  peek(away: boolean): void;
+  readonly peeking: boolean;
   /** The square mark at a size (the icon tool, the New Town screen), once the pieces are in. */
   mark(size: number): Promise<HTMLCanvasElement>;
   /** When each thing came (ms since the page began), for measuring. */
   readonly times: Record<string, number>;
 }
+
+export interface MenuActions {
+  newGame(): void;
+  settings(): void;
+  /** The game must not save over the town about to be swapped or deleted. */
+  leaving(): void;
+}
+
+declare const __GAME_VERSION__: string;
+declare const __GAME_COMMIT__: string;
+declare const __GAME_BUILT__: string;
+/** "Version 0.160.0 · abc1234 · built 2026-10-17", the same line as the ☰ menu's (mobile.ts). */
+const versionLine = (): string => {
+  const v = typeof __GAME_VERSION__ === 'string' ? __GAME_VERSION__ : '?';
+  const commit = typeof __GAME_COMMIT__ === 'string' && __GAME_COMMIT__ ? ` · ${__GAME_COMMIT__}` : '';
+  const built = typeof __GAME_BUILT__ === 'string' ? ` · built ${__GAME_BUILT__}` : '';
+  return `Version ${v}${commit}${built}`;
+};
 
 const SCENE_KEY = 'littletown.loadingScene';
 /** How many times the game has been loaded (Duchess's gag turns by it). */
@@ -85,6 +115,8 @@ const CSS = `
   #loading-screen .ls-tip { min-height: 34px; font-size: 12px; }
 }
 @media (prefers-reduced-motion: reduce) { #loading-screen .ls-fill { transition: none; } }
+${MENU_CSS}
+#loading-screen.menu > .ls-veil { background: linear-gradient(rgba(6,8,20,0.5), rgba(6,8,20,0.55) 45%, rgba(6,8,20,0.78)); }
 `;
 
 /** The ground's colours (the minimap's, map/minimap.ts), by land.ts's codes. */
@@ -118,8 +150,21 @@ function start(): LoadingHost {
     }
   } catch {}
 
+  // (the menu first; a picked town reloads the page with the flag set, and goes straight to loading)
+  let skipMenu = /[?&]nomenu\b/.test(location.search);
+  try {
+    if (sessionStorage.getItem(ENTER_KEY) === '1') skipMenu = true;
+    sessionStorage.removeItem(ENTER_KEY);
+  } catch {}
+  let mode: 'menu' | 'loading' = skipMenu ? 'loading' : 'menu';
+  let running = true;
+  let peeking = false;
+  let actions: MenuActions | null = null;
+  let pendingAction: 'new' | 'settings' | null = null;
+  let summary: TownSummary | null = null;
   const root = document.createElement('div');
   root.id = 'loading-screen';
+  root.classList.toggle('menu', mode === 'menu');
   const sceneCanvas = document.createElement('canvas');
   sceneCanvas.className = 'ls-scene';
   const veil = document.createElement('div');
@@ -144,7 +189,29 @@ function start(): LoadingHost {
   tap.className = 'ls-tap';
   tap.textContent = 'Tap to enter';
   tap.hidden = true;
-  front.append(logoBox, bar, line, tip, tap);
+  // (no save at all: a first game, still to be founded)
+  const firstGame = readKey('littletown.save') === null;
+  const menu: MainMenu = createMainMenu({
+    store: localStorage,
+    get hasSave() {
+      return !firstGame;
+    },
+    summary: () => summary,
+    version: versionLine(),
+    enter: () => enterLoading(),
+    newGame: () => (actions ? actions.newGame() : (pendingAction = 'new')),
+    settings: () => (actions ? actions.settings() : (pendingAction = 'settings')),
+    leaving: () => {
+      (window as unknown as { __noSave?: boolean }).__noSave = true;
+      actions?.leaving();
+    },
+    paged: (on) => {
+      root.classList.toggle('paged', on);
+      layout();
+    },
+  });
+  front.append(logoBox, bar, line, tip, tap, menu.root);
+  root.append(menu.foot);
   if (scene) root.append(sceneCanvas);
   // (Duchess, the town's goat, the screen's star: in front of whatever is behind, at the foot of the screen, every load)
   const goatCanvas = document.createElement('canvas');
@@ -161,15 +228,13 @@ function start(): LoadingHost {
   document.body.prepend(root);
 
   // (what's in)
-  const shownAt = performance.now();
-  const times: Record<string, number> = { shown: Math.round(shownAt) };
+  const times: Record<string, number> = { shown: Math.round(performance.now()) };
   const mark = (what: string) => (times[what] ??= Math.round(performance.now()));
+  let shownAt = performance.now();
   let movedAt = shownAt;
   const steps = new Set<string>();
   let strip: StripReport = { wanted: 0, done: 0, look: null, ready: false };
   let sketch: TownSketch | null = null;
-  // (no save at all: a first game, still to be founded)
-  const firstGame = readKey('littletown.save') === null;
   let revealed = false;
   let leaving = false;
   const waiting: (() => void)[] = [];
@@ -221,7 +286,10 @@ function start(): LoadingHost {
     const H = window.innerHeight;
     const sideways = W > H && H < 560;
     // (the logo: most of the width upright; on its side, held to under half the height)
-    const cssW = sideways ? Math.min(W * 0.5, ((H * 0.46) / 340) * LOGO_W) : Math.min(W - 32, 440);
+    const menuUp = mode === 'menu';
+    const cssW = sideways
+      ? Math.min(W * (menuUp ? 0.42 : 0.5), ((H * (menuUp ? 0.62 : 0.46)) / LOGO_H) * LOGO_W)
+      : Math.min(W - 32, 440, menuUp ? ((H * 0.3) / LOGO_H) * LOGO_W : Infinity);
     logo?.size(cssW, dpr);
     // (its room kept while its pieces come, so nothing jumps when it appears)
     logoBox.style.width = `${Math.round(cssW)}px`;
@@ -245,11 +313,36 @@ function start(): LoadingHost {
       root.classList.add('gone');
       // (the page's clock and cards wait on this)
       revealed = true;
-      for (const cb of waiting.splice(0)) cb();
-      setTimeout(() => root.remove(), FADE_MS + 50);
+      for (const cb of waiting) cb();
+      // (kept, hidden: the ☰ menu's "Main menu" brings it back)
+      setTimeout(() => {
+        if (revealed && mode === 'loading') {
+          running = false;
+          root.hidden = true;
+        }
+      }, FADE_MS + 50);
     }, reduced ? 0 : MEHH_MS);
   };
   tap.addEventListener('click', reveal);
+
+  // From the menu to loading a town: the bar, the line and the tip take the menu's place, and the minimum time on screen
+  // runs from now (a town already warm shows the screen only a moment, then the reveal).
+  const enterLoading = () => {
+    if (mode === 'loading') return;
+    mode = 'loading';
+    root.classList.remove('menu', 'paged');
+    shownAt = movedAt = performance.now();
+    tipAt = -Infinity;
+    layout();
+  };
+  const startLoop = () => {
+    if (running && loopOn) return;
+    running = true;
+    if (!loopOn) {
+      loopOn = true;
+      requestAnimationFrame(frame);
+    }
+  };
 
   // the scene: the town at night waking up, or the founding fire
   /** Where the town's middle is drawn (a share of the screen), clear of the logo: under it upright, beside it on its
@@ -471,11 +564,11 @@ function start(): LoadingHost {
     let right = true;
     let walking = false;
     if (reduced) x = W * 0.12;
-    else if (gag === 'amble') {
+    else if (mode === 'loading' && gag === 'amble') {
       // (across the foot of the screen as the bar fills: where she is, is how far it has come)
       x = -size * 0.2 + sh * (W - size * 0.6);
       walking = sh < 1 && !leaving;
-    } else if (gag === 'chew') {
+    } else if (mode === 'menu' || gag === 'chew') {
       // (planted by the corner, chewing, looking about now and then)
       x = W * 0.08;
       right = Math.floor(t / 2.6) % 3 !== 2;
@@ -516,9 +609,13 @@ function start(): LoadingHost {
   let beat = 0;
   let lastBeat = 0;
   const frame = (now: number) => {
-    if (revealed && !root.isConnected) return;
-    const sh = share();
-    const stage = loadStage({ shownAt, now: performance.now(), ready: strip.ready, movedAt });
+    if (!running) {
+      loopOn = false;
+      return;
+    }
+    const inMenu = mode === 'menu';
+    const sh = inMenu ? 1 : share();
+    const stage = inMenu ? 'loading' : loadStage({ shownAt, now: performance.now(), ready: strip.ready, movedAt });
     if (stage === 'reveal') reveal();
     tap.hidden = stage !== 'stalled' || leaving;
     if (sh !== shown) {
@@ -528,7 +625,7 @@ function start(): LoadingHost {
     }
     const said = loadLine(step(), (now - shownAt) / 2600);
     if (said !== lastLine) line.textContent = lastLine = said;
-    if (now - tipAt > TIP_MS) {
+    if (!inMenu && now - tipAt > TIP_MS) {
       tipAt = now;
       nextTip();
     }
@@ -537,7 +634,7 @@ function start(): LoadingHost {
       beat++;
       // (the sun creeps along the arc as the files come in; the gold shimmers by now and then)
       const cycle = (beat % 40) / 40;
-      logo?.draw(0.08 + 0.84 * sh, lightsLit(sh, WINDOWS), reduced || cycle > 0.45 ? null : cycle / 0.45, beat);
+      logo?.draw(inMenu ? 0.55 : 0.08 + 0.84 * sh, lightsLit(sh, WINDOWS), reduced || cycle > 0.45 ? null : cycle / 0.45, beat);
       if (scene) {
         const W = sceneCanvas.width;
         const H = sceneCanvas.height;
@@ -545,7 +642,7 @@ function start(): LoadingHost {
         g.clearRect(0, 0, W, H);
         // (a saved town waits in the night for its own map; only a first game, or a town still founding, has the fire)
         const founding = firstGame || !!sketch?.founding;
-        if (founding) drawFounding(g, W, H, sh, beat);
+        if (founding) drawFounding(g, W, H, inMenu ? 0.8 : sh, beat);
         else if (sketch) drawTown(g, sketch, W, H, sh, beat);
         if (founding || sketch) drawEmbers(g, W, H, beat, founding);
       }
@@ -553,6 +650,7 @@ function start(): LoadingHost {
     drawDuchess(now, sh);
     requestAnimationFrame(frame);
   };
+  let loopOn = true;
   requestAnimationFrame(frame);
 
   return {
@@ -573,9 +671,47 @@ function start(): LoadingHost {
       if (r.done !== strip.done || r.wanted !== strip.wanted || r.ready !== strip.ready) movedAt = performance.now();
       strip = r;
     },
-    onReveal: (cb) => (revealed ? cb() : void waiting.push(cb)),
+    onReveal: (cb) => {
+      waiting.push(cb);
+      if (revealed) cb();
+    },
     get revealed() {
       return revealed;
+    },
+    get menuUp() {
+      return mode === 'menu';
+    },
+    summary: (s) => {
+      summary = s;
+      menu.refresh();
+    },
+    setActions: (a) => {
+      actions = a;
+      const p = pendingAction;
+      pendingAction = null;
+      if (p === 'new') a.newGame();
+      else if (p === 'settings') a.settings();
+    },
+    showMenu: () => {
+      mode = 'menu';
+      revealed = false;
+      leaving = false;
+      peeking = false;
+      root.hidden = false;
+      root.classList.add('menu');
+      root.classList.remove('paged');
+      menu.home();
+      layout();
+      startLoop();
+      // (shown a frame later, so the fade runs)
+      requestAnimationFrame(() => root.classList.remove('gone'));
+    },
+    peek: (away) => {
+      peeking = away;
+      root.classList.toggle('gone', away);
+    },
+    get peeking() {
+      return peeking;
     },
     mark: (size) => piecesIn.then((p) => drawMark(p, size)),
     times,

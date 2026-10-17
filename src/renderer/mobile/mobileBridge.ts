@@ -9,6 +9,8 @@ import type { JournalEntryView, Snapshot } from '../../shared/sim/snapshot';
 import { SnapAssembler } from '../../shared/snapDelta';
 import type { FromHost, NewTown, ToHost, startSimHost } from '../../shared/simHost';
 import { mayBuzz, readVibrate } from '../vibration';
+import { beginTown, noteCurrent } from './saveSlots';
+import { ENTER_KEY } from './mainMenu';
 
 const SAVE_KEY = 'littletown.save';
 const BACKUP_KEY = 'littletown.backup';
@@ -34,6 +36,11 @@ function write(key: string, value: string): boolean {
     return false;
   }
 }
+
+/** The main menu is up (mobile/loading.ts): a first run waits for its New game button. */
+const menuUp = (): boolean => !!(window as unknown as { __loading?: { menuUp: boolean } }).__loading?.menuUp;
+/** The menu is deleting or swapping the town in play: nothing saves it back. */
+const noSave = (): boolean => !!(window as unknown as { __noSave?: boolean }).__noSave;
 
 /** The game, in a worker of its own (simWorker.js, beside the page), or where a browser can't start one, the same
  *  file loaded into the page (`?inpage` forces it, for comparing). Messages sent before it's ready wait. */
@@ -97,11 +104,15 @@ export function mobileBridge(): Bridge {
         return;
       }
       case 'save':
-        if (!leaving) write(SAVE_KEY, m.text);
+        if (!leaving && !noSave()) {
+          write(SAVE_KEY, m.text);
+          noteSlot();
+        }
         return;
       case 'started':
         if (m.unreadable && savedText) write(`${SAVE_KEY}.unreadable`, savedText); // kept, never overwritten silently
-        if (m.fresh) {
+        // (a first run under the main menu waits for its New game button)
+        if (m.fresh && !menuUp()) {
           state.panel = 'newgame'; // a first run: make the founder and pick how to begin (a starter town waits behind)
           emit();
         }
@@ -121,6 +132,14 @@ export function mobileBridge(): Bridge {
       asked.set(id, res as (v: unknown) => void);
       send({ ...m, id } as ToHost);
     });
+  /** The save slot in play, as the main menu lists it (saveSlots.ts); the numbers come from the latest snapshot. */
+  const noteSlot = () => {
+    const s = assembler.current;
+    if (!s) return;
+    try {
+      noteCurrent(localStorage, { name: s.townName, origin: s.origin.name, biome: s.biome, day: s.calendar.day, people: s.people.length, savedAt: Date.now() });
+    } catch {}
+  };
   const catchingUp = () => !!assembler.current?.catchingUp;
   // (boot.js has sent the town already, when it could start the worker)
   if (!(window as unknown as { __simBoot?: unknown }).__simBoot) send({ t: 'init', save: savedText, now: Date.now(), hidden: document.hidden, alerts, held: true });
@@ -233,15 +252,29 @@ export function mobileBridge(): Bridge {
         if (!town) return;
         leaving = true;
         const old = read(SAVE_KEY);
-        if (old && town.keepOld) write(BACKUP_KEY, old); // (a town only just begun isn't kept)
+        // (the old town waits in its slot when there is a free one; else it is the one backup, as before)
+        const where = old ? beginTown(localStorage, town.keepOld, Date.now()) : 'replaced';
+        if (old && town.keepOld && where === 'replaced') write(BACKUP_KEY, old); // (a town only just begun isn't kept)
         if (town.legend) keepLegend(town.legend);
         write(SAVE_KEY, town.text);
+        try {
+          sessionStorage.setItem(ENTER_KEY, '1'); // (on to the loading screen, not the menu again)
+        } catch {}
         location.reload();
       });
     },
     command: (c) => send({ t: 'command', c }),
     // (the loading screen has gone: the clock runs)
     release: () => send({ t: 'hold', on: false }),
+    // (back to the main menu: the clock held, the town saved first)
+    suspend: async () => {
+      send({ t: 'hold', on: true });
+      const text = await ask<string>({ t: 'save' });
+      if (typeof text === 'string' && text && !leaving && !noSave()) {
+        write(SAVE_KEY, text);
+        noteSlot();
+      }
+    },
     getSnapshot: () => (assembler.current ? Promise.resolve(assembler.current) : first),
     onSnapshot: (cb) => {
       snapListeners.add(cb);
