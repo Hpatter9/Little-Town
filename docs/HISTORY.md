@@ -8300,3 +8300,15 @@ and the rest still pen. No draw from any stream; `natureOf` itself is unchanged 
 
 Test: `test/ranch.test.ts` (last test). Tool: `tools/stuck-scan2.mjs` (steps the late-town fixture for days, forcing a
 raid every half day, and reports any foe-like figure in the snapshot that stays put for a day, by list).
+
+## A village's road finds its way (branch claude/village-road-route)
+
+Changes HISTORY "The road to the daughter village" (0.156.0).
+
+**The gap.** In a crowded late town (the fixture's Stoneley and Brammere) `layStreet` found no way even with a large search: it runs only over cleared ground (grass, fertile, sand), and the village sat behind woods, rocks and scrub, so the road was never planned and was retried every 3 days to no end.
+
+- **A fallback route** (`src/shared/sim/villageRoad.ts` `endings`, `planVillageRoad`): when the first try (nearest street, then the town's front) fails, `layStreet` is called again with `{ wild: true, maxNodes: 30000 }` (reach `WILD_REACH` 400) to each ending in turn: up to four spread-out cells of the town's own streets nearest the village (`ENDINGS_STREET`, `ENDINGS_APART`), then each ring gate, then the town's front. The first that `trace`s through to the front is kept. Going in through the ring wall is the same search: `layStreet` already treats wall cells as blocked except gate buildings, so a road to a street inside ends at a gate. The ring always has four gates (`gateCells`), so no new gate is opened. `PathOpts.bore` is kept (thin rock still tunnelled).
+- **Wild ground** (`sim/buildings.ts` `layStreet`, new `opts`): with `wild`, a cell for which `wildToClear` holds (a wood, rocks, a marsh, a hill, never a cell with ore or gems) is passable at `WILD_ROAD_COST` 2 extra, and is cleared to grass as the road is planned. Without `wild` nothing changes, so streets and every other caller plan as before.
+- **No way:** `road.failed` plus `road.sig` (`landSig`: the building count and the ring's generation and gate count) and `road.told`. The village's news says "No way could be found for a road to the town." and the notices "No way could be found for a road to X." once. A failed road is planned again (`retryable`) only if fewer buildings stand (one pulled down) or the ring's make changed (a gate opened); a failure from an older save (no `sig`) is retried once on the old 3-day clock to learn it. No retry storm.
+- Deterministic, autopilot only (the road is planned only in `villageRoadHourly`/founding as before), no random draws, new fields optional.
+- **Tests:** `test/villageRoad.test.ts` (a village walled off by wood gets a road cut through it; behind a solid row of houses; outside the ring wall, in by a gate; no way at all: one news line, no retries until a building goes). The fixture's Stoneley and Brammere both get a road (65 and 79 cells).
