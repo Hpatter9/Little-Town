@@ -10,6 +10,7 @@
 
 import { BUILDING_BY_ID } from '../data/buildings';
 import { ENEMIES, natureOf } from '../data/enemies';
+import { PACK_SHEETS } from '../data/packSheets';
 import { FOOD_VALUE } from '../data/people';
 import {
   BEAST_LEVEL_MOST, BEAST_NAMES, BEAST_TRAITS, BREED_DAILY, CATCH_DOWNED, feedOf, GRAZER_FOOD, GRAZERS, GROWN_DAYS, haulOf, HUNGRY_FLEE, HUNT_HIDE, HUNT_HURT, huntOf, INHERIT,
@@ -118,9 +119,18 @@ function beastName(s: GameState, rng: Rng): string {
 }
 
 /** A beast joins the ranch (if there's room). */
+/** Only an animal can be kept in a pen: a creature named a beast, or drawn from a creature sheet. The packs' people (a
+ *  kunoichi, a ninja) read as beasts to `natureOf` (they have a sheet), and stood in the pens as foes. */
+export function penKind(kind: string): boolean {
+  const d = ENEMIES[kind];
+  if (!d) return false;
+  if (d.nature) return d.nature === 'beast';
+  return natureOf(kind) === 'beast' && !('sheet' in d.sprite && d.sprite.sheet in PACK_SHEETS);
+}
+
 export function addBeast(s: GameState, kind: string, from: RanchBeast['from'], rng: Rng, opts: { by?: string; parents?: [RanchBeast, RanchBeast]; traits?: TraitId[] } = {}): RanchBeast | null {
   const r = ranchOf(s);
-  if (!ENEMIES[kind] || r.beasts.length >= ranchRoom(s)) return null;
+  if (!penKind(kind) || r.beasts.length >= ranchRoom(s)) return null;
   let traits = opts.traits;
   if (!traits) {
     traits = [];
@@ -184,7 +194,7 @@ export function ranchRaidOver(s: GameState, raid: Raid): void {
     }
   }
   for (const rd of raid.raiders) {
-    if (!rd.ally || rd.tamedBy === undefined || rd.down || rd.gone || rd.ranch !== undefined || natureOf(rd.kind) !== 'beast' || ENEMIES[rd.kind]?.boss) continue;
+    if (!rd.ally || rd.tamedBy === undefined || rd.down || rd.gone || rd.ranch !== undefined || !penKind(rd.kind) || ENEMIES[rd.kind]?.boss) continue;
     const tamer = s.people.find((p) => p.id === rd.tamedBy);
     const b = addBeast(s, rd.kind, 'tamed', rng, { by: tamer?.name });
     if (b) {
@@ -195,7 +205,7 @@ export function ranchRaidOver(s: GameState, raid: Raid): void {
   const catcher = operatorOf(s, 'beast_ranch') ?? s.people.find((p) => p.cls === 'beast_tamer' && p.away === null && !p.downed);
   if (ranches(s).length && catcher) {
     for (const rd of raid.raiders) {
-      if (rd.ally || !rd.down || natureOf(rd.kind) !== 'beast' || ENEMIES[rd.kind]?.boss || !rng.chance(CATCH_DOWNED)) continue;
+      if (rd.ally || !rd.down || !penKind(rd.kind) || ENEMIES[rd.kind]?.boss || !rng.chance(CATCH_DOWNED)) continue;
       const b = addBeast(s, rd.kind, 'caught', rng, { by: catcher.name });
       if (!b) break;
       b.hp = 0.3;
@@ -234,6 +244,9 @@ export const mountOf = (s: GameState, id: number) => s.ranch?.beasts.find((b) =>
 export function ranchHourly(s: GameState): void {
   if (s.tick % TICKS_PER_HOUR !== 0 || s.autopilot === false || s.gameOver) return;
   // (each hour the beasts are set to work afresh: a newcomer needn't wait for the morning, nor a rider long dead)
+  // (a pen kept a pack's person in an older save: they are let go)
+  const odd = s.ranch?.beasts.filter((b) => !penKind(b.kind));
+  if (odd?.length) for (const b of odd) lose(s, b, 'lost', `${b.name} the ${kindName(b.kind)} was let out of the pens.`);
   if (s.ranch?.beasts.length) setJobs(s);
   if (calendar(s.tick).hour !== RANCH_HOUR) return;
   buildRanch(s);

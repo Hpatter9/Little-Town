@@ -199,3 +199,18 @@ test('a town of six with Domestication lays out a ranch even before it holds a b
   buildRanch(small);
   assert.ok(!small.buildings.some((b) => b.def === 'beast_ranch'), 'five, and no beast: not yet');
 });
+
+test('a pack\'s person (a kunoichi) is never kept in the pens, and one in an old save is let out; a rat is still kept', () => {
+  const s = town('ranch-people');
+  assert.equal(addBeast(s, 'kunoichi', 'caught', new Rng(1)), null);
+  assert.equal(addBeast(s, 'dart_ninja', 'tamed', new Rng(1)), null);
+  assert.ok(addBeast(s, 'rat', 'caught', new Rng(1)));
+  const old = ranchOf(s);
+  old.beasts.push({ ...old.beasts[0], id: old.next++, kind: 'kunoichi' });
+  s.tick = at(2, RANCH_HOUR);
+  ranchHourly(s);
+  assert.deepEqual(ranchOf(s).beasts.map((b) => b.kind), ['rat']);
+  const raid = fakeRaid(s, [{ ...ally(s, 'kunoichi', 0, 1), ally: false, down: true }]);
+  ranchRaidOver(s, raid);
+  assert.equal(ranchOf(s).beasts.length, 1);
+});
