@@ -23,6 +23,8 @@ export interface AwayBefore {
   lastRecap: RaidRecap | undefined;
   /** The favourites when the player left (sim/favourites.ts). */
   favourites?: { id: number; name: string }[];
+  /** The villages whose road to the town was already open. */
+  roads?: Set<number>;
 }
 
 export type AwayTone = 'bad' | 'good' | 'ask' | 'news' | 'next';
@@ -41,6 +43,7 @@ export function awayBefore(s: GameState): AwayBefore {
     uniques: s.uniques?.length ?? 0,
     raids: [],
     lastRecap: s.raidRecap,
+    roads: new Set((s.villages ?? []).filter((v) => v.road?.done !== undefined).map((v) => v.id)),
     favourites: favouritesOf(s).map((id) => ({ id, name: s.people.find((p) => p.id === id)?.name ?? '' })),
   };
 }
@@ -89,6 +92,8 @@ export function awaySummary(s: GameState, b: AwayBefore): AwayLine[] {
   const kinds = new Map<string, number>();
   for (const p of found) kinds.set(PLACE_DEFS[p.kind]?.name ?? 'a place', (kinds.get(PLACE_DEFS[p.kind]?.name ?? 'a place') ?? 0) + 1);
   if (found.length) out.push({ tone: 'news', text: `Found: ${names([...kinds].map(([k, n]) => (n > 1 ? `${k} ×${n}` : k)))}.` });
+  // a road to a daughter village finished
+  for (const v of s.villages ?? []) if (v.road?.done !== undefined && !b.roads?.has(v.id)) out.push({ tone: 'good', text: `The road to ${v.name} is open.` });
   // what waits on the player
   const asks = s.prompts.length;
   if (asks) out.push({ tone: 'ask', text: asks === 1 ? `A question waits: ${s.prompts[0].title}.` : `${asks} questions wait for you.` });

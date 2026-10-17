@@ -6,6 +6,7 @@
 import { castleLayout, castleStep, type CastleLayout } from './castle';
 import { isGate } from './ringWall';
 import { footprint } from './buildings';
+import { onVillageRoad } from './villageRoad';
 import { addWear, CELL, cellOf, centreOf, findPath, groundAt, mayReach, idx, inMap, inRect, SWIM_COST, wet, type LandMap, type Pt, type Rect } from './land';
 import type { GameState } from './state';
 
@@ -270,7 +271,10 @@ const same = (a: Pt | undefined, b: Pt) => !!a && Math.abs(a.x - b.x) < 1 && Mat
 /** One tick's walk towards `to` at `step` px. True once there. `through` is a footprint the walker may enter (where
  *  it's going). `tick` lets the path be looked at again now and then. A swimmer (`swim`: the merfolk) goes through the
  *  sea as readily as over the land. */
-export function walk(s: Pick<GameState, 'buildings' | 'land' | 'nomad' | 'origin'>, w: Walker, goal: Pt, step: number, through?: Rect, tick = 0, swim = false): boolean {
+/** How much faster a walker goes on the finished road to a daughter village (sim/villageRoad.ts) than over open ground. */
+export const ROAD_SPEED = 1.25;
+
+export function walk(s: Pick<GameState, 'buildings' | 'land' | 'nomad' | 'origin' | 'villages'>, w: Walker, goal: Pt, step: number, through?: Rect, tick = 0, swim = false): boolean {
   const to = standFor(s.land, w, goal);
   if (Math.hypot(to.x - w.x, to.y - w.y) <= Math.max(ARRIVE, step)) {
     w.x = to.x;
@@ -289,7 +293,7 @@ export function walk(s: Pick<GameState, 'buildings' | 'land' | 'nomad' | 'origin
     // (the first cell is the one we stand in: skip it when we're past its centre already)
     if (w.path.length > 1 && Math.hypot(w.path[0].x - w.x, w.path[0].y - w.y) < CELL * 0.5) w.path.shift();
   }
-  let left = step;
+  let left = step * (onVillageRoad(s, cellOf(w)) ? ROAD_SPEED : 1); // (a road is quicker underfoot)
   while (left > 0 && w.path.length) {
     const n = w.path[0];
     const dx = n.x - w.x;

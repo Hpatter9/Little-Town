@@ -34,6 +34,7 @@ export function villagesSection(s: Snapshot, bridge: Bridge | undefined): HTMLEl
     if (v.beset) now.push(`Beset by ${v.beset}!`);
     if (v.helpers.length) now.push(`${v.helpers.join(', ')} gone to help`);
     if (v.cartOut) now.push('A cart on the road to town');
+    if (v.road !== null) now.push(v.road >= 100 ? 'Road: open' : `Road: ${v.road}% paved`);
     if (now.length) c.append(el('div', 'hint', now.join(' · ')));
     const row = el('div', 'row');
     row.append(
