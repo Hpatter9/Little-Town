@@ -55,3 +55,9 @@ export const loadLine = (step: LoadStep, n = 0): string => {
 /** How many of a scene's `lights` are lit at a share loaded (the town waking up as the bar fills): none at the start,
  *  all of them once everything is in. */
 export const lightsLit = (share: number, lights: number): number => Math.max(0, Math.min(lights, Math.floor(share * lights + 1e-9)));
+
+/** Duchess's gag on the loading screen (mobile/loading.ts), by how many times the game has been loaded, so it isn't the
+ *  same every time: ambling across the screen as the bar fills, stopping to chew, or wandering back and forth. */
+export type DuchessGag = 'amble' | 'chew' | 'wander';
+const GAGS: readonly DuchessGag[] = ['amble', 'chew', 'wander'];
+export const duchessGag = (loads: number): DuchessGag => GAGS[((Math.floor(loads) % GAGS.length) + GAGS.length) % GAGS.length];

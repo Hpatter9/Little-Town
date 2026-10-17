@@ -12,7 +12,7 @@
 // player through. The game's clock is held until it has gone (mobile.ts, `release`). The ☰ menu can turn the scene off
 // for a slow phone (`littletown.loadingScene`); the preload stays.
 
-import { FADE_MS, lightsLit, loadLine, loadShare, loadStage, type LoadStep } from '../loading/loadProgress';
+import { duchessGag, FADE_MS, lightsLit, loadLine, loadShare, loadStage, type LoadStep } from '../loading/loadProgress';
 import { drawMark, LOGO_H, LOGO_W, loadPieces, Logo, WINDOWS, type Pieces } from '../loading/logo';
 import type { TownSketch } from '../loading/sketch';
 import type { StripReport } from '../loading/stripLoad';
@@ -35,8 +35,12 @@ export interface LoadingHost {
 }
 
 const SCENE_KEY = 'littletown.loadingScene';
+/** How many times the game has been loaded (Duchess's gag turns by it). */
+const LOADS_KEY = 'littletown.loads';
 /** How long a beat of the screen's life is (ms): the scene and the logo move a step a beat. */
 const BEAT_MS = 110;
+/** How long Duchess's "Mehh." has before the screen fades (ms). */
+const MEHH_MS = 300;
 /** How long a tip stays up (ms). */
 const TIP_MS = 4200;
 /** The page's own files: its script, the town (the save read and the first snapshot), the strip's script. */
@@ -57,6 +61,7 @@ const CSS = `
   color: #f1e2c2; font-family: 'Alegreya Sans', system-ui, sans-serif; transition: opacity ${FADE_MS}ms ease; touch-action: none; user-select: none; }
 #loading-screen.gone { opacity: 0; pointer-events: none; }
 #loading-screen > .ls-scene { position: absolute; inset: 0; width: 100%; height: 100%; image-rendering: pixelated; }
+#loading-screen > .ls-goat { position: absolute; left: 0; right: 0; bottom: calc(env(safe-area-inset-bottom) + 4px); width: 100%; image-rendering: pixelated; pointer-events: none; }
 #loading-screen > .ls-veil { position: absolute; inset: 0; background: linear-gradient(rgba(6,8,20,0.7), rgba(6,8,20,0.35) 55%, rgba(6,8,20,0) 70%, rgba(6,8,20,0.4)); }
 @media (orientation: landscape) and (max-height: 560px) {
   #loading-screen > .ls-veil { background: linear-gradient(90deg, rgba(6,8,20,0.75), rgba(6,8,20,0.4) 50%, rgba(6,8,20,0) 62%, rgba(6,8,20,0.3)); }
@@ -141,7 +146,18 @@ function start(): LoadingHost {
   tap.hidden = true;
   front.append(logoBox, bar, line, tip, tap);
   if (scene) root.append(sceneCanvas);
-  root.append(veil, front);
+  // (Duchess, the town's goat, the screen's star: in front of whatever is behind, at the foot of the screen, every load)
+  const goatCanvas = document.createElement('canvas');
+  goatCanvas.className = 'ls-goat';
+  root.append(veil, front, goatCanvas);
+  let loads = 0;
+  try {
+    loads = Number(localStorage.getItem(LOADS_KEY)) || 0;
+    localStorage.setItem(LOADS_KEY, String(loads + 1));
+  } catch {}
+  const gag = duchessGag(loads);
+  /** When the screen began to go (she hops at it, with a "Mehh."). */
+  let leftAt = 0;
   document.body.prepend(root);
 
   // (what's in)
@@ -222,12 +238,16 @@ function start(): LoadingHost {
   const reveal = () => {
     if (leaving) return;
     leaving = true;
+    leftAt = performance.now();
     mark('reveal');
-    root.classList.add('gone');
-    // (the page's clock and cards wait on this)
-    revealed = true;
-    for (const cb of waiting.splice(0)) cb();
-    setTimeout(() => root.remove(), FADE_MS + 50);
+    // (Duchess's "Mehh." and hop get a beat of their own, then the screen fades)
+    setTimeout(() => {
+      root.classList.add('gone');
+      // (the page's clock and cards wait on this)
+      revealed = true;
+      for (const cb of waiting.splice(0)) cb();
+      setTimeout(() => root.remove(), FADE_MS + 50);
+    }, reduced ? 0 : MEHH_MS);
   };
   tap.addEventListener('click', reveal);
 
@@ -371,8 +391,8 @@ function start(): LoadingHost {
     });
     g.restore();
   };
-  const drawFounding = (g: CanvasRenderingContext2D, W: number, H: number, sh: number, beat: number, t: number) => {
-    // (the night: stars, a dark meadow, the fire catching as the files come in, Duchess about it)
+  const drawFounding = (g: CanvasRenderingContext2D, W: number, H: number, sh: number, beat: number) => {
+    // (the night: stars, a dark meadow, the fire catching as the files come in; Duchess is in front, drawDuchess)
     g.fillStyle = '#ffffff';
     for (let i = 0; i < 70; i++) {
       const x = ((i * 97.3) % 1000) / 1000;
@@ -409,17 +429,6 @@ function start(): LoadingHost {
       ] as const)
         g.drawImage(pieces.flame, ((f + n) % 8) * 32, 0, 32, 32, cx - fs / 2 + dx * k * 22, base - k * 18 - fs + k * 4, fs, fs);
     }
-    // (Duchess, ambling back and forth by the fire, stopping to chew: her sheet is three steps left, three right)
-    if (pieces.goat) {
-      const ph = reduced ? 0.9 : (t / 9000) % 1;
-      const go = ph < 0.3 ? ph / 0.3 : ph < 0.5 ? 1 : ph < 0.8 ? 1 - (ph - 0.5) / 0.3 : 0;
-      const walking = ph < 0.3 || (ph >= 0.5 && ph < 0.8);
-      const right = ph < 0.3;
-      const step = walking ? [0, 1, 2, 1][beat % 4] : 1;
-      const frame = (right ? 3 : 0) + step;
-      const gx = cx + k * 34 + go * k * 40;
-      g.drawImage(pieces.goat, frame * 48, 0, 48, 48, Math.round(gx), base - k * 44 + (walking ? 0 : (beat >> 1) % 2) * k * 0.5, k * 48, k * 48);
-    }
   };
   const drawEmbers = (g: CanvasRenderingContext2D, W: number, H: number, beat: number, founding: boolean) => {
     if (reduced) return;
@@ -432,6 +441,75 @@ function start(): LoadingHost {
       g.fillRect(Math.round(x), Math.round(y), 2, 2);
     }
     g.globalAlpha = 1;
+  };
+
+  // Duchess at the foot of the screen: her sheet is three steps walking left, three walking right (the cutscenes' goat,
+  // cutscene/sceneProps.ts). Her gag turns with each load (`duchessGag`): ambling across as the bar fills, stopping to
+  // chew, or wandering back and forth; at the reveal she hops with a "Mehh.". Still, but there, under reduced motion.
+  let goatKey = '';
+  const drawDuchess = (now: number, sh: number) => {
+    const im = pieces.goat;
+    if (!im) return;
+    const dpr = Math.min(3, window.devicePixelRatio || 1);
+    const W = Math.round(window.innerWidth * dpr);
+    const k = Math.max(2, Math.round(dpr * (window.innerWidth > window.innerHeight ? 1.3 : 1.5)));
+    const H = 70 * k;
+    const key = `${W}x${H}`;
+    if (key !== goatKey) {
+      goatKey = key;
+      goatCanvas.width = W;
+      goatCanvas.height = H;
+      goatCanvas.style.height = `${H / dpr}px`;
+    }
+    const g = goatCanvas.getContext('2d')!;
+    g.clearRect(0, 0, W, H);
+    g.imageSmoothingEnabled = false;
+    const size = 48 * k;
+    const t = now / 1000;
+    const steps = Math.floor(t * 7);
+    let x: number;
+    let right = true;
+    let walking = false;
+    if (reduced) x = W * 0.12;
+    else if (gag === 'amble') {
+      // (across the foot of the screen as the bar fills: where she is, is how far it has come)
+      x = -size * 0.2 + sh * (W - size * 0.6);
+      walking = sh < 1 && !leaving;
+    } else if (gag === 'chew') {
+      // (planted by the corner, chewing, looking about now and then)
+      x = W * 0.08;
+      right = Math.floor(t / 2.6) % 3 !== 2;
+    } else {
+      // (back and forth, stopping to chew, as she does in the cutscenes)
+      const ph = (t / 9) % 1;
+      const go = ph < 0.3 ? ph / 0.3 : ph < 0.5 ? 1 : ph < 0.8 ? 1 - (ph - 0.5) / 0.3 : 0;
+      walking = (ph < 0.3 || (ph >= 0.5 && ph < 0.8)) && !leaving;
+      right = ph < 0.5;
+      x = W * 0.08 + go * (W * 0.5);
+    }
+    const frame = (right ? 3 : 0) + (walking ? [0, 1, 2, 1][steps % 4] : 1);
+    // (chewing: a little bob; the reveal: a hop)
+    let y = H - size;
+    if (!walking && !reduced && !leaving) y -= (steps >> 1) % 2 ? 0 : k * 0.5;
+    const since = leaving ? (now - leftAt) / 1000 : -1;
+    if (since >= 0 && !reduced) y -= Math.sin(Math.min(1, since / 0.45) * Math.PI) * k * 9;
+    g.drawImage(im, frame * 48, 0, 48, 48, Math.round(x), Math.round(y), size, size);
+    // (her "Mehh.", as in the cutscenes)
+    if (since >= 0) {
+      const fs = 7 * k;
+      g.font = `700 ${fs}px 'Alegreya Sans', system-ui, sans-serif`;
+      const w = g.measureText('Mehh.').width + fs;
+      const bx = Math.round(Math.min(W - w - 4, Math.max(4, x + size * (right ? 0.55 : 0.05))));
+      const by = Math.round(Math.max(2, y - fs * 0.4));
+      g.fillStyle = '#fbf1dc';
+      g.strokeStyle = '#1e130a';
+      g.lineWidth = Math.max(2, k * 0.6);
+      g.fillRect(bx, by, w, fs * 1.4);
+      g.strokeRect(bx, by, w, fs * 1.4);
+      g.fillStyle = '#2a1a0c';
+      g.textBaseline = 'middle';
+      g.fillText('Mehh.', bx + fs * 0.5, by + fs * 0.72);
+    }
   };
 
   // each beat: the bar, the line, the tip, the logo's life and the scene
@@ -467,11 +545,12 @@ function start(): LoadingHost {
         g.clearRect(0, 0, W, H);
         // (a saved town waits in the night for its own map; only a first game, or a town still founding, has the fire)
         const founding = firstGame || !!sketch?.founding;
-        if (founding) drawFounding(g, W, H, sh, beat, now);
+        if (founding) drawFounding(g, W, H, sh, beat);
         else if (sketch) drawTown(g, sketch, W, H, sh, beat);
         if (founding || sketch) drawEmbers(g, W, H, beat, founding);
       }
     }
+    drawDuchess(now, sh);
     requestAnimationFrame(frame);
   };
   requestAnimationFrame(frame);

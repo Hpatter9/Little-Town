@@ -7,7 +7,7 @@ import { snapshot } from '../src/shared/sim/snapshot';
 import { newGame } from '../src/shared/sim/state';
 import { CELL } from '../src/shared/sim/land';
 import { byLook, FIRST_BUDGET, FIRST_REACH, loadPlan, styleOf, type LookTables, type PlanTown } from '../src/renderer/loading/loadPlan';
-import { lightsLit, loadLine, loadShare, loadStage, MIN_SHOW_MS, STALL_MS } from '../src/renderer/loading/loadProgress';
+import { duchessGag, lightsLit, loadLine, loadShare, loadStage, MIN_SHOW_MS, STALL_MS } from '../src/renderer/loading/loadProgress';
 import { townSketch } from '../src/renderer/loading/sketch';
 
 const lateTown = () => {
@@ -119,4 +119,11 @@ test('the scene: a new town is still being founded; the late town is painted fro
   // (a phone on its side gets a wider cut)
   const side = townSketch(s, 852 / 393);
   assert.ok(side.w / side.h > k.w / k.h);
+});
+
+test('Duchess is on every loading screen, her gag turning with each load', () => {
+  const gags = [0, 1, 2, 3, 4, 5].map(duchessGag);
+  assert.deepEqual(gags.slice(0, 3), gags.slice(3));
+  assert.equal(new Set(gags).size, 3);
+  assert.equal(duchessGag(7), duchessGag(7));
 });

@@ -15,7 +15,9 @@ picture once; those within `FIRST_REACH` (26 cells) up to `FIRST_BUDGET` (160) a
 picture stands for what is the renderer's to say (`LookTables`): `loading/stripLoad.ts` `STRIP_LOOKS` names the ground's
 detail, fields, roads, prop sets and scenery, `packUrls(def, style)` (new in map/packBuildings.ts: a pick's every
 picture, its joins and a windmill's sails) and `hkLayers(...).map(hkUrl)` (new exports in art/hkFolk.ts, with
-`hkLoading()`). Small exports were added beside the loaders for this (`groundDetailUrls`, `fieldTileUrls`,
+`hkLoading()`; `packUrls` also walks a wall's `Pick.tile` pieces by every join and run, so the seamless walls' sheets,
+`packs/dl_grates.png` and the palisade and stone runs, are warmed; the ground's `roads/bridge_parts.png` comes with
+`groundDetailUrls`). Small exports were added beside the loaders for this (`groundDetailUrls`, `fieldTileUrls`,
 `roadTileUrls`); none of the drawing changed. `startStripLoad(first)` runs in the strip (main.ts: begun as soon as the
 first snapshot is in, alongside the LPC, creature and effect loads; `drawn()` called two frames after the first
 `applySnapshot`): it warms the first set, reports `{ wanted, done, look, ready }` to the page each frame, and is ready
@@ -56,6 +58,16 @@ and `icon-512.png`, which tools/build-web.mjs now uses for the PWA icon (the pai
 and the New Town wizard's last step shows it over the summary (panel/newGamePanel.ts). The pieces are copied beside
 the page into `out/web/loading/` by tools/build-web.mjs (`PIECE_FILES`).
 
+**Duchess** (the owner's call: "I think using Duchess on the loading screen is a great idea"). The town's goat is the
+screen's star on every load, a canvas of her own at the foot of the screen (`drawDuchess` in mobile/loading.ts), in
+front of whatever is behind: the plain night, the town waking, the founding fire, or no scene at all. She is the
+cutscenes' sprite (`scene/goat.png`: three steps walking left, three right). Her gag turns with each load
+(`duchessGag(loads)` in loading/loadProgress.ts, counted in `littletown.loads`): `amble`, walking across the screen as
+the bar fills (where she is, is how far it has come); `chew`, planted in the corner chewing and looking about; or
+`wander`, back and forth and stopping to chew, as in the cutscenes. At the reveal she hops with her "Mehh.", given
+`MEHH_MS` (300 ms) before the screen fades and the clock runs. Under reduced motion she stands still in the corner,
+there all the same. (She left the founding scene's own stage, so there is one goat.)
+
 **The scene.** The player's own town at night (`loading/sketch.ts`, pure: `townSketch(snap, aspect)` cuts the land
 about the camp, wider for a phone on its side, and lists each building's footprint and kind, `house`, `hall`, `tent`,
 `field`, `wall` or `fire`, nearest the camp first). The page paints the land a cell a dab (the minimap's colours),
@@ -64,7 +76,7 @@ seat or anything wide, the camp tent, the soil for fields, the stakes for the wa
 then the windows glow as the files arrive, from the camp outward, so the bar is the town waking up. Upright the town
 sits under the logo, sideways beside it. A town with fewer than three finished buildings, and a first game with no save
 at all, shows the founding scene instead: stars, the camp tent, the firepit catching (the 5000 Pixel Effects flame
-growing with the bar), the log, and Duchess ambling about the fire and stopping to chew.
+growing with the bar), the log, with Duchess in front.
 
 **Measured** (a headless Chromium in the cloud container: software drawing and a slow CPU, so every figure is several
 times a phone's). The screen is up 40–80 ms after the page starts; the page's script in at 0.36 s, the town at 1.0–1.5
