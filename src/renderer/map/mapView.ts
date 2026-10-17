@@ -67,6 +67,18 @@ import { SEAT_STAGE } from '../../shared/data/seats';
 /** When only the footpaths' wear has changed, one chunk is painted again at most this often (ms; syncLand): painting a
  *  chunk is the heaviest thing the map does, and paths come and go slowly anyway. */
 const WEAR_REPAINT_MS = 1500;
+/** The time (ms) a call may spend painting ground out of view: a snapshot's, a frame's of the camera's, or a worn path's. */
+const FILL_BUDGET_MS = 8;
+const PAN_BUDGET_MS = 6;
+const WEAR_BUDGET_MS = 4;
+/** How long the ground waits for its art sheets before it is painted without them. */
+const ART_WAIT_MS = 4000;
+/** A ground chunk waiting to be painted, and the key it will have. */
+interface DueChunk {
+  cx: number;
+  cy: number;
+  key: string;
+}
 /** Where the seabed things stand round a building in the sea (share of its width along, px below its foot), and their
  *  size against the atlas's (which is drawn for the raid map, larger). */
 const SEA_DRESS: [number, number][] = [[0.04, 2], [0.96, 4], [0.55, 7]];
@@ -409,6 +421,7 @@ export class MapView {
       const s = c.sprite;
       s.renderable = s.x + side > x0 && s.x < x1 && s.y + side > y0 && s.y < y1;
     }
+    this.paintDue(PAN_BUDGET_MS);
     for (const t of this.things.children) {
       // (anything standing on the map is at most a few cells wide and some taller than wide, but for the keep's walls)
       t.renderable = this.wide.has(t) || (t.x > x0 - 96 && t.x < x1 + 96 && t.y > y0 - 32 && t.y < y1 + 160);
@@ -487,10 +500,10 @@ export class MapView {
     const cols = Math.ceil(land.w / CHUNK);
     const rows = Math.ceil(land.h / CHUNK);
     const reach = land.open + FOG_BAND + CHUNK;
-    // (only the footpaths' wear changed: a chunk or two painted again a snapshot, so a busy path never stalls a frame)
+    // (only the footpaths' wear changed: the chunks it touches are painted again a few a frame, never all at once)
     const wearOnly = sig === this.landSig;
-    let repaints = 0;
-    let pending = false;
+    this.paintFirst ||= performance.now();
+    const due = new Map<string, DueChunk>();
     for (let cy = 0; cy < rows; cy++)
       for (let cx = 0; cx < cols; cx++) {
         const id = `${cx},${cy}`;
@@ -499,28 +512,72 @@ export class MapView {
         const key = near ? chunkKey(land, cx, cy, season, !!td, era, this.blighted(), biome) : 'dark';
         let c = this.chunks.get(id);
         if (c && c.key === key) continue;
-        if (c && wearOnly && repaints >= 1) {
-          pending = true;
+        if (near) {
+          due.set(id, { cx, cy, key });
           continue;
         }
-        repaints++;
+        // (a dark square costs nothing: put up at once)
         if (!c) {
           c = { sprite: this.ground.addChild(new Sprite()), key: '' };
           c.sprite.position.set(cx * CHUNK * CELL, cy * CHUNK * CELL);
           this.chunks.set(id, c);
         }
         const old = c.sprite.texture;
-        c.sprite.texture = near ? paintChunk(land, cx, cy, season, biome, td, era, this.blighted()) : darkTexture();
+        c.sprite.texture = darkTexture();
         if (old !== Texture.EMPTY && old !== darkTexture()) old.destroy(true);
         c.key = key;
       }
+    // (the rest are painted by `paintDue`, those in view first: a town's two thousand cells of ground took seconds
+    // painted in one go at the start, and again for each sheet of art that arrived)
+    this.due = due;
+    this.dueFrom = { land, season, biome, era, td };
     this.landSig = sig;
-    this.landWear = pending ? undefined : land.wear;
+    this.landWear = land.wear;
     if (wearOnly) this.nextWearPaint = performance.now() + WEAR_REPAINT_MS;
+    this.paintDue(wearOnly ? WEAR_BUDGET_MS : FILL_BUDGET_MS);
     if (wearOnly) return;
     this.syncProps(land, season, biome);
     this.drawMarks();
   }
+  /** Chunks waiting to be painted, and what they are painted from. */
+  private due = new Map<string, DueChunk>();
+  private dueFrom: { land: LandMap; season: string; biome: string; era: Era; td: ReturnType<typeof tdTiles> } | null = null;
+  /** When the ground was first asked for (the wait for its art ends a few seconds on). */
+  private paintFirst = 0;
+
+  /** Paint the chunks that are due: those in (or by) the view at once, the others nearest first for about `budgetMs`
+   *  a call (at least one). Waits for the ground's art sheets, so a chunk isn't painted for each sheet as it arrives. */
+  private paintDue(budgetMs: number): void {
+    const w = this.dueFrom;
+    if (!w || !this.due.size) return;
+    if (groundArtReady() !== '111' && performance.now() - this.paintFirst < ART_WAIT_MS) return;
+    const v = this.view;
+    const side = CHUNK * CELL;
+    const cx0 = v.w > 0 ? v.x + v.w / 2 : (w.land.camp.x + 0.5) * CELL;
+    const cy0 = v.w > 0 ? v.y + v.h / 2 : (w.land.camp.y + 0.5) * CELL;
+    const inView = (d: DueChunk) => v.w > 0 && d.cx * side + side > v.x - CULL_MARGIN && d.cx * side < v.x + v.w + CULL_MARGIN && d.cy * side + side > v.y - CULL_MARGIN && d.cy * side < v.y + v.h + CULL_MARGIN;
+    const order = [...this.due.values()].map((d) => ({ d, seen: inView(d), dist: Math.hypot((d.cx + 0.5) * side - cx0, (d.cy + 0.5) * side - cy0) }));
+    order.sort((a, b) => (a.seen === b.seen ? a.dist - b.dist : a.seen ? -1 : 1));
+    const start = performance.now();
+    let painted = 0;
+    for (const { d, seen } of order) {
+      if (!seen && painted > 0 && performance.now() - start > budgetMs) break;
+      const id = `${d.cx},${d.cy}`;
+      let c = this.chunks.get(id);
+      if (!c) {
+        c = { sprite: this.ground.addChild(new Sprite()), key: '' };
+        c.sprite.position.set(d.cx * side, d.cy * side);
+        this.chunks.set(id, c);
+      }
+      const old = c.sprite.texture;
+      c.sprite.texture = paintChunk(w.land, d.cx, d.cy, w.season, w.biome, w.td, w.era, this.blighted());
+      if (old !== Texture.EMPTY && old !== darkTexture()) old.destroy(true);
+      c.key = d.key;
+      this.due.delete(id);
+      painted++;
+    }
+  }
+
   /** What the land was at the last `syncLand` (and its wear), to skip it when nothing has changed. */
   private landSig = '';
   private landWear: string | undefined = undefined;
@@ -654,6 +711,7 @@ export class MapView {
           );
     const turnedKey = this.turned ? sets.filter((s) => this.autumnTex.has(s)).join('+') : '';
     const seen = new Set<number>();
+    const keyTail = `|${this.propsWanted.join(',')}|${turnedKey}`;
     const reach = land.open + FOG_BAND;
     for (let y = Math.max(0, land.camp.y - reach); y <= Math.min(land.h - 1, land.camp.y + reach); y++)
       for (let x = Math.max(0, land.camp.x - reach); x <= Math.min(land.w - 1, land.camp.x + reach); x++) {
@@ -666,14 +724,15 @@ export class MapView {
         // (a slow phone: every other wild cell bare)
         if (this.calm && hash(5, x, y) < 0.5) continue;
         if (PROPS_SHARE[g] !== undefined && hash(6, x, y) > PROPS_SHARE[g]!) continue;
-        const key = `${g}|${vis}|${this.propsWanted.join(',')}|${turnedKey}`;
-        // (an object stands about the middle of its cell, a little off it, its foot a little up from the bottom)
-        this.placeProp(i * 2, key, this.propFor(on, x, y), (x + 0.3 + hash(1, x, y) * 0.4) * CELL, (y + 0.75 + hash(2, x, y) * 0.2) * CELL, vis, seen);
+        const key = `${g}|${vis}${keyTail}`;
+        // (an object stands about the middle of its cell, a little off it, its foot a little up from the bottom; one
+        // already standing as it should is left alone, before its picture and place are worked out again)
+        if (!this.kept(i * 2, key, seen)) this.placeProp(i * 2, key, this.propFor(on, x, y), (x + 0.3 + hash(1, x, y) * 0.4) * CELL, (y + 0.75 + hash(2, x, y) * 0.2) * CELL, vis, seen);
         // (a wood's undergrowth: a bush or a plant off to one side of the tree, nearer the front)
         if (g === 'forest' && hash(7, x, y) < UNDERGROWTH_SHARE && !this.calm) {
           const side = hash(8, x, y) < 0.5 ? -1 : 1;
           const ux = (x + 0.5 + side * (0.28 + hash(9, x, y) * 0.18)) * CELL;
-          this.placeProp(i * 2 + 1, key, this.propFor(UNDERGROWTH, x, y, 10), ux, (y + 0.92 + hash(11, x, y) * 0.06) * CELL, vis, seen);
+          if (!this.kept(i * 2 + 1, key, seen)) this.placeProp(i * 2 + 1, key, this.propFor(UNDERGROWTH, x, y, 10), ux, (y + 0.92 + hash(11, x, y) * 0.06) * CELL, vis, seen);
         }
       }
     for (const [i, p] of this.props)
@@ -686,6 +745,13 @@ export class MapView {
         p.reflect?.destroy();
         this.props.delete(i);
       }
+  }
+
+  /** Whether the object `n` already stands with this key (and is kept, not to be taken away). */
+  private kept(n: number, key: string, seen: Set<number>): boolean {
+    if (this.props.get(n)?.key !== key) return false;
+    seen.add(n);
+    return true;
   }
 
   /** Puts (or keeps) one object on the land: `n` its key in `props`, its foot at (fx, fy). */
