@@ -62,7 +62,9 @@ const resolve = (id: string): string | null => (LAYERS[id] ? id : ALIAS[id] && L
 /* ------------------------------------------------------------ recolouring */
 
 type TintMode = 'mul' | 'skin';
-const tinted = new Map<string, HTMLCanvasElement>();
+/** A recoloured sheet: filled a row at a time, as the rows are asked for (a whole sheet read back per colour was the
+ *  start-up's biggest cost). */
+const tinted = new Map<string, { c: HTMLCanvasElement; rows: Set<number> }>();
 const lightRef = new Map<string, number>();
 
 function rgb(hex: string): [number, number, number] {
@@ -76,29 +78,41 @@ function mix(a: string, b: string, t: number): string {
   return '#' + [0, 1, 2].map((i) => Math.round(A[i] + (B[i] - A[i]) * t).toString(16).padStart(2, '0')).join('');
 }
 
-/** Recolour a layer by lightness so shading and outlines survive; 'skin' also leaves eyes alone. */
-function atlas(id: string, hex: string | null, mode: TintMode, facing?: Facing): CanvasImageSource {
+/** Recolour a layer by lightness so shading and outlines survive; 'skin' also leaves eyes alone. Only the row asked for is
+ *  recoloured (the rest of the sheet stays blank until it's asked for). */
+function atlas(id: string, hex: string | null, mode: TintMode, row: number, facing?: Facing): CanvasImageSource {
   const im = (facing ? faces.get(id) : images.get(id))!;
   if (!hex) return im;
   const key = `${id}|${hex}|${mode}|${facing ? 'f' : ''}`;
-  const hit = tinted.get(key);
-  if (hit) return hit;
+  let hit = tinted.get(key);
+  if (!hit) {
+    const c = document.createElement('canvas');
+    c.width = im.width;
+    c.height = im.height;
+    hit = { c, rows: new Set() };
+    tinted.set(key, hit);
+  }
+  if (hit.rows.has(row)) return hit.c;
+  hit.rows.add(row);
+  const g = hit.c.getContext('2d', { willReadFrequently: true })!;
+  const y = row * FRAME_SIZE;
+  const h = Math.min(FRAME_SIZE, im.height - y);
+  if (h <= 0) return hit.c;
 
-  const c = document.createElement('canvas');
-  c.width = im.width;
-  c.height = im.height;
-  const g = c.getContext('2d', { willReadFrequently: true })!;
-  g.drawImage(im, 0, 0);
-  const img = g.getImageData(0, 0, c.width, c.height);
-  const p = img.data;
   const refKey = facing ? `${id}|f` : id;
   let ref = lightRef.get(refKey);
   if (ref === undefined) {
+    const whole = document.createElement('canvas');
+    whole.width = im.width;
+    whole.height = im.height;
+    const wg = whole.getContext('2d', { willReadFrequently: true })!;
+    wg.drawImage(im, 0, 0);
+    const q = wg.getImageData(0, 0, whole.width, whole.height).data;
     let sum = 0;
     let n = 0;
-    for (let i = 0; i < p.length; i += 4) {
-      if (p[i + 3] <= 200) continue;
-      const l = (p[i] * 0.3 + p[i + 1] * 0.59 + p[i + 2] * 0.11) / 255;
+    for (let i = 0; i < q.length; i += 4) {
+      if (q[i + 3] <= 200) continue;
+      const l = (q[i] * 0.3 + q[i + 1] * 0.59 + q[i + 2] * 0.11) / 255;
       if (l > 0.18) {
         sum += l;
         n++;
@@ -107,6 +121,9 @@ function atlas(id: string, hex: string | null, mode: TintMode, facing?: Facing):
     ref = n ? sum / n : 0.7;
     lightRef.set(refKey, ref);
   }
+  g.drawImage(im, 0, y, im.width, h, 0, y, im.width, h);
+  const img = g.getImageData(0, y, im.width, h);
+  const p = img.data;
   const T = rgb(hex);
   for (let i = 0; i < p.length; i += 4) {
     if (p[i + 3] === 0) continue;
@@ -119,9 +136,8 @@ function atlas(id: string, hex: string | null, mode: TintMode, facing?: Facing):
     p[i + 1] = Math.min(255, T[1] * k);
     p[i + 2] = Math.min(255, T[2] * k);
   }
-  g.putImageData(img, 0, 0);
-  tinted.set(key, c);
-  return c;
+  g.putImageData(img, 0, y);
+  return hit.c;
 }
 
 /* ------------------------------------------------------------ look -> layers */
@@ -203,14 +219,14 @@ export function lpcCanvas(look: Look, anim: LpcAnim, frame: number, weapon: LpcW
     const row = facing === 'up' ? 0 : 1;
     for (const l of layers) {
       if (!faces.has(l.id)) continue;
-      g.drawImage(atlas(l.id, l.tint, l.mode, facing), f * FRAME_SIZE, row * FRAME_SIZE, FRAME_SIZE, FRAME_SIZE, 0, 0, FRAME_SIZE, FRAME_SIZE);
+      g.drawImage(atlas(l.id, l.tint, l.mode, row, facing), f * FRAME_SIZE, row * FRAME_SIZE, FRAME_SIZE, FRAME_SIZE, 0, 0, FRAME_SIZE, FRAME_SIZE);
     }
     return c;
   }
   const row = ROW[anim];
   for (const l of layers) {
     if (!HAS[l.id]?.[row]) continue;
-    g.drawImage(atlas(l.id, l.tint, l.mode), f * FRAME_SIZE, row * FRAME_SIZE, FRAME_SIZE, FRAME_SIZE, 0, 0, FRAME_SIZE, FRAME_SIZE);
+    g.drawImage(atlas(l.id, l.tint, l.mode, row), f * FRAME_SIZE, row * FRAME_SIZE, FRAME_SIZE, FRAME_SIZE, 0, 0, FRAME_SIZE, FRAME_SIZE);
   }
   return c;
 }
