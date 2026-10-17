@@ -294,6 +294,13 @@ export function renderNewGame(snap: Snapshot, bridge: Bridge): HTMLElement[] {
       `A world of ${realms} realms and ${PROVINCES_PER_REALM * realms} provinces`,
     ];
     const box = el('div', 'card wizard-summary');
+    // (the game's mark over it, the home-screen icon: loading/logo.ts; gone where the page has none, as on the desktop)
+    const mark = document.createElement('img');
+    mark.src = 'icon-192.png';
+    mark.alt = '';
+    mark.style.cssText = 'display:block;width:72px;height:72px;margin:0 auto 6px;image-rendering:pixelated';
+    mark.onerror = () => mark.remove();
+    box.append(mark);
     for (const l of lines) box.append(el('div', 'purpose', l));
     return box;
   };

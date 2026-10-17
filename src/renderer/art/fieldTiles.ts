@@ -166,3 +166,6 @@ export function campfirePack(): PixelArt[] | null {
   }
   return fire;
 }
+
+/** Every picture the fields are drawn from (the loading screen warms them: loading/stripLoad.ts). */
+export const fieldTileUrls = (): readonly string[] => ALL;

@@ -465,3 +465,12 @@ export function hkDraw(g: CanvasRenderingContext2D, keys: string[], col: number,
   g.imageSmoothingEnabled = smooth;
   return true;
 }
+
+/** The file a layer is drawn from (the loading screen warms a townsperson's layers: loading/stripLoad.ts). */
+export const hkUrl = url;
+/** How many layers are still on their way. */
+export function hkLoading(): number {
+  let n = 0;
+  for (const v of images.values()) if (v === 'loading') n++;
+  return n;
+}

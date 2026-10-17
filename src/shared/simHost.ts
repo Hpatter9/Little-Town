@@ -41,6 +41,8 @@ const LOOK_SLICE_MS = 12;
 const LOOK_PAUSE_MS = 40;
 const LOOK_AGAIN_MS = 5 * 60_000;
 const AUTOSAVE_MS = 30_000;
+/** The clock is let go after this long held, whatever the page says (a page that failed to load can't hold it). */
+const MOST_HELD_MS = 60_000;
 
 /** What the page sends. Those with an `id` are answered with a `reply` of the same id. */
 export type ToHost =
@@ -53,7 +55,11 @@ export type ToHost =
       /** With no save: the new town's seed and land (the desktop app's `--seed=` and `--biome=`). */
       seed?: string;
       biome?: string;
+      /** The clock held until the page's loading screen has gone (`hold`, off). */
+      held?: boolean;
     }
+  /** Hold the clock, or let it run (the phone's loading screen: renderer/mobile/loading.ts). */
+  | { t: 'hold'; on: boolean }
   | { t: 'command'; c: Command }
   /** Out of sight. On the phone that means the player has gone, so the game saves and books the alerts; the desktop
    *  strip hidden behind a fullscreen app saves only (`book: false`), and books them on quitting. */
@@ -182,6 +188,10 @@ export function startSimHost(post: (m: FromHost) => void): (m: ToHost) => void {
         const biome = BIOMES.find((b) => b === m.biome);
         game = new GameLoop(state ?? newGame(m.seed ?? randomSeed(), biome ? { biome } : {}), send);
         game.hidden = hidden;
+        if (m.held) {
+          game.held = true;
+          setTimeout(() => game && (game.held = false), MOST_HELD_MS);
+        }
         post({ t: 'started', fresh, unreadable });
         if (!fresh) game.catchUp(m.now - savedAt, saveNow);
         else saveNow();
@@ -201,6 +211,9 @@ export function startSimHost(post: (m: FromHost) => void): (m: ToHost) => void {
           saveNow();
           if (m.book !== false) book();
         } else if (game) send(game.snapshot()); // (what changed while hidden, at once)
+        return;
+      case 'hold':
+        if (game) game.held = m.on;
         return;
       case 'alerts':
         alerts = m.a;

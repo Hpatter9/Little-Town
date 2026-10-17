@@ -1,7 +1,7 @@
 // Builds the phone (web) version into out/web: a self-contained folder to put on any static web host
 // (GitHub Pages, Netlify, ...). Run after build.mjs, which makes the strip and panel pages it reuses.
 import * as esbuild from 'esbuild';
-import { copyFileSync, cpSync, mkdirSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs';
+import { copyFileSync, cpSync, existsSync, mkdirSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { execSync } from 'node:child_process';
 import { trayIconPng } from '../src/main/trayIcon.ts';
@@ -47,6 +47,28 @@ await esbuild.build({
   loader: { '.png': 'dataurl' },
   logLevel: 'warning',
 });
+// the loading screen, its own small script first in the page's body (mobile/loading.ts), and the pack pieces its logo
+// and scene are drawn from, beside it (loading/logo.ts `PIECE_FILES`)
+await esbuild.build({ entryPoints: ['src/renderer/mobile/loading.ts'], outfile: `${OUT}/loading.js`, bundle: true, platform: 'browser', format: 'iife', target: 'es2023', logLevel: 'warning' });
+mkdirSync(`${OUT}/loading`, { recursive: true });
+for (const f of [
+  'art/village/house1.png',
+  'art/village/house2.png',
+  'art/village/house4.png',
+  'art/village/palisade04.png',
+  'art/village/tent2.png',
+  'art/seats/flag.png',
+  'art/fields/soil01.png',
+  'art/scene/goat.png',
+  'art/scene/tent.png',
+  'art/scene/firepit.png',
+  'art/scene/log.png',
+  'art/effects/flame.png',
+  'ui/art/gui0.png',
+  'ui/art/wood.png',
+  'ui/art/stone.png',
+])
+  copyFileSync(`src/renderer/${f}`, `${OUT}/loading/${path.basename(f)}`);
 // the page's first script, which starts the worker before the page's own script has loaded (mobile/boot.ts)
 await esbuild.build({ entryPoints: ['src/renderer/mobile/boot.ts'], outfile: `${OUT}/boot.js`, bundle: true, platform: 'browser', format: 'iife', target: 'es2023', logLevel: 'warning' });
 // the game itself, in a worker of its own (mobileBridge.ts starts it), so the sim never holds up drawing or a tap
@@ -61,8 +83,15 @@ await esbuild.build({
   logLevel: 'warning',
 });
 copyFileSync('src/renderer/mobile/index.html', `${OUT}/index.html`);
-writeFileSync(`${OUT}/icon-192.png`, trayIconPng(12));
-writeFileSync(`${OUT}/icon-512.png`, trayIconPng(32));
+// (the home-screen icon: the logo's square mark, made by tools/compose-logo.cjs; the painted one until it has been)
+for (const [size, scale] of [
+  [192, 12],
+  [512, 32],
+]) {
+  const mark = `src/renderer/mobile/art/icon-${size}.png`;
+  if (existsSync(mark)) copyFileSync(mark, `${OUT}/icon-${size}.png`);
+  else writeFileSync(`${OUT}/icon-${size}.png`, trayIconPng(scale));
+}
 const pkg = JSON.parse(readFileSync('package.json', 'utf8'));
 writeFileSync(
   `${OUT}/manifest.webmanifest`,

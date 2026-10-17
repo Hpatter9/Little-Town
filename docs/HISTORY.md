@@ -7908,3 +7908,236 @@ added once a turn; a unique from before the log; raiders felled and bosses as de
 loses it, at home it goes back to the armoury; the snapshot's view. `tools/sim-hash.mjs` (now with `STRIP=a,b` to leave
 top-level fields out of the hash): with `STRIP=uniqueLog` all five hashes match main; without it only hash-b (a knights'
 town that forges or finds a unique) changes.
+
+## Stragglers sent away
+
+The owner's report: "A shinobi and a rat are still in town after several raids. They seem like stuck characters."
+Changes the sweeps in "Raids bite again" / "Tower-defence raids" (the raid's end), "Hostiles roaming the land" (a band
+`fighting` a skirmish) and "Raiders lamed" (a limping runner that can't be run down is still a live raider).
+
+**What was looked at.** Both kinds only ever appear in a raid (the Shinobi clan, `shinobi_night`, the rat swarm and the
+Rat Plague's waves), so the sim holds them in `s.raid.raiders` and `endRaid` drops the whole list. Read and run with
+`tools/stuck-scan.mjs` (forces six shinobi and six rat raids one after another on a young settlers town and on the
+late-town fixture, then looks for a raid still on, a band left behind, prisoners): every raid ended and nothing was left
+over. Also checked and found clean: `raiderWounds.ts` (a lame raider is a live raider in the raid, so it flees or is run
+down), `prisoners.ts` (only human raiders are taken; a rat never), `roamers.ts` and `nests.ts` (neither group names a
+shinobi or a rat except goblin nests' giant rats), `raidSkip.ts`, `raidWait.ts`, `raidOdds.ts` (a probe leaves
+nothing on the map), the `debris` corpses (they expire at `DEBRIS_LASTS`), `snapDelta.ts` (a `raid: null` is sent) and
+`map/mapRaiders.ts` (a sprite is destroyed the update its id is missing). The cause was not reproduced.
+
+**Where a foe could outlive its owner, so the net goes there.** The in-town raid loop (`updateRaid`) has no stall rule
+of its own (the tactics board has one, `STALL_TICKS`), so a raider that cannot step (a position gone to NaN, a
+castle path that never opens) keeps the raid on for ever; and a band whose `fighting` names a skirmish that no longer
+exists is skipped by `roamersTick` and kept by `roamersHourly` for ever.
+
+**The net (`sim/strays.ts`, `strays(s)`, once an hour after `updateRaid`, autopilot only, no draws from any stream).**
+- An active raid still going `STRAY_RAID_HOURS` (4) after its clock (`leavesTick`) has its live raiders sent away
+  (`gone`) and the raid ends the next tick as usual. A raid waiting on the player (`parley`, `mercyAsk`) is left alone.
+- A roaming band whose `fighting` skirmish is gone, or that is `STRAY_BAND_HOURS` (6) past its `until`, is removed.
+- Each sweep puts "A straggler slipped away in the night." in the journal (`STRAY_LINE`).
+Old saves heal on load for the same reason: nothing is stored.
+
+Test: `test/strays.test.ts`. Tool: `tools/stuck-scan.mjs`.
+
+## Walls, grates and bridges that meet round their corners (branch claude/seamless-walls; the owner's ask: "The walls, when they aren't straight, have bad connection on the many corners; make it look seamless. Same for the grates when the wall is going over water. And same with bridges, paths over water. If the path turns, one bridge dead-ends into the other visually; fix that.")
+
+Changes HISTORY "The ring wall" (its **Continuous walls** and **Palisades that join**: the box-corner joins `nw`/`ne`/
+`sw`/`se`, the side posts `v`/`ve` and `POST` are gone), "The wall's purpose" (the **Grates** bullet: they are no
+longer a straight run turned down a column) and "The merfolk rework" (the **Piers** bullet: `drawPier` is gone, every
+road over water is laid by `drawBridge`). Renderer only: the sim's hashes are unchanged (`tools/sim-hash.mjs`).
+
+- **The autotile (`src/renderer/art/autotile.ts`, pure, tested):** a cell's mask has a bit for each side the line goes
+  on past (`N` 1, `E` 2, `S` 4, `W` 8: `maskOf(has)`), and its piece is named by those arms (`pieceOf`: `'post'` alone,
+  `'n'`..`'w'` ends, `'ew'` a run along a row, `'ns'` one down a column, `'es'`/`'sw'`/`'ne'`/`'nw'` corners, `'nes'`,
+  `'esw'`, `'nsw'`, `'new'` T-joins, `'nesw'` a crossing; `armsOf` back). A wall's join is its piece, and the sides
+  where it stops against a grate after a slash (`wallJoinOf(mask, capped)`, `'ew/2'`; `readWallJoin` reads it, and
+  the old `h`, `v`, `ve`, `end` as their pieces). `bridgePiece(road, wet, diag)` says how a bridge cell is drawn: the
+  way its boards run (`along`), its rails (every side no road goes on), its banks (a road going on over land) and its
+  posts (a corner where a rail stops: the way it would run on along is taken by a deck coming in round the corner,
+  which the diagonal tells, or the bridge steps off onto a bank).
+- **The joins (`MapView.wallJoin`, map/mapView.ts):** the mask over the cells of walls, gates and grates
+  (`wallCellsNow`, once a sync, now with the grates' cells apart); a wall's sides against a grate are capped. Worked
+  out when a piece is synced (it's in the piece's `sig`), not each frame. A palisade gate keeps its own joins.
+- **The pieces (`src/renderer/art/wallTiles.ts`, pure, tested):** each set draws all sixteen pieces as parts from its
+  pack's own tiles; map/packBuildings.ts hangs them on the picks by `Pick.tile(join, id)`, tried before `Pick.joins`
+  (the graded copies for the other peoples keep it, so every people's wall joins).
+  - `palisadeTile` (the Village pack): a run along a row is the pack's run (`PAL_TOPS`/`PAL_FEET`, one of three by id);
+    half of it on each side the wall goes on where it turns or a way joins; the pack's own run ends (`palisade07`/`15`
+    the west end, `08`/`16` the east) where it stops; wherever it goes on north or south the pack's side-wall stakes
+    (`palCol`, cut from `palisade17`) down the middle of the cell (`PAL_COL_X` 9), before the runs it meets, over the
+    cell above too when it goes on north, a stake's point (`palisade42`) on top where it doesn't. Everything meets down
+    the middle, so the steps of a star fort's bastions or a round ring meet the next step's and the line reads as one.
+    A side capped against a grate ends in a column of stakes at the cell's edge.
+  - `stoneTile` (the Dungeon pack's `dwalls`, for stone, brick, concrete and force walls, graded as before): along a row
+    the face of the pack's free-standing block (`STONE_ROWS`: its cap, courses repeated to stand it 80 px tall, its
+    foot), cut clear of the column the pack draws over the block (the old `STONE_WALL` crop had that column in every
+    cell, the stripes), its outline where it stops (`STONE_LEFT_X`, `STONE_RIGHT_X`); down a column the pack's narrow
+    wall top (`STONE_STRIP`) raised to the face's height, its rounded end where it starts, the block's end face under
+    its south end; where they meet, the top passes over the face as the pack's own crossing has it. A lone piece is a
+    pillar of the block.
+  - `grateTile` (DawnLike's fence set, `src/renderer/art/packs/dl_grates.png`, a row per material: wooden, iron, pale):
+    the set's own corners, T-joins and crossing by mask (`GRATE_COL`); ends and a lone grate take the run they lie in.
+    The water is the ground under it; the walls either side end at a proper end where they meet it (capped).
+- **Bridges (`drawBridge`, art/groundDetail.ts; called from map/groundArt.ts as each ground chunk is drawn):** every
+  road cell over water, by `bridgePiece` from its road neighbours (over water or land) and diagonals, laid from the
+  Craftpix Bridges pack's wooden bridge (`src/renderer/art/roads/bridge_parts.png`, `BRIDGE_PARTS`): a bridge with a
+  way on north or south has the north-south bridge's deck (its boards across), widened to the cell's edge on any side a
+  road comes in; one running only east or west the east-west bridge. A rail on each side no road goes on (a dead end
+  over the water gets the other way's rail across it); the pack's end boards and posts where it steps onto a bank; a
+  post where a rail stops because a deck joins round the corner. So a bridge that turns, two that meet, and a street
+  joining a bridge from the side all join deck to deck; no deck runs into another's rail.
+- **Footpaths and roads:** the roads were already laid by quarter-tiles from each cell's neighbours (art/roadTiles.ts,
+  `roadTiles.json`); the test now checks every road style has every quarter. Worn footpaths are blobs of worn earth
+  (`drawWornPatch`), not tiles, so they have no corners to join.
+- **The cutter:** `tools/compose-walls.cjs` (run by hand) cuts `dl_grates.png` from DawnLike's `Objects/Fence.png` and
+  `bridge_parts.png` from the Bridges pack's sheet. New palisade tiles copied in: `palisade07`, `08`, `15`, `16`, `42`;
+  the corner and side tiles no longer used are removed (`palisade09`, `14`, `30`, `33`, `38`, `41`, `46`, and
+  `dl_fence.png`). Credits in CREDITS.md.
+- **Test:** `test/autotile.test.ts`: every mask has its own piece and names its arms; each set (palisade, stone,
+  grates) has a piece for every mask, reaching the cell's edges its arms go out to and no others; a lone cell is a post
+  or pillar; every bridge piece has no rail across a way a road goes on, a rail on every side none does, posts where
+  a deck turns and at the banks; every road quarter-tile is there.
+
+## The loading screen and the game's logo
+
+The owner's ask: "Let's do a loading screen! How can we make it interesting, show off the cool game we made, and have a
+game logo." The reason behind it: on every load the town showed its code-drawn pictures first, and the pack sprites
+popped in over them as their images finished loading (map/packBuildings.ts: "Until a picture has loaded, the
+code-drawn one stands"; the same for the ground, the fields and the townsfolk). Now a loading screen covers the strip
+until the first view is drawn in its own pack pictures, and fades into it.
+
+**The preload.** `art/loadImage.ts` keeps a tally of every picture asked for and settled (`imageTally`), and
+`warmImage(url)` loads one ahead of its use and keeps it: a later `loadImage` of the same picture is handed the one
+already loading, so the map's own ask finds it ready. `loading/loadPlan.ts` (pure) lists what to warm from the town's
+first snapshot: `loadPlan(town, tables, reach = FIRST_REACH, budget = FIRST_BUDGET)` gives the ground's pictures first,
+then every building's (the ring wall's apart, as `wall`) and every townsperson's layers, nearest the camp first, each
+picture once; those within `FIRST_REACH` (26 cells) up to `FIRST_BUDGET` (160) are `first`, the rest `later`. Which
+picture stands for what is the renderer's to say (`LookTables`): `loading/stripLoad.ts` `STRIP_LOOKS` names the ground's
+detail, fields, roads, prop sets and scenery, `packUrls(def, style)` (new in map/packBuildings.ts: a pick's every
+picture, its joins and a windmill's sails) and `hkLayers(...).map(hkUrl)` (new exports in art/hkFolk.ts, with
+`hkLoading()`; `packUrls` also walks a wall's `Pick.tile` pieces by every join and run, so the seamless walls' sheets,
+`packs/dl_grates.png` and the palisade and stone runs, are warmed; the ground's `roads/bridge_parts.png` comes with
+`groundDetailUrls`). Small exports were added beside the loaders for this (`groundDetailUrls`, `fieldTileUrls`,
+`roadTileUrls`); none of the drawing changed. `startStripLoad(first)` runs in the strip (main.ts: begun as soon as the
+first snapshot is in, alongside the LPC, creature and effect loads; `drawn()` called two frames after the first
+`applySnapshot`): it warms the first set, reports `{ wanted, done, look, ready }` to the page each frame, and is ready
+once the map has drawn, the first set is in, nothing it asked for is still loading and no townsperson's layer is
+(`STRAGGLER_MS` 2.5 s after drawing it is ready anyway, then `SETTLE_FRAMES` 2 more frames). The `later` set is warmed
+after, `TAIL_BATCH` 4 at a time.
+
+**The clock held.** `GameLoop.held` (shared/gameLoop.ts): while it's set no live time passes (the clocks are reset each
+pump, so no "slept" gap is seen after). The phone's `init` (mobile/boot.ts, mobileBridge.ts) sends `held: true`; the
+page sends `{ t: 'hold', on: false }` (`Bridge.release`, shared/ipc.ts) once the screen has gone. Time away is still
+caught up while it is held (that is time already passed, told after by the away card as before); `MOST_HELD_MS` (60 s)
+lets the clock go whatever the page says, so a page that failed to load can't stop the town. The desktop app never
+holds it. Checked in the browser: the late-town fixture's tick stays at 475200 from the first snapshot to the reveal.
+
+**The screen** (`mobile/loading.ts`, its own small bundle `loading.js`, about 40 KB, first in the page's body so it is
+up before the 3 MB `mobile.js`). The logo over a living scene, a bar in the frame set's look (DawnLike's gold rod,
+closed at its right end with its own left cap, as ui/frame.ts does), a line of what is loading in the game's voice
+(`loadLine`: "Waking the townsfolk", "Raising the walls", "Lighting the lamps", "Counting the goats", by the look of
+the nearest picture still coming), and a tip from mobile/tips.ts every `TIP_MS` (4.2 s). Everything moves a beat at a
+time (`BEAT_MS` 110). Reduced motion stills the shimmer, the embers, the goat and the flicker. A ☰ menu setting,
+"Loading scene: on/off" (`littletown.loadingScene`), drops the scene for a slow phone; the preload stays.
+
+**Honest progress** (`loading/loadProgress.ts`, pure): `loadShare(parts)` is files loaded over files wanted: the
+page's three (its script, the town read from the save, the strip's script) and the strip's pictures. `loadStage`
+reveals once the strip is ready but not before `MIN_SHOW_MS` (600 ms), and offers "Tap to enter" when nothing has come
+for `STALL_MS` (8 s). The screen fades over `FADE_MS` (450 ms). `__loading.times` and the strip's `__stripLoad.times`
+record when each step came, for measuring.
+
+**The logo** (`loading/logo.ts`, DOM canvas, no Pixi). Behind: the sun's arc from the top bar with its hours, over a
+skyline of the town's own timber houses (the Village Tileset's `house1`, `house2`, `house4`) behind the ring wall's
+stakes (`palisade04`), the seats' banner on the hall. In front: "Chronos Settlement" in Alegreya SC 700 in the UI's
+gold (a gradient edged in ink) on the frame set's carved wood (`plaque`, the wood piece nine-sliced). The still layers
+are drawn once at a size (`Logo.size`, the art's pixels on whole screen pixels where they can be) and kept; each beat
+lays the life over them: the sun creeping along the arc as the bar fills, the houses' windows lit one by one
+(`lightsLit`), a shimmer across the gold. `drawMark(P, size)` is the square mark (the emblem on a wood plaque, every
+window lit): `tools/compose-logo.cjs` (run by hand after `npm run web`) draws it as `src/renderer/mobile/art/icon-192.png`
+and `icon-512.png`, which tools/build-web.mjs now uses for the PWA icon (the painted `trayIconPng` if they're missing),
+and the New Town wizard's last step shows it over the summary (panel/newGamePanel.ts). The pieces are copied beside
+the page into `out/web/loading/` by tools/build-web.mjs (`PIECE_FILES`).
+
+**Duchess** (the owner's call: "I think using Duchess on the loading screen is a great idea"). The town's goat is the
+screen's star on every load, a canvas of her own at the foot of the screen (`drawDuchess` in mobile/loading.ts), in
+front of whatever is behind: the plain night, the town waking, the founding fire, or no scene at all. She is the
+cutscenes' sprite (`scene/goat.png`: three steps walking left, three right). Her gag turns with each load
+(`duchessGag(loads)` in loading/loadProgress.ts, counted in `littletown.loads`): `amble`, walking across the screen as
+the bar fills (where she is, is how far it has come); `chew`, planted in the corner chewing and looking about; or
+`wander`, back and forth and stopping to chew, as in the cutscenes. At the reveal she hops with her "Mehh.", given
+`MEHH_MS` (300 ms) before the screen fades and the clock runs. Under reduced motion she stands still in the corner,
+there all the same. (She left the founding scene's own stage, so there is one goat.)
+
+**The scene.** The player's own town at night (`loading/sketch.ts`, pure: `townSketch(snap, aspect)` cuts the land
+about the camp, wider for a phone on its side, and lists each building's footprint and kind, `house`, `hall`, `tent`,
+`field`, `wall` or `fire`, nearest the camp first). The page paints the land a cell a dab (the minimap's colours),
+softened and faded at the cut's edges, the buildings in their pack pictures (the timber houses by size, the hall for a
+seat or anything wide, the camp tent, the soil for fields, the stakes for the wall, the firepit), all under the night;
+then the windows glow as the files arrive, from the camp outward, so the bar is the town waking up. Upright the town
+sits under the logo, sideways beside it. A town with fewer than three finished buildings, and a first game with no save
+at all, shows the founding scene instead: stars, the camp tent, the firepit catching (the 5000 Pixel Effects flame
+growing with the bar), the log, with Duchess in front.
+
+**Measured** (a headless Chromium in the cloud container: software drawing and a slow CPU, so every figure is several
+times a phone's). The screen is up 40–80 ms after the page starts; the page's script in at 0.36 s, the town at 1.0–1.5
+s, the strip's first report at 1.7–2.9 s. The fixture town reveals at about 15 s, cold or cached alike; a new town at
+6.4–7.6 s cold and 4.8–5.6 s cached. The files are not what takes the time: in a CPU profile most of it is the strip
+painting its ground chunks (`paintChunk`, `rect2`, `visibility`, `softAt`, `warped` in map/groundArt.ts, about 6 s
+here), the same on main, where the strip's canvas showed at 17.8 s and then filled in. From the map first drawn to
+every picture in is about 1.2–1.6 s.
+
+Files: `src/renderer/mobile/loading.ts`, `src/renderer/loading/{loadPlan,loadProgress,sketch,stripLoad,logo}.ts`,
+`src/renderer/art/loadImage.ts`, `src/shared/gameLoop.ts`, `src/shared/simHost.ts`, `src/shared/ipc.ts`,
+`src/renderer/mobile/{boot,mobileBridge,mobile}.ts`, `src/renderer/mobile/index.html`, `src/renderer/main.ts`,
+`tools/build-web.mjs`, `tools/compose-logo.cjs`, `test/loadingScreen.test.ts`. HISTORY.md sections this touches: "The
+phone made smoother" (boot.js and the worker's `init`), "Offline pacing" (the catch-up runs while held), "The first
+hour" (the tips shown here too), "Every building from the packs" (`packUrls`).
+
+## A faster first paint (the ground)
+
+Changes "Phase 3" (the map's ground chunks) and "The phone made smoother" (start-up). Renderer only: the sim hashes
+are untouched. Measured in headless Chromium at 393x852 on the cloud container (a phone is faster), the late-town
+fixture (`test/fixtures/late-town.json.gz`, 484 chunks in the open land) and a new settlers town, from a cold load.
+
+**What the profile showed (before).** The ground was painted over and over: `syncLand` painted every near chunk as
+soon as the snapshot came, and again each time one of the art sheets arrived (the tiles, the ground detail, the road
+tiles, the sea): five full passes, four of them thrown away. The fixture made 2447 `paintChunk` calls for 484 chunks
+(10.7 s of paint, the last one 51 s after the first); a new town 161 calls for 32 chunks (0.86 s). Inside one chunk
+(new town, ms): the plain-ground pass 5.7 (per pixel: two noises, two `softAt`s with `visibility` and `groundAt`), the
+per-cell patches and tufts 0.3, the fog 3.1 (4096 `fillRect`s, each with its own `rgba(...)` string).
+
+**What it does now.**
+- `map/mapView.ts`: `syncLand` only works out which chunks are due (`due`, keyed as before) and puts up the dark ones;
+  `paintDue(budgetMs)` paints them. Chunks in or by the view (`CULL_MARGIN`) are painted at once, nearest the view's
+  centre first; the rest for about `FILL_BUDGET_MS` (8) a snapshot, `PAN_BUDGET_MS` (6) a frame (from `setCamera`) and
+  `WEAR_BUDGET_MS` (4) for a worn path, at least one a call. Nothing is painted until the ground's art sheets are all
+  in (`groundArtReady() === '111'`) or `ART_WAIT_MS` (4 s) has passed, so each chunk is painted once, finished.
+  (The old "one wear repaint a snapshot" cap is gone: the queue does that.)
+- `map/groundArt.ts`, `paintChunk` (same name, same look): the colours of the 12x12 cells in and round the chunk are
+  looked up once (`nearCell`) instead of `softAt` per pixel; the warp's two noises use a lattice hashed once per chunk
+  (`latticeNoise`); a cell whose eight neighbours are its own colour (or unlaid) skips the noise (the warp reaches under
+  a cell's width); a chunk wholly one kind of land is one `fill`; the shore's neighbour tests reuse the pixels already
+  worked out (`memo`); pixels are written as one `Uint32` each; the fog is one pixel to a 4px block in a small kept
+  canvas (`fogImage`), drawn up four times, not 4096 fills. `chunkKey` no longer holds `td` (never used by the
+  painter: its arrival repainted every chunk for nothing).
+- `map/groundNoise.ts` (new, pure): `smooth`, `hash` (still exported from `groundArt`) and `latticeNoise`.
+  `test/groundNoise.test.ts` checks the lattice gives `smooth`'s exact values.
+- `syncProps` (mapView): an object already standing with the right key is left alone before its picture and place
+  are worked out (`kept`), and the key's tail is built once a call, not for every cell.
+
+**The same look.** The old painter was run beside the new one in the page, on the same land, and every pixel compared:
+0 differing pixels over 531 fixture chunks (winter, ice) and 93 new-town chunks, and over 1104 more chunk paintings
+across all four seasons, six lands (forest, coast, ash, tundra, desert, marsh), blighted and not.
+
+**Numbers (before -> after).**
+
+| | before | after |
+|---|---|---|
+| fixture, `paintChunk` calls / CPU | 2447 / 10.7 s | 516 / 1.4 s |
+| new town, calls / CPU | 161 / 0.86 s | 32 to 57 / 0.14 to 0.23 s |
+| one chunk, median | 3.4 to 4.1 ms (the half-finished passes) | 2.2 to 2.6 ms (the finished one; was about 9 to 15 ms) |
+| fixture, `syncProps` (105 calls) | 3.5 s | 1.2 s |
+| pan of 20 frames x 2 (new town) | mean 73 to 74 ms a frame | 66 to 90 ms: the same within the run-to-run noise |
+
+The chunks in view are painted in the first frame after the art is in (about a dozen, tens of ms); the rest fill in
+over the following frames out of sight.
