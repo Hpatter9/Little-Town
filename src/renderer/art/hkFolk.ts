@@ -12,6 +12,7 @@ import type { Slot } from '../../shared/data/items';
 import { SKINS, type Look } from '../../shared/data/people';
 import type { PersonView } from '../../shared/sim/snapshot';
 import manifest from './himeko.json';
+import blankTable from './himekoBlank.json';
 
 /** Where the feet stand in a cell, and the figure's height there (the man's template, standing). */
 export const HK_FEET = manifest.feet[0][1];
@@ -391,26 +392,36 @@ export function nudgeOf(key: string): Record<number, [number, number]> | undefin
 const SPARSE = /^(axe|bow|book|dagger|great|hammer|mace|spear|staff|sword|katana|wand|gun|rifle|orb|talisman|totem|alchemy|flail|sickle|club|scythe|shield|bangs|beard|goatee|sideburns|freckles|scar|eyepatch|cape|skeleton|orc|template)|top$/;
 /** The pose to try in place of a blank one (the stand first, then the arm raised, the lunge, the steps...). */
 const STAND_IN = [0, 3, 4, 1, 2, 6, 5, 7];
+/** Which cells of each sheet are blank, one bit a cell (row * 8 + column), worked out ahead of time by
+ *  tools/make-himeko-blank.cjs: reading every sheet's pixels back at start-up cost over a second on a phone. */
+const BLANK = blankTable as Record<string, number>;
 const blank = new Map<string, boolean[]>();
 function isBlank(k: string, im: HTMLImageElement, col: number, row: number): boolean {
-  let cells = blank.get(k);
+  const bits = BLANK[k];
+  if (bits !== undefined) return col < 0 || col > 7 || row < 0 || row > 3 ? true : ((bits >>> (row * 8 + col)) & 1) === 1;
+  // (a sheet added since the table was made: read a row of it back, once)
+  const rk = `${k}|${row}`;
+  let cells = blank.get(rk);
   if (!cells) {
     cells = [];
-    const c = document.createElement('canvas');
-    c.width = im.naturalWidth;
-    c.height = im.naturalHeight;
-    const g = c.getContext('2d', { willReadFrequently: true })!;
-    g.drawImage(im, 0, 0);
-    const d = g.getImageData(0, 0, c.width, c.height).data;
-    for (let r = 0; r < 4; r++)
+    const y0 = row * HK_CELL;
+    const h = Math.min(HK_CELL, im.naturalHeight - y0);
+    if (h > 0) {
+      const c = document.createElement('canvas');
+      c.width = im.naturalWidth;
+      c.height = h;
+      const g = c.getContext('2d', { willReadFrequently: true })!;
+      g.drawImage(im, 0, y0, c.width, h, 0, 0, c.width, h);
+      const d = g.getImageData(0, 0, c.width, h).data;
       for (let cc = 0; cc < 8; cc++) {
         let n = 0;
-        for (let y = r * HK_CELL; y < (r + 1) * HK_CELL && n < 8; y += 2) for (let x = cc * HK_CELL; x < (cc + 1) * HK_CELL; x += 2) if (d[(y * c.width + x) * 4 + 3] > 0) n++;
-        cells[r * 8 + cc] = n < 8;
+        for (let y = 0; y < h && n < 8; y += 2) for (let x = cc * HK_CELL; x < (cc + 1) * HK_CELL; x += 2) if (d[(y * c.width + x) * 4 + 3] > 0) n++;
+        cells[cc] = n < 8;
       }
-    blank.set(k, cells);
+    }
+    blank.set(rk, cells);
   }
-  return cells[row * 8 + col] ?? true;
+  return cells[col] ?? true;
 }
 /** The column to draw a layer's cell from: its own, or a stand-in where the pack left it blank. */
 function standIn(k: string, im: HTMLImageElement, col: number, row: number): number {
