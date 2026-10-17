@@ -117,6 +117,7 @@ import caveStatue from '../art/packs/cave_statue.png';
 import caveTotem from '../art/packs/cave_totem.png';
 import caveGem from '../art/packs/cave_gem.png';
 import rockyMine1 from '../art/packs/rocky_mine1.png';
+import rockyAdit from '../art/packs/rocky_adit.png';
 import rockyMine2 from '../art/packs/rocky_mine2.png';
 import rockyTipi1 from '../art/packs/rocky_tipi1.png';
 import rockyTipi2 from '../art/packs/rocky_tipi2.png';
@@ -495,6 +496,8 @@ const PICKS: Record<string, Pick> = {
   herb_garden: { parts: [[soil01, 0, 0], [soil05, 32, 0], [soil07, 64, 0], [fDirt, 50, 4], [flower1, 6, 8], [flower5, 40, 14], [flower9, 70, 6], [tuft2, 20, 20], [flower3, 84, 22], [flower1, 60, 24]], size: [96, 32], overhang: 0 },
   // mine mouths from the rocky-area pack; the deep mine, and the dwarves' every mine, the cave pack's carved gates
   mine: { url: rockyMine1, overhang: 0, variants: [{ styles: ['dwarves'], pick: { url: caveGate, overhang: 0 } }] },
+  // (the quarry against a face of rock, sim/relief.ts: the Rocky Area pack's cave entrance, its adit)
+  quarry: { url: rockyAdit, overhang: 0 },
   coal_mine: { url: rockyMine2, overhang: 0, variants: [{ styles: ['dwarves'], pick: { url: caveGate, overhang: 0 } }] },
   deep_mine: { url: caveGate, overhang: 0 },
   // the shaft to the Deep (data/deep.ts): the cave pack's carved gate, a winch's rack and a barrel of the dug ore beside it

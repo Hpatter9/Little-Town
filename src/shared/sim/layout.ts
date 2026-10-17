@@ -31,6 +31,10 @@ import { seaBuild } from './sea';
 import { campCell, type GameState } from './state';
 import { hashSeed } from '../rng';
 import { TICKS_PER_HOUR } from './time';
+import { cliffAhead } from './relief';
+import { hillShare } from './hills';
+import { SLOPE_CROPS } from '../data/hills';
+import { tunnelThrough } from './tunnels';
 
 /** Side streets run west to east every this many rows (three rows of buildings between, their doors on the street
  *  below them). */
@@ -229,6 +233,7 @@ export function extendMains(s: GameState, now = false): void {
       const b = builtOn(s, x, y);
       if (b) break; // (an older town's building stands on the line: the street ends there)
       const g = groundAt(m, x, y);
+      if (buildable(g) && cliffAhead(m, x - d.x, y - d.y, x, y)) break;
       if (buildable(g)) {
         if (!cleared) lay(x, y);
         continue;
@@ -243,6 +248,17 @@ export function extendMains(s: GameState, now = false): void {
         k = j;
         continue;
       }
+      // (a thin ridge of rock, far round: the street is tunnelled through it, sim/tunnels.ts)
+      if (g === 'mountain') {
+        const through = cleared ? null : tunnelThrough(s, { x: x - d.x, y: y - d.y }, d);
+        if (!through) break;
+        for (const c of through.cells) lay(c.x, c.y);
+        lay(through.over.x, through.over.y);
+        k += through.cells.length;
+        continue;
+      }
+      // (a cliff: the high ground's face, sim/relief.ts; the street stops at its foot or its top but at a ramp)
+      if (cliffAhead(m, x - d.x, y - d.y, x, y)) break;
       // (a wood or rocks: cleared for the street, a few cells at a time; one with nothing left on it at once)
       if (!wildToClear(m, x, y) || cleared >= MAIN_CLEAR) break;
       if (!m.pools[idx(m, x, y)]) {
@@ -357,10 +373,13 @@ export function layoutSpot(s: GameState, def: BuildingDef): (Pt & { wild?: true 
         const fertile = fertileOf(r);
         const amid = r.x <= homely.x1 + 1 && r.x + r.w - 1 >= homely.x0 - 1 && r.y <= homely.y1 + 1 && r.y + r.h - 1 >= homely.y0 - 1;
         z = (amid ? 8 : 0) + d * 0.8 + Math.max(0, u) * 0.3 - (fertile / (r.w * r.h)) * 3;
+        // (on a land with hills, sim/hills.ts: orchards, vineyards, herds and the windmill up on them, the rest below)
+        if (m.relief) z += hillShare(m, r) * (SLOPE_CROPS.has(def.id) || HERDS[def.id] || def.id === 'windmill' ? -3 : 2);
         break;
       }
       case 'defense':
         z = Math.abs(d - Rh) * 1.5 + Math.min(Math.abs(my - L.row), Math.abs(mx - L.col)) * 0.6;
+        if (m.relief) z -= hillShare(m, r, true) * 3; // (a tower on the high ground sees further)
         break;
       case 'shore':
         z = d * 0.5;

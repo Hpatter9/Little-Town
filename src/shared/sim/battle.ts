@@ -14,6 +14,7 @@
 // the tests. The map is laid out when the battle starts (from the land and the town as they stand then) and kept on
 // the raid. Spots, trails and aims are in the land's cells (CELL px each); the raiders' px positions follow them.
 
+import { highSight } from './hills';
 import { before, credit, TOWERS } from './raidRecap';
 import { RUN_DOWN_CELLS, tryRunDown } from './raiderWounds';
 import { ringGate } from './ringWall';
@@ -523,7 +524,7 @@ export function layOut(s: GameState, side: -1 | 1, flank: boolean, sea = false, 
       spot('trap', best[0], best[1], b.id);
       continue;
     }
-    if (nearest(c) <= (def.defense?.range ?? 0) / CELL + TOWER_NEAR) spot('tower', c[0], c[1], b.id);
+    if (nearest(c) <= ((def.defense?.range ?? 0) * highSight(s, b)) / CELL + TOWER_NEAR) spot('tower', c[0], c[1], b.id); // (further from the high ground: sim/hills.ts)
   }
 
   // spots on open ground for shooters where there's no wall: where they see the most trail (the bends and the

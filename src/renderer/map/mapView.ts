@@ -44,6 +44,7 @@ import doorUrl from '../art/village/dl_door.png';
 import { SmokeColumns } from './smokeColumns';
 import { loadRoadTiles } from '../art/roadTiles';
 import { loadGroundDetail } from '../art/groundDetail';
+import { isOutcrop, loadReliefArt, OUTCROP_SCALE, outcropSet, paintLand } from './reliefArt';
 import { campfirePack, loadFieldTiles, onFieldTiles } from '../art/fieldTiles';
 import type { Era } from '../../shared/data/eras';
 import { buildCastle, castleArtReady, onCastleArt, roomFurniture, type CastleView } from './castleArt';
@@ -378,6 +379,7 @@ export class MapView {
     loadTdTiles().then(() => this.repaint(), () => undefined);
     loadRoadTiles().then(() => this.repaint(), () => undefined);
     loadGroundDetail().then(() => this.repaint(), () => undefined);
+    loadReliefArt().then(() => this.repaint(), () => undefined); // (the cliffs and the tunnels' mouths: map/reliefArt.ts)
     loadFieldTiles().then(() => undefined, () => undefined);
     onFieldTiles(() => this.artGen++);
     onPackArt(() => this.artGen++);
@@ -509,7 +511,7 @@ export class MapView {
           this.chunks.set(id, c);
         }
         const old = c.sprite.texture;
-        c.sprite.texture = near ? paintChunk(land, cx, cy, season, biome, td, era, this.blighted()) : darkTexture();
+        c.sprite.texture = near ? paintChunk(paintLand(land), cx, cy, season, biome, td, era, this.blighted()) : darkTexture();
         if (old !== Texture.EMPTY && old !== darkTexture()) old.destroy(true);
         c.key = key;
       }
@@ -561,7 +563,7 @@ export class MapView {
       const open = land.open;
       land.open = land.w + land.h; // (the fog lifted for the painting, and put back at once)
       try {
-        tex = paintChunk(land, cx, cy, this.season, this.biome, tdTiles(), this.era, this.blighted());
+        tex = paintChunk(paintLand(land), cx, cy, this.season, this.biome, tdTiles(), this.era, this.blighted());
       } finally {
         land.open = open;
       }
@@ -675,6 +677,7 @@ export class MapView {
           this.placeProp(i * 2 + 1, key, this.propFor(UNDERGROWTH, x, y, 10), ux, (y + 0.92 + hash(11, x, y) * 0.06) * CELL, vis, seen);
         }
       }
+    this.syncOutcrops(land, season, biome, reach, seen);
     for (const [i, p] of this.props)
       if (!seen.has(i)) {
         // (a tree felled, a rock broken up just now: it falls or crumbles where it stood, map/mapFelling.ts)
@@ -684,6 +687,41 @@ export class MapView {
         p.sprite.destroy();
         p.reflect?.destroy();
         this.props.delete(i);
+      }
+  }
+
+  /** The outcrops among the rocky hills (sim/relief.ts): the Rocks pack's boulders for the land's look (map/reliefArt.ts),
+   *  one to a cell, big, middling or small by the cell, stood as the map's other rocks are. */
+  private outcropTex = new Map<string, Texture>();
+  private outcropAsked = new Set<string>();
+  private syncOutcrops(land: LandMap, season: string, biome: string, reach: number, seen: Set<number>): void {
+    if (!land.relief) return;
+    const urls = outcropSet(biome, season);
+    for (const u of urls)
+      if (!this.outcropAsked.has(u)) {
+        this.outcropAsked.add(u);
+        loadImage(u).then(
+          (im) => {
+            this.outcropTex.set(u, Texture.from(im));
+            if (this.land) this.syncProps(this.land, this.season, this.biome);
+          },
+          () => undefined,
+        );
+      }
+    for (let y = Math.max(0, land.camp.y - reach); y <= Math.min(land.h - 1, land.camp.y + reach); y++)
+      for (let x = Math.max(0, land.camp.x - reach); x <= Math.min(land.w - 1, land.camp.x + reach); x++) {
+        const i = y * land.w + x;
+        if (!isOutcrop(land, i)) continue;
+        const vis = visibility(land, x, y);
+        if (vis === 0) continue;
+        // (the big boulders where the rock runs on round the cell, the small ones at its edge)
+        let solid = 0;
+        for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) if (groundAt(land, x + dx, y + dy) === 'mountain') solid++;
+        const size = solid >= 3 ? 0 : solid >= 1 ? (hash(21, x, y) < 0.5 ? 0 : 1) : hash(21, x, y) < 0.6 ? 1 : 2;
+        const tex = this.outcropTex.get(urls[size]);
+        if (!tex) continue;
+        this.placeProp(i * 2, `outcrop|${urls[size]}|${vis}`, { tex, kind: 'rock' }, (x + 0.5) * CELL, (y + 0.9) * CELL, vis, seen);
+        this.props.get(i * 2)?.sprite.scale.set(OUTCROP_SCALE[size]);
       }
   }
 

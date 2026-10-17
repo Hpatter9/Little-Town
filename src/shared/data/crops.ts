@@ -48,6 +48,8 @@ export interface WorkplaceDef {
 export const WORKPLACES: Readonly<Record<string, WorkplaceDef>> = {
   mine: { outputs: { iron_ore: 3, stone: 2 }, seconds: 40, workers: 2 },
   coal_mine: { outputs: { coal: 4, stone: 1 }, seconds: 40, workers: 3 },
+  // (a face of rock quarried: stone, and each land's own vein besides, sim/farming.ts `workMine`, data/hills.ts)
+  quarry: { outputs: { stone: 3 }, seconds: 35, workers: 2 },
   oil_derrick: { outputs: { oil: 4 }, seconds: 40, workers: 2 },
   deep_mine: { outputs: { rare_minerals: 2, stone: 2 }, seconds: 45, workers: 3 },
   // (the shaft to the Deep: what's dug is the cell being carved out below, sim/deep.ts `digDeep`)
