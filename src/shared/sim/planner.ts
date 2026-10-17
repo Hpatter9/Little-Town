@@ -49,6 +49,9 @@ import { RESEARCH_STATIONS, TOPICS, type Topic } from '../data/research';
 import { TERRAIN } from '../data/terrain';
 import { blueprintCount, buildSlots, canPlace, canUpgrade, demolish, depthOf, footprint, footprints, isUnlocked, placeBlueprint, stillNeeded, storages, totalCapacity, totalStock, townRadius, unlockInfo, upgrade, inWork, overgrownCells, refreshOvergrown } from './buildings';
 import { buildable, wet, setGround, type Rect, touchesWater, type Pt, delveDepth, delvePool, doorOf, groundAt, idx, inMap, isMarked, isOpen, overlaps, roadDistance, setMarked, spiralSpot } from './land';
+import { cutInto, QUARRY_ROCK, rockBeside } from './relief';
+import { ROCK_FEW } from '../data/hills';
+import { SHAFT } from '../data/deep';
 import { openGround } from '../data/biomes';
 import { craftNeeded, craftSlots, itemUnlocked, queueCraft, reduceCraft, stationFor } from './crafting';
 import { canQueue, researchMods, queueResearch, seatStageNow, tidyPicks } from './research';
@@ -681,6 +684,76 @@ function nearestOrder(m: GameState['land'], c: Pt): { cells: Int32Array; d: Floa
  *  ground where it can, and over a wood or rocks rather than walk further out (the owner's ask). */
 export const WILD_SPOT_COST = 1.5;
 export function findSpot(s: GameState, def: BuildingDef): (Pt & { wild?: true }) | null {
+  // (on a land with hills and mountains, sim/relief.ts: a quarry stands only against a face of rock; the shaft to the
+  // Deep opens into the rock where a face is near; a few stores, homes and tombs are cut into a cliff)
+  const rocky = s.land.relief ? rockKind(def) : null;
+  if (rocky === 'beside') return rockSpot(s, def, 'beside');
+  if (rocky === 'shaft') {
+    const at = rockSpot(s, def, 'beside');
+    if (at) return at;
+  }
+  if (rocky === 'into' && s.buildings.filter((b) => b.cut).length < ROCK_FEW) {
+    const at = rockSpot(s, def, 'into');
+    if (at) return at;
+  }
+  const flat = flatSpot(s, def);
+  // (no flat ground left for it: into the rock, however many already are)
+  return flat ?? (rocky === 'into' ? rockSpot(s, def, 'into') : null);
+}
+
+/** How a building takes to the rock: stood against it (a quarry), its mouth in it (the shaft to the Deep), cut into it
+ *  (data/buildings.ts `intoRock`). */
+const rockKind = (def: BuildingDef): 'beside' | 'shaft' | 'into' | null => (def.againstRock ? 'beside' : def.id === SHAFT ? 'shaft' : def.intoRock ? 'into' : null);
+
+/** The nearest spot to the camp, within the open land, where a building stands against a face of rock (`beside`: two
+ *  cells of rock along its sides at least) or is cut into one (`into`: its back row in the rock, more rock behind).
+ *  Kept while the buildings, the land and its reach are the same. */
+export function rockSpot(s: GameState, def: BuildingDef, mode: 'beside' | 'into'): (Pt & { wild?: true }) | null {
+  const key = `${def.id}|${mode}|${s.buildings.length}|${s.land.version}|${s.land.open}`;
+  const hit = rockSpots.get(s);
+  if (hit?.has(key)) return hit.get(key)!;
+  const m = s.land;
+  const camp = campCell(s);
+  const w = def.width;
+  const h = depthOf(def);
+  let found: (Pt & { wild?: true }) | null = null;
+  // (a building cut into a cliff stays with the town, within a few cells of its reach; a quarry a walk further off)
+  const R = Math.ceil(Math.min(m.open, townRadius(s) + (mode === 'into' ? INTO_REACH : QUARRY_REACH)));
+  for (let r = 0; r <= R && !found; r++) {
+    let best: (Pt & { wild?: true }) | null = null;
+    let bestScore = Infinity;
+    for (let x = camp.x - r; x <= camp.x + r; x++)
+      for (let y = camp.y - r; y <= camp.y + r; y++) {
+        if (Math.max(Math.abs(x - camp.x), Math.abs(y - camp.y)) !== r) continue;
+        const rect = { x: x - Math.floor(w / 2), y: y - Math.floor(h / 2), w, h };
+        if (mode === 'into' ? !cutInto(m, rect) : rockBeside(m, rect) < QUARRY_ROCK) continue;
+        const d = doorOf(rect);
+        if (!isOpen(m, d.x, d.y) || !buildable(groundAt(m, d.x, d.y))) continue;
+        let wild = false;
+        for (let cy = rect.y; cy < rect.y + h; cy++) for (let cx = rect.x; cx < rect.x + w; cx++) if (!buildable(groundAt(m, cx, cy)) && groundAt(m, cx, cy) !== 'mountain') wild = true;
+        if (!canPlace(s, def, rect.x, rect.y, undefined, false, wild).ok) continue;
+        if (footprints(s).some((f) => d.x >= f.x && d.x < f.x + f.w && d.y >= f.y && d.y < f.y + f.h)) continue;
+        const score = roadDistance(m, d) + (wild ? 3 : 0) - (mode === 'beside' ? rockBeside(m, rect) * 0.5 : 0);
+        if (score < bestScore) {
+          bestScore = score;
+          best = { x: rect.x, y: rect.y, ...(wild ? { wild: true as const } : {}) };
+        }
+      }
+    found = best;
+  }
+  const map = hit && hit.size < 64 ? hit : new Map<string, (Pt & { wild?: true }) | null>();
+  map.set(key, found);
+  rockSpots.set(s, map);
+  return found;
+}
+const rockSpots = new WeakMap<object, Map<string, (Pt & { wild?: true }) | null>>();
+/** How far past the town's reach a building is cut into a cliff (cells). */
+const INTO_REACH = 4;
+/** And how far past it a quarry may stand. */
+const QUARRY_REACH = 12;
+
+/** The nearest flat place for a building (the town plan's quarter for it first). */
+function flatSpot(s: GameState, def: BuildingDef): (Pt & { wild?: true }) | null {
   // (a town with a plan builds in the quarter the building belongs in: sim/layout.ts; else, or with no room there, as before)
   const planned = layoutSpot(s, def);
   if (planned && canPlace(s, def, planned.x, planned.y, undefined, false, !!planned.wild).ok) return planned;
@@ -909,6 +982,7 @@ function wishes(s: GameState, n: Needs): { def: string; why: string }[] {
     if (!can(d) || planned(s, d.id) || d.housing || d.storage || d.hp || d.defense || d.cells || CAPSTONES.includes(d.id)) continue;
     if (CROPS[d.id] && FOOD_VALUE[CROPS[d.id].material]) continue; // (food fields come of wanting food, above)
     if (d.id === 'graveyard' && !(s.graves?.length)) continue; // (only once someone has died)
+    if (d.againstRock && !rockSpot(s, d, 'beside')) continue; // (a quarry once there's a face of rock in the known land)
     if (LEISURE[d.id] && grown < LEISURE_PEOPLE) continue; // (a hamlet has a roof to raise before a green to play on)
     if (TRAINING_IDS.has(d.id)) continue; // (the old conquest's training grounds: no troops are trained by hand any more)
     if (d.id === 'trophy_hall' && treasuresHeld(s) < 2) continue; // (only once there's something to show)
@@ -1158,6 +1232,7 @@ function planBuilding(s: GameState, n: Needs, plan: TownPlan): number[] {
     } else if (isWall(def) || isRingPiece(def.id)) continue; // (walls and gates are the ring's: planRing)
     else at = findSpot(s, def);
     if (at === null) {
+      if (def.againstRock) continue; // (no face of rock: clearing land won't make one)
       blocked ??= def;
       continue;
     }

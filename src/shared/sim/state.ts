@@ -161,6 +161,10 @@ export interface Building {
     /** What it took today and yesterday (sim/ambition.ts: a business's price). */
     takings?: { day: number; today: number; yesterday: number };
   };
+  /** Loads quarried from it (a quarry: sim/farming.ts `quarryLoad`). */
+  dug?: number;
+  /** Cut into a cliff face, its back row in the rock (sim/relief.ts `cutInto`; set when it is laid). */
+  cut?: true;
 }
 
 export interface ShopPiece {
@@ -1694,7 +1698,9 @@ export interface NewGameOptions {
   /** Who founds it (Settlers when left out). */
   origin?: OriginId;
   /** How many realms share the conquest's world, the town counted (data/conquest.ts; REALMS_DEFAULT when left out). */
-  realms?: number;
+  realms?: number;  /** The land's hills and mountains (sim/relief.ts): every town founded now has them; false founds a level land, as
+   *  towns were before (tools/sim-hash.mjs keeps its older towns so). */
+  relief?: boolean;
 }
 
 /** Give the rolled founder the player's choices. */
@@ -1738,7 +1744,7 @@ export function newGame(seed: string, opts: NewGameOptions = {}): GameState {
   const hold = rules.hold;
   // (a shore town is always on the coast)
   const biome = rules.shape === 'sea' ? 'coast' : opts.biome;
-  const land = makeLand(seed, biome, hold ?? rules.shape);
+  const land = makeLand(seed, biome, hold ?? rules.shape, opts.relief !== false);
   const rng = new Rng(mixSeed(hashSeed(seed), 0x5eed));
   const camp = land.camp;
   const campPx = (dx: number, dy = 0): Pt => ({ x: (camp.x + 0.5 + dx) * CELL, y: (camp.y + 0.5 + dy) * CELL });

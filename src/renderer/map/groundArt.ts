@@ -15,6 +15,7 @@ import { drawBridge, drawPatch, drawRipple, drawTuft, groundDetailReady, groundU
 import { PROP_FINE, propFrames, propImage } from '../art/props';
 import { hash, latticeNoise, smooth } from './groundNoise';
 import { paintMountain, paintMountainEdge } from './mountainArt';
+import { paintRelief, paintTunnelMouth, reliefArtReady, reliefKey } from './reliefArt';
 
 /** How many of the shore's water cells show the bottom (the Seabed pack's corals, urchins, starfish and shells) through
  *  the water, on the coast. */
@@ -152,7 +153,7 @@ function rgb(c: string): number[] {
 
 /** A key for what a chunk shows (painted again when it changes). */
 /** Which of the ground's art sheets have loaded (part of every chunk's key; the map watches it to know when to look again). */
-export const groundArtReady = (): string => `${groundDetailReady() ? 1 : 0}${roadTilesReady() ? 1 : 0}${propImage('sea') ? 1 : 0}`;
+export const groundArtReady = (): string => `${groundDetailReady() ? 1 : 0}${roadTilesReady() ? 1 : 0}${propImage('sea') ? 1 : 0}${reliefArtReady() ? 1 : 0}`;
 
 export function chunkKey(m: LandMap, cx: number, cy: number, season: string, _td: boolean, era: Era = 'neolithic', blight = false, biome = 'forest'): string {
   let s = `${season}|${biome}|${groundDetailReady() ? 1 : 0}|${blight ? 'b' : ''}|${roadTilesReady() ? ROAD_BY_ERA[era] : ''}|${m.open}|${propImage('sea') ? 's' : ''}|`;
@@ -164,6 +165,8 @@ export function chunkKey(m: LandMap, cx: number, cy: number, season: string, _td
     s += groundAt(m, cx * CHUNK - 1, y)[0] + groundAt(m, (cx + 1) * CHUNK, y)[0];
   }
   for (let x = cx * CHUNK; x < (cx + 1) * CHUNK; x++) s += groundAt(m, x, cy * CHUNK - 1)[0] + groundAt(m, x, (cy + 1) * CHUNK)[0];
+  // (the hills and mountains, sim/relief.ts: map/reliefArt.ts)
+  if (m.relief) s += reliefKey(m, cx * CHUNK, cy * CHUNK, CHUNK);
   return s;
 }
 
@@ -536,6 +539,8 @@ export function paintChunk(m: LandMap, cx: number, cy: number, season: string, b
         }
       // the mountain's jagged edge biting into the terrain beside it
       if (kind !== 'mountain' && kind !== 'hall') paintMountainEdge(g, m, x, y, px, py, pal.mountain);
+      // the hills, the high ground's cliffs and ramps (sim/relief.ts: map/reliefArt.ts)
+      if (m.relief) paintRelief(g, m, x, y, px, py, hash, pal.mountain);
       // a footpath worn by walking: patches of bare earth along it, toward each worn (or road) neighbour
       const worn = wornLevel(m, x, y);
       if (worn && !wet(kind) && roadTilesReady()) {
@@ -559,6 +564,8 @@ export function paintChunk(m: LandMap, cx: number, cy: number, season: string, b
         const grassy = kind === 'grass' || kind === 'forest' || kind === 'marsh' || kind === 'hill';
         drawRoadCell(g, px, py, ROAD_BY_ERA[era], grassy && season !== 'winter', (dx, dy) => isRoad(m, x + dx, y + dy));
       }
+      // (a tunnel's mouth over its street, sim/tunnels.ts: map/reliefArt.ts)
+      if (m.relief) paintTunnelMouth(g, m, x, y, px, py);
     }
   // beyond the open land the ground fades into the dark, smoothly (by each 4px block's own distance, not the cell's),
   // further out the darker, black by the band's end

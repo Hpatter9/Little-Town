@@ -50,6 +50,10 @@ export interface BiomeDef {
    *  (renderer/map/mapView.ts). */
   look: string;
   props: string[];
+  /** How much of the land is high ground, and in what form (sim/relief.ts, for towns founded with relief): the rolling
+   *  downs, rocky hills with outcrops, high ground ringed by cliffs, and the true mountains of a range (shares of the
+   *  whole land). Every land has hills; the mountain and cave lands have ranges; the sea, the fens and the plains least. */
+  relief: { downs: number; rocky: number; high: number; range: number };
 }
 
 export const BIOME_DEFS: Record<Biome, BiomeDef> = {
@@ -64,6 +68,7 @@ export const BIOME_DEFS: Record<Biome, BiomeDef> = {
     scenes: {},
     look: 'green',
     props: ['wild'],
+    relief: { downs: 0.1, rocky: 0.04, high: 0.03, range: 0.02 },
   },
   desert: {
     name: 'Desert',
@@ -84,6 +89,7 @@ export const BIOME_DEFS: Record<Biome, BiomeDef> = {
     scenes: { meadow: 'dunes', pinewoods: 'dunes', riverbank: 'dunes' },
     look: 'sand',
     props: ['desert', 'wild'],
+    relief: { downs: 0.07, rocky: 0.06, high: 0.05, range: 0.03 },
   },
   tundra: {
     name: 'Tundra',
@@ -99,6 +105,7 @@ export const BIOME_DEFS: Record<Biome, BiomeDef> = {
     scenes: { meadow: 'tundra', pinewoods: 'tundra', riverbank: 'tundra' },
     look: 'green',
     props: ['winter', 'wild'],
+    relief: { downs: 0.1, rocky: 0.05, high: 0.04, range: 0.06 },
   },
   coast: {
     name: 'Coast',
@@ -114,6 +121,7 @@ export const BIOME_DEFS: Record<Biome, BiomeDef> = {
     scenes: { meadow: 'coast' },
     look: 'green',
     props: ['coast', 'wild'],
+    relief: { downs: 0.06, rocky: 0.02, high: 0.01, range: 0 },
   },
   swamp: {
     name: 'Fenlands',
@@ -132,6 +140,7 @@ export const BIOME_DEFS: Record<Biome, BiomeDef> = {
     scenes: { meadow: 'fen', pinewoods: 'fen', riverbank: 'fen' },
     look: 'fen',
     props: ['wild', 'grove'],
+    relief: { downs: 0.04, rocky: 0.01, high: 0, range: 0 },
   },
   jungle: {
     name: 'Jungle',
@@ -151,6 +160,7 @@ export const BIOME_DEFS: Record<Biome, BiomeDef> = {
     scenes: { meadow: 'jungle', pinewoods: 'jungle', riverbank: 'jungle' },
     look: 'jungle',
     props: ['wild', 'grove'],
+    relief: { downs: 0.08, rocky: 0.03, high: 0.03, range: 0.02 },
   },
   highlands: {
     name: 'Highlands',
@@ -169,6 +179,7 @@ export const BIOME_DEFS: Record<Biome, BiomeDef> = {
     scenes: { meadow: 'highlands', pinewoods: 'pinewoods', riverbank: 'highlands' },
     look: 'crag',
     props: ['wild', 'cave'],
+    relief: { downs: 0.14, rocky: 0.07, high: 0.06, range: 0.1 },
   },
   ashlands: {
     name: 'Ashlands',
@@ -189,6 +200,7 @@ export const BIOME_DEFS: Record<Biome, BiomeDef> = {
     scenes: { meadow: 'ashland', pinewoods: 'ashland', riverbank: 'ashland', highlands: 'crater' },
     look: 'ash',
     props: ['undead', 'desert'],
+    relief: { downs: 0.08, rocky: 0.07, high: 0.05, range: 0.08 },
   },
   steppe: {
     name: 'Steppe',
@@ -208,6 +220,7 @@ export const BIOME_DEFS: Record<Biome, BiomeDef> = {
     scenes: { meadow: 'steppe', pinewoods: 'steppe', riverbank: 'riverbank' },
     look: 'steppe',
     props: ['wild'],
+    relief: { downs: 0.06, rocky: 0.015, high: 0.01, range: 0 },
   },
   taiga: {
     name: 'Taiga',
@@ -226,6 +239,7 @@ export const BIOME_DEFS: Record<Biome, BiomeDef> = {
     scenes: { meadow: 'pinewoods', riverbank: 'pinewoods' },
     look: 'taiga',
     props: ['wild'],
+    relief: { downs: 0.09, rocky: 0.04, high: 0.04, range: 0.06 },
   },
 };
 

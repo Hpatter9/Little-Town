@@ -326,6 +326,7 @@ export function makeBoard(s: GameState, side: -1 | 1, big = false, salt = 0): Pi
       if (g === 'forest' && !road) tile.tree = true;
       b.tiles.push(tile);
     }
+  if (m.relief) sealPockets(b, along);
   fords(b);
   lieOfTheLand(b, along, mixSeed(seed, 0x51de, salt));
   easeRelief(b);
@@ -355,6 +356,39 @@ export function makeBoard(s: GameState, side: -1 | 1, big = false, salt = 0): Pi
     if (attempt === 2 || boardOk(b, along)) break;
   }
   return b;
+}
+
+/** On a land with hills and mountains (sim/relief.ts): ground the board's window cuts off from the town's row by rock (a
+ *  ridge or an outcrop between it and the gate, the way round it off the board) is rock on the board too. */
+function sealPockets(b: Pick<Tactics, 'w' | 'h' | 'tiles'>, along: number): void {
+  const seen = new Uint8Array(b.tiles.length);
+  const queue: number[] = [];
+  for (let v = 0; v < b.h; v++) {
+    const i = v * b.w + along;
+    if (b.tiles[i].g !== 'mountain') {
+      seen[i] = 1;
+      queue.push(i);
+    }
+  }
+  for (let qi = 0; qi < queue.length; qi++) {
+    const [u, v] = [queue[qi] % b.w, Math.floor(queue[qi] / b.w)];
+    for (const [du, dv] of DIRS) {
+      const nu = u + du;
+      const nv = v + dv;
+      if (nu < 0 || nv < 0 || nu >= b.w || nv >= b.h) continue;
+      const j = nv * b.w + nu;
+      if (seen[j] || b.tiles[j].g === 'mountain') continue;
+      seen[j] = 1;
+      queue.push(j);
+    }
+  }
+  b.tiles.forEach((t, i) => {
+    if (seen[i] || t.g === 'mountain') return;
+    t.g = 'mountain';
+    t.h = BASE.mountain;
+    delete t.tree;
+    delete t.road;
+  });
 }
 
 /** The town's wall across the board at the gate's row with its gate, the town's side kept clear, the towers on the

@@ -30,6 +30,8 @@ import { calendar, DAYS_PER_SEASON, TICK_HZ, TICKS_PER_HOUR } from './time';
 import { gainSkill, workFactor } from './townsfolk';
 import { cropSpeed } from './origin';
 import { SHAFT } from '../data/deep';
+import { hillHarvest } from './hills';
+import { QUARRY, QUARRY_GEM_EVERY, QUARRY_GEMS, QUARRY_VEINS } from '../data/hills';
 import { cellAt, deepOf, deepTarget, digDeep, digSeconds, isDiggable, shaftHasWork, workingLevel } from './deep';
 import { underDug, underFlooded } from './underdark';
 import { markMilestone } from './milestones';
@@ -133,7 +135,7 @@ export function workField(s: GameState, p: Person, b: Building): boolean {
   if (ripe && after > before) {
     // (each section's share of the crop, the shares summing to the whole)
     const soil = def.indoor ? 1 : (c.soil ?? SOIL.start);
-    const total = Math.round(def.yield * soil * (1 + (p.skills.farming.level - 1) * YIELD_PER_LEVEL) * (greenThumb(p) ? 1.25 : 1));
+    const total = Math.round(def.yield * soil * (1 + (p.skills.farming.level - 1) * YIELD_PER_LEVEL) * (greenThumb(p) ? 1.25 : 1) * hillHarvest(s, b));
     const got = Math.round((total * after) / n) - Math.round((total * before) / n);
     const carry = Math.min(got, Math.max(0, carryCapacity(s, p) - poolSize(p.carrying)));
     if (carry > 0) addStock(p.carrying, def.material, carry);
@@ -260,6 +262,16 @@ export function mineToWork(s: GameState, p: Person): Building | null {
   return best;
 }
 
+/** A load from a quarry (data/hills.ts): its stone, the land's own vein, and in the lands whose rock holds them a gem
+ *  every `QUARRY_GEM_EVERY` loads (counted on the quarry, so it comes round the same in every run). */
+export function quarryLoad(s: GameState, b: Building): Stock {
+  const biome = s.biome ?? 'forest';
+  const out: Stock = { ...WORKPLACES[QUARRY].outputs, ...QUARRY_VEINS[biome] };
+  b.dug = (b.dug ?? 0) + 1;
+  if (QUARRY_GEMS.has(biome) && b.dug % QUARRY_GEM_EVERY === 0) out.gems = 1;
+  return out;
+}
+
 /** One tick of digging in the Deep (sim/deep.ts): the miner's cell carved out below, and what it held into their
  *  hands. */
 function workDeep(s: GameState, p: Person, b: Building, task: { work: number; cell?: number; depth?: number }): boolean {
@@ -308,7 +320,7 @@ export function workMine(s: GameState, p: Person, b: Building, progress: { work:
   const room = Math.max(0, carryCapacity(s, p) - poolSize(p.carrying));
   let left = room;
   const spill: Stock = {};
-  for (const [m, n] of Object.entries(w.outputs) as [Material, number][]) {
+  for (const [m, n] of Object.entries(b.def === QUARRY ? quarryLoad(s, b) : w.outputs) as [Material, number][]) {
     const k = Math.min(n, left);
     addStock(p.carrying, m, k);
     left -= k;

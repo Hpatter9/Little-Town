@@ -4,7 +4,9 @@
 // the camp) when it's placed, so the town grows along its roads.
 
 import { VILLAGE_KEEP } from '../data/villages';
-import { isGate, ringWallCells, riverCell, wallOnly } from './ringWall';
+import { isGate, isRingPiece, ringWallCells, riverCell, wallOnly } from './ringWall';
+import { cutInto, QUARRY_ROCK, RAMP, rockBeside } from './relief';
+import { thinRock, TUNNEL_COST } from './tunnels';
 import { planBias } from './layout';
 import { isSeat } from '../data/seats';
 import { hallCells, HALLWAY, castleCells, castleGate, castleOn, holdOf, joinsCastle, nearCastle, roomKind, solidCells } from './castle';
@@ -83,14 +85,15 @@ export function distToBuilding(b: Pick<Building, 'def' | 'tile' | 'row'>, p: Pt)
 }
 
 /** Whether a building can be placed: its research is done (or the debug unlock is on). */
-export function isUnlocked(u: { unlockAll: boolean; done: readonly string[]; era?: Era; origin?: OriginId }, def: BuildingDef): boolean {
+export function isUnlocked(u: { unlockAll: boolean; done: readonly string[]; era?: Era; origin?: OriginId; relief?: boolean }, def: BuildingDef): boolean {
   if (def.origin && def.origin !== (u.origin ?? 'settlers')) return false; // (a settlers' town has no `origin` set)
+  if (def.againstRock && !u.relief) return false; // (a quarry needs a land with rock to quarry: sim/relief.ts)
   if (u.unlockAll) return true;
   if (def.era && u.era && !eraReached(u.era, def.era)) return false;
   return !def.research || u.done.includes(def.research);
 }
 
-export const unlockInfo = (s: GameState) => ({ unlockAll: s.cheats.unlockAll, done: s.research.done, era: s.era, origin: s.origin });
+export const unlockInfo = (s: GameState) => ({ unlockAll: s.cheats.unlockAll, done: s.research.done, era: s.era, origin: s.origin, relief: !!s.land.relief });
 
 /** The town's reach: the furthest any of its buildings (fields too) stands from the camp, in cells (chessboard), at
  *  least the camp's own ground. */
@@ -260,6 +263,10 @@ export function canPlace(s: Pick<GameState, 'land' | 'buildings' | 'origin' | 'e
         continue;
       }
       if (def.onWater) return { ok: false, reason: 'A grate stands in the water' };
+      // (on a land with relief: the ramps up onto the high ground are kept clear but for the ring wall, and a building
+      // that may be cut into the rock has its back row in a cliff face, sim/relief.ts)
+      if (m.relief && m.relief[cy * m.w + cx] === RAMP && !isRingPiece(def.id)) return { ok: false, reason: 'The way up the cliff' };
+      if (g === 'mountain' && def.intoRock && cy === r.y && m.relief && cutInto(m, r)) continue;
       if (carved) {
         if (!carvable(g)) return { ok: false, reason: 'A hall is cut into the mountain' };
       } else if (g === 'mountain') return { ok: false, reason: 'The mountain stands here' };
@@ -274,6 +281,8 @@ export function canPlace(s: Pick<GameState, 'land' | 'buildings' | 'origin' | 'e
   if (s.villages?.some((v) => Math.hypot(r.x + r.w / 2 - v.x, r.y + r.h / 2 - v.y) < VILLAGE_KEEP + (v.pop > 12 ? 2 : 0))) return { ok: false, reason: 'A daughter village stands here' };
   // (a boatyard stands at the water's edge)
   if (def.shore && !touchesWater(m, r)) return { ok: false, reason: `${def.name} stands at the water's edge` };
+  // (a quarry stands against a face of rock)
+  if (def.againstRock && rockBeside(m, r) < QUARRY_ROCK) return { ok: false, reason: `${def.name} stands against the rock` };
   if (castleOn(s)) {
     const cells = castleCells(s);
     if (room && !joinsCastle(holdOf(s) === 'mountain' ? hallCells(s) : cells, m, r, solidCells(s))) return { ok: false, reason: 'A room is built on to the castle' };
@@ -298,6 +307,8 @@ export function placeBlueprint(s: GameState, defId: string, x: number, y: number
   const check = canPlace(s, def, x, y, undefined, turned, overWild);
   if (!check.ok) return check;
   const b: Building = { id: s.nextId++, def: defId, tile: x, row: y, status: 'blueprint', delivered: {}, progress: 0, store: {}, ...(castleOn(s) && roomKind(s, def) ? { room: true, ...(holdOf(s) === 'mountain' && def.id !== HALLWAY ? { halled: true } : {}) } : {}), ...(turned ? { turned: true } : {}), ...(planned ? { planned: true } : {}) };
+  // (cut into a cliff face, its back row in the rock: sim/relief.ts)
+  if (def.intoRock && s.land.relief && cutInto(s.land, footprint(b))) b.cut = true;
   s.buildings.push(b);
   if (overWild) {
     // (laid over a wood or rocks: a wild cell with nothing left on it is cleared at once; the rest wait for the axe
@@ -397,11 +408,13 @@ export function layStreet(s: GameState, from: Pt, to: Pt, reach = ROAD_REACH): b
   // (a road goes over buildable ground; over a river or a stream as a bridge (the owner's ask); in a shore town out
   // over the sea as a pier)
   const water = (x: number, y: number) => wet(groundAt(m, x, y)) && (pier || riverCell(m, { x, y }));
-  const ground = (x: number, y: number) => buildable(groundAt(m, x, y)) || water(x, y);
+  // (and through a thin ridge of rock as a tunnel, where going round is far longer: sim/tunnels.ts)
+  const thin = thinRock(s);
+  const ground = (x: number, y: number) => buildable(groundAt(m, x, y)) || water(x, y) || (!!thin && groundAt(m, x, y) === 'mountain' && thin(x, y));
   const blocked = (x: number, y: number) => !ground(x, y) || !!on(x, y) || !!castle?.has(idx(m, x, y));
   // (a road may run through the ring wall's gate; a gate cell is left a plain cell, the gate stands on it)
   const gate = (x: number, y: number) => isGate(on(x, y)?.def ?? '');
-  const path = findPath(m, from, to, (x, y) => walled(x, y) || (blocked(x, y) && !isRoad(m, x, y) && !isPlannedRoad(m, x, y) && !gate(x, y)), { maxNodes: 6000, four: true, swim: pier ? PIER_COST : BRIDGE_COST, extra: planBias(s) });
+  const path = findPath(m, from, to, (x, y) => walled(x, y) || (blocked(x, y) && !isRoad(m, x, y) && !isPlannedRoad(m, x, y) && !gate(x, y)), { maxNodes: 6000, four: true, swim: pier ? PIER_COST : BRIDGE_COST, extra: planBias(s), ...(thin ? { bore: { cost: TUNNEL_COST, ok: thin } } : {}) });
   if (!path || path.length > reach) return false;
   lay(from.x, from.y);
   for (const c of path) if ((!on(c.x, c.y) || gate(c.x, c.y)) && ground(c.x, c.y)) lay(c.x, c.y);

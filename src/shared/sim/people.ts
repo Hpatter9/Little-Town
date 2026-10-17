@@ -22,6 +22,7 @@ import { FOOD_VALUE, JOBS, type Job } from '../data/people';
 import { eraOfResearch, RESEARCH_STATIONS, TOPIC_BY_ID } from '../data/research';
 import { studyPace, topicName } from '../data/originResearch';
 import { WORKPLACES } from '../data/crops';
+import { hillWind } from './hills';
 import { earlier } from '../data/eras';
 import { skillSpeed } from '../data/skills';
 import { TERRAIN } from '../data/terrain';
@@ -867,7 +868,7 @@ function doCraft(s: GameState, p: Person, task: Extract<Task, { type: 'craft' }>
       // a steam factory speeds every station's work
       const built = (id: string) => s.buildings.some((b) => b.def === id && b.status === 'done');
       const factory = (built('factory') ? 2 : 1) * (built('fusion_reactor') ? 1.5 : 1);
-      const speed = skillSpeed(p.skills.crafting.level) * workFactor(s, p) * factory * nearSource(s, station) * craftSpeed(s) * (holds(p, station) ? HOLDER_EDGE : 1);
+      const speed = skillSpeed(p.skills.crafting.level) * workFactor(s, p) * factory * nearSource(s, station) * craftSpeed(s) * hillWind(s, station) * (holds(p, station) ? HOLDER_EDGE : 1);
       o.progress += speed / (craftSeconds(def, s.era) * TICK_HZ);
       gainSkill(p, 'crafting', CRAFT_XP_PER_SEC / TICK_HZ);
       if (o.progress >= 1) {

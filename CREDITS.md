@@ -452,6 +452,15 @@ cutscenes (`src/renderer/art/scene/`, see the cutscenes' props): the barrel, car
 bucket, gravestone, bread, apple and lantern. The fire is the game's own flame (`src/renderer/art/effects/flame.png`,
 see Effects).
 
+## The hills and mountains
+
+The outcrops among the rocky hills (`src/renderer/art/relief/rock_*.png`: the moss, slate, desert, snowy, cave and canyon
+rocks, three sizes each, by the land's look) are from **Craftpix.net**'s free Rocks Pixel Art asset pack; the tunnels'
+mouths (`art/relief/cave_mouth.png`) and the quarry's adit (`art/packs/rocky_adit.png`) are the plain stone cave entrance of
+**Craftpix.net**'s free Rocky Area Objects pack; the high ground's cliff faces reuse the Undead Tileset's jagged cliffs
+(`art/under/cliff.png`, credited with the Underdark above). Under Craftpix's free licence (use in the game; the raw files
+are not redistributed): https://craftpix.net/file-licenses/.
+
 ## The loading screen and the logo
 
 The loading screen (`src/renderer/mobile/loading.ts`) and the game's logo (`src/renderer/loading/logo.ts`, and the

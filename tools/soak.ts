@@ -48,7 +48,7 @@ for (const o of names) {
         s.research.done.push('steam_power', 'cartography', 'steelmaking', 'aeronautics', 'rigid_airships');
         if (process.env.SKY === 'ship') { s.buildings.push({ id: s.nextId++, def: 'airship_mast', tile: s.land.camp.x + 4, row: s.land.camp.y + 3, status: 'done', delivered: {}, progress: 1, store: {} } as never); launchAirship(s, 'zeppelin'); }
       }
-    } else s = newGame(`soak${k}`, { origin: o as never });
+    } else s = newGame(`soak${k + Number(process.env.SEEDOFF ?? 0)}`, { origin: o as never, relief: process.env.RELIEF !== '0', ...(process.env.BIOME ? { biome: process.env.BIOME as never } : {}) }); // (RELIEF=0: a level land, as towns had before relief; BIOME=highlands: the land)
     if (process.env.DIRECTION) s.direction = process.env.DIRECTION as never; // (DIRECTION=trade: the town's direction, set from the start)
     const r = run(s, DAYS);
     if (r.over) console.log(`  ${o} seed ${k} ended day ${r.end}: ${r.over}`);
@@ -59,6 +59,8 @@ for (const o of names) {
     // (WAR=1: the seasons of war's tallies, sim/war/; WAR=2 adds its news)
     if (process.env.WAR) { const w = s.war; console.log(`  ${o} seed ${k}: joined ${w?.joined ?? 0} won ${w?.won ?? 0} lost ${w?.lost ?? 0} spoils ${w?.spoils ?? 0} war dead ${w?.dead.length ?? 0} sieges ${w?.sieges?.held ?? 0}/${w?.sieges?.lost ?? 0} occupied ${w?.occupation ? 'yes' : 'no'} fallen ${(w?.fallen ?? []).map((f) => f.id).join(',') || '-'} wars ${(s.feuds ?? []).length} town provinces ${s.conquest?.holder.filter((h) => h === 'town').length ?? 0}`); }
     if (process.env.WAR === '2') console.log((s.war?.news ?? []).map((n) => `    d${Math.floor(n.tick / TICKS_PER_DAY) + 1} ${n.text}`).join('\n'));
+    // (HILLS=1: what the town made of its hills and mountains, sim/relief.ts)
+    if (process.env.HILLS) console.log(`  ${o} seed ${k}: quarries ${s.buildings.filter((b) => b.def === 'quarry').length} cut into rock ${s.buildings.filter((b) => b.cut).length} tunnel cells ${[...s.land.cells].filter((c, i) => (c === 'H' || c === 'M') && (s.land.roads[i] === '#' || s.land.plannedRoads?.[i] === '#')).length} stone ${s.buildings.reduce((n, b) => n + (b.store.stone ?? 0), 0)} buildings ${s.buildings.length}`);
     if (process.env.PERSEED) console.log(`  ${o} seed ${k}: people ${r.people} low ${r.low} deaths ${r.deaths}`);
     pop += r.people; deaths += r.deaths; dead += r.dead ? 1 : 0; low += r.low;
   }
