@@ -8,6 +8,7 @@
 import { biomeById } from '../../shared/data/biomes';
 import { CELL, groundAt, isRoad, type LandMap } from '../../shared/sim/land';
 import { DOWNS, HIGH, RAMP, RANGE, ROCKY, isHigh } from '../../shared/sim/relief';
+import { armsOf, E, maskOf, pieceOf, W } from '../art/autotile';
 import { loadImage } from '../art/loadImage';
 import { faceColumn, faceHeight } from './mountainArt';
 import cliffUrl from '../art/under/cliff.png';
@@ -191,15 +192,34 @@ export function paintRelief(g: CanvasRenderingContext2D, m: LandMap, x: number, 
   const above = at(m, x, y - 1);
   const faceAbove = above === HIGH && !isRoad(m, x, y - 1) && !road;
   if (faceAbove) {
+    // (which way the cliff runs on: a neighbour beside is of the cliff if it is high ground, or has high ground above it
+    // for a face of its own. The piece names the arms; 'n' alone is a face one cell wide, 'ne' one that ends on its west,
+    // 'nw' on its east, 'new' a run: the faces and their overhang join at the cell's edge, the ends are capped)
+    const runs = (dx: number) => at(m, x + dx, y) === HIGH || (at(m, x + dx, y - 1) === HIGH && at(m, x + dx, y) !== HIGH);
+    const arms = armsOf(pieceOf(maskOf((dx, dy) => dy === -1 || (dy === 0 && runs(dx)))));
     // (the face in the mountain's own stone, 2 px columns lit at the brow, then the pack's jagged overhang along its
     // top and a shadow at its foot)
     for (let k = 0; k < CELL; k += 2) {
       const wx = x * CELL + k;
       faceColumn(g, rock, px + k, py, py + faceHeight(wx, y) + 2, hash(97, wx >> 1, y) < 0.08);
     }
+    // (an end of the cliff turns away from the light as the rim above it does: the rim runs down the face, tapering)
+    for (const [bit, left] of [[W, true], [E, false]] as const) {
+      if (arms & bit || at(m, x + (left ? -1 : 1), y) === HIGH) continue;
+      const edge = left ? 0 : CELL - 2;
+      const h = faceHeight(x * CELL + edge, y) + 2;
+      g.fillStyle = 'rgba(16, 14, 26, 0.45)';
+      g.fillRect(left ? px : px + CELL - 4, py, 4, h);
+      g.fillStyle = 'rgba(16, 14, 26, 0.2)';
+      g.fillRect(left ? px + 4 : px + CELL - 7, py, 3, h - 2);
+      g.fillStyle = 'rgba(16, 14, 26, 0.3)';
+      g.fillRect(left ? px + 4 : px + CELL - 7, py + h - 2, 3, 2);
+    }
+    // (the overhang is the pack's strip taken in order along the cliff, so each cell carries on where its neighbour
+    // stopped)
     if (cliff)
       for (let half = 0; half < 2; half++) {
-        const sx = Math.floor(hash(91 + half, x, y) * 30) * 16;
+        const sx = (((x * 2 + half) % 31) + 31) % 31 * 16;
         g.drawImage(cliff, sx, 0, 16, 14, px + half * 16, py - 4, 16, 12);
       }
     g.fillStyle = 'rgba(10, 12, 24, 0.22)';
@@ -236,3 +256,58 @@ export function paintTunnelMouth(g: CanvasRenderingContext2D, m: LandMap, x: num
   // (the arch over the way out, on the cell itself)
   if ([[0, 1], [0, -1], [1, 0], [-1, 0]].some(([dx, dy]) => open(dx, dy))) g.drawImage(mouth, px, py - 2, CELL, CELL);
 }
+
+// The evening shadow of the high ground and the ranges: on the lower ground to the east of them (the sun low in the
+// west), a soft band a few cells wide, painted once per chunk into a texture of its own (not into the ground's chunk,
+// so the hour never repaints it): the map fades the whole layer in at dusk and out with the light (mapView.ts `setShade`).
+const SHADE_RANGE = 4;
+const SHADE_HIGH = 2.5;
+const casterOf = (m: LandMap, x: number, y: number) => {
+  if (!m.relief || x < 0 || y < 0 || x >= m.w || y >= m.h) return 0;
+  const c = m.relief[y * m.w + x];
+  return c === RANGE || groundAt(m, x, y) === 'mountain' ? SHADE_RANGE : c === HIGH ? SHADE_HIGH : 0;
+};
+
+/** What of the land a chunk's shade depends on (its cells and those a shadow can reach from the west); '' if it has none. */
+export function shadeKey(m: LandMap, cx: number, cy: number, size: number): string {
+  if (!m.relief) return '';
+  const x0 = cx * size;
+  const y0 = cy * size;
+  let s = '';
+  let any = false;
+  for (let y = y0; y < Math.min(m.h, y0 + size); y++)
+    for (let x = x0 - SHADE_RANGE - 1; x < Math.min(m.w, x0 + size); x++) {
+      const k = casterOf(m, x, y);
+      if (k) any = true;
+      s += k ? (k === SHADE_RANGE ? 'r' : 'h') : '.';
+    }
+  return any ? s : '';
+}
+
+/** A chunk's shade: each run of lower ground to the east of a caster fading from dark to nothing over its reach. */
+export function paintShade(m: LandMap, cx: number, cy: number, size: number): HTMLCanvasElement {
+  const cv = document.createElement('canvas');
+  cv.width = cv.height = size * CELL;
+  const g = cv.getContext('2d')!;
+  const x0 = cx * size;
+  const y0 = cy * size;
+  for (let y = y0; y < Math.min(m.h, y0 + size); y++)
+    for (let sx = x0 - SHADE_RANGE - 1; sx < x0 + size; sx++) {
+      const reach = casterOf(m, sx - 1, y);
+      if (!reach || casterOf(m, sx, y)) continue;
+      let n = 0;
+      while (n < Math.ceil(reach) && !casterOf(m, sx + n, y)) n++;
+      const gx = (sx - x0) * CELL;
+      const len = Math.min(n * CELL, reach * CELL);
+      const grad = g.createLinearGradient(gx, 0, gx + len, 0);
+      grad.addColorStop(0, 'rgba(14, 16, 42, 0.62)');
+      grad.addColorStop(0.45, 'rgba(14, 16, 42, 0.3)');
+      grad.addColorStop(1, 'rgba(14, 16, 42, 0)');
+      g.fillStyle = grad;
+      g.fillRect(gx, (y - y0) * CELL, len, CELL);
+    }
+  return cv;
+}
+
+/** How strong the evening shade is at an hour and daylight: none before the afternoon, full toward dusk, gone with the light. */
+export const shadeAmount = (hour: number, daylight: number) => Math.max(0, Math.min(1, (hour - 14.5) / 3.5)) * Math.max(0, Math.min(1, (daylight - 0.15) / 0.5)) * (hour < 20 ? 1 : 0);

@@ -45,7 +45,7 @@ import doorUrl from '../art/village/dl_door.png';
 import { SmokeColumns } from './smokeColumns';
 import { loadRoadTiles } from '../art/roadTiles';
 import { loadGroundDetail } from '../art/groundDetail';
-import { isOutcrop, loadReliefArt, OUTCROP_SCALE, outcropSet, paintLand } from './reliefArt';
+import { isOutcrop, loadReliefArt, OUTCROP_SCALE, outcropSet, paintLand, paintShade, shadeAmount, shadeKey } from './reliefArt';
 import { campfirePack, loadFieldTiles, onFieldTiles } from '../art/fieldTiles';
 import type { Era } from '../../shared/data/eras';
 import { buildCastle, castleArtReady, onCastleArt, roomFurniture, type CastleView } from './castleArt';
@@ -262,6 +262,9 @@ export class MapView {
   readonly root = new Container();
   readonly world = new Container();
   readonly ground = new Container();
+  /** The evening shadow of high ground and ranges, one sprite per chunk that has any (reliefArt.ts `paintShade`). */
+  private readonly shade = new Container();
+  private readonly shades = new Map<string, { sprite: Sprite; key: string }>();
   private readonly marks = new Graphics();
   /** Everything that stands on the ground, sorted by its foot's y. */
   readonly things = new Container();
@@ -375,7 +378,7 @@ export class MapView {
     this.ghost.visible = false;
     this.ghost.anchor.set(0.5, 1);
     this.ghost.zIndex = 1e9;
-    this.world.addChild(this.ground, this.marks, this.under, this.things, this.cloudLayer, this.over, this.ghost);
+    this.world.addChild(this.ground, this.shade, this.marks, this.under, this.things, this.cloudLayer, this.over, this.ghost);
     this.over.addChild(this.smoke.root);
     this.festival = new MapFestival(this.things, this.over, this.lights);
     this.blight = new MapBlight(this.under, this.things);
@@ -540,7 +543,36 @@ export class MapView {
     if (wearOnly) return;
     this.syncProps(land, season, biome);
     this.drawMarks();
+    this.syncShade(land);
   }
+
+  /** Put up the evening shade for the chunks that have high ground to their west; painted once, again only if the
+   *  land it comes from changes. Its strength follows the hour (`setSun`). */
+  private syncShade(land: LandMap): void {
+    if (!land.relief) return;
+    const cols = Math.ceil(land.w / CHUNK);
+    const rows = Math.ceil(land.h / CHUNK);
+    for (let cy = 0; cy < rows; cy++)
+      for (let cx = 0; cx < cols; cx++) {
+        const id = `${cx},${cy}`;
+        const key = shadeKey(land, cx, cy, CHUNK);
+        const had = this.shades.get(id);
+        if ((had?.key ?? '') === key) continue;
+        if (!key) {
+          if (had) {
+            had.sprite.destroy({ texture: true });
+            this.shades.delete(id);
+          }
+          continue;
+        }
+        const sprite = had?.sprite ?? this.shade.addChild(new Sprite());
+        sprite.position.set(cx * CHUNK * CELL, cy * CHUNK * CELL);
+        sprite.texture.destroy(true);
+        sprite.texture = Texture.from(paintShade(land, cx, cy, CHUNK));
+        this.shades.set(id, { sprite, key });
+      }
+  }
+
   /** Chunks waiting to be painted, and what they are painted from. */
   private due = new Map<string, DueChunk>();
   private dueFrom: { land: LandMap; season: string; biome: string; era: Era; td: ReturnType<typeof tdTiles> } | null = null;
@@ -1185,6 +1217,11 @@ export class MapView {
 
   /** The hour and the daylight (per snapshot): the cast shadows swing round and fade with them. */
   setSun(hour: number, daylight: number): void {
+    const amount = Math.round(shadeAmount(hour, daylight) * 16) / 16;
+    if (amount !== this.shade.alpha) {
+      this.shade.alpha = amount;
+      this.shade.visible = amount > 0.02;
+    }
     const next = sunAt(hour, daylight);
     if (Math.abs(next.skew - this.sun.skew) < 0.004 && Math.abs(next.length - this.sun.length) < 0.004 && Math.abs(next.alpha - this.sun.alpha) < 0.01) return;
     this.sun = next;
