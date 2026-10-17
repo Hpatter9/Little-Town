@@ -1098,3 +1098,12 @@ export function packDressing(def: string, id: number, w: number, style: string):
 
 /** Whether a building has a pack picture in a look (the audit of what's still painted: test/packCoverage.test.ts). */
 export const pickCovered = (def: string, style: string): boolean => !!pickFor(def, style);
+
+/** Every pack picture a building may be drawn from in a look (its variants, its parts, a wall's joins, a windmill's
+ *  sails): the loading screen warms them before the town is shown (loading/stripLoad.ts). */
+export function packUrls(def: string, style: string): string[] {
+  const pick = pickFor(def, style);
+  if (!pick) return [];
+  const t = pick.turning;
+  return [...urlsOf(pick), ...Object.values(pick.joins ?? {}).flatMap((j) => (j ? urlsOf(j) : [])), ...(t ? [t.body, t.sail, t.hub] : [])];
+}

@@ -49,6 +49,9 @@ export class GameLoop {
 
   /** The page is in the background (set by the page): a fight on screen waits meanwhile. */
   hidden = false;
+  /** The clock is held (the phone's loading screen is up: mobile/loading.ts): no live time passes, so nothing happens
+   *  unseen. Time away is still caught up meanwhile; it is told after, as ever. */
+  held = false;
 
   /** Whether time away is still being simulated (don't save mid-way: the save would lose the rest). */
   get catchingUp(): boolean {
@@ -93,6 +96,11 @@ export class GameLoop {
 
   private pump(): void {
     if (this.job) return this.catchUpSlice();
+    if (this.held) {
+      this.last = performance.now();
+      this.lastWall = Date.now();
+      return;
+    }
     const wallGap = Date.now() - this.lastWall;
     // (a raid or a fight on the screen waits while the page is in the background, and the time away is not played:
     // the player comes back to it as they left it; sim/raidWait.ts)

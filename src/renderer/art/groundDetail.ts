@@ -142,3 +142,6 @@ export function drawPier(g: CanvasRenderingContext2D, across: boolean, x: number
   g.drawImage(im, x, y + (across ? -2 : 0));
   return true;
 }
+
+/** Every picture the ground's detail is drawn from (the loading screen warms them: loading/stripLoad.ts). */
+export const groundDetailUrls = (): readonly string[] => ALL;
