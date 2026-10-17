@@ -32,6 +32,8 @@ import type { Bridge } from '../../shared/ipc';
 import type { PersonView, Snapshot, VisitorView } from '../../shared/sim/snapshot';
 import { bleedLeft } from '../../shared/format';
 import { button, el } from './dom';
+import { openCard } from './infoCard';
+import { tapLink } from './structure';
 import { itemStats } from './details';
 import { personSheet, personSheetKey } from './personCard';
 import { FAVOURITES_MOST } from '../../shared/sim/favourites';
@@ -114,6 +116,13 @@ let inspecting: number | null = null;
 let chosenSlot: Slot | null = null;
 /** Whose class path is open (tapped on their class). */
 let classOpen: number | null = null;
+
+/** Open someone's character sheet from another menu (a tapped name or portrait: panel/infoCard.ts). */
+export function inspectPerson(id: number): void {
+  inspecting = id;
+  chosenSlot = null;
+  sheetOn = true;
+}
 
 /** High -> Normal -> Low -> Off -> High. */
 const NEXT: Record<Priority, Priority> = { 1: 2, 2: 3, 3: 0, 0: 1 };
@@ -620,7 +629,7 @@ function pieceCard(p: PersonView): HTMLElement {
   const q = qualityOf(qn);
   const head = el('div', 'item-head');
   head.append(itemIcon(def, 2));
-  const name = el('span', 'item-name', pieceLabel(def.name, qn));
+  const name = tapLink(el('span', 'item-name', pieceLabel(def.name, qn)), () => openCard({ kind: 'item', id: def.id })); // (its card: infoCard.ts)
   name.style.color = q.color;
   head.append(name);
   box.append(head);

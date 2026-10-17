@@ -13,7 +13,9 @@ import type { ShopView, Snapshot } from '../../shared/sim/snapshot';
 import { STORE_PANELS, type StorePanelId } from '../../shared/ipc';
 import { LINES } from '../../shared/data/stores';
 import { DECOR_LEVELS, DECOR_STYLES } from '../../shared/data/decor';
-import { ITEM_BY_ID } from '../../shared/data/items';
+import { ITEM_BY_ID, ITEMS } from '../../shared/data/items';
+import { openCard } from './infoCard';
+import { tapLink } from './structure';
 import { iconSpot } from '../art/icons';
 import { materialIconSpot } from '../art/materialIcons';
 import { CENTRE_X, FEET_Y, FRAME_COUNT, FRAME_SIZE, loadLpc, lookKey, lpcCanvas } from '../art/lpc/lpcCompose';
@@ -83,6 +85,13 @@ let canvas: HTMLCanvasElement | null = null;
 let running = false;
 
 /** A chip in its quality's colour ("Rare Spear ×2 · 14c"). */
+/** A chip that opens an item's card when the item is known (by id, or by its name): infoCard.ts. */
+function itemChip(chip: HTMLElement, id: string | undefined): HTMLElement {
+  const def = id ? ITEM_BY_ID[id] : undefined;
+  return def ? tapLink(chip, () => openCard({ kind: 'item', id: def.id })) : chip;
+}
+const idByName = (name: string): string | undefined => ITEMS.find((i) => i.name === name)?.id;
+
 function qualityChip(text: string, q: number): HTMLElement {
   const c = el('span', 'chip', text);
   c.style.color = qualityOf(q).color;
@@ -213,7 +222,7 @@ export function renderShop(s: Snapshot, id: VenueId = 'shop', redraw: () => void
       row.append(top);
       if (t.tier > 1 || t.wares.some((w) => w.have)) {
         const wares = el('div', 'shop-pieces');
-        for (const w of t.wares) wares.append(el('span', w.needs ? 'chip dim' : 'chip', w.needs ? `${w.name} (${w.needs})` : `${w.name} ${w.have} · ${w.price}c`));
+        for (const w of t.wares) wares.append(itemChip(el('span', w.needs ? 'chip dim' : 'chip', w.needs ? `${w.name} (${w.needs})` : `${w.name} ${w.have} · ${w.price}c`), idByName(w.name)));
         row.append(wares);
       }
       if (t.tier > 1 && t.drawn && !t.wares.some((w) => w.have)) row.append(el('div', 'hint', `None in stock: ${t.plural.toLowerCase()} leave disappointed, and the shop's renown falls.`));
@@ -222,12 +231,12 @@ export function renderShop(s: Snapshot, id: VenueId = 'shop', redraw: () => void
     info.push(el('h2', '', v.line ? 'On the shelves' : 'Gear in stock'));
     if (v.line && v.stock.length) {
       const row = el('div', 'shop-pieces');
-      for (const p of v.stock) row.append(qualityChip(`${pieceLabel(ITEM_BY_ID[p.item]?.name ?? p.item, p.q)}${p.n > 1 ? ` ×${p.n}` : ''}`, p.q));
+      for (const p of v.stock) row.append(itemChip(qualityChip(`${pieceLabel(ITEM_BY_ID[p.item]?.name ?? p.item, p.q)}${p.n > 1 ? ` ×${p.n}` : ''}`, p.q), p.item));
       info.push(row);
     } else if (!v.gear.length) info.push(el('p', 'empty', v.line ? `Nothing of its line in stock: the town makes ${LINES[v.line].banner.toLowerCase()} for it from what it has spare.` : 'None spare.'));
     else {
       const gear = el('div', 'shop-pieces');
-      for (const g of v.gear) gear.append(qualityChip(`${pieceLabel(g.name, g.q)}${g.n > 1 ? ` ×${g.n}` : ''} · ${g.price}c`, g.q));
+      for (const g of v.gear) gear.append(itemChip(qualityChip(`${pieceLabel(g.name, g.q)}${g.n > 1 ? ` ×${g.n}` : ''} · ${g.price}c`, g.q), idByName(g.name)));
       info.push(gear);
     }
     info.push(el('div', 'hint', `Travellers buy it, and so do the townsfolk, with what they earn (about ${s.wageBill} coins a day in all), for a little less.`));
@@ -253,7 +262,7 @@ export function renderShop(s: Snapshot, id: VenueId = 'shop', redraw: () => void
   const pieces = el('div', 'shop-pieces');
   for (const p of v.pieces) {
     const name = `${p.q !== 1 ? qualityOf(p.q).name + ' ' : ''}${p.name}${p.level > 1 ? ' ' + '★'.repeat(p.level - 1) : ''}`;
-    pieces.append(qualityChip(`${name} +${Math.round(p.appeal * qualityOf(p.q).mult * (1 + (p.level - 1) / 2))}`, p.q));
+    pieces.append(itemChip(qualityChip(`${name} +${Math.round(p.appeal * qualityOf(p.q).mult * (1 + (p.level - 1) / 2))}`, p.q), p.item));
   }
   if (v.pieces.length) info.push(pieces);
   const levelled = v.pieces.filter((p) => p.level > 1).length;

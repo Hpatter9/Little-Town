@@ -11,6 +11,7 @@ import { itemIcon } from '../art/icons';
 import { materialIcon, stockIcon } from '../art/materialIcons';
 import { FOOD_VALUE } from '../../shared/data/people';
 import { duration, el } from './dom';
+import { itemLink } from './itemCard';
 import { hiddenNote, HidePrefs } from './hide';
 import { topicKnown } from './secrets';
 import { expandable, itemDetails, materialDetails, pickable, pickedIn } from './details';
@@ -186,7 +187,7 @@ function inventory(s: Snapshot, worn: Map<string, number>, rerender: () => void)
       const d = ITEM_BY_ID[id];
       const top = el('div', 'card-top recipe-top');
       const name = el('span', 'card-name');
-      name.append(itemIcon(d, 2), el('span', '', d.name));
+      name.append(itemIcon(d, 2), itemLink(d.id)); // (its card: infoCard.ts)
       top.append(name, el('span', 'card-size', `×${s.items[id] ?? 0}`));
       c.append(top, el('div', 'purpose', d.description));
       for (const x of itemDetails(d, s)) if (x) c.append(typeof x === 'string' ? el('div', 'more-line', x) : x);
@@ -204,7 +205,9 @@ function orderRow(o: CraftOrderView): HTMLElement {
   const row = el('div', 'order');
   const info = el('div', 'order-info');
   const top = el('div', 'card-top');
-  top.append(el('span', 'card-name', `${def.name}${o.count > 1 ? ` ×${o.count}` : ''}`), el('span', 'card-size', o.crafter ? `${o.crafter} is on it` : ''));
+  const name = el('span', 'card-name');
+  name.append(itemLink(def.id), o.count > 1 ? ` ×${o.count}` : ''); // (its card: infoCard.ts)
+  top.append(name, el('span', 'card-size', o.crafter ? `${o.crafter} is on it` : ''));
   const bar = el('div', 'bar');
   const fill = el('div', 'bar-fill');
   fill.style.width = `${Math.round(o.progress * 100)}%`;
@@ -220,7 +223,7 @@ function recipeCard(def: ItemDef, s: Snapshot, stationBuilt: boolean): HTMLEleme
   const c = el('div', unlocked ? 'card' : 'card locked');
   const top = el('div', 'card-top recipe-top');
   const name = el('span', 'card-name');
-  name.append(itemIcon(def, 2), el('span', '', def.name));
+  name.append(itemIcon(def, 2), itemLink(def.id)); // (its card: infoCard.ts)
   const kind = def.slot ? SLOT_NAMES[def.slot] : def.makes ? 'Stores' : 'Town';
   top.append(name, el('span', 'card-size', `${kind} · ~${duration(craftSeconds(def, s.era))} of work`));
   const cost = el('div', 'cost');

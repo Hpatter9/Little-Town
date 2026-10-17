@@ -129,9 +129,12 @@ function pictureFn(): PictureFn | null {
   return null;
 }
 const thumbs = new Map<string, string>();
-/** A building's picture as the map draws it (from the strip beside the menu), for a list. Empty until the strip has the
- *  picture; filled in a moment later, with no redraw. */
-export function thumb(defId: string, size = 40): HTMLElement {
+/** The look the map draws a town's buildings in (the people's, a settled nomad tribe's its caravan city). */
+export const lookOf = (s: { theme: string; nomad?: { settled?: boolean } | null }): string => (s.theme === 'nomads' && s.nomad?.settled ? 'nomads_city' : s.theme);
+/** A building's picture as the map draws it (art/buildingPicture.ts), for a list. The strip beside the menu draws it; on
+ *  the desktop, whose menu is a window of its own, the menu draws it itself. Empty until the pictures have loaded; filled
+ *  in a moment later, with no redraw. Pass the snapshot for the desktop's sake (the look to draw in). */
+export function thumb(defId: string, size = 40, s?: { theme: string; nomad?: { settled?: boolean } | null }): HTMLElement {
   const box = el('span', 'thumb');
   box.style.width = box.style.height = `${size}px`;
   const fill = (url: string) => {
@@ -141,27 +144,39 @@ export function thumb(defId: string, size = 40): HTMLElement {
     img.className = 'thumb-img';
     box.replaceChildren(img);
   };
-  const have = thumbs.get(defId);
+  const look = s ? lookOf(s) : '';
+  const key = `${defId}|${look}`;
+  const have = thumbs.get(key);
   if (have) {
     fill(have);
     return box;
   }
   let tries = 0;
-  const attempt = () => {
-    const c = pictureFn()?.({ building: defId });
+  const attempt = async () => {
+    let c = pictureFn()?.({ building: defId }) ?? null;
+    if (!c && look) {
+      // (no strip beside this menu: draw it here, once the packs' pictures are in)
+      const m = await import('../art/buildingPicture');
+      const f = await import('../art/fieldTiles');
+      void f.loadFieldTiles();
+      c = m.buildingPicture(defId, look, 96, 64);
+    }
     if (c) {
       try {
         const url = c.toDataURL();
-        thumbs.set(defId, url);
         fill(url);
+        // (kept only once its pictures are all in; a painted stand-in is looked at again)
+        if (c.dataset.settled) {
+          thumbs.set(key, url);
+          return;
+        }
       } catch {
-        /* (a tainted canvas: no picture) */
+        return; /* (a tainted canvas: no picture) */
       }
-      return;
     }
     if (++tries < 8) window.setTimeout(attempt, 600);
   };
-  attempt();
+  void attempt();
   return box;
 }
 
@@ -170,6 +185,22 @@ export function sheetIcon(sheet: IconSheet, index: number, size = 16): HTMLEleme
   const info = iconSheet(sheet);
   const e = el('span', 'num-icon');
   e.style.cssText = `display:inline-block;flex:none;width:${size}px;height:${size}px;image-rendering:pixelated;background-image:url(${info.url});background-size:${info.cols * size}px auto;background-position:-${(index % info.cols) * size}px -${Math.floor(index / info.cols) * size}px`;
+  return e;
+}
+
+/* ---------------------------------------------------------------- tappable text */
+
+/** Make text tappable, in the one look every menu uses for it (a dotted underline in the link colour: `.tap-link`), so
+ *  the player learns it: a name that opens its card (panel/infoCard.ts), a research topic in the queue. The tap never
+ *  reaches a card it sits in (an `expandable` card does not open or close for it). */
+export function tapLink<E extends HTMLElement>(e: E, onTap: () => void): E {
+  e.classList.add('tap-link', 'no-expand');
+  e.setAttribute('role', 'link');
+  e.tabIndex = 0;
+  e.addEventListener('click', (ev) => {
+    ev.stopPropagation();
+    onTap();
+  });
   return e;
 }
 
@@ -232,6 +263,10 @@ const STYLE = `
 .thumb-img { max-width: 100%; max-height: 100%; image-rendering: pixelated; }
 .calling-mark { flex: none; vertical-align: middle; }
 .card-top .thumb, .card-top .calling-mark { margin-right: 4px; }
+.tap-link { cursor: pointer; color: var(--heading, #e0b864); text-decoration: underline dotted; text-underline-offset: 3px; text-decoration-thickness: 1px; }
+.tap-link:active { opacity: 0.7; }
+.pc-slot { cursor: pointer; }
+.pc-slot.unique .tap-link { color: #ffd84a; }
 `;
 let styled = false;
 export function ensureStructureStyle(): void {

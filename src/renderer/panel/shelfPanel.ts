@@ -18,6 +18,7 @@ import { icon } from '../ui/icon';
 import { uniqueLore } from '../mobile/reveals';
 import { el } from './dom';
 import { foldSections } from './structure';
+import { openCard, type CardRef } from './infoCard';
 
 const EMPTY: RareView = { mythics: [], uniques: [], specials: [], sagas: [], dwellers: [], dragon: null, bosses: [], deeds: [] };
 const TILE = 48;
@@ -39,6 +40,8 @@ interface Tile {
   /** A small line under the name (who, how it ended). */
   sub?: string;
   glow?: 'mythic' | 'unique' | 'dark';
+  /** Its card, opened on a tap once seen (panel/infoCard.ts). */
+  card?: CardRef;
 }
 
 export function renderShelf(rare: RareView | undefined): HTMLElement[] {
@@ -60,7 +63,7 @@ export function renderShelf(rare: RareView | undefined): HTMLElement[] {
   groups.push([
     'Unique weapons',
     'found',
-    UNIQUES.map((u) => ({ seen: found.has(u.id), name: u.name, tip: found.has(u.id) ? uniqueLore(u.id) : 'One of a kind, somewhere in the world: on a boss, at a quest\'s end, or waiting to be forged.', art: () => itemIcon(u, 3), glow: 'unique' })),
+    UNIQUES.map((u) => ({ seen: found.has(u.id), card: { kind: 'item' as const, id: u.id }, name: u.name, tip: found.has(u.id) ? uniqueLore(u.id) : 'One of a kind, somewhere in the world: on a boss, at a quest\'s end, or waiting to be forged.', art: () => itemIcon(u, 3), glow: 'unique' })),
   ]);
   // the legends at the gate (the special newcomers found out)
   const known = new Map(r.specials.map((x) => [x.id, x]));
@@ -79,7 +82,7 @@ export function renderShelf(rare: RareView | undefined): HTMLElement[] {
     'told to the end',
     SAGAS.map((g) => {
       const d = ended.get(g.id);
-      return { seen: !!d, name: g.title, sub: d ? (d.outcome === 'triumph' ? 'a triumph' : d.outcome === 'bittersweet' ? 'bittersweet' : 'ruin') : undefined, tip: d ? `${g.blurb}${d.hero ? ` Its hero: ${d.hero}.` : ''}` : 'A story the town has not lived yet.', art: () => icon('quests', 32), glow: d?.outcome === 'ruin' ? 'dark' : undefined };
+      return { seen: !!d, card: { kind: 'saga' as const, id: g.title }, name: g.title, sub: d ? (d.outcome === 'triumph' ? 'a triumph' : d.outcome === 'bittersweet' ? 'bittersweet' : 'ruin') : undefined, tip: d ? `${g.blurb}${d.hero ? ` Its hero: ${d.hero}.` : ''}` : 'A story the town has not lived yet.', art: () => icon('quests', 32), glow: d?.outcome === 'ruin' ? 'dark' : undefined };
     }),
   ]);
   // the dwellers of the Underdark
@@ -118,7 +121,7 @@ export function renderShelf(rare: RareView | undefined): HTMLElement[] {
 
   const total = groups.reduce((n, g) => n + g[2].length, 0);
   const seen = groups.reduce((n, g) => n + g[2].filter((t) => t.seen).length, 0);
-  const out: HTMLElement[] = [el('div', 'hint', `Every rare thing this town has ever seen: ${seen} of ${total}. Hold a tile for its story.`)];
+  const out: HTMLElement[] = [el('div', 'hint', `Every rare thing this town has ever seen: ${seen} of ${total}. Tap a unique or a saga for its whole story; hold any tile for its lore.`)];
   for (const [head, word, tiles] of groups) {
     const n = tiles.filter((t) => t.seen).length;
     out.push(el('h2', '', `${head}: ${n} of ${tiles.length} ${word}`));
@@ -140,6 +143,12 @@ function tile(t: Tile): HTMLElement {
   if (!t.seen) pic.append(el('span', 'shelf-q', '?'));
   c.append(pic, el('div', 'shelf-name', t.seen ? t.name : '???'));
   if (t.seen && t.sub) c.append(el('div', 'shelf-sub', t.sub));
+  // (a tap opens its card: a unique's whole story, a saga's; holding still shows the lore)
+  if (t.seen && t.card) {
+    const ref = t.card;
+    c.classList.add('shelf-tap');
+    c.addEventListener('click', () => openCard(ref));
+  }
   return c;
 }
 
@@ -158,6 +167,8 @@ function addShelfStyles(): void {
 .shelf-name { font-size: var(--ui-fs-small, 11.5px); line-height: 1.2; overflow-wrap: anywhere; }
 .shelf-tile.unseen .shelf-name { opacity: 0.5; }
 .shelf-sub { font-size: var(--ui-fs-label, 10.5px); opacity: 0.7; line-height: 1.2; }
+.shelf-tile.shelf-tap { cursor: pointer; }
+.shelf-tile.shelf-tap .shelf-name { color: var(--heading, #e0b864); text-decoration: underline dotted; text-underline-offset: 3px; }
 .shelf-tile.glow-mythic { box-shadow: 0 0 8px #a070ff; border-color: #a070ff; }
 .shelf-tile.glow-unique { box-shadow: 0 0 8px #f0b040; border-color: #f0b040; }
 .shelf-tile.glow-dark { box-shadow: 0 0 8px #d04848; border-color: #d04848; }

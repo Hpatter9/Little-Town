@@ -6,6 +6,7 @@
 import type { AnnalsView, JournalEntryView } from '../../shared/sim/snapshot';
 import { DAYS_PER_SEASON } from '../../shared/sim/time';
 import { el } from './dom';
+import { linkedParts } from './infoCard';
 import { addCardStyles } from './cardsStyles';
 
 type Kind = 'death' | 'raid' | 'miracle' | 'war' | 'founder' | 'festival';
@@ -86,7 +87,7 @@ export function timelineStrip(entries: JournalEntryView[], annals: AnnalsView | 
     b.addEventListener('click', () => {
       for (const o of buttons) o.classList.remove('on');
       b.classList.add('on');
-      read.replaceChildren(el('b', '', `${NAME[m.kind]} · year ${Math.floor((m.day - 1) / DAYS_PER_YEAR) + 1}, day ${m.day}: `), document.createTextNode(m.text));
+      read.replaceChildren(el('b', '', `${NAME[m.kind]} · year ${Math.floor((m.day - 1) / DAYS_PER_YEAR) + 1}, day ${m.day}: `), ...linkedParts(m.text)); // (the names in it tappable: infoCard.ts)
     });
     buttons.push(b);
     track.append(b);

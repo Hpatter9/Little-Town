@@ -1,11 +1,13 @@
 // Fixed-tick simulation. Rendering never drives it: callers feed in elapsed real time and the sim runs
 // however many whole ticks that covers.
 
+import { uniquesHourly } from './provenance';
 import { CONQUEST } from '../data/conquest';
 import { tacticsOrder } from './tactics';
 import { regrowHourly } from './regrow';
 import { streetsHourly } from './streets';
 import { roamersTick, skirmishTrip } from './roamers';
+import { strays } from './strays';
 import { skiesHourly, skiesTick } from './skies';
 import { faithHourly } from './faith';
 import { religionHourly, religionTick } from './religion';
@@ -210,6 +212,7 @@ export class Sim {
     caveBear(s, this.rng);
     updateNomads(s);
     updateRaid(s, this.rng);
+    strays(s); // (a foe that outlived its raid or its band is sent away: sim/strays.ts)
     updateFires(s, this.rng);
     disastersTick(s); // (floods, wildfires, tornadoes, earthquakes: sim/disasters.ts)
     expirePrompts(s, this.rng);
@@ -309,6 +312,7 @@ export class Sim {
     risingHourly(s); // (the rising powers' own moves: sim/risingPowers.ts)
     if (CONQUEST.on) warHourly(s); // (the seasons of war: the realm's wars, the town drawn in, its borders on the War tab: sim/war/)
     if (s.tick % TICKS_PER_HOUR === 0) keepKin(s);
+    if (s.tick % TICKS_PER_HOUR === 0) uniquesHourly(s); // (who bears each unique now: sim/provenance.ts)
     packHourly(
       s,
       this.rng,

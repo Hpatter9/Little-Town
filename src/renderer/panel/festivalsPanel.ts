@@ -4,6 +4,7 @@
 
 import type { FestivalsView } from '../../shared/sim/festivals';
 import { el } from './dom';
+import { cardLink } from './infoCard';
 import { expandable, facts } from './details';
 
 const SEASON_MARK: Record<string, string> = { spring: '🌱', summer: '☀', autumn: '🍂', winter: '❄' };
@@ -31,7 +32,9 @@ export function renderFestivals(v: FestivalsView | undefined): HTMLElement[] {
   const c = el('div', 'card festival-next');
   const top = el('div', 'card-top');
   const when = n.phase === 'held' ? 'Under way now' : n.days <= 0 ? 'Today' : n.days === 1 ? 'Tomorrow' : `In ${n.days} days`;
-  top.append(el('span', 'card-name', `${SEASON_MARK[row?.season ?? 'spring']} ${n.name}`), el('span', 'card-size', when));
+  const name = el('span', 'card-name', `${SEASON_MARK[row?.season ?? 'spring']} `);
+  name.append(cardLink(n.name, { kind: 'festival', id: n.id })); // (its card: infoCard.ts)
+  top.append(name, el('span', 'card-size', when));
   c.append(top);
   if (row) c.append(el('div', 'hint', row.lore));
   c.append(

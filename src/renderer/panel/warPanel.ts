@@ -11,11 +11,13 @@ import { ownerAt, type CampaignView, type ProvinceView, type WarView } from '../
 import type { Snapshot } from '../../shared/sim/snapshot';
 import { onWarArt } from '../art/warSprites';
 import { button, el } from './dom';
-import { drawCompass, drawMarks, holdersLayer, realmColour, terrainCell, worldTerrain, devicePixels } from './warMap';
+import { icon } from '../ui/icon';
+import { cardLink, cardSnapshot } from './infoCard';
+import { drawMarks, holdersLayer, realmColour, terrainCell, worldTerrain, devicePixels } from './warMap';
+import { islandOf } from './warIsland';
 
 /** The province tapped on the map. */
 let selected: number | null = null;
-const picked: number | null = null;
 /** Counts the sprites arriving, so the canvases are painted again as they come (the redraw key carries it). */
 let artGen = 0;
 let redrawNow: (() => void) | null = null;
@@ -55,18 +57,11 @@ export function renderWar(s: Snapshot, bridge: Bridge | undefined, redraw: () =>
   // ---- the map
   out.push(el('h2', '', 'War map'));
   out.push(seasonBanner(w));
-  out.push(el('div', 'hint', `The realm's borders, moved by its own wars. ${w.realms[0]?.provinces ?? 0} of ${w.provinces.length} provinces are the town's. The town picks no targets: its council answers the realm by the town's direction and its name for good or ill. Tap a province for its card; pinch, or + and −, to zoom in.`));
-  out.push(mapCanvas(w, s, redraw));
-  const legend = el('div', 'war-legend');
-  for (const r of w.realms) {
-    if (!r.provinces && r.id !== 'town') continue;
-    const chip = el('span', `war-realm${r.stance === 'destroyed' ? ' dim' : ''}`);
-    const dot = el('i', 'war-dot');
-    dot.style.background = realmColour(w, r.id)!;
-    chip.append(dot, document.createTextNode(`${r.name} ${r.provinces}`));
-    legend.append(chip);
-  }
-  out.push(legend);
+  out.push(el('div', 'hint', `The realm's borders, moved by its own wars. ${w.realms[0]?.provinces ?? 0} of ${w.provinces.length} provinces are the town's. The town picks no targets: its council answers the realm by the town's direction and its name for good or ill. Tap a place for its card; pinch, or + and −, to zoom in for every name.`));
+  const [map, zoom] = mapCanvas(w, s, redraw);
+  const legend = mapLegend(w);
+  legend.append(zoom);
+  out.push(map, legend);
   if (selected !== null) out.push(provinceCard(w, w.provinces[selected]));
   // ---- the wars
   out.push(el('h2', '', 'Wars of the realm'));
@@ -127,6 +122,28 @@ export function renderWar(s: Snapshot, bridge: Bridge | undefined, redraw: () =>
   return out;
 }
 
+/** The key under the map: each realm's colour and its provinces, then what the marks mean. */
+function mapLegend(w: WarView): HTMLElement {
+  const legend = el('div', 'war-legend');
+  const chip = (cls: string, text: string, mark: HTMLElement | null) => {
+    const c = el('span', `ui-chip war-key ${cls}`);
+    if (mark) c.append(mark);
+    c.append(document.createTextNode(text));
+    legend.append(c);
+  };
+  for (const r of w.realms) {
+    if (!r.provinces && r.id !== 'town') continue;
+    const dot = el('i', 'war-dot');
+    dot.style.background = realmColour(w, r.id)!;
+    chip(r.stance === 'destroyed' ? 'dim' : '', `${r.name} ${r.provinces}`, dot);
+  }
+  chip('', 'Free land', el('i', 'war-dot free'));
+  chip('', 'Seat', el('i', 'war-sym flag'));
+  chip('', 'Host on the march', el('i', 'war-sym arrow'));
+  if (w.rivalArmies.length) chip('', 'Under attack', icon('raid', 14) ?? el('i', 'war-sym ring'));
+  return legend;
+}
+
 /** The season of war: what it is for, and the days left of it. */
 function seasonBanner(w: WarView): HTMLElement {
   const box = el('div', `war-season ${w.season.war}`);
@@ -176,7 +193,7 @@ function provinceCard(w: WarView, p: ProvinceView): HTMLElement {
   dot.style.background = realmColour(w, p.holder) ?? 'transparent';
   dot.style.borderColor = p.holder ? 'transparent' : '#888';
   name.append(dot, document.createTextNode(` ${p.name}`));
-  head.append(name, el('span', 'realm-stance', p.holderName));
+  head.append(name, p.holder && cardSnapshot()?.realm.factions.some((f) => f.id === p.holder && f.known) ? cardLink(p.holderName, { kind: 'faction', id: p.holder }) : el('span', 'realm-stance', p.holderName)); // (a power's card: infoCard.ts)
   card.append(head);
   card.append(el('div', 'realm-sub', `${p.land} · ${p.tier}${p.capitalOf ? ' (a capital)' : ''} · ${p.fort}${p.landmark ? ` · ${p.landmark}` : ''}${p.coast ? ' · on the sea' : ''}`));
   if (!p.holder) card.append(el('div', 'hint', p.landmark === 'Lair' ? 'Something dens here: a power must clear it before it is held.' : 'Free ground: the first power to march in holds it.'));
@@ -204,8 +221,9 @@ let mapEl: MapCanvas | null = null;
 /** What the kept canvas paints from: the latest view, snapshot and redraw (set on every render). */
 let mapNow: { w: WarView; s: Snapshot; cell: number; redraw: () => void } | null = null;
 
-function mapCanvas(w: WarView, s: Snapshot, redraw: () => void): HTMLElement {
+function mapCanvas(realmView: WarView, s: Snapshot, redraw: () => void): [HTMLElement, HTMLElement] {
   const box = el('div', 'war-map');
+  const w = islandOf(realmView);
   const cell = terrainCell(w);
   const dpr = devicePixels();
   const size = w.side * cell;
@@ -230,8 +248,8 @@ function mapCanvas(w: WarView, s: Snapshot, redraw: () => void): HTMLElement {
   }, { cls: 'place small quiet', title: 'The whole world' });
   fitButton.style.display = mapZoom > 1.001 ? '' : 'none';
   zoom.append(fitButton);
-  box.append(zoom);
-  return box;
+  // (the zoom's buttons in the key's row under the map, so they never hide a name on it)
+  return [box, zoom];
 }
 /** The button back to the whole world: shown once zoomed in (kept here so a pinch can show it without a redraw). */
 let fitButton: HTMLElement | null = null;
@@ -274,9 +292,8 @@ function makeMapCanvas(size: number, dpr: number): MapCanvas {
     g.drawImage(holdersLayer(w, cell, selected), 0, 0, size, size, -px, -py, world, world);
     g.save();
     g.translate(-px, -py);
-    drawMarks(g, w, cell * mapZoom, { people: s.people, townOrigin: townOriginOf(s), picked, selected, font: panelFont() });
+    drawMarks(g, w, cell * mapZoom, { townOrigin: townOriginOf(s), selected, font: panelFont(), dpr, view: { x: px, y: py, w: size, h: size } });
     g.restore();
-    drawCompass(g, size - cell * 2.6, cell * 2.6, cell * 1.4, panelFont());
     // (zoomed in, every touch is the map's: a drag pans it; fitted, the page scrolls over it as before)
     canvas.style.touchAction = mapZoom > 1.001 ? 'none' : 'pan-y';
     if (fitButton) fitButton.style.display = mapZoom > 1.001 ? '' : 'none';
@@ -340,10 +357,19 @@ function makeMapCanvas(size: number, dpr: number): MapCanvas {
     // a tap: the province under it
     const { w, cell, redraw } = mapNow;
     const world = size * mapZoom;
-    const x = Math.floor((p.x + mapPan.x * world) / (cell * mapZoom));
-    const y = Math.floor((p.y + mapPan.y * world) / (cell * mapZoom));
-    if (x < 0 || y < 0 || x >= w.side || y >= w.side) return;
-    const o = ownerAt(w, y * w.side + x);
+    const k = cell * mapZoom;
+    const wx = p.x + mapPan.x * world;
+    const wy = p.y + mapPan.y * world;
+    // (a place's mark within a fingertip wins; else the province the ground under the finger is of)
+    let near: number | null = null;
+    let nearD = 16 * dpr;
+    for (const q of w.provinces) {
+      const d = Math.hypot((q.x + 0.5) * k - wx, (q.y + 0.5) * k - wy);
+      if (d < nearD) (nearD = d), (near = q.id);
+    }
+    const x = Math.floor(wx / k);
+    const y = Math.floor(wy / k);
+    const o = near ?? (x < 0 || y < 0 || x >= w.side || y >= w.side ? -1 : ownerAt(w, y * w.side + x));
     selected = o < 0 ? null : o;
     redraw();
   };
