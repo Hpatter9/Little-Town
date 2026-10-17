@@ -69,6 +69,22 @@ export function planVillageRoad(s: GameState, v: Village): boolean {
   return true;
 }
 
+const cellSets = new WeakMap<VillageRoad, Set<number>>();
+
+/** Whether a cell is on a finished road to a village (walk.ts: walkers go quicker on it). */
+export function onVillageRoad(s: Pick<GameState, 'land' | 'villages'>, c: Pt): boolean {
+  if (!s.villages?.length) return false;
+  const i = c.y * s.land.w + c.x;
+  for (const v of s.villages) {
+    const r = v.road;
+    if (!r || r.done === undefined) continue;
+    let set = cellSets.get(r);
+    if (!set) cellSets.set(r, (set = new Set(r.cells)));
+    if (set.has(i)) return true;
+  }
+  return false;
+}
+
 /** How much of the road is laid (0 to 1); null for a village with no road planned. */
 export function roadShare(s: GameState, v: Village): number | null {
   const r = v.road;

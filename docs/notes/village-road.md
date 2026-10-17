@@ -19,8 +19,9 @@ The owner: "A sister village should build a road to the main town for easier tra
   paved" / "Road: open" (in the panel's redraw key); the "While you were away" card lists a road finished meanwhile
   (`AwayBefore.roads`).
 - **Travel:** `findPath` already costs a road cell 0.55, so people, carts and visitors path along it once laid. Walking
-  speed was the same on any ground, so `walk.ts` gets `ROAD_SPEED` 1.2: a walker standing on a road cell steps 20%
-  further. **This applies to every road and street in every town** (so every sim hash changed), not only the village's.
+  speed was the same on any ground, so `walk.ts` gets `ROAD_SPEED` 1.25: a walker standing on a cell of a finished village road steps 25%
+  further. **Only a finished village road is quicker** (`onVillageRoad`): a first try with the bonus on every street shifted
+  whole towns' balance in a soak (knights, 4 seeds: 7 people left against 16), so streets in general are unchanged.
   Raiders (`raids.ts` moves them itself) are not sped up, but they can walk the road: that is the price of a road. Raid
   odds are unchanged.
 - **Tests:** `test/villageRoad.test.ts` (planned at founding and reaches the town, keeps off rock and water but for
