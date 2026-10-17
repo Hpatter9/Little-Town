@@ -24,7 +24,8 @@ import { topDownArt } from '../art/topDown';
 import { drawSite } from '../art/constructionSite';
 import { drawWallWorks, stagingAt } from '../art/wallWorks';
 import { choresTex } from '../art/choresArt';
-import { isGate, isRingPiece } from '../../shared/sim/ringWall';
+import { isGate, isGrate, isRingPiece } from '../../shared/sim/ringWall';
+import { maskOf, wallJoinOf } from '../art/autotile';
 import { snowCapped } from '../art/snowCap';
 import { weathered } from '../art/weathered';
 import { sunAt, type Sun } from '../art/sun';
@@ -962,8 +963,9 @@ export class MapView {
     return packArt(b.def, f.w, this.style, b.id, this.wallJoin(b), true) ?? topDownArt(b.def, f.w, f.h, this.tone, this.toneKey, this.style);
   }
 
-  /** How a one-cell wall piece joins the walls and gates about it: along a row, down a column, at a corner, or alone
-   *  (undefined for anything but a wall, so other pictures are untouched). */
+  /** How a one-cell wall piece joins the walls, gates and grates about it: the piece its neighbours make
+   *  (art/autotile.ts), and where it stops against a grate (undefined for anything but a wall, so other pictures are
+   *  untouched). */
   private wallJoin(b: Building): Join | undefined {
     const def = BUILDING_BY_ID[b.def];
     // (the palisade's gate: which wall it stands in, by where the camp is, and whether it's shut: packBuildings.ts)
@@ -973,33 +975,14 @@ export class MapView {
       if (b.turned) return ((f.x + f.w / 2 < this.land.camp.x + 0.5 ? 'v' : 've') + shut) as Join;
       return ((f.y + f.h / 2 < this.land.camp.y + 0.5 ? 'gn' : 'gs') + shut) as Join;
     }
-    if (b.turned && def?.hp) return 'v'; // (a gate standing down a column)
+    if (b.turned && def?.hp && isGate(b.def)) return 'v'; // (a gate standing down a column)
     if (!def?.hp || def.width !== 1 || def.defense) return undefined;
-    const cells = this.wallCellsNow();
-    const wallAt = (x: number, y: number) => cells.has(x * 4096 + y);
-    const l = wallAt(b.tile - 1, b.row), r = wallAt(b.tile + 1, b.row), u = wallAt(b.tile, b.row - 1), d = wallAt(b.tile, b.row + 1);
-    // (a run down a column is the west wall's or the east wall's: its post stands at the left or the right of the cell to
-    // meet the corners' posts; told by which way the run turns at its ends)
-    const side = (): Join => {
-      for (const step of [-1, 1]) {
-        let y = b.row;
-        for (let i = 0; i < 200 && wallAt(b.tile, y + step); i++) y += step;
-        if (y === b.row) continue;
-        const east = wallAt(b.tile - 1, y), west = wallAt(b.tile + 1, y);
-        if (west !== east) return west ? 'v' : 've';
-      }
-      return 'v';
-    };
-    if ((l || r) && !(u || d)) return 'h';
-    if ((u || d) && !(l || r)) return side();
-    // (where a wall runs through, it's a straight piece: a run along a row with a spur, or down a column with one)
-    if (l && r) return 'h';
-    if (u && d) return side();
-    if (r && d) return 'nw';
-    if (l && d) return 'ne';
-    if (r && u) return 'sw';
-    if (l && u) return 'se';
-    return l || r ? 'h' : u || d ? 'v' : 'end';
+    // (the piece its neighbours of the ring make, art/autotile.ts; a wall stops at a proper end where a grate, lower
+    // than it, carries the line on over the water)
+    const { cells, grates } = this.wallCellsNow();
+    const mask = maskOf((dx, dy) => cells.has((b.tile + dx) * 4096 + b.row + dy));
+    if (isGrate(b.def)) return wallJoinOf(mask) as Join;
+    return wallJoinOf(mask, maskOf((dx, dy) => grates.has((b.tile + dx) * 4096 + b.row + dy))) as Join;
   }
 
   /** A castle town's keep on its ground (cells), or none: the floor, the carpet, the curtain wall and its towers. */
@@ -1070,20 +1053,26 @@ export class MapView {
 
   /** The town's buildings as last synced (a wall piece's picture depends on its neighbours: `wallJoin`). */
   private simBuildings: Building[] = [];
-  /** The cells walls and gates stand on (x * 4096 + y), for `wallJoin`: worked out once a sync (it asked every
-   *  building for every cell round every wall piece, most of a big town's frame). */
-  private wallCells: { of: Building[]; cells: Set<number> } | null = null;
-  private wallCellsNow(): Set<number> {
-    if (this.wallCells?.of === this.simBuildings) return this.wallCells.cells;
+  /** The cells walls, gates and grates stand on (x * 4096 + y), and the grates' alone, for `wallJoin`: worked out
+   *  once a sync (it asked every building for every cell round every wall piece, most of a big town's frame). */
+  private wallCells: { of: Building[]; cells: Set<number>; grates: Set<number> } | null = null;
+  private wallCellsNow(): { cells: Set<number>; grates: Set<number> } {
+    if (this.wallCells?.of === this.simBuildings) return this.wallCells;
     const cells = new Set<number>();
+    const grates = new Set<number>();
     for (const o of this.simBuildings) {
       const d = BUILDING_BY_ID[o.def];
       if (!d?.hp || d.defense) continue;
       const r = footprint(o);
-      for (let x = r.x; x < r.x + r.w; x++) for (let y = r.y; y < r.y + r.h; y++) cells.add(x * 4096 + y);
+      const grate = isGrate(o.def);
+      for (let x = r.x; x < r.x + r.w; x++)
+        for (let y = r.y; y < r.y + r.h; y++) {
+          cells.add(x * 4096 + y);
+          if (grate) grates.add(x * 4096 + y);
+        }
     }
-    this.wallCells = { of: this.simBuildings, cells };
-    return cells;
+    this.wallCells = { of: this.simBuildings, cells, grates };
+    return this.wallCells;
   }
   /** The sim's clock (main.ts, per snapshot): how old each building is. */
   tick = 0;
