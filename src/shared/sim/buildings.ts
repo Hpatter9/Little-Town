@@ -387,8 +387,10 @@ export function nearestStreet(s: GameState, from: Pt): Pt {
 /** Plan a street from one cell to another (sim/streets.ts: the town's builders lay it a stretch at a time): the
  *  cheapest way over open buildable ground, four ways (a road's tiles join along their edges), round every footprint,
  *  through the ring wall's gates, over a river as a bridge where it must, and out over the sea as a pier in a shore
- *  town. Up to `reach` cells; false if there's no such way. */
-export function layStreet(s: GameState, from: Pt, to: Pt, reach = ROAD_REACH): boolean {
+ *  town. Up to `reach` cells; false if there's no such way. With `wild`, a road may also run over wild ground to be
+ *  cleared (a wood, rocks, a marsh, a hill: `wildToClear`; it is cleared as the road is planned), at a price, for a village's road
+ *  (sim/villageRoad.ts) where cleared ground does not reach. */
+export function layStreet(s: GameState, from: Pt, to: Pt, reach = ROAD_REACH, opts: { wild?: boolean; maxNodes?: number } = {}): boolean {
   const m = s.land;
   if (!inMap(m, from.x, from.y)) return false;
   // (never over the ring wall's line but at a gate: a road there keeps a broken piece from being raised again)
@@ -410,16 +412,23 @@ export function layStreet(s: GameState, from: Pt, to: Pt, reach = ROAD_REACH): b
   const water = (x: number, y: number) => wet(groundAt(m, x, y)) && (pier || riverCell(m, { x, y }));
   // (and through a thin ridge of rock as a tunnel, where going round is far longer: sim/tunnels.ts)
   const thin = thinRock(s);
-  const ground = (x: number, y: number) => buildable(groundAt(m, x, y)) || water(x, y) || (!!thin && groundAt(m, x, y) === 'mountain' && thin(x, y));
+  const ground = (x: number, y: number) => buildable(groundAt(m, x, y)) || water(x, y) || (!!opts.wild && wildToClear(m, x, y)) || (!!thin && groundAt(m, x, y) === 'mountain' && thin(x, y));
   const blocked = (x: number, y: number) => !ground(x, y) || !!on(x, y) || !!castle?.has(idx(m, x, y));
   // (a road may run through the ring wall's gate; a gate cell is left a plain cell, the gate stands on it)
   const gate = (x: number, y: number) => isGate(on(x, y)?.def ?? '');
-  const path = findPath(m, from, to, (x, y) => walled(x, y) || (blocked(x, y) && !isRoad(m, x, y) && !isPlannedRoad(m, x, y) && !gate(x, y)), { maxNodes: 6000, four: true, swim: pier ? PIER_COST : BRIDGE_COST, extra: planBias(s), ...(thin ? { bore: { cost: TUNNEL_COST, ok: thin } } : {}) });
+  const bias = planBias(s);
+  const wildExtra = opts.wild ? (x: number, y: number) => (bias?.(x, y) ?? 0) + (wildToClear(m, x, y) ? WILD_ROAD_COST : 0) : bias;
+  const path = findPath(m, from, to, (x, y) => walled(x, y) || (blocked(x, y) && !isRoad(m, x, y) && !isPlannedRoad(m, x, y) && !gate(x, y)), { maxNodes: opts.maxNodes ?? 6000, four: true, swim: pier ? PIER_COST : BRIDGE_COST, extra: wildExtra, ...(thin ? { bore: { cost: TUNNEL_COST, ok: thin } } : {}) });
   if (!path || path.length > reach) return false;
   lay(from.x, from.y);
-  for (const c of path) if ((!on(c.x, c.y) || gate(c.x, c.y)) && ground(c.x, c.y)) lay(c.x, c.y);
+  for (const c of path) {
+    if (opts.wild && wildToClear(m, c.x, c.y)) setGround(m, c.x, c.y, 'grass'); // (a village's road is cut through the wood or the scrub as it is planned)
+    if ((!on(c.x, c.y) || gate(c.x, c.y)) && ground(c.x, c.y)) lay(c.x, c.y);
+  }
   return true;
 }
+/** What a cell of wild ground costs a village's road to clear, on top of its step. */
+const WILD_ROAD_COST = 2;
 /** What a cell of bridge costs to lay against a road on land (so a street crosses a river only where it must). */
 const BRIDGE_COST = 4;
 
