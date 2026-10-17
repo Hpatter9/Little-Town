@@ -43,19 +43,11 @@ import palisade02 from '../art/village/palisade02.png';
 import palisade01 from '../art/village/palisade01.png';
 import palisade04 from '../art/village/palisade04.png';
 import palisade06 from '../art/village/palisade06.png';
-import palisade09 from '../art/village/palisade09.png';
 import palisade10 from '../art/village/palisade10.png';
 import palisade11 from '../art/village/palisade11.png';
 import palisade12 from '../art/village/palisade12.png';
-import palisade14 from '../art/village/palisade14.png';
 import palisade17 from '../art/village/palisade17.png';
 import palisade22 from '../art/village/palisade22.png';
-import palisade25 from '../art/village/palisade25.png';
-import palisade30 from '../art/village/palisade30.png';
-import palisade33 from '../art/village/palisade33.png';
-import palisade38 from '../art/village/palisade38.png';
-import palisade41 from '../art/village/palisade41.png';
-import palisade46 from '../art/village/palisade46.png';
 import palisade03 from '../art/village/palisade03.png';
 import palisade36 from '../art/village/palisade36.png';
 import palisade37 from '../art/village/palisade37.png';
@@ -65,6 +57,8 @@ import gateDoor from '../art/village/gate_door.png';
 import gateDoorSide from '../art/village/gate_door_side.png';
 import gateLadder from '../art/village/gate_ladder.png';
 import palisade19 from '../art/village/palisade19.png';
+import type { Piece } from '../art/autotile';
+import { GRATE_COL, grateTile, palisadeTile, stoneTile, type Part } from '../art/wallTiles';
 import dwalls from '../art/village/dwalls.png';
 import dprops from '../art/village/dprops.png';
 import grave1 from '../art/village/grave1.png';
@@ -117,6 +111,7 @@ import caveStatue from '../art/packs/cave_statue.png';
 import caveTotem from '../art/packs/cave_totem.png';
 import caveGem from '../art/packs/cave_gem.png';
 import rockyMine1 from '../art/packs/rocky_mine1.png';
+import rockyAdit from '../art/packs/rocky_adit.png';
 import rockyMine2 from '../art/packs/rocky_mine2.png';
 import rockyTipi1 from '../art/packs/rocky_tipi1.png';
 import rockyTipi2 from '../art/packs/rocky_tipi2.png';
@@ -174,7 +169,6 @@ import suHouse from '../art/packs/su_house.png';
 import ttLong from '../art/packs/tt_long.png';
 import ttGable from '../art/packs/tt_gable.png';
 import dlPit from '../art/packs/dl_pit.png';
-import dlFence from '../art/packs/dl_fence.png';
 import fPointer4 from '../art/packs/f_pointer4.png';
 import fFence1 from '../art/packs/f_fence1.png';
 import fFence3 from '../art/packs/f_fence3.png';
@@ -193,31 +187,20 @@ import sfTube4 from '../art/packs/sf_tube4.png';
 /** A pack picture for a building: one image, or several laid together (`parts`: image, x, y in source px, on a
  *  canvas `size`), hanging `overhang` px over the footprint each side, in the looks it suits (`styles`; none: all
  *  but the origins with their own tents and halls). */
-/** A part: an image at x, y (source px), the whole of it or a crop of it (sx, sy, sw, sh). */
-type Part = [string, number, number] | [string, number, number, number, number, number, number];
-/** The palisade's single post, cropped so it stands in the middle of its cell (the pack drew it right of centre). */
-const POST: Part = [palisade19, 0, 0, 4, 0, 28, 32];
-/** A palisade piece two tiles tall (the stakes' pointed tops over the cell above, their feet on the cell), or one. */
+/** A palisade piece two tiles tall (the stakes' pointed tops over the cell above, their feet on the cell). */
 const pal2 = (top: string, foot: string): Pick => ({ parts: [[top, 0, 0], [foot, 0, 32]], size: [32, 64], overhang: 0 });
-const pal1 = (tile: string): Pick => ({ parts: [[tile, 0, 0]], size: [32, 32], overhang: 0 });
-/** The palisade's runs of stakes, one of three by the piece's id. */
+/** The palisade's runs of stakes, one of three by the piece's id (a piece with no join, a card's picture; on the map
+ *  each piece is laid by its join: art/wallTiles.ts `palisadeTile`). */
 const PAL_RUN: Pick[] = [pal2(palisade02, palisade10), pal2(palisade03, palisade11), pal2(palisade04, palisade12)];
-/** The dungeon pack's stone wall, stood taller than a person (the tile is a person's height: 48): its cap and face on top,
- *  two plain courses of face between, and the tile's own foot (the courses repeat every 16 px, so the joins don't show). */
-const STONE_WALL: Part[] = [
-  [dwalls, 0, 0, 32, 240, 32, 16],
-  [dwalls, 0, 16, 32, 256, 32, 16],
-  [dwalls, 0, 32, 32, 256, 32, 16],
-  [dwalls, 0, 48, 32, 256, 32, 32],
-];
+/** The dungeon pack's stone wall, stood taller than a person: a straight stretch of it (a piece with no join; on the
+ *  map each piece is laid by its join: art/wallTiles.ts `stoneTile`). */
+const STONE_WALL: Part[] = stoneTile('ew')!.parts;
 /** The stone gate drawn bigger than its cell by this much each side (the pack's arch is 28 px, under a person's height):
  *  1.9 times as big, so a person walks in under the arch, and about as tall as the wall beside it. */
 const GATE_OVER = 14;
-/** A water grate's bars (`dl_fence.png`: a 16px cell, drawn across the whole cell), turned to stand down a column. */
-const grate = (col: number, grade?: string): Pick => {
-  const bars: Pick = { parts: [[dlFence, 0, 0, col * 16, 0, 16, 16]], size: [16, 16], overhang: 0, ...(grade ? { grade } : {}) };
-  return { own: true, ...bars, joins: { v: { ...bars, rotate: 90 } } };
-};
+/** The water grates where the ring wall crosses a river: each by the piece its neighbours of the ring make
+ *  (art/wallTiles.ts `grateTile`), a row of `dl_grates.png` per material. */
+const grate = (row: number, grade?: string): Pick => ({ own: true, ...grateTile('post', row), ...(grade ? { grade } : {}), tile: (join) => grateTile(join, row) });
 /** The palisade's gate as the Village pack builds one (the owner: the old gate wasn't right): its timber frame, two
  *  tiles tall (the crossbeam with its braces up over the cell above, the posts down to the ground: Tile2_36, 37, 44,
  *  45), its double door hung in the opening (`gate_door.png`, the pack's DoubleDoor1: frame 0 shut, frame 4 swung
@@ -272,6 +255,11 @@ export interface Pick {
   /** A wall piece's picture by how it joins its neighbours (the ring wall: sim/ringWall.ts): along a row (`h`), down a
    *  column (`v`), at a corner, or standing alone (`end`); the pick itself when a join has none. */
   joins?: Partial<Record<Join, Pick>>;
+  /** A piece of a line (the ring wall, its grates) laid by its join (art/autotile.ts: the piece its neighbours make,
+   *  and the sides it stops against a grate), tried before `joins`; null for a join it doesn't know. */
+  tile?: (join: string, id: number) => Pick | null;
+  /** How many ways `tile`'s pieces differ by the building's id (the palisade's three runs), for the cache. */
+  tileVariants?: number;
   /** Recoloured for a look (`GRADES`): the shops' pictures worn by the peoples without timber houses of their own. */
   grade?: string;
   /** Sails that turn (the windmill): on the map the picture is `body` (the sails cut away) and `blades` copies of
@@ -280,7 +268,7 @@ export interface Pick {
   turning?: { body: string; sail: string; hub: string; at: [number, number]; blades: number };
 }
 /** How a wall piece joins the pieces about it (map/mapView.ts `wallJoin`). */
-export type Join = 'h' | 'v' | 've' | 'nw' | 'ne' | 'sw' | 'se' | 'end' | GateJoin;
+export type Join = Piece | `${Piece}/${number}` | 'h' | 'v' | 've' | 'end' | GateJoin;
 /** How a palisade gate stands (map/mapView.ts `wallJoin`): in the north wall (`gn`, its steps before it) or the south
  *  (`gs`), the west (`v`) or the east (`ve`); `x` shut (by night, or with raiders coming). */
 export type GateJoin = 'gn' | 'gnx' | 'gs' | 'gsx' | 'vx' | 'vex';
@@ -390,31 +378,17 @@ const PICKS: Record<string, Pick> = {
   // tops over the cell above and the feet with their stones on the cell; each corner is the pack's own corner piece;
   // down a column the post of that side (the west wall's at the left of its cell, the east wall's at the right, so they
   // meet the corners' posts); a lone piece a single post)
-  palisade_wall: {
-    own: true,
-    of: PAL_RUN,
-    overhang: 0,
-    joins: {
-      h: { of: PAL_RUN, overhang: 0 },
-      v: { of: [pal1(palisade17), pal1(palisade25)], overhang: 0 },
-      ve: { of: [pal1(palisade22), pal1(palisade30)], overhang: 0 },
-      nw: pal2(palisade01, palisade09),
-      ne: pal2(palisade06, palisade14),
-      sw: pal2(palisade33, palisade41),
-      se: pal2(palisade38, palisade46),
-      end: { parts: [POST], size: [32, 32], overhang: 0 },
-    },
-  },
+  palisade_wall: { own: true, of: PAL_RUN, overhang: 0, tile: palisadeTile, tileVariants: 3 },
   palisade_gate: {
     own: true,
     ...gateFront(true, true),
     joins: { gn: gateFront(true, true), gnx: gateFront(false, true), gs: gateFront(true, false), gsx: gateFront(false, false), v: gateSide(true, false), vx: gateSide(false, false), ve: gateSide(true, true), vex: gateSide(false, true) },
   },
   // the dungeon pack's stonework: a stretch of wall, an arched gate with its door
-  stone_wall: { own: true, parts: STONE_WALL, size: [32, 80], overhang: 0 },
-  brick_wall: { own: true, parts: STONE_WALL, size: [32, 80], overhang: 0, grade: 'brick' },
-  concrete_wall: { own: true, parts: STONE_WALL, size: [32, 80], overhang: 0, grade: 'concrete' },
-  force_wall: { own: true, parts: STONE_WALL, size: [32, 80], overhang: 0, grade: 'force' },
+  stone_wall: { own: true, parts: STONE_WALL, size: [32, 80], overhang: 0, tile: stoneTile },
+  brick_wall: { own: true, parts: STONE_WALL, size: [32, 80], overhang: 0, grade: 'brick', tile: stoneTile },
+  concrete_wall: { own: true, parts: STONE_WALL, size: [32, 80], overhang: 0, grade: 'concrete', tile: stoneTile },
+  force_wall: { own: true, parts: STONE_WALL, size: [32, 80], overhang: 0, grade: 'force', tile: stoneTile },
   stone_gate: { own: true, parts: [[dwalls, 0, 0, 80, 288, 48, 48]], size: [48, 48], overhang: GATE_OVER, joins: { v: { parts: [[dwalls, 0, 0, 80, 288, 48, 48]], size: [48, 48], overhang: GATE_OVER, rotate: 90 } } },
   brick_gate: { own: true, grade: 'brick', parts: [[dwalls, 0, 0, 80, 288, 48, 48]], size: [48, 48], overhang: GATE_OVER, joins: { v: { parts: [[dwalls, 0, 0, 80, 288, 48, 48]], size: [48, 48], overhang: GATE_OVER, rotate: 90 } } },
   concrete_gate: { own: true, grade: 'concrete', parts: [[dwalls, 0, 0, 80, 288, 48, 48]], size: [48, 48], overhang: GATE_OVER, joins: { v: { parts: [[dwalls, 0, 0, 80, 288, 48, 48]], size: [48, 48], overhang: GATE_OVER, rotate: 90 } } },
@@ -495,6 +469,8 @@ const PICKS: Record<string, Pick> = {
   herb_garden: { parts: [[soil01, 0, 0], [soil05, 32, 0], [soil07, 64, 0], [fDirt, 50, 4], [flower1, 6, 8], [flower5, 40, 14], [flower9, 70, 6], [tuft2, 20, 20], [flower3, 84, 22], [flower1, 60, 24]], size: [96, 32], overhang: 0 },
   // mine mouths from the rocky-area pack; the deep mine, and the dwarves' every mine, the cave pack's carved gates
   mine: { url: rockyMine1, overhang: 0, variants: [{ styles: ['dwarves'], pick: { url: caveGate, overhang: 0 } }] },
+  // (the quarry against a face of rock, sim/relief.ts: the Rocky Area pack's cave entrance, its adit)
+  quarry: { url: rockyAdit, overhang: 0 },
   coal_mine: { url: rockyMine2, overhang: 0, variants: [{ styles: ['dwarves'], pick: { url: caveGate, overhang: 0 } }] },
   deep_mine: { url: caveGate, overhang: 0 },
   // the shaft to the Deep (data/deep.ts): the cave pack's carved gate, a winch's rack and a barrel of the dug ore beside it
@@ -766,10 +742,11 @@ export function packArt(def: string, w: number, style: string, id = 0, join?: Jo
   if (!pick) return null;
   // (on the map, a windmill's body alone: its sails are drawn turning over it, packTurning)
   if (moving && pick.turning) return pickArt({ ...pick, url: pick.turning.body, turning: undefined }, w, `${def}|${style}|body`, id);
-  const joined = join ? pick.joins?.[join] ?? (join === 've' ? pick.joins?.v : undefined) : undefined;
-  if (joined) pick = { ...joined, grade: joined.grade ?? pick.grade };
+  const tiled = join ? pick.tile?.(join, id) : undefined;
   // (one of several by the building's id)
-  let which = '';
+  let which = tiled && pick.tileVariants ? `~${id % pick.tileVariants}` : '';
+  const joined = join ? (tiled ?? pick.joins?.[join as keyof typeof pick.joins] ?? (join === 've' ? pick.joins?.v : undefined)) : undefined;
+  if (joined) pick = { ...joined, grade: joined.grade ?? pick.grade };
   if (pick.of?.length) {
     const i = id % pick.of.length;
     which = `#${i}`;
@@ -1098,3 +1075,20 @@ export function packDressing(def: string, id: number, w: number, style: string):
 
 /** Whether a building has a pack picture in a look (the audit of what's still painted: test/packCoverage.test.ts). */
 export const pickCovered = (def: string, style: string): boolean => !!pickFor(def, style);
+
+/** Every pack picture a building may be drawn from in a look (its variants, its parts, a wall's joins, a windmill's
+ *  sails): the loading screen warms them before the town is shown (loading/stripLoad.ts). */
+export function packUrls(def: string, style: string): string[] {
+  const pick = pickFor(def, style);
+  if (!pick) return [];
+  const t = pick.turning;
+  // (a line's pieces by every join it can make, and each of its runs: art/wallTiles.ts)
+  const tiles: string[] = [];
+  if (pick.tile)
+    for (const join of Object.keys(GRATE_COL))
+      for (let id = 0; id < (pick.tileVariants ?? 1); id++) {
+        const piece = pick.tile(join, id);
+        if (piece) tiles.push(...urlsOf(piece));
+      }
+  return [...new Set([...urlsOf(pick), ...Object.values(pick.joins ?? {}).flatMap((j) => (j ? urlsOf(j) : [])), ...tiles, ...(t ? [t.body, t.sail, t.hub] : [])])];
+}

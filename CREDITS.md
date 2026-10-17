@@ -145,7 +145,8 @@ hide tent (`su_house.png`, shrunk) is from the same Simple Summer tileset; the l
 painted over with its own window) and the tall gabled house (`tt_gable.png`) are cut from the town tileset of
 **tiny-rpg-town** by **Luis Zuno (@ansimuz)**; the pit, stakes and spikes (`dl_pit.png`, `dl_stakes.png`,
 `dl_caltrops.png`, `dl_spikes.png`) are cells of **DawnLike**'s `Objects/Trap0.png` by **DragonDePlatino**, and the bars of
-the ring wall's water grates (`dl_fence.png`: its wooden, iron and pale fence runs) cells of its `Objects/Fence.png`; the electric
+the ring wall's water grates (`dl_grates.png`: its wooden, iron and pale fence runs with their corners, T-joins and
+crossing, cut by `tools/compose-walls.cjs`) cells of its `Objects/Fence.png`; the electric
 coil (`ao_coil.png`) is the first frame of the trap in the loose Craftpix animated-objects pack.
 The places of leisure are laid from the Fields tileset's signpost, rail fences and stump (`f_pointer4.png`, `f_fence1.png`,
 `f_fence3.png`, `f_stump.png`), the Village tileset's bucket and bench (`v_bucket.png`, `v_bench.png`), and the pieces
@@ -348,9 +349,11 @@ Peral, Huerta Tipográfica), Pirata One (Rodrigo Fuenzalida, Nicolas Massi), IM 
 Apostrophe), Cinzel (Natanael Gama), Berkshire Swash (Astigmatic), Quicksand (Andrew Paglinawan), Marcellus SC (Brian J.
 Bonislawsky), Fondamento (Astigmatic), MedievalSharp (Wojciech Kalinowski) and Metal Mania (Open Window, the orcs' look).
 
-## Craftpix bridges (the shore town's piers)
+## Craftpix bridges (the shore town's piers, the streets' bridges)
 
-The wooden pier planks (`src/renderer/art/roads/pier_v.png`, `pier_h.png`, cut from its bridge sheet) are from
+The wooden pier planks (`src/renderer/art/roads/pier_v.png`, `pier_h.png`, cut from its bridge sheet) and the pieces the
+map lays its bridges from (`src/renderer/art/roads/bridge_parts.png`: the wooden bridge both ways and its ends, cut by
+`tools/compose-walls.cjs`) are from
 **Craftpix.net**'s free Bridges Top-Down Pixel Art Asset Pack, used under Craftpix's free licence (use in the game;
 the raw files are not redistributed).
 
@@ -378,6 +381,9 @@ is put together from the pack's man's body (turned to sacking), its first peasan
 - The far settlements' fires and smoke, the will-o'-wisps, the dust devils and the weathervanes' glint are strips of the
   **5000 Pixel Effects** atlas (`fx/pixelfx.png`; see Effects).
 
+The ring wall's palisade (`src/renderer/art/wallTiles.ts`, `palisadeTile`) is laid from the Village Tileset's own tiles
+(`src/renderer/art/village/palisade*.png`: its runs, the runs' ends, its side wall's stakes and a lone stake's point), and
+the stone wall (`stoneTile`) from the 2D Top-Down Pixel Dungeon pack's walls (`dwalls.png`), both **Craftpix.net**.
 The palisade's gate (`src/renderer/map/packBuildings.ts`, `gateFront`, `gateSide`) is the Village Tileset's own gate
 frame (`src/renderer/art/village/palisade36.png`, `37`, `44`, `45`) with its animated double doors (`gate_door.png`,
 `gate_door_side.png`), from **Craftpix.net**'s free Village Pixel Tileset for top-down defence; the steps up to it
@@ -445,3 +451,27 @@ of `Characters/Quadraped0.png`: **DragonDePlatino**, on **DawnBringer**'s palett
 cutscenes (`src/renderer/art/scene/`, see the cutscenes' props): the barrel, cart, wagon, picnic table, rock, hay,
 bucket, gravestone, bread, apple and lantern. The fire is the game's own flame (`src/renderer/art/effects/flame.png`,
 see Effects).
+
+## The hills and mountains
+
+The outcrops among the rocky hills (`src/renderer/art/relief/rock_*.png`: the moss, slate, desert, snowy, cave and canyon
+rocks, three sizes each, by the land's look) are from **Craftpix.net**'s free Rocks Pixel Art asset pack; the tunnels'
+mouths (`art/relief/cave_mouth.png`) and the quarry's adit (`art/packs/rocky_adit.png`) are the plain stone cave entrance of
+**Craftpix.net**'s free Rocky Area Objects pack; the high ground's cliff faces reuse the Undead Tileset's jagged cliffs
+(`art/under/cliff.png`, credited with the Underdark above). Under Craftpix's free licence (use in the game; the raw files
+are not redistributed): https://craftpix.net/file-licenses/.
+
+## The loading screen and the logo
+
+The loading screen (`src/renderer/mobile/loading.ts`) and the game's logo (`src/renderer/loading/logo.ts`, and the
+phone's home-screen icon drawn from it, `src/renderer/mobile/art/icon-192.png` and `icon-512.png`, by
+`tools/compose-logo.cjs`) add no new art: they are put together from sprites already in the game and credited above,
+copied beside the page by the phone build (`out/web/loading/`). The logo's skyline is **Craftpix.net**'s Village
+Tileset's timber houses (`house1.png`, `house2.png`, `house4.png`) behind its palisade's stakes (`palisade04.png`), with
+the Fields Tileset's banner the seats fly (`seats/flag.png`); the words sit on the carved wood of the frame set (`ui/art/wood.png`), and the
+sun on its arc and the loading bar's trough are **DawnLike**'s `GUI/GUI0.png` (`ui/art/gui0.png`) by
+**DragonDePlatino**, on **DawnBringer**'s palette, **CC-BY 4.0**. The words are set in Alegreya SC (SIL Open Font
+License). The town painted behind the logo uses the same houses, the Village Tileset's market tent (`tent2.png`), the
+Fields Tileset's soil (`fields/soil01.png`) and the cutscenes' camp tent and firepit (`scene/`); the founding scene is
+the cutscenes' tent, firepit and log, Duchess the goat (**whtdragon**'s RPG Maker MV white goat) and the
+**5000 Pixel Effects** flame (`effects/flame.png`).

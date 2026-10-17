@@ -23,6 +23,7 @@ import { BOATYARD } from './boats';
 import { HARBOUR } from './seafaring';
 import { AIRSHIP_MAST } from './skies';
 import { MINERAL_BUILDINGS } from './minerals';
+import { QUARRY_BUILDING } from './hills';
 import { MONSTER_GUILD } from './hunts';
 import { MAGIC_BUILDINGS } from './magic';
 import { STORE_BUILDINGS, type ShopLine } from './stores';
@@ -83,14 +84,19 @@ export interface BuildingDef {
   origin?: OriginId;
   /** A seat of the town (data/seats.ts), and which of its five stages. */
   seat?: number;
+  /** Stands against a face of rock (the quarry: data/hills.ts), on a land with relief only. */
+  againstRock?: boolean;
+  /** May be cut into a cliff face, its back row in the rock (a cave store, a cliff house, a hillside tomb: sim/relief.ts),
+   *  where the town finds no flat ground, or now and then where the rock is near. */
+  intoRock?: boolean;
 }
 
 const BASE_BUILDINGS: readonly BuildingDef[] = [
   { id: 'campfire', name: 'Campfire', layer: 'fore', width: 2, cost: { wood: 4, stone: 3 }, buildSeconds: 20, purpose: 'Cooking, warmth and morale. Doubles as a small camp cache.', storage: 30 },
-  { id: 'stockpile', name: 'Stockpile', layer: 'fore', width: 3, cost: { wood: 6 }, buildSeconds: 20, purpose: 'Stores materials. Put them near the work to cut hauling.', storage: 100 },
+  { id: 'stockpile', name: 'Stockpile', layer: 'fore', width: 3, cost: { wood: 6 }, buildSeconds: 20, purpose: 'Stores materials. Put them near the work to cut hauling.', storage: 100, intoRock: true },
   { id: 'lean_to', name: 'Lean-to', layer: 'mid', width: 2, cost: { wood: 8, fiber: 4 }, buildSeconds: 30, purpose: 'Houses 1.', research: 'basic_shelter', housing: 1 },
   { id: 'hide_tent', name: 'Hide Tent', layer: 'mid', width: 3, cost: { wood: 6, hide: 6, fiber: 4 }, buildSeconds: 60, purpose: 'Houses 2.', research: 'tanning', housing: 2 },
-  { id: 'longhouse', name: 'Longhouse', layer: 'mid', width: 4, cost: { wood: 24, stone: 6 }, buildSeconds: 90, purpose: 'Houses 3. A long timber hall under one thatched roof, where two lean-tos stood.', research: 'oral_tradition', housing: 3 },
+  { id: 'longhouse', name: 'Longhouse', layer: 'mid', width: 4, cost: { wood: 24, stone: 6 }, buildSeconds: 90, purpose: 'Houses 3. A long timber hall under one thatched roof, where two lean-tos stood.', research: 'oral_tradition', housing: 3, intoRock: true },
   { id: 'workbench', name: 'Workbench', layer: 'mid', width: 2, cost: { wood: 10, stone: 4 }, buildSeconds: 45, purpose: 'Crafts tools and weapons.', research: 'flint_knapping' },
   { id: 'drying_rack', name: 'Drying Rack', layer: 'mid', width: 1, cost: { wood: 5, fiber: 3 }, buildSeconds: 25, purpose: 'Preserves food.', research: 'food_preservation' },
   { id: 'tanning_rack', name: 'Tanning Rack', layer: 'mid', width: 2, cost: { wood: 6, fiber: 2, stone: 2 }, buildSeconds: 40, purpose: 'Processes hides.', research: 'tanning' },
@@ -103,7 +109,7 @@ const BASE_BUILDINGS: readonly BuildingDef[] = [
   { id: 'chicken_coop', name: 'Chicken Coop', layer: 'back', width: 2, cost: { wood: 8, fiber: 4 }, buildSeconds: 40, purpose: 'Hens (bought in, 3 to start; the pen is fenced wider as the herd grows): eggs every few hours. They breed in spring and summer and need grain in winter.', research: 'domestication' },
   { id: 'goat_pen', name: 'Goat Pen', layer: 'back', width: 3, cost: { wood: 12, fiber: 4 }, buildSeconds: 50, purpose: 'Goats (bought in, 2 to start; the pen is fenced wider as the herd grows): milk twice a day, and meat and hide when the pen is full.', research: 'domestication' },
   { id: 'healers_hut', name: "Healer's Hut", layer: 'mid', width: 2, cost: { wood: 12, hide: 4, herbs: 6 }, buildSeconds: 90, purpose: 'Herbs and a fire for the hurt: wounds heal half again as fast, and the downed take longer to bleed out.', research: 'herbalism', healing: 1.5 },
-  { id: 'graveyard', name: 'Graveyard', layer: 'mid', width: 3, cost: { wood: 10, stone: 8 }, buildSeconds: 60, purpose: 'The dead are laid to rest here: mourning weighs less and grief passes sooner. (A Necromancer may find other uses for it.)' },
+  { id: 'graveyard', name: 'Graveyard', layer: 'mid', width: 3, cost: { wood: 10, stone: 8 }, buildSeconds: 60, purpose: 'The dead are laid to rest here: mourning weighs less and grief passes sooner. (A Necromancer may find other uses for it.)', intoRock: true },
   { id: 'well', name: 'Well', layer: 'mid', width: 1, cost: { stone: 12, wood: 4 }, buildSeconds: 60, purpose: 'Fields keep growing (slower) through a drought.', research: 'early_agriculture' },
   // (never built: a nomad tribe's wagons drawn up across the ends of the camp while raiders are about, see nomads.ts)
   { id: 'wagon_circle', name: 'Wagon Circle', layer: 'fore', width: 1, cost: {}, buildSeconds: 1, purpose: 'Wagons drawn up across the camp while raiders are about.', never: true, hp: 110 },
@@ -125,7 +131,7 @@ const BASE_BUILDINGS: readonly BuildingDef[] = [
   { id: 'loom', name: 'Loom', layer: 'mid', width: 2, cost: { wood: 12, fiber: 6 }, buildSeconds: 80, purpose: 'Weaves fiber into cloth.', research: 'weaving' },
   { id: 'windmill', name: 'Windmill', layer: 'back', width: 3, cost: { lumber: 16, stone: 12, cloth: 4 }, buildSeconds: 160, purpose: 'Grinds grain into flour.', research: 'milling' },
   { id: 'bakery', name: 'Bakery', layer: 'mid', width: 3, cost: { bricks: 12, lumber: 8 }, buildSeconds: 140, purpose: 'Bakes flour into bread.', research: 'baking' },
-  { id: 'cottage', name: 'Cottage', layer: 'mid', width: 3, cost: { lumber: 14, stone: 8, cloth: 2 }, buildSeconds: 150, purpose: 'Houses 4.', research: 'carpentry', housing: 4 },
+  { id: 'cottage', name: 'Cottage', layer: 'mid', width: 3, cost: { lumber: 14, stone: 8, cloth: 2 }, buildSeconds: 150, purpose: 'Houses 4.', research: 'carpentry', housing: 4, intoRock: true },
   { id: 'stone_wall', name: 'Stone Wall', layer: 'fore', width: 1, cost: { stone: 18, bricks: 4 }, buildSeconds: 120, purpose: 'Much tougher than a palisade.', research: 'fortification', hp: 420 },
   { id: 'stone_gate', name: 'Stone Gate', layer: 'fore', width: 2, cost: { stone: 20, lumber: 8, iron: 2 }, buildSeconds: 150, purpose: 'A strong gate townsfolk pass through.', research: 'fortification', hp: 340 },
   { id: 'stone_grate', name: 'Stone Grate', layer: 'fore', width: 1, cost: { stone: 16, iron: 2 }, buildSeconds: 130, purpose: 'An iron grating in the stone wall where the river runs under it.', research: 'fortification', hp: 360, onWater: true },
@@ -206,7 +212,7 @@ const BASE_BUILDINGS: readonly BuildingDef[] = [
  *  makes nothing. Placed by the planner (sim/planner.ts `tryHall`), from the entrance hall inward. */
 export const HOLD_HALLWAY: BuildingDef = { id: 'hold_hallway', name: 'Hallway', layer: 'mid', width: 2, depth: 4, cost: { stone: 3 }, buildSeconds: 30, purpose: 'A passage cut into the mountain for the rooms to open off.', origin: 'dwarves' };
 
-export const BUILDINGS: readonly BuildingDef[] = [HOLD_HALLWAY, ...BASE_BUILDINGS, ...DEFENSE_BUILDINGS, ...ORIGIN_DEFENSES, ...SEAT_DEFS, BLOOD_FARM, ...WORKSHOP_BUILDINGS, ...MINERAL_BUILDINGS, ...STORE_BUILDINGS, BOATYARD, HARBOUR, AIRSHIP_MAST, MONSTER_GUILD, ...PRISON_BUILDINGS, ...FAITH_BUILDINGS, ...RELIGION_BUILDINGS, ...RECREATION_BUILDINGS, ...TRAINING_BUILDINGS, WARD_BUILDING, MONUMENT_BUILDING, SHAFT_BUILDING, ...PORTAL_BUILDINGS, STATUE_BUILDING, RANCH_BUILDING, ARENA_BUILDING, ...MAGIC_BUILDINGS];
+export const BUILDINGS: readonly BuildingDef[] = [HOLD_HALLWAY, ...BASE_BUILDINGS, ...DEFENSE_BUILDINGS, ...ORIGIN_DEFENSES, ...SEAT_DEFS, BLOOD_FARM, ...WORKSHOP_BUILDINGS, ...MINERAL_BUILDINGS, QUARRY_BUILDING, ...STORE_BUILDINGS, BOATYARD, HARBOUR, AIRSHIP_MAST, MONSTER_GUILD, ...PRISON_BUILDINGS, ...FAITH_BUILDINGS, ...RELIGION_BUILDINGS, ...RECREATION_BUILDINGS, ...TRAINING_BUILDINGS, WARD_BUILDING, MONUMENT_BUILDING, SHAFT_BUILDING, ...PORTAL_BUILDINGS, STATUE_BUILDING, RANCH_BUILDING, ARENA_BUILDING, ...MAGIC_BUILDINGS];
 export const BUILDING_BY_ID: Readonly<Record<string, BuildingDef>> = Object.fromEntries(BUILDINGS.map((b) => [b.id, b]));
 
 export const LAYER_NAMES: Record<BuildLayer, string> = { fore: 'Foreground (walkway)', mid: 'Midground', back: 'Background (fields)' };

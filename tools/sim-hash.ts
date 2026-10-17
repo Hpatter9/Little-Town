@@ -33,9 +33,10 @@ if (!only || only === 'fixture') {
   while (!job.run(500));
   console.log(`fixture ${hash(s)} ${((performance.now() - t) / 1000).toFixed(1)} s`);
 }
-for (const [seed, origin] of [['hash-a', 'settlers'], ['hash-b', 'knights'], ['hash-c', 'vampire'], ['hash-d', 'dwarves']] as const) {
+// (the first four were founded before the land had hills and mountains, so they keep a level land; hash-e has relief)
+for (const [seed, origin, relief] of [['hash-a', 'settlers', false], ['hash-b', 'knights', false], ['hash-c', 'vampire', false], ['hash-d', 'dwarves', false], ['hash-e', 'settlers', true]] as const) {
   if (only && only !== seed) continue;
-  const s = newGame(seed, { origin });
+  const s = newGame(seed, { origin, relief });
   const sim = new Sim(s);
   const t = performance.now();
   for (let i = 0; i < days * TICKS_PER_DAY; i++) sim.step();

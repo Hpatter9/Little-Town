@@ -203,6 +203,7 @@ import { quietZones, zoneMix, zoneSources, type ZoneMix } from './soundZones';
 import { BUZZ, buzzesBetween, collapsesBetween, type Buzz } from './vibration';
 import { createActionBar, createBanner, createExpeditionHeader, createGameOver, createPersonCard, createPromptCard, createToasts, type Action } from './overlayUi';
 import { createTooltip } from './tooltip';
+import { startStripLoad } from './loading/stripLoad';
 import { ExpeditionPane } from './town/expeditionPane';
 import { SnowView } from './town/snowView';
 import { LeavesView } from './town/leavesView';
@@ -334,7 +335,10 @@ async function start(): Promise<void> {
   /** A finger rather than a mouse (a phone): hints say "tap" and "long-press". */
   const coarse = () => matchMedia('(pointer: coarse)').matches;
 
-  const [first] = await Promise.all([bridge.getSnapshot(), loadLpc(), loadCreatures(), loadEffects(), loadStills()]);
+  // (the loading screen's pictures are warmed from the first snapshot while the rest is set up: loading/stripLoad.ts)
+  const firstSnap = bridge.getSnapshot();
+  const stripLoad = firstSnap.then(startStripLoad);
+  const [first] = await Promise.all([firstSnap, loadLpc(), loadCreatures(), loadEffects(), loadStills()]);
   void loadLpcFaces(); // (the townsfolk's up- and down-facing walk rows come in after; side-on until then)
   applySeasonPalette(first.biome, first.calendar.season); // (the land is drawn in the colours of the season)
   const seedHash = hashSeed(first.seed);
@@ -2095,6 +2099,7 @@ async function start(): Promise<void> {
   });
   applySnapshot(first);
   if (first.catchingUp != null) catchUpSnap(first);
+  requestAnimationFrame(() => requestAnimationFrame(() => void stripLoad.then((l) => l.drawn()))); // (the map has drawn)
 
   /* -------------------------------------------------------- frame loop */
 

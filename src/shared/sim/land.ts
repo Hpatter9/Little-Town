@@ -10,6 +10,7 @@ import { BIOME_DEFS, type Biome } from '../data/biomes';
 import type { Material } from '../data/materials';
 import { TERRAIN } from '../data/terrain';
 import { hashSeed, Rng } from '../rng';
+import { climbs, layRelief, RAMP, RELIEF_COST } from './relief';
 
 /** One cell's side, in world px (a building's width in cells is its width in the old tiles). */
 export const CELL = 32;
@@ -77,6 +78,9 @@ export interface LandMap {
   regions?: LandRegion[];
   /** The seed's hash (the regions' borders are warped by it). */
   seedHash?: number;
+  /** The lie of the land, one character per cell (sim/relief.ts: level, downs, rocky hills, high ground, a ramp up
+   *  onto it, a range). Absent on a land founded before relief: such a land stays level, as it always was. */
+  relief?: string;
 }
 
 export interface Rect {
@@ -228,7 +232,7 @@ const TARN_OFF = 9;
 const TARN_DOWN = 5;
 const TARN_R = 2.6;
 
-export function makeLand(seed: string, biome: Biome = 'forest', shape?: LandShape): LandMap {
+export function makeLand(seed: string, biome: Biome = 'forest', shape?: LandShape, relief = false): LandMap {
   const seedHash = hashSeed(seed);
   const w = LAND_W;
   const h = LAND_H;
@@ -504,7 +508,10 @@ export function makeLand(seed: string, biome: Biome = 'forest', shape?: LandShap
     pools[i] = pool;
   });
 
-  return { w, h, cells: grid.map((g) => CODE[g]).join(''), pools, roads: '.'.repeat(w * h), marked: [], camp, open: shape === 'sea' ? OPEN_START_SEA : OPEN_START, version: 0, regions, seedHash };
+  // the hills and mountains (sim/relief.ts): laid last, on streams of their own, so the rest is as the seed made it
+  const lie = relief ? layRelief(grid, pools, w, h, camp, biome, seed, noise) : undefined;
+
+  return { w, h, cells: grid.map((g) => CODE[g]).join(''), pools, roads: '.'.repeat(w * h), marked: [], camp, open: shape === 'sea' ? OPEN_START_SEA : OPEN_START, version: 0, regions, seedHash, ...(lie ? { relief: lie } : {}) };
 }
 
 /** The named region a cell lies in (landRegions.ts), or null on an older land. */
@@ -521,6 +528,7 @@ export function fits(m: LandMap, r: Rect, taken: readonly Rect[] = [], opts: { r
       const g = groundAt(m, x, y);
       if (!isOpen(m, x, y) || !((opts.carve ? carvable : buildable)(g) || (opts.water && wet(g)) || (opts.wild && wildToClear(m, x, y)))) return false;
       if (!opts.roads && (isRoad(m, x, y) || isPlannedRoad(m, x, y))) return false;
+      if (m.relief && m.relief[y * m.w + x] === RAMP) return false; // (the way up onto the high ground is kept clear)
     }
   return !taken.some((t) => overlaps(t, r));
 }
@@ -585,6 +593,11 @@ export function stepCost(m: LandMap, x: number, y: number, blocked?: (x: number,
   if (!inMap(m, x, y)) return Infinity;
   if (isRoad(m, x, y)) return 0.55; // (a road bridges water too)
   if (blocked?.(x, y)) return Infinity;
+  const c = groundCost(m, x, y);
+  // (hill country is walked slower: sim/relief.ts)
+  return m.relief && c !== Infinity ? c * (RELIEF_COST[m.relief[y * m.w + x]] ?? 1) : c;
+}
+function groundCost(m: LandMap, x: number, y: number): number {
   switch (groundAt(m, x, y)) {
     case 'water':
       return Infinity;
@@ -622,6 +635,11 @@ export interface PathOpts {
   /** What a step onto a cell costs on top of its ground (never less than none): a street keeps to the town plan's
    *  lines (sim/layout.ts `planBias`). */
   extra?: (x: number, y: number) => number;
+  /** Cliffs ignored (a street planned up a face: laid, it makes steps there, sim/relief.ts `climbs`). */
+  climb?: boolean;
+  /** Rock that may be tunnelled (a street planned through a thin ridge, sim/tunnels.ts): what a cell of it costs, and
+   *  which cells of rock may be. */
+  bore?: { cost: number; ok: (x: number, y: number) => boolean };
 }
 /** What a cell of the sea costs a swimmer. */
 export const SWIM_COST = 0.8;
@@ -639,12 +657,13 @@ export function findPath(m: LandMap, from: { x: number; y: number }, to: { x: nu
     // (a swimmer slips through the water, shallow or deep)
     if (opts.swim !== undefined && inMap(m, x, y) && wet(groundAt(m, x, y)) && !b?.(x, y) && !isRoad(m, x, y)) return opts.swim;
     const c = stepCost(m, x, y, b);
+    if (c === Infinity && opts.bore && inMap(m, x, y) && groundAt(m, x, y) === 'mountain' && !b?.(x, y) && opts.bore.ok(x, y)) return opts.bore.cost;
     // (a raiding party wades a river where it must: water costs `ford`, not everything)
     return c === Infinity && opts.ford !== undefined && inMap(m, x, y) && groundAt(m, x, y) === 'water' && !b?.(x, y) ? opts.ford : c;
   };
   // (with no swimming or fording, a cell's cost is read from the land's grid of road and ground costs, kept while its
   // cells and roads are the same: stepCost asked of every cell looked at was a third of a search)
-  const grid = opts.swim === undefined && opts.ford === undefined ? costGrid(m) : null;
+  const grid = opts.swim === undefined && opts.ford === undefined && !opts.bore ? costGrid(m) : null;
   const cost0 = grid
     ? (x: number, y: number) => {
         const i = y * W + x;
@@ -738,6 +757,9 @@ export function findPath(m: LandMap, from: { x: number; y: number }, to: { x: nu
   };
   const e = opts.edge;
   const four = opts.four;
+  // (the high ground's cliffs are jumped down from, never climbed but at a ramp or a street: sim/relief.ts)
+  const rel = opts.climb ? undefined : m.relief;
+  const roadsAt = m.roads;
   // (a goal shut in where the start isn't, by buildings, water or rock: flooded out from the goal over the same steps
   // the search would take, backwards, and closed off within `SHUT_IN_MOST` cells, the search can only fail. Walkers
   // heading somewhere shut in asked again and again, each failure looking at every cell it was allowed. Not with a
@@ -802,6 +824,7 @@ export function findPath(m: LandMap, from: { x: number; y: number }, to: { x: nu
           if (diag && ((dx < 0 ? cw : ce) === Infinity || (dy < 0 ? cn : cs) === Infinity)) continue;
           if (e && (diag ? !(e(cx, cy, nx, cy) && e(nx, cy, nx, ny) && e(cx, cy, cx, ny) && e(cx, ny, nx, ny)) : !e(cx, cy, nx, ny))) continue;
           const nn = ny * W + nx;
+          if (rel && climbs(rel, roadsAt, c, nn)) continue;
           const ng = gc + step * (diag ? 1.414 : 1);
           if (seenAt[nn] !== gen || ng < g[nn]) {
             seenAt[nn] = gen;

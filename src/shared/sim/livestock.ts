@@ -2,6 +2,7 @@
 // fields), the herds breed in spring and summer, eat grain through the winter, and are slaughtered when a pen is full,
 // when they're kept for meat, or when the town's food runs short.
 
+import { hillGrazing } from './hills';
 import { BUILDING_BY_ID } from '../data/buildings';
 import { BREED_SEASON, HERDS, PEN_GROW_MAX, PEN_ROOM_PER_COL, RUSTLE_CHANCE, RUSTLE_MAX, SELL_FOOD_DAYS, SELL_SHARE, STARVE_HOURS } from '../data/livestock';
 import { footprint } from './buildings';
@@ -112,7 +113,7 @@ export function workPen(s: GameState, p: Person, b: Building): boolean {
   h.work = 0;
   h.tended = s.tick;
   const got: Stock = {};
-  for (const [m, per] of Object.entries(def.yields) as [Material, number][]) addStock(got, m, Math.max(1, Math.round(h.head * per)));
+  for (const [m, per] of Object.entries(def.yields) as [Material, number][]) addStock(got, m, Math.max(1, Math.round(h.head * per * hillGrazing(s, b))));
   // a full pen (that couldn't be widened) sells one to a drover when food is plenty, else one goes to the pot; a meat
   // pen sends one to the pot each tending, and any pen does when food is short (a breeding pair is always kept)
   const full = h.head >= penRoom(b);

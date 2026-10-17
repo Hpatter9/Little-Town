@@ -24,7 +24,8 @@ import { topDownArt } from '../art/topDown';
 import { drawSite } from '../art/constructionSite';
 import { drawWallWorks, stagingAt } from '../art/wallWorks';
 import { choresTex } from '../art/choresArt';
-import { isGate, isRingPiece } from '../../shared/sim/ringWall';
+import { isGate, isGrate, isRingPiece } from '../../shared/sim/ringWall';
+import { maskOf, wallJoinOf } from '../art/autotile';
 import { snowCapped } from '../art/snowCap';
 import { weathered } from '../art/weathered';
 import { sunAt, type Sun } from '../art/sun';
@@ -44,6 +45,7 @@ import doorUrl from '../art/village/dl_door.png';
 import { SmokeColumns } from './smokeColumns';
 import { loadRoadTiles } from '../art/roadTiles';
 import { loadGroundDetail } from '../art/groundDetail';
+import { isOutcrop, loadReliefArt, OUTCROP_SCALE, outcropSet, paintLand } from './reliefArt';
 import { campfirePack, loadFieldTiles, onFieldTiles } from '../art/fieldTiles';
 import type { Era } from '../../shared/data/eras';
 import { buildCastle, castleArtReady, onCastleArt, roomFurniture, type CastleView } from './castleArt';
@@ -66,6 +68,18 @@ import { SEAT_STAGE } from '../../shared/data/seats';
 /** When only the footpaths' wear has changed, one chunk is painted again at most this often (ms; syncLand): painting a
  *  chunk is the heaviest thing the map does, and paths come and go slowly anyway. */
 const WEAR_REPAINT_MS = 1500;
+/** The time (ms) a call may spend painting ground out of view: a snapshot's, a frame's of the camera's, or a worn path's. */
+const FILL_BUDGET_MS = 8;
+const PAN_BUDGET_MS = 6;
+const WEAR_BUDGET_MS = 4;
+/** How long the ground waits for its art sheets before it is painted without them. */
+const ART_WAIT_MS = 4000;
+/** A ground chunk waiting to be painted, and the key it will have. */
+interface DueChunk {
+  cx: number;
+  cy: number;
+  key: string;
+}
 /** Where the seabed things stand round a building in the sea (share of its width along, px below its foot), and their
  *  size against the atlas's (which is drawn for the raid map, larger). */
 const SEA_DRESS: [number, number][] = [[0.04, 2], [0.96, 4], [0.55, 7]];
@@ -378,6 +392,7 @@ export class MapView {
     loadTdTiles().then(() => this.repaint(), () => undefined);
     loadRoadTiles().then(() => this.repaint(), () => undefined);
     loadGroundDetail().then(() => this.repaint(), () => undefined);
+    loadReliefArt().then(() => this.repaint(), () => undefined); // (the cliffs and the tunnels' mouths: map/reliefArt.ts)
     loadFieldTiles().then(() => undefined, () => undefined);
     onFieldTiles(() => this.artGen++);
     onPackArt(() => this.artGen++);
@@ -408,6 +423,7 @@ export class MapView {
       const s = c.sprite;
       s.renderable = s.x + side > x0 && s.x < x1 && s.y + side > y0 && s.y < y1;
     }
+    this.paintDue(PAN_BUDGET_MS);
     for (const t of this.things.children) {
       // (anything standing on the map is at most a few cells wide and some taller than wide, but for the keep's walls)
       t.renderable = this.wide.has(t) || (t.x > x0 - 96 && t.x < x1 + 96 && t.y > y0 - 32 && t.y < y1 + 160);
@@ -486,10 +502,10 @@ export class MapView {
     const cols = Math.ceil(land.w / CHUNK);
     const rows = Math.ceil(land.h / CHUNK);
     const reach = land.open + FOG_BAND + CHUNK;
-    // (only the footpaths' wear changed: a chunk or two painted again a snapshot, so a busy path never stalls a frame)
+    // (only the footpaths' wear changed: the chunks it touches are painted again a few a frame, never all at once)
     const wearOnly = sig === this.landSig;
-    let repaints = 0;
-    let pending = false;
+    this.paintFirst ||= performance.now();
+    const due = new Map<string, DueChunk>();
     for (let cy = 0; cy < rows; cy++)
       for (let cx = 0; cx < cols; cx++) {
         const id = `${cx},${cy}`;
@@ -498,28 +514,72 @@ export class MapView {
         const key = near ? chunkKey(land, cx, cy, season, !!td, era, this.blighted(), biome) : 'dark';
         let c = this.chunks.get(id);
         if (c && c.key === key) continue;
-        if (c && wearOnly && repaints >= 1) {
-          pending = true;
+        if (near) {
+          due.set(id, { cx, cy, key });
           continue;
         }
-        repaints++;
+        // (a dark square costs nothing: put up at once)
         if (!c) {
           c = { sprite: this.ground.addChild(new Sprite()), key: '' };
           c.sprite.position.set(cx * CHUNK * CELL, cy * CHUNK * CELL);
           this.chunks.set(id, c);
         }
         const old = c.sprite.texture;
-        c.sprite.texture = near ? paintChunk(land, cx, cy, season, biome, td, era, this.blighted()) : darkTexture();
+        c.sprite.texture = darkTexture();
         if (old !== Texture.EMPTY && old !== darkTexture()) old.destroy(true);
         c.key = key;
       }
+    // (the rest are painted by `paintDue`, those in view first: a town's two thousand cells of ground took seconds
+    // painted in one go at the start, and again for each sheet of art that arrived)
+    this.due = due;
+    this.dueFrom = { land, season, biome, era, td };
     this.landSig = sig;
-    this.landWear = pending ? undefined : land.wear;
+    this.landWear = land.wear;
     if (wearOnly) this.nextWearPaint = performance.now() + WEAR_REPAINT_MS;
+    this.paintDue(wearOnly ? WEAR_BUDGET_MS : FILL_BUDGET_MS);
     if (wearOnly) return;
     this.syncProps(land, season, biome);
     this.drawMarks();
   }
+  /** Chunks waiting to be painted, and what they are painted from. */
+  private due = new Map<string, DueChunk>();
+  private dueFrom: { land: LandMap; season: string; biome: string; era: Era; td: ReturnType<typeof tdTiles> } | null = null;
+  /** When the ground was first asked for (the wait for its art ends a few seconds on). */
+  private paintFirst = 0;
+
+  /** Paint the chunks that are due: those in (or by) the view at once, the others nearest first for about `budgetMs`
+   *  a call (at least one). Waits for the ground's art sheets, so a chunk isn't painted for each sheet as it arrives. */
+  private paintDue(budgetMs: number): void {
+    const w = this.dueFrom;
+    if (!w || !this.due.size) return;
+    if (groundArtReady() !== '111' && performance.now() - this.paintFirst < ART_WAIT_MS) return;
+    const v = this.view;
+    const side = CHUNK * CELL;
+    const cx0 = v.w > 0 ? v.x + v.w / 2 : (w.land.camp.x + 0.5) * CELL;
+    const cy0 = v.w > 0 ? v.y + v.h / 2 : (w.land.camp.y + 0.5) * CELL;
+    const inView = (d: DueChunk) => v.w > 0 && d.cx * side + side > v.x - CULL_MARGIN && d.cx * side < v.x + v.w + CULL_MARGIN && d.cy * side + side > v.y - CULL_MARGIN && d.cy * side < v.y + v.h + CULL_MARGIN;
+    const order = [...this.due.values()].map((d) => ({ d, seen: inView(d), dist: Math.hypot((d.cx + 0.5) * side - cx0, (d.cy + 0.5) * side - cy0) }));
+    order.sort((a, b) => (a.seen === b.seen ? a.dist - b.dist : a.seen ? -1 : 1));
+    const start = performance.now();
+    let painted = 0;
+    for (const { d, seen } of order) {
+      if (!seen && painted > 0 && performance.now() - start > budgetMs) break;
+      const id = `${d.cx},${d.cy}`;
+      let c = this.chunks.get(id);
+      if (!c) {
+        c = { sprite: this.ground.addChild(new Sprite()), key: '' };
+        c.sprite.position.set(d.cx * side, d.cy * side);
+        this.chunks.set(id, c);
+      }
+      const old = c.sprite.texture;
+      c.sprite.texture = paintChunk(paintLand(w.land), d.cx, d.cy, w.season, w.biome, w.td, w.era, this.blighted());
+      if (old !== Texture.EMPTY && old !== darkTexture()) old.destroy(true);
+      c.key = d.key;
+      this.due.delete(id);
+      painted++;
+    }
+  }
+
   /** What the land was at the last `syncLand` (and its wear), to skip it when nothing has changed. */
   private landSig = '';
   private landWear: string | undefined = undefined;
@@ -561,7 +621,7 @@ export class MapView {
       const open = land.open;
       land.open = land.w + land.h; // (the fog lifted for the painting, and put back at once)
       try {
-        tex = paintChunk(land, cx, cy, this.season, this.biome, tdTiles(), this.era, this.blighted());
+        tex = paintChunk(paintLand(land), cx, cy, this.season, this.biome, tdTiles(), this.era, this.blighted());
       } finally {
         land.open = open;
       }
@@ -653,6 +713,7 @@ export class MapView {
           );
     const turnedKey = this.turned ? sets.filter((s) => this.autumnTex.has(s)).join('+') : '';
     const seen = new Set<number>();
+    const keyTail = `|${this.propsWanted.join(',')}|${turnedKey}`;
     const reach = land.open + FOG_BAND;
     for (let y = Math.max(0, land.camp.y - reach); y <= Math.min(land.h - 1, land.camp.y + reach); y++)
       for (let x = Math.max(0, land.camp.x - reach); x <= Math.min(land.w - 1, land.camp.x + reach); x++) {
@@ -665,16 +726,18 @@ export class MapView {
         // (a slow phone: every other wild cell bare)
         if (this.calm && hash(5, x, y) < 0.5) continue;
         if (PROPS_SHARE[g] !== undefined && hash(6, x, y) > PROPS_SHARE[g]!) continue;
-        const key = `${g}|${vis}|${this.propsWanted.join(',')}|${turnedKey}`;
-        // (an object stands about the middle of its cell, a little off it, its foot a little up from the bottom)
-        this.placeProp(i * 2, key, this.propFor(on, x, y), (x + 0.3 + hash(1, x, y) * 0.4) * CELL, (y + 0.75 + hash(2, x, y) * 0.2) * CELL, vis, seen);
+        const key = `${g}|${vis}${keyTail}`;
+        // (an object stands about the middle of its cell, a little off it, its foot a little up from the bottom; one
+        // already standing as it should is left alone, before its picture and place are worked out again)
+        if (!this.kept(i * 2, key, seen)) this.placeProp(i * 2, key, this.propFor(on, x, y), (x + 0.3 + hash(1, x, y) * 0.4) * CELL, (y + 0.75 + hash(2, x, y) * 0.2) * CELL, vis, seen);
         // (a wood's undergrowth: a bush or a plant off to one side of the tree, nearer the front)
         if (g === 'forest' && hash(7, x, y) < UNDERGROWTH_SHARE && !this.calm) {
           const side = hash(8, x, y) < 0.5 ? -1 : 1;
           const ux = (x + 0.5 + side * (0.28 + hash(9, x, y) * 0.18)) * CELL;
-          this.placeProp(i * 2 + 1, key, this.propFor(UNDERGROWTH, x, y, 10), ux, (y + 0.92 + hash(11, x, y) * 0.06) * CELL, vis, seen);
+          if (!this.kept(i * 2 + 1, key, seen)) this.placeProp(i * 2 + 1, key, this.propFor(UNDERGROWTH, x, y, 10), ux, (y + 0.92 + hash(11, x, y) * 0.06) * CELL, vis, seen);
         }
       }
+    this.syncOutcrops(land, season, biome, reach, seen);
     for (const [i, p] of this.props)
       if (!seen.has(i)) {
         // (a tree felled, a rock broken up just now: it falls or crumbles where it stood, map/mapFelling.ts)
@@ -685,6 +748,48 @@ export class MapView {
         p.reflect?.destroy();
         this.props.delete(i);
       }
+  }
+
+  /** The outcrops among the rocky hills (sim/relief.ts): the Rocks pack's boulders for the land's look (map/reliefArt.ts),
+   *  one to a cell, big, middling or small by the cell, stood as the map's other rocks are. */
+  private outcropTex = new Map<string, Texture>();
+  private outcropAsked = new Set<string>();
+  private syncOutcrops(land: LandMap, season: string, biome: string, reach: number, seen: Set<number>): void {
+    if (!land.relief) return;
+    const urls = outcropSet(biome, season);
+    for (const u of urls)
+      if (!this.outcropAsked.has(u)) {
+        this.outcropAsked.add(u);
+        loadImage(u).then(
+          (im) => {
+            this.outcropTex.set(u, Texture.from(im));
+            if (this.land) this.syncProps(this.land, this.season, this.biome);
+          },
+          () => undefined,
+        );
+      }
+    for (let y = Math.max(0, land.camp.y - reach); y <= Math.min(land.h - 1, land.camp.y + reach); y++)
+      for (let x = Math.max(0, land.camp.x - reach); x <= Math.min(land.w - 1, land.camp.x + reach); x++) {
+        const i = y * land.w + x;
+        if (!isOutcrop(land, i)) continue;
+        const vis = visibility(land, x, y);
+        if (vis === 0) continue;
+        // (the big boulders where the rock runs on round the cell, the small ones at its edge)
+        let solid = 0;
+        for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) if (groundAt(land, x + dx, y + dy) === 'mountain') solid++;
+        const size = solid >= 3 ? 0 : solid >= 1 ? (hash(21, x, y) < 0.5 ? 0 : 1) : hash(21, x, y) < 0.6 ? 1 : 2;
+        const tex = this.outcropTex.get(urls[size]);
+        if (!tex) continue;
+        this.placeProp(i * 2, `outcrop|${urls[size]}|${vis}`, { tex, kind: 'rock' }, (x + 0.5) * CELL, (y + 0.9) * CELL, vis, seen);
+        this.props.get(i * 2)?.sprite.scale.set(OUTCROP_SCALE[size]);
+      }
+  }
+
+  /** Whether the object `n` already stands with this key (and is kept, not to be taken away). */
+  private kept(n: number, key: string, seen: Set<number>): boolean {
+    if (this.props.get(n)?.key !== key) return false;
+    seen.add(n);
+    return true;
   }
 
   /** Puts (or keeps) one object on the land: `n` its key in `props`, its foot at (fx, fy). */
@@ -962,8 +1067,9 @@ export class MapView {
     return packArt(b.def, f.w, this.style, b.id, this.wallJoin(b), true) ?? topDownArt(b.def, f.w, f.h, this.tone, this.toneKey, this.style);
   }
 
-  /** How a one-cell wall piece joins the walls and gates about it: along a row, down a column, at a corner, or alone
-   *  (undefined for anything but a wall, so other pictures are untouched). */
+  /** How a one-cell wall piece joins the walls, gates and grates about it: the piece its neighbours make
+   *  (art/autotile.ts), and where it stops against a grate (undefined for anything but a wall, so other pictures are
+   *  untouched). */
   private wallJoin(b: Building): Join | undefined {
     const def = BUILDING_BY_ID[b.def];
     // (the palisade's gate: which wall it stands in, by where the camp is, and whether it's shut: packBuildings.ts)
@@ -973,33 +1079,14 @@ export class MapView {
       if (b.turned) return ((f.x + f.w / 2 < this.land.camp.x + 0.5 ? 'v' : 've') + shut) as Join;
       return ((f.y + f.h / 2 < this.land.camp.y + 0.5 ? 'gn' : 'gs') + shut) as Join;
     }
-    if (b.turned && def?.hp) return 'v'; // (a gate standing down a column)
+    if (b.turned && def?.hp && isGate(b.def)) return 'v'; // (a gate standing down a column)
     if (!def?.hp || def.width !== 1 || def.defense) return undefined;
-    const cells = this.wallCellsNow();
-    const wallAt = (x: number, y: number) => cells.has(x * 4096 + y);
-    const l = wallAt(b.tile - 1, b.row), r = wallAt(b.tile + 1, b.row), u = wallAt(b.tile, b.row - 1), d = wallAt(b.tile, b.row + 1);
-    // (a run down a column is the west wall's or the east wall's: its post stands at the left or the right of the cell to
-    // meet the corners' posts; told by which way the run turns at its ends)
-    const side = (): Join => {
-      for (const step of [-1, 1]) {
-        let y = b.row;
-        for (let i = 0; i < 200 && wallAt(b.tile, y + step); i++) y += step;
-        if (y === b.row) continue;
-        const east = wallAt(b.tile - 1, y), west = wallAt(b.tile + 1, y);
-        if (west !== east) return west ? 'v' : 've';
-      }
-      return 'v';
-    };
-    if ((l || r) && !(u || d)) return 'h';
-    if ((u || d) && !(l || r)) return side();
-    // (where a wall runs through, it's a straight piece: a run along a row with a spur, or down a column with one)
-    if (l && r) return 'h';
-    if (u && d) return side();
-    if (r && d) return 'nw';
-    if (l && d) return 'ne';
-    if (r && u) return 'sw';
-    if (l && u) return 'se';
-    return l || r ? 'h' : u || d ? 'v' : 'end';
+    // (the piece its neighbours of the ring make, art/autotile.ts; a wall stops at a proper end where a grate, lower
+    // than it, carries the line on over the water)
+    const { cells, grates } = this.wallCellsNow();
+    const mask = maskOf((dx, dy) => cells.has((b.tile + dx) * 4096 + b.row + dy));
+    if (isGrate(b.def)) return wallJoinOf(mask) as Join;
+    return wallJoinOf(mask, maskOf((dx, dy) => grates.has((b.tile + dx) * 4096 + b.row + dy))) as Join;
   }
 
   /** A castle town's keep on its ground (cells), or none: the floor, the carpet, the curtain wall and its towers. */
@@ -1070,20 +1157,26 @@ export class MapView {
 
   /** The town's buildings as last synced (a wall piece's picture depends on its neighbours: `wallJoin`). */
   private simBuildings: Building[] = [];
-  /** The cells walls and gates stand on (x * 4096 + y), for `wallJoin`: worked out once a sync (it asked every
-   *  building for every cell round every wall piece, most of a big town's frame). */
-  private wallCells: { of: Building[]; cells: Set<number> } | null = null;
-  private wallCellsNow(): Set<number> {
-    if (this.wallCells?.of === this.simBuildings) return this.wallCells.cells;
+  /** The cells walls, gates and grates stand on (x * 4096 + y), and the grates' alone, for `wallJoin`: worked out
+   *  once a sync (it asked every building for every cell round every wall piece, most of a big town's frame). */
+  private wallCells: { of: Building[]; cells: Set<number>; grates: Set<number> } | null = null;
+  private wallCellsNow(): { cells: Set<number>; grates: Set<number> } {
+    if (this.wallCells?.of === this.simBuildings) return this.wallCells;
     const cells = new Set<number>();
+    const grates = new Set<number>();
     for (const o of this.simBuildings) {
       const d = BUILDING_BY_ID[o.def];
       if (!d?.hp || d.defense) continue;
       const r = footprint(o);
-      for (let x = r.x; x < r.x + r.w; x++) for (let y = r.y; y < r.y + r.h; y++) cells.add(x * 4096 + y);
+      const grate = isGrate(o.def);
+      for (let x = r.x; x < r.x + r.w; x++)
+        for (let y = r.y; y < r.y + r.h; y++) {
+          cells.add(x * 4096 + y);
+          if (grate) grates.add(x * 4096 + y);
+        }
     }
-    this.wallCells = { of: this.simBuildings, cells };
-    return cells;
+    this.wallCells = { of: this.simBuildings, cells, grates };
+    return this.wallCells;
   }
   /** The sim's clock (main.ts, per snapshot): how old each building is. */
   tick = 0;

@@ -7,14 +7,15 @@
 // in stretches: all the hands on the street add to one pool of work, and the cells go down in order as it covers them.
 // A cell over a river is a bridge: slower, and it takes wood.
 
-import { builtOn, layStreet, nearestStreet, totalStock } from './buildings';
+import { builtOn, depositNear, layStreet, nearestStreet, totalStock } from './buildings';
 import { takeFromStorage } from './expeditions';
-import { cellAt, groundAt, idx, inMap, isPlannedRoad, isRoad, planRoad, setRoad, wearAt, wet, type Pt } from './land';
+import { CELL, cellAt, groundAt, idx, inMap, isPlannedRoad, isRoad, planRoad, setGround, setRoad, wearAt, wet, type Pt } from './land';
 import { isGate, liftRoadsOffWall, lineOf, sideOn, wallOnly } from './ringWall';
 import { campCell, type GameState, type Person } from './state';
 import { layoutHourly, onPlanLine } from './layout';
 import { isChild } from './social';
 import { TICKS_PER_HOUR } from './time';
+import { isTunnelCell, TUNNEL_SECONDS, TUNNEL_STONE } from './tunnels';
 
 /** Seconds of work to lay a cell of street, and of bridge; the wood a cell of bridge takes. */
 export const PAVE_SECONDS = 15;
@@ -168,13 +169,24 @@ export function pave(s: GameState, i: number): boolean {
     if ((totalStock(s).wood ?? 0) < BRIDGE_WOOD) return false;
     takeFromStorage(s, 'wood', BRIDGE_WOOD);
   }
+  // (a cell of tunnel: the rock dug out, its stone to the stores, sim/tunnels.ts)
+  if (groundAt(s.land, c.x, c.y) === 'mountain' && isTunnelCell(s, c.x, c.y)) {
+    setGround(s.land, c.x, c.y, 'hall');
+    depositNear(s, (c.x + 0.5) * CELL, { stone: TUNNEL_STONE });
+  }
   planRoad(s.land, c.x, c.y, false);
   setRoad(s.land, c.x, c.y);
   return true;
 }
 
+/** Whether a planned cell is a tunnel still to be cut. */
+export const isTunnelling = (s: GameState, i: number) => {
+  const c = cellAt(s.land, i);
+  return groundAt(s.land, c.x, c.y) === 'mountain' && isTunnelCell(s, c.x, c.y);
+};
+
 /** How long a cell takes to lay (seconds of work). */
-export const paveSeconds = (s: GameState, i: number) => (isBridge(s, i) ? BRIDGE_SECONDS : PAVE_SECONDS);
+export const paveSeconds = (s: GameState, i: number) => (isBridge(s, i) ? BRIDGE_SECONDS : isTunnelling(s, i) ? TUNNEL_SECONDS : PAVE_SECONDS);
 
 /** Every street planned laid at once (the founding: the first streets are there when the town begins). */
 export function layAll(s: GameState): void {
