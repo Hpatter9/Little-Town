@@ -271,7 +271,7 @@ const same = (a: Pt | undefined, b: Pt) => !!a && Math.abs(a.x - b.x) < 1 && Mat
  *  it's going). `tick` lets the path be looked at again now and then. A swimmer (`swim`: the merfolk) goes through the
  *  sea as readily as over the land. */
 /** How much faster a walker goes on a street or road than over open ground. */
-export const ROAD_SPEED = 1.25;
+export const ROAD_SPEED = 1.2;
 
 export function walk(s: Pick<GameState, 'buildings' | 'land' | 'nomad' | 'origin'>, w: Walker, goal: Pt, step: number, through?: Rect, tick = 0, swim = false): boolean {
   const to = standFor(s.land, w, goal);
