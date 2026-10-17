@@ -9,8 +9,9 @@ import { Texture } from 'pixi.js';
 import { CELL, groundAt, isRoad, type LandMap, FOG_BAND, wearAt, WEAR_FULL, WEAR_SHOW , wet } from '../../shared/sim/land';
 import type { TdTiles } from '../art/tdTiles';
 import type { Era } from '../../shared/data/eras';
+import { bridgePiece, maskOf } from '../art/autotile';
 import { drawRoadCell, drawWornPatch, ROAD_BY_ERA, roadTilesReady } from '../art/roadTiles';
-import { drawPatch, drawPier, drawRipple, drawTuft, groundDetailReady, groundUnder, type Patch } from '../art/groundDetail';
+import { drawBridge, drawPatch, drawRipple, drawTuft, groundDetailReady, groundUnder, type Patch } from '../art/groundDetail';
 import { PROP_FINE, propFrames, propImage } from '../art/props';
 import { paintMountain, paintMountainEdge } from './mountainArt';
 
@@ -521,10 +522,13 @@ export function paintChunk(m: LandMap, cx: number, cy: number, season: string, b
           if (other) drawWornPatch(g, px + CELL / 2 + (dx * CELL) / 2, py + CELL / 2 + (dy * CELL) / 2, 18, Math.min(a, WORN_ALPHA[other]));
         }
       }
-      // a road out over the water: a wooden pier (a shore town's way to its homes in the sea)
+      // a road out over the water: a wooden bridge (a street across a river, a shore town's way to its homes in the
+      // sea), its piece by the roads round it, so a bridge that turns or meets another has no rail across the way on
       if (road && wet(kind) && pack) {
-        const across = (isRoad(m, x - 1, y) || isRoad(m, x + 1, y)) && !(isRoad(m, x, y - 1) || isRoad(m, x, y + 1));
-        drawPier(g, across, px, py);
+        const on = (dx: number, dy: number) => isRoad(m, x + dx, y + dy);
+        const over = (dx: number, dy: number) => on(dx, dy) && wet(groundAt(m, x + dx, y + dy));
+        const diag = (on(1, -1) ? 1 : 0) | (on(1, 1) ? 2 : 0) | (on(-1, 1) ? 4 : 0) | (on(-1, -1) ? 8 : 0);
+        drawBridge(g, bridgePiece(maskOf(on), maskOf(over), diag), px, py);
       } else if (packRoad) {
         const grassy = kind === 'grass' || kind === 'forest' || kind === 'marsh' || kind === 'hill';
         drawRoadCell(g, px, py, ROAD_BY_ERA[era], grassy && season !== 'winter', (dx, dy) => isRoad(m, x + dx, y + dy));
