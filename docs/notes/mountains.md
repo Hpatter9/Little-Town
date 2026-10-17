@@ -55,7 +55,11 @@ relief last; `stepCost` and `findPath` read it), "Solid mountains" (the ranges a
   town's reach before looking for flat ground, and any number where it finds no flat ground.
 - **Tunnel through it (`sim/tunnels.ts`).** A main street of the town plan (`layout.ts` `extendMains`) that runs into
   rock, where the ridge is at most `TUNNEL_THICK` 6 cells thick, the ground past it open, and going round more than
-  `TUNNEL_DETOUR` 24 cells longer than going through (or impossible), is planned through it (`tunnelThrough`). The
+  `TUNNEL_DETOUR` 24 cells longer than going through (or impossible), is planned through it (`tunnelThrough`). Any
+  other street the town plans (`buildings.ts` `layStreet`: a building's road to the streets, a gate's path) may go
+  through thin rock too (`thinRock`: a range's or an outcrop's cell with a run of rock of `TUNNEL_THICK` or fewer one
+  way or the other), each cell of it costing the search `TUNNEL_COST` 7 against a road's 1 (`PathOpts.bore`), so it
+  tunnels only where going round is far longer; in the soaks it was mostly the way to a quarry. The
   pavers cut it a cell at a time like a bridge, slowly (`TUNNEL_SECONDS` 150 a cell, `streets.ts` `paveSeconds`); a
   cell cut is dug ground (`hall`) under the street, and its `TUNNEL_STONE` 3 stone go to the stores. Walkers and
   raiders both take it (a street is the cheapest ground: the raiders' trails are `findPath`s, `battle.ts` `leg`). Never
@@ -75,16 +79,19 @@ relief last; `stepCost` and `findPath` read it), "Solid mountains" (the ranges a
   out of this branch while claude/stuck-foes works there: `warningMinutes * highSight(s, lookout)` and
   `d.range * highSight(s, b)` are the one-line hooks.
 - **Drawn (`map/reliefArt.ts`, called from `groundArt.ts` `paintChunk` in a block of its own after the mountain's
-  edges, its key in `chunkKey` via `reliefKey`).** The downs and rocky hills shaded as they swell (lit from the
-  north-west like the mountain, in 4 px blocks), grey stones among the rocky hills; the high ground's brow lit, its
-  cliffs the Undead tileset's jagged overhang (`art/under/cliff.png`, two strips deep) hanging below a shelf's
-  southern edge, a dark rim on its east and west, a shadow at the foot of a face to the south; a ramp's steps; a
-  tunnel's cells darkened with the Rocky Area pack's cave entrance at each mouth (`art/relief/cave_mouth.png`). The
+  edges, its key in `chunkKey` via `reliefKey`).** Hill country shaded as it rises and falls (`heightAt`: the cells' rise blended
+  between their middles plus a swell of its own, lit from the north-west like the mountain, in 4 px blocks), each form
+  with a cast of its own (the downs' sunlit grass, the rocky hills' grey, the high ground's light), grey stones among
+  the rocky hills; the high ground's brow lit, its
+  cliffs a face of the mountain's own stone columns (`mountainArt.ts` `faceColumn`, `faceHeight`, now exported) under
+  the Undead tileset's jagged overhang (`art/under/cliff.png`) below a shelf's southern edge, a dark rim on its east and west, a shadow at the foot of a face to the south; a ramp's steps; a
+  tunnel's cells darkened (`art/relief/cave_mouth.png` at each mouth, drawn after the roads). The
   outcrops are painted as rocky ground (`paintLand`: their cells read as `rock` to the chunk painter, so the mountain's
   mass and jagged edges are kept for the ranges) with a boulder from the Rocks pack stood on each
   (`mapView.ts` `syncOutcrops`, `art/relief/rock_*.png`: mossy, slate, desert, snowy, grey and canyon by the land's
   look, the snowy in winter and in the cold lands; big where the rock runs on, small at its edge). The quarry is the
-  Rocky Area pack's big cave entrance (`art/packs/rocky_adit.png`, `packBuildings.ts`). The ranges keep the mountain
+  Rocky Area pack's plain stone cave entrance (`art/packs/rocky_adit.png`, `packBuildings.ts`), as is a tunnel's mouth,
+  drawn over the street where it enters the rock. The ranges keep the mountain
   art (`mountainArt.ts`). No evening shadow off the mountains yet.
 - **Tests: `test/relief.test.ts`** (level lands as before, relief only adds rock and passes, each land's shares near
   its table, every cell reachable both ways, paths never on rock nor up a cliff, a tunnel through a ridge with no way

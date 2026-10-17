@@ -9,6 +9,7 @@ import { biomeById } from '../../shared/data/biomes';
 import { CELL, groundAt, isRoad, type LandMap } from '../../shared/sim/land';
 import { DOWNS, HIGH, RAMP, RANGE, ROCKY, isHigh } from '../../shared/sim/relief';
 import { loadImage } from '../art/loadImage';
+import { faceColumn, faceHeight } from './mountainArt';
 import cliffUrl from '../art/under/cliff.png';
 import mouthUrl from '../art/relief/cave_mouth.png';
 import moss3 from '../art/relief/rock_moss3.png';
@@ -91,32 +92,62 @@ export function reliefKey(m: LandMap, x0: number, y0: number, size: number): str
 const at = (m: LandMap, x: number, y: number) => (m.relief && x >= 0 && y >= 0 && x < m.w && y < m.h ? m.relief[y * m.w + x] : '0');
 /** How high a cell lies, for the shading (the high ground highest; the rock of a range and an outcrop higher still). */
 const rise = (c: string) => (c === DOWNS ? 1 : c === ROCKY ? 1.4 : c === HIGH || c === RAMP ? 2.2 : c === RANGE ? 3 : 0);
-/** A smoothed height (the cell and its eight about it), so a hill swells rather than steps. */
-function swell(m: LandMap, x: number, y: number): number {
-  let n = 0;
-  for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) n += rise(at(m, x + dx, y + dy)) * (dx || dy ? 1 : 2);
-  return n / 10;
+/** The lie of the land at a world point (px): the cells' rise blended between their middles, and in hill country a
+ *  swell and dip of its own (a smooth noise), so the downs roll rather than sit flat between their edges. */
+function heightAt(m: LandMap, wx: number, wy: number, hash: (seed: number, x: number, y: number) => number): number {
+  const fx = wx / CELL - 0.5;
+  const fy = wy / CELL - 0.5;
+  const x0 = Math.floor(fx);
+  const y0 = Math.floor(fy);
+  const tx = fx - x0;
+  const ty = fy - y0;
+  const r = (x: number, y: number) => rise(at(m, x, y));
+  const a = r(x0, y0) + (r(x0 + 1, y0) - r(x0, y0)) * tx;
+  const b = r(x0, y0 + 1) + (r(x0 + 1, y0 + 1) - r(x0, y0 + 1)) * tx;
+  const base = a + (b - a) * ty;
+  if (base <= 0) return 0;
+  // (the swell: a value noise a few cells across, only where the ground is hilly, and more so the hillier)
+  const S = 2.5 * CELL;
+  const nx = wx / S;
+  const ny = wy / S;
+  const ix = Math.floor(nx);
+  const iy = Math.floor(ny);
+  const sx = nx - ix;
+  const sy = ny - iy;
+  const ux = sx * sx * (3 - 2 * sx);
+  const uy = sy * sy * (3 - 2 * sy);
+  const p = hash(83, ix, iy) + (hash(83, ix + 1, iy) - hash(83, ix, iy)) * ux;
+  const q = hash(83, ix, iy + 1) + (hash(83, ix + 1, iy + 1) - hash(83, ix, iy + 1)) * ux;
+  return base + (p + (q - p) * uy) * Math.min(1, base) * 1.1;
 }
 
 /** A cell's relief, painted over its ground (before the footpaths and roads). */
-export function paintRelief(g: CanvasRenderingContext2D, m: LandMap, x: number, y: number, px: number, py: number, hash: (seed: number, x: number, y: number) => number): void {
+export function paintRelief(g: CanvasRenderingContext2D, m: LandMap, x: number, y: number, px: number, py: number, hash: (seed: number, x: number, y: number) => number, rock: [string, string, string]): void {
   if (!m.relief) return;
   const c = at(m, x, y);
   const kind = groundAt(m, x, y);
   if (kind === 'water' || kind === 'shallows' || kind === 'mountain') return;
   // the hills' rise and fall: the slopes facing the north-west lit, those facing the south-east in shade, in 4px blocks
   // so the swell shades smoothly across the cell
-  const s0 = swell(m, x, y);
-  if (c !== '0' || s0 > 0) {
-    const [sw, se, sn, ss] = [swell(m, x - 1, y), swell(m, x + 1, y), swell(m, x, y - 1), swell(m, x, y + 1)];
+  const hilly = c !== '0' || [[1, 0], [-1, 0], [0, 1], [0, -1]].some(([dx, dy]) => at(m, x + dx, y + dy) !== '0');
+  if (hilly) {
+    // (each form's own cast over its ground: the downs' sunlit grass, the rocky hills' grey, the high ground's light)
+    const cast = c === DOWNS ? 'rgba(255, 238, 180, 0.08)' : c === ROCKY ? 'rgba(110, 104, 112, 0.12)' : isHigh(c) ? 'rgba(255, 244, 214, 0.1)' : '';
+    if (cast) {
+      g.fillStyle = cast;
+      g.fillRect(px, py, CELL, CELL);
+    }
     for (let by = 0; by < CELL; by += 4)
       for (let bx = 0; bx < CELL; bx += 4) {
-        const sx = bx < CELL / 2 ? s0 - sw : se - s0;
-        const sy = by < CELL / 2 ? s0 - sn : ss - s0;
+        const wx = x * CELL + bx + 2;
+        const wy = y * CELL + by + 2;
+        const h0 = heightAt(m, wx, wy, hash);
+        const sx = heightAt(m, wx + 4, wy, hash) - h0;
+        const sy = heightAt(m, wx, wy + 4, hash) - h0;
         // (light from the north-west: ground rising toward the south-east faces it)
-        const lit = (sx + sy) * 0.5;
-        if (Math.abs(lit) < 0.03) continue;
-        g.fillStyle = lit > 0 ? `rgba(255, 246, 214, ${Math.min(0.26, lit * 0.36).toFixed(3)})` : `rgba(18, 22, 40, ${Math.min(0.34, -lit * 0.46).toFixed(3)})`;
+        const lit = (sx + sy) * 4;
+        if (Math.abs(lit) < 0.05) continue;
+        g.fillStyle = lit > 0 ? `rgba(255, 246, 214, ${Math.min(0.24, lit * 0.3).toFixed(3)})` : `rgba(18, 22, 40, ${Math.min(0.3, -lit * 0.38).toFixed(3)})`;
         g.fillRect(px + bx, py + by, 4, 4);
       }
     // (the rocky hills: grey stones in the grass)
@@ -160,19 +191,19 @@ export function paintRelief(g: CanvasRenderingContext2D, m: LandMap, x: number, 
   const above = at(m, x, y - 1);
   const faceAbove = above === HIGH && !isRoad(m, x, y - 1) && !road;
   if (faceAbove) {
-    if (cliff)
-      // (two of the pack's overhangs, one below the other, for a face a good half cell high)
-      for (const [dy, salt] of [[6, 95], [-4, 91]])
-        for (let half = 0; half < 2; half++) {
-          const sx = Math.floor(hash(salt + half, x, y) * 30) * 16;
-          g.drawImage(cliff, sx, 0, 16, 30, px + half * 16, py + dy, 16, 26);
-        }
-    else {
-      g.fillStyle = '#3a3640';
-      g.fillRect(px, py, CELL, 14);
+    // (the face in the mountain's own stone, 2 px columns lit at the brow, then the pack's jagged overhang along its
+    // top and a shadow at its foot)
+    for (let k = 0; k < CELL; k += 2) {
+      const wx = x * CELL + k;
+      faceColumn(g, rock, px + k, py, py + faceHeight(wx, y) + 2, hash(97, wx >> 1, y) < 0.08);
     }
-    g.fillStyle = 'rgba(10, 12, 24, 0.25)';
-    g.fillRect(px, py + 20, CELL, 4);
+    if (cliff)
+      for (let half = 0; half < 2; half++) {
+        const sx = Math.floor(hash(91 + half, x, y) * 30) * 16;
+        g.drawImage(cliff, sx, 0, 16, 14, px + half * 16, py - 4, 16, 12);
+      }
+    g.fillStyle = 'rgba(10, 12, 24, 0.22)';
+    g.fillRect(px, py + 16, CELL, 4);
   }
   for (const side of [-1, 1]) {
     const n = at(m, x + side, y);
@@ -192,15 +223,16 @@ export function paintRelief(g: CanvasRenderingContext2D, m: LandMap, x: number, 
  *  ground. The pack's cave entrance stood over the ground before it, facing out. */
 export function paintTunnelMouth(g: CanvasRenderingContext2D, m: LandMap, x: number, y: number, px: number, py: number): void {
   if (!m.relief || groundAt(m, x, y) !== 'hall' || !isRoad(m, x, y)) return;
+  // (the street comes in from open ground on that side: a mouth; along the tunnel, none)
   const open = (dx: number, dy: number) => {
     const k = groundAt(m, x + dx, y + dy);
-    return k !== 'mountain' && k !== 'hall';
+    return k !== 'mountain' && k !== 'hall' && isRoad(m, x + dx, y + dy);
   };
   const mouth = images.get(mouthUrl);
   // (the rock round the dug cell darkened in, the way through black at its heart)
   g.fillStyle = 'rgba(6, 6, 12, 0.55)';
   g.fillRect(px + 6, py + 4, CELL - 12, CELL - 8);
   if (!mouth) return;
-  // (the arch over the way out, on the cell itself, when it opens onto open ground on any side)
+  // (the arch over the way out, on the cell itself)
   if ([[0, 1], [0, -1], [1, 0], [-1, 0]].some(([dx, dy]) => open(dx, dy))) g.drawImage(mouth, px, py - 2, CELL, CELL);
 }

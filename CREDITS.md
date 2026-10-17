@@ -450,7 +450,7 @@ see Effects).
 
 The outcrops among the rocky hills (`src/renderer/art/relief/rock_*.png`: the moss, slate, desert, snowy, cave and canyon
 rocks, three sizes each, by the land's look) are from **Craftpix.net**'s free Rocks Pixel Art asset pack; the tunnels'
-mouths (`art/relief/cave_mouth.png`) and the quarry's adit (`art/packs/rocky_adit.png`) are the cave entrances of
+mouths (`art/relief/cave_mouth.png`) and the quarry's adit (`art/packs/rocky_adit.png`) are the plain stone cave entrance of
 **Craftpix.net**'s free Rocky Area Objects pack; the high ground's cliff faces reuse the Undead Tileset's jagged cliffs
 (`art/under/cliff.png`, credited with the Underdark above). Under Craftpix's free licence (use in the game; the raw files
 are not redistributed): https://craftpix.net/file-licenses/.

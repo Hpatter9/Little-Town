@@ -512,11 +512,8 @@ export function paintChunk(m: LandMap, cx: number, cy: number, season: string, b
         }
       // the mountain's jagged edge biting into the terrain beside it
       if (kind !== 'mountain' && kind !== 'hall') paintMountainEdge(g, m, x, y, px, py, pal.mountain);
-      // the hills, the high ground's cliffs and ramps, a tunnel's mouth (sim/relief.ts: map/reliefArt.ts)
-      if (m.relief) {
-        paintRelief(g, m, x, y, px, py, hash);
-        paintTunnelMouth(g, m, x, y, px, py);
-      }
+      // the hills, the high ground's cliffs and ramps (sim/relief.ts: map/reliefArt.ts)
+      if (m.relief) paintRelief(g, m, x, y, px, py, hash, pal.mountain);
       // a footpath worn by walking: patches of bare earth along it, toward each worn (or road) neighbour
       const worn = wornLevel(m, x, y);
       if (worn && !wet(kind) && roadTilesReady()) {
@@ -537,6 +534,8 @@ export function paintChunk(m: LandMap, cx: number, cy: number, season: string, b
         const grassy = kind === 'grass' || kind === 'forest' || kind === 'marsh' || kind === 'hill';
         drawRoadCell(g, px, py, ROAD_BY_ERA[era], grassy && season !== 'winter', (dx, dy) => isRoad(m, x + dx, y + dy));
       }
+      // (a tunnel's mouth over its street, sim/tunnels.ts: map/reliefArt.ts)
+      if (m.relief) paintTunnelMouth(g, m, x, y, px, py);
     }
   // beyond the open land the ground fades into the dark, smoothly (by each 4px block's own distance, not the cell's),
   // further out the darker, black by the band's end

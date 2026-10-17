@@ -48,7 +48,7 @@ for (const o of names) {
         s.research.done.push('steam_power', 'cartography', 'steelmaking', 'aeronautics', 'rigid_airships');
         if (process.env.SKY === 'ship') { s.buildings.push({ id: s.nextId++, def: 'airship_mast', tile: s.land.camp.x + 4, row: s.land.camp.y + 3, status: 'done', delivered: {}, progress: 1, store: {} } as never); launchAirship(s, 'zeppelin'); }
       }
-    } else s = newGame(`soak${k}`, { origin: o as never, relief: process.env.RELIEF !== '0', ...(process.env.BIOME ? { biome: process.env.BIOME as never } : {}) }); // (RELIEF=0: a level land, as towns had before relief; BIOME=highlands: the land)
+    } else s = newGame(`soak${k + Number(process.env.SEEDOFF ?? 0)}`, { origin: o as never, relief: process.env.RELIEF !== '0', ...(process.env.BIOME ? { biome: process.env.BIOME as never } : {}) }); // (RELIEF=0: a level land, as towns had before relief; BIOME=highlands: the land)
     if (process.env.DIRECTION) s.direction = process.env.DIRECTION as never; // (DIRECTION=trade: the town's direction, set from the start)
     const r = run(s, DAYS);
     if (r.over) console.log(`  ${o} seed ${k} ended day ${r.end}: ${r.over}`);

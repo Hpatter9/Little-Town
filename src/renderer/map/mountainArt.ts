@@ -41,7 +41,7 @@ const SNOW_SHADE: [number, number, number] = [176, 184, 200];
 export const isMountain = (m: LandMap, x: number, y: number) => groundAt(m, x, y) === 'mountain';
 
 /** How tall the cliff face at the mountain's foot stands within its cell (px), at a world x: 6 to 12. */
-const faceHeight = (x: number, y: number) => 8 + Math.floor(smooth(SEED ^ 0x41, x / 5, y * 3) * 7);
+export const faceHeight = (x: number, y: number) => 8 + Math.floor(smooth(SEED ^ 0x41, x / 5, y * 3) * 7);
 
 /** How far a spur of the cliff reaches down into the cell below (px): nothing mostly, up to 11 at a buttress. */
 function cliffDrop(x: number, y: number): number {
@@ -51,7 +51,7 @@ function cliffDrop(x: number, y: number): number {
 
 /** One 2px column of cliff face from `top` to `bottom` (px): lit at the brow, darkening to its foot, a fissure now
  *  and then, a dark line under it. */
-function faceColumn(g: Ctx, pal: [string, string, string], px: number, top: number, bottom: number, fissure: boolean): void {
+export function faceColumn(g: Ctx, pal: [string, string, string], px: number, top: number, bottom: number, fissure: boolean): void {
   const light = rgb(pal[2]);
   const base = rgb(pal[0]);
   const h = bottom - top;
