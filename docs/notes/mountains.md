@@ -14,7 +14,7 @@ relief last; `stepCost` and `findPath` read it), "Solid mountains" (the ranges a
   checks five lands' digests against the old code). Everything new keys on `land.relief` being there, and anything the
   planner does with it runs with the autopilot only. `tools/sim-hash.mjs`: the fixture and hash-a to hash-d are
   identical to main (they are founded with `relief: false`); **hash-e** (settlers, founded with relief) is new, for
-  later chats to watch.
+  later chats to watch: `c96883b0fff3` after 6 days.
 - **The layer (`sim/relief.ts`, `LandMap.relief?`).** One character a cell: `0` level, `1` the downs (rolling hills),
   `2` rocky hills (with outcrops of solid `mountain` rock among them), `3` high ground (a shelf ringed by cliffs), `4`
   a ramp up onto it, `5` a range (solid `mountain` rock). `layRelief` runs after the rest of `makeLand`, on its own
@@ -100,3 +100,12 @@ relief last; `stepCost` and `findPath` read it), "Solid mountains" (the ranges a
   `tools/relief-map.mjs [biome] [seed] [shape]` prints a land's relief; `tools/probe-hills.mjs [days] [seeds] [biome]
   [origin]` what towns made of it; `tools/soak.mjs` takes `RELIEF=0` (a level land), `BIOME=` and `HILLS=1`;
   `tools/make-save.mjs` takes `SEED=`, `ORIGIN=`, `BIOME=`, `RELIEF=0`.
+- **Soak (`tools/soak.mjs`, 40 days, relief against `RELIEF=0`, the same seeds).** Highland settlers, 6 seeds: people
+  11.8 with relief, 10.2 level; deaths 6.7 and 8.0; none wiped. Forest knights, 8 seeds: people 12.5 and 13.3;
+  deaths 6.3 and 4.4. Forest settlers, 3 seeds: people 8.3 and 9.3; deaths 8.3 and 9.7. The first highland numbers,
+  before the walking costs were eased (1.25/1.35/1.1/1.2), the outcrops thinned (`OUTCROP_SHARE` 0.3) and the highland
+  range cut from 0.14, were 7.0 against 13.7: the ranges had taken the wood beyond the vale. Every relief town built a
+  quarry once it reached rock; most cut a building or two into a cliff; the tunnels came in the mountain lands (an
+  ashlands town's way to its quarry, by day 20). Phone check at 393x852 and 852x393: a hill town (highlands, its quarry
+  against an outcrop, a graveyard being cut into a face, the range behind), a mountain-side town with its quarry and
+  tunnel (ashlands) and a plains town with sparse downs (steppe).
