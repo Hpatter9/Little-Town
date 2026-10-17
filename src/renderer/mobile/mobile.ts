@@ -11,6 +11,7 @@ import { revealsOn, setItemOpener, setRevealsOn, showReveal, startReveals } from
 import { openCardInMenu, setMenuFrame } from './cardLink';
 import { buildingCard, buildingCardKey, type BuildingArt } from '../panel/buildingCard';
 import { PANELS, type StripState } from '../../shared/ipc';
+import type { Snapshot } from '../../shared/sim/snapshot';
 import { mobileBridge } from './mobileBridge';
 import { expeditionFill, researchFill } from '../../shared/format';
 import { css, mix, skyColors, weatherCover } from '../town/skyColors';
@@ -42,17 +43,34 @@ window.bridge = bridge;
 
 /* ------------------------------------------------------------ the loading screen (mobile/loading.ts) */
 
+/** What the main menu's Continue shows of the town. */
+const summaryOf = (snap: Snapshot) => ({ name: snap.townName, people: snap.people.length, day: snap.calendar.day, season: snap.calendar.season });
+
 // (its own script, up first: this page tells it what has come, and it says when it has gone, when the game's clock,
 // held till then, runs; no screen at all, and the clock runs at once)
 {
   const loading = (window as unknown as { __loading?: LoadingHost }).__loading;
   loading?.got('page');
   void bridge.getSnapshot().then((snap) => {
+    loading?.summary(summaryOf(snap));
     loading?.town(townSketch(snap, window.innerWidth / Math.max(1, window.innerHeight)));
     loading?.got('town');
   });
   if (loading) loading.onReveal(() => bridge.release?.());
   else bridge.release?.();
+  // (the main menu, up before any of this: its New game opens the founding flow and Settings the ☰ menu's settings)
+  loading?.setActions({
+    newGame: () => {
+      loading.peek(true);
+      bridge.openPanel('newgame');
+    },
+    settings: () => {
+      document.body.classList.add('mm-settings');
+      menu.hidden = false;
+      drawMenu();
+    },
+    leaving: () => bridge.closePanel(),
+  });
 }
 
 // Keep the town visible while its page is open on phones that support the Screen Wake Lock API. The browser releases
@@ -346,6 +364,9 @@ const applyState = (s: StripState) => {
   document.body.classList.toggle('menu-open', !!s.panel); // (menus take the whole screen)
   if (s.panel) menu.hidden = true;
   for (const t of tabButtons) t.b.classList.toggle('on', t.id === s.panel);
+  // (the founding panel opened from the main menu was closed unfounded: back to the menu)
+  const loading = (window as unknown as { __loading?: LoadingHost }).__loading;
+  if (!s.panel && loading?.peeking) loading.peek(false);
 };
 bridge.onState(applyState);
 void bridge.getState().then(applyState); // (a first run opens on the New town panel)
@@ -486,8 +507,23 @@ function drawMenu(): void {
     zoomInput.addEventListener('blur', commitZoom);
     zooms.append(zoomLabel, zoomInput, item('Reset zoom', () => (setZoom(DEFAULT_ZOOMS[orientation()]), drawMenu())));
     const installed = matchMedia('(display-mode: fullscreen), (display-mode: standalone)').matches;
+    // (the same list opens over the main menu from its Settings; what opens a panel waits for the game)
+    const fromMenu = document.body.classList.contains('mm-settings');
     menu.replaceChildren(
-      item('New town…', () => bridge.openPanel('newgame')),
+      ...(fromMenu
+        ? [item('Back to the main menu', () => (menu.hidden = true))]
+        : [
+            item('New town…', () => bridge.openPanel('newgame')),
+            item('Main menu', () => {
+              menu.hidden = true;
+              const loading = (window as unknown as { __loading?: LoadingHost }).__loading;
+              bridge.closePanel();
+              void bridge.suspend?.().then(async () => {
+                loading?.summary(summaryOf(await bridge.getSnapshot()));
+                loading?.showMenu();
+              });
+            }),
+          ]),
       item(`Music: ${s.music ? 'on' : 'off'}`, () => (bridge.setMusic(!s.music), drawMenu())),
       slider('music', 'Music volume'),
       slider('sfx', 'Sound effects volume'),
@@ -498,7 +534,7 @@ function drawMenu(): void {
       item(`Reveal cards: ${revealsOn() ? 'on' : 'off'}`, () => (setRevealsOn(!revealsOn()), drawMenu())),
       // (the loading screen's scene behind the logo, off for a slow phone: mobile/loading.ts)
       item(`Loading scene: ${loadingSceneOn() ? 'on' : 'off'}`, () => (setLoadingScene(!loadingSceneOn()), drawMenu())),
-      item('Phone alerts…', () => bridge.openPanel('alerts')),
+      ...(fromMenu ? [] : [item('Phone alerts…', () => bridge.openPanel('alerts'))]),
       label('Zoom, or pinch the town with two fingers'),
       zooms,
       ...(installed ? [] : [label('To install: Chrome menu ⋮ → Add to Home screen')]),
@@ -584,6 +620,8 @@ $('menu-btn').addEventListener('click', () => {
 });
 // (a tap in one of the frames doesn't reach this page, but it does take the focus away)
 window.addEventListener('blur', () => (menu.hidden = true));
+// (shut, the ☰ menu is the game's own again)
+new MutationObserver(() => menu.hidden && document.body.classList.remove('mm-settings')).observe(menu, { attributes: true, attributeFilter: ['hidden'] });
 document.addEventListener('pointerdown', (e) => {
   if (!menu.hidden && !(e.target instanceof Node && (menu.contains(e.target) || $('menu-btn').contains(e.target)))) menu.hidden = true;
 });

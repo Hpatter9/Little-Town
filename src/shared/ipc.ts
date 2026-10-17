@@ -119,6 +119,8 @@ export interface Bridge {
   command(c: Command): void;
   /** The phone's loading screen has gone: the game's clock, held till now, runs (renderer/mobile/loading.ts). */
   release?(): void;
+  /** Hold the clock and save the town now (the phone's "Main menu"). */
+  suspend?(): Promise<void>;
   getSnapshot(): Promise<Snapshot>;
   /** Subscribe to sim snapshots (sent every tick while visible). Returns an unsubscribe function. */
   onSnapshot(cb: (s: Snapshot) => void): () => void;

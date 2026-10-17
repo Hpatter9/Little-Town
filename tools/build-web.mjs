@@ -49,7 +49,7 @@ await esbuild.build({
 });
 // the loading screen, its own small script first in the page's body (mobile/loading.ts), and the pack pieces its logo
 // and scene are drawn from, beside it (loading/logo.ts `PIECE_FILES`)
-await esbuild.build({ entryPoints: ['src/renderer/mobile/loading.ts'], outfile: `${OUT}/loading.js`, bundle: true, platform: 'browser', format: 'iife', target: 'es2023', logLevel: 'warning' });
+await esbuild.build({ define: { __GAME_VERSION__: JSON.stringify(pkgVersion), __GAME_COMMIT__: JSON.stringify(commit), __GAME_BUILT__: JSON.stringify(built) }, entryPoints: ['src/renderer/mobile/loading.ts'], outfile: `${OUT}/loading.js`, bundle: true, platform: 'browser', format: 'iife', target: 'es2023', logLevel: 'warning' });
 mkdirSync(`${OUT}/loading`, { recursive: true });
 for (const f of [
   'art/village/house1.png',
