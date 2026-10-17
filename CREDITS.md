@@ -451,3 +451,18 @@ of `Characters/Quadraped0.png`: **DragonDePlatino**, on **DawnBringer**'s palett
 cutscenes (`src/renderer/art/scene/`, see the cutscenes' props): the barrel, cart, wagon, picnic table, rock, hay,
 bucket, gravestone, bread, apple and lantern. The fire is the game's own flame (`src/renderer/art/effects/flame.png`,
 see Effects).
+
+## The loading screen and the logo
+
+The loading screen (`src/renderer/mobile/loading.ts`) and the game's logo (`src/renderer/loading/logo.ts`, and the
+phone's home-screen icon drawn from it, `src/renderer/mobile/art/icon-192.png` and `icon-512.png`, by
+`tools/compose-logo.cjs`) add no new art: they are put together from sprites already in the game and credited above,
+copied beside the page by the phone build (`out/web/loading/`). The logo's skyline is **Craftpix.net**'s Village
+Tileset's timber houses (`house1.png`, `house2.png`, `house4.png`) behind its palisade's stakes (`palisade04.png`), with
+the Fields Tileset's banner the seats fly (`seats/flag.png`); the words sit on the carved wood of the frame set (`ui/art/wood.png`), and the
+sun on its arc and the loading bar's trough are **DawnLike**'s `GUI/GUI0.png` (`ui/art/gui0.png`) by
+**DragonDePlatino**, on **DawnBringer**'s palette, **CC-BY 4.0**. The words are set in Alegreya SC (SIL Open Font
+License). The town painted behind the logo uses the same houses, the Village Tileset's market tent (`tent2.png`), the
+Fields Tileset's soil (`fields/soil01.png`) and the cutscenes' camp tent and firepit (`scene/`); the founding scene is
+the cutscenes' tent, firepit and log, Duchess the goat (**whtdragon**'s RPG Maker MV white goat) and the
+**5000 Pixel Effects** flame (`effects/flame.png`).

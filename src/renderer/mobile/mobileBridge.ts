@@ -123,7 +123,7 @@ export function mobileBridge(): Bridge {
     });
   const catchingUp = () => !!assembler.current?.catchingUp;
   // (boot.js has sent the town already, when it could start the worker)
-  if (!(window as unknown as { __simBoot?: unknown }).__simBoot) send({ t: 'init', save: savedText, now: Date.now(), hidden: document.hidden, alerts });
+  if (!(window as unknown as { __simBoot?: unknown }).__simBoot) send({ t: 'init', save: savedText, now: Date.now(), hidden: document.hidden, alerts, held: true });
   else send({ t: 'hidden', on: document.hidden });
 
   // Phone alerts (ntfy): booked for the time away as the page goes to the background (the game's side looks ahead
@@ -240,6 +240,8 @@ export function mobileBridge(): Bridge {
       });
     },
     command: (c) => send({ t: 'command', c }),
+    // (the loading screen has gone: the clock runs)
+    release: () => send({ t: 'hold', on: false }),
     getSnapshot: () => (assembler.current ? Promise.resolve(assembler.current) : first),
     onSnapshot: (cb) => {
       snapListeners.add(cb);

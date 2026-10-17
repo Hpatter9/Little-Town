@@ -58,7 +58,7 @@ import gateDoorSide from '../art/village/gate_door_side.png';
 import gateLadder from '../art/village/gate_ladder.png';
 import palisade19 from '../art/village/palisade19.png';
 import type { Piece } from '../art/autotile';
-import { grateTile, palisadeTile, stoneTile, type Part } from '../art/wallTiles';
+import { GRATE_COL, grateTile, palisadeTile, stoneTile, type Part } from '../art/wallTiles';
 import dwalls from '../art/village/dwalls.png';
 import dprops from '../art/village/dprops.png';
 import grave1 from '../art/village/grave1.png';
@@ -1072,3 +1072,20 @@ export function packDressing(def: string, id: number, w: number, style: string):
 
 /** Whether a building has a pack picture in a look (the audit of what's still painted: test/packCoverage.test.ts). */
 export const pickCovered = (def: string, style: string): boolean => !!pickFor(def, style);
+
+/** Every pack picture a building may be drawn from in a look (its variants, its parts, a wall's joins, a windmill's
+ *  sails): the loading screen warms them before the town is shown (loading/stripLoad.ts). */
+export function packUrls(def: string, style: string): string[] {
+  const pick = pickFor(def, style);
+  if (!pick) return [];
+  const t = pick.turning;
+  // (a line's pieces by every join it can make, and each of its runs: art/wallTiles.ts)
+  const tiles: string[] = [];
+  if (pick.tile)
+    for (const join of Object.keys(GRATE_COL))
+      for (let id = 0; id < (pick.tileVariants ?? 1); id++) {
+        const piece = pick.tile(join, id);
+        if (piece) tiles.push(...urlsOf(piece));
+      }
+  return [...new Set([...urlsOf(pick), ...Object.values(pick.joins ?? {}).flatMap((j) => (j ? urlsOf(j) : [])), ...tiles, ...(t ? [t.body, t.sail, t.hub] : [])])];
+}
