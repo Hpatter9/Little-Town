@@ -4,6 +4,7 @@ import '../src/shared/data/events'; // (first: the event kit's own import order)
 import { Rng } from '../src/shared/rng';
 import { buildable, CELL, cellAt, groundAt, isPlannedRoad, isRoad, planRoad, wet } from '../src/shared/sim/land';
 import { makePerson, type GameState } from '../src/shared/sim/state';
+import { thinRock } from '../src/shared/sim/tunnels';
 import { streetWork } from '../src/shared/sim/streets';
 import { START_HOUR, TICKS_PER_DAY, TICKS_PER_HOUR } from '../src/shared/sim/time';
 import { roadShare, villageRoadHourly } from '../src/shared/sim/villageRoad';
@@ -41,7 +42,7 @@ function build(s: GameState, v: Village, town: boolean, days = 60): number {
 
 /** Ticks a walker takes to go from the village to the town's fire. */
 function trip(s: GameState, v: Village): number {
-  const w = { x: (v.x + 0.5) * CELL, y: (v.y + 2.5) * CELL };
+  const w = { x: (v.x + 0.5) * CELL, y: (v.y + 2.5) * CELL, dir: 1 as const };
   const camp = s.land.camp;
   for (let t = 1; t < 6000; t++) if (walk(s, w, { x: (camp.x + 0.5) * CELL, y: (camp.y + 1.5) * CELL }, 4.8, undefined, t)) return t;
   return 6000;
@@ -59,11 +60,12 @@ test('a village is founded with a road planned to the town', () => {
 
 test('the road keeps off rock and water but for bridges', () => {
   const { s, v } = townWithVillage('vroad-ground');
+  const thin = thinRock(s);
   for (const i of v.road!.cells) {
     const c = cellAt(s.land, i);
     const g = groundAt(s.land, c.x, c.y);
-    assert.ok(buildable(g) || wet(g), `cell ${c.x},${c.y} on ${g}`);
-    assert.notEqual(g, 'mountain');
+    assert.ok(buildable(g) || wet(g) || g === 'mountain', `cell ${c.x},${c.y} on ${g}`);
+    if (g === 'mountain') assert.ok(thin?.(c.x, c.y), `rock at ${c.x},${c.y} is no tunnel`);
   }
 });
 
@@ -98,6 +100,6 @@ test('a village from an older save gets a road planned on load', () => {
   delete v.road;
   s.tick = dayAt(5);
   villageRoadHourly(s);
-  assert.ok(v.road && v.road.cells.length > 10, 'planned again');
+  assert.ok((v as Village).road && (v as Village).road!.cells.length > 10, 'planned again');
   assert.ok(s.notices.some((n) => n.text.includes('sets about a road')));
 });

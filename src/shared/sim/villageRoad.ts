@@ -10,6 +10,7 @@
 
 import { ROAD_RETRY_DAYS, VILLAGE_ROAD_HOUR, VILLAGE_ROAD_SEC } from '../data/villages';
 import { castleGate, castleOn } from './castle';
+import { thinRock, TUNNEL_COST } from './tunnels';
 import { layStreet, nearestStreet } from './buildings';
 import { findPath, idx, isPlannedRoad, isRoad, type Pt } from './land';
 import { notify, campCell, type GameState } from './state';
@@ -43,7 +44,8 @@ function trace(s: GameState, v: Village): number[] | null {
   const to = townFront(s);
   const onRoad = (x: number, y: number) => isRoad(m, x, y) || isPlannedRoad(m, x, y);
   if (!onRoad(from.x, from.y)) return null;
-  const path = findPath(m, from, to, (x, y) => !onRoad(x, y), { maxNodes: 20000, four: true, swim: 1 });
+  const thin = thinRock(s); // (a planned tunnel through a thin ridge: sim/tunnels.ts)
+  const path = findPath(m, from, to, (x, y) => !onRoad(x, y), { maxNodes: 20000, four: true, swim: 1, ...(thin ? { bore: { cost: TUNNEL_COST, ok: thin } } : {}) });
   if (!path) return null;
   return [from, ...path].filter((c) => onRoad(c.x, c.y)).map((c) => idx(m, c.x, c.y));
 }
