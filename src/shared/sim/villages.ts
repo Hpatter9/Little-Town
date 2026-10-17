@@ -27,7 +27,8 @@ import {
   SELLSWORDS_COINS, SENT_HELP_LOYALTY, SETTLERS, TAX_LOYALTY, TITHE_AT, VILLAGE_DIST, VILLAGE_FROM_DAY, VILLAGE_GAP_DAYS, VILLAGE_GROWTH, VILLAGE_HOUR, VILLAGE_KEEP, VILLAGE_MOST_FOLK, VILLAGE_PEOPLE, VILLAGE_PEOPLE_AT_SIZE, VILLAGE_R, VILLAGE_TIERS, VILLAGES_MOST, WED_DAILY, WED_LOYALTY, WORTH_SHARE,
 } from '../data/villages';
 import { hashSeed, mixSeed, Rng } from '../rng';
-import { depthOf, depositNear, layStreet, nearestStreet } from './buildings';
+import { depthOf, depositNear } from './buildings';
+import { planVillageRoad, roadShare, villageRoadHourly, type VillageRoad } from './villageRoad';
 import { weddingFeast } from './ceremonies';
 import { earn, makePerson, notify, townFull, type Building, type GameState, type Person, type Prompt, type Raider, type Raid } from './state';
 import { killPerson } from './health';
@@ -79,6 +80,8 @@ export interface Village {
   cart?: number;
   /** Founded in the Underdark (sim/underdark.ts): no plots on the land, and it makes what the caves give. */
   below?: boolean;
+  /** The road to the town (sim/villageRoad.ts), once planned. */
+  road?: VillageRoad;
 }
 
 /** The plan of a village waiting on the town's answer. */
@@ -294,13 +297,13 @@ export function foundVillage(s: GameState, plan: Omit<VillagePlan, 'prompt'>, lo
   const reach = Math.ceil(Math.hypot(v.x - s.land.camp.x, v.y - s.land.camp.y)) + VILLAGE_R + 3;
   if (s.land.open < reach) s.land.open = reach;
   layPlots(s, v);
-  // (a road from the village's fire to the town's streets, for the town to lay)
-  const from = { x: v.x, y: v.y + 2 };
-  layStreet(s, from, nearestStreet(s, from), 200);
+  // (a road from the village's fire to the town's streets, laid from both ends: sim/villageRoad.ts)
+  const roaded = planVillageRoad(s, v);
   tell(v, `Founded by ${leaderOf(v).name} and ${goers.length - 1} others.`);
   // (the parting, told: data/cutscenes.ts)
   if (s.autopilot !== false) queueScene(s, 'village_founded', { vars: { village: v.name, leader: leaderOf(v).name }, people: { hero: leaderOf(v), worrier: goers.find((p) => p.id !== v.leader && !isChild(p)) } });
   notify(s, `${leaderOf(v).name} leads ${goers.length - 1} others out to found ${v.name}, ${compass(s, v)}.`, true);
+  if (roaded) notify(s, `${v.name} sets about a road to the town.`, true);
   return v;
 }
 
@@ -645,6 +648,7 @@ export function villagesHourly(s: GameState): void {
   // (the parting's question unanswered: the default stands)
   if (s.villagePlan && !s.prompts.some((p) => p.id === s.villagePlan!.prompt)) answerParting(s, 0, rng);
   if (hour === VILLAGE_HOUR && wantVillage(s)) proposeVillage(s, rng);
+  villageRoadHourly(s);
   for (const v of [...villagesOf(s)]) {
     if (hour === VILLAGE_HOUR) villageDay(s, v, rngOf(s, v.id));
     if (v.beset && s.tick >= v.beset.until) {
@@ -758,6 +762,8 @@ export interface VillageView {
   beset: string | null;
   helpers: string[];
   cartOut: boolean;
+  /** How much of the road to the town is laid (0 to 100), null if none is planned. */
+  road: number | null;
   tithe: boolean;
   canGift: boolean;
 }
@@ -784,6 +790,7 @@ export function villageViews(s: GameState): VillageView[] {
       beset: v.beset?.foe ?? null,
       helpers: (v.helpers?.ids ?? []).map((id) => s.people.find((p) => p.id === id)?.name ?? '').filter(Boolean),
       cartOut: v.cart !== undefined,
+      road: (() => { const r = roadShare(s, v); return r === null ? null : Math.round(r * 100); })(),
       tithe: v.loyalty >= TITHE_AT,
       canGift: (s.coins ?? 0) >= GIFT_COINS,
     };
