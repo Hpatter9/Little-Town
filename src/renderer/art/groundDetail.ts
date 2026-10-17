@@ -184,3 +184,6 @@ export function drawBridge(g: CanvasRenderingContext2D, p: BridgePiece, x: numbe
   if (p.posts & 2 && !(p.banks & E)) part('endE', 0, 22, 10, 14, 22, 20);
   return true;
 }
+
+/** Every picture the ground's detail is drawn from (the loading screen warms them: loading/stripLoad.ts). */
+export const groundDetailUrls = (): readonly string[] => ALL;

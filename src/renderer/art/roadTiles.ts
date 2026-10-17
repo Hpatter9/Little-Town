@@ -84,3 +84,6 @@ export function drawWornPatch(g: CanvasRenderingContext2D, cx: number, cy: numbe
   g.globalAlpha = 1;
   return true;
 }
+
+/** Every road sheet (the loading screen warms them: loading/stripLoad.ts). */
+export const roadTileUrls = (): readonly string[] => Object.values(URLS);

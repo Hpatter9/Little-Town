@@ -33,7 +33,8 @@ try {
     worker.onmessage = (e: MessageEvent) => (boot.take ? boot.take(e.data) : boot.early.push(e.data));
     worker.onerror = (e) => console.error('[boot] the sim worker failed', e);
     // (the worker tidies the alert settings itself: simHost.ts)
-    worker.postMessage({ t: 'init', save, now: Date.now(), hidden: document.hidden, alerts });
+    // (the clock held until the loading screen has gone: mobile/loading.ts, mobile.ts)
+    worker.postMessage({ t: 'init', save, now: Date.now(), hidden: document.hidden, alerts, held: true });
     (window as unknown as { __simBoot?: Boot }).__simBoot = boot;
   }
 } catch (err) {

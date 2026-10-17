@@ -20,6 +20,8 @@ import { applyUiLook } from '../ui/frame';
 import { wireTips } from '../ui/tips';
 import { createTopBar } from '../ui/topBar';
 import { watchMilestones } from './milestoneCards';
+import type { LoadingHost } from './loading';
+import { townSketch } from '../loading/sketch';
 
 /** A phone on its side (the same test as the page's CSS): the tabs run across the top, and the town fills the
  *  rest of the screen under them. */
@@ -37,6 +39,21 @@ const MIN_ZOOM = 0.25;
 const MAX_ZOOM = 2.6;
 const bridge = mobileBridge();
 window.bridge = bridge;
+
+/* ------------------------------------------------------------ the loading screen (mobile/loading.ts) */
+
+// (its own script, up first: this page tells it what has come, and it says when it has gone, when the game's clock,
+// held till then, runs; no screen at all, and the clock runs at once)
+{
+  const loading = (window as unknown as { __loading?: LoadingHost }).__loading;
+  loading?.got('page');
+  void bridge.getSnapshot().then((snap) => {
+    loading?.town(townSketch(snap, window.innerWidth / Math.max(1, window.innerHeight)));
+    loading?.got('town');
+  });
+  if (loading) loading.onReveal(() => bridge.release?.());
+  else bridge.release?.();
+}
 
 // Keep the town visible while its page is open on phones that support the Screen Wake Lock API. The browser releases
 // the lock when the page is hidden; ask for it again when the player returns.
@@ -479,6 +496,8 @@ function drawMenu(): void {
       ...('vibrate' in navigator ? [item(`Vibration: ${readVibrate() ? 'on' : 'off'}`, () => (saveVibrate(!readVibrate()), drawMenu()))] : []),
       item(`Tips: ${tipsOn() ? 'on' : 'off'}`, () => (setTipsOn(!tipsOn()), drawMenu())),
       item(`Reveal cards: ${revealsOn() ? 'on' : 'off'}`, () => (setRevealsOn(!revealsOn()), drawMenu())),
+      // (the loading screen's scene behind the logo, off for a slow phone: mobile/loading.ts)
+      item(`Loading scene: ${loadingSceneOn() ? 'on' : 'off'}`, () => (setLoadingScene(!loadingSceneOn()), drawMenu())),
       item('Phone alerts…', () => bridge.openPanel('alerts')),
       label('Zoom, or pinch the town with two fingers'),
       zooms,
@@ -532,6 +551,20 @@ function setMinimap(on: boolean): void {
     try {
       localStorage.setItem('littletown.minimap', on ? '1' : '0');
     } catch {}
+}
+/** The loading screen's scene (mobile/loading.ts reads the same key; kept apart so this page needn't bundle it). */
+const SCENE_KEY = 'littletown.loadingScene';
+function loadingSceneOn(): boolean {
+  try {
+    return localStorage.getItem(SCENE_KEY) !== '0';
+  } catch {
+    return true;
+  }
+}
+function setLoadingScene(on: boolean): void {
+  try {
+    localStorage.setItem(SCENE_KEY, on ? '1' : '0');
+  } catch {}
 }
 /** The version line at the foot of the menu. */
 function version(): HTMLElement {

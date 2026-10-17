@@ -117,6 +117,8 @@ export interface Bridge {
 
   /** Send a player action to the sim. */
   command(c: Command): void;
+  /** The phone's loading screen has gone: the game's clock, held till now, runs (renderer/mobile/loading.ts). */
+  release?(): void;
   getSnapshot(): Promise<Snapshot>;
   /** Subscribe to sim snapshots (sent every tick while visible). Returns an unsubscribe function. */
   onSnapshot(cb: (s: Snapshot) => void): () => void;
