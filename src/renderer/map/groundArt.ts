@@ -13,6 +13,7 @@ import { bridgePiece, maskOf } from '../art/autotile';
 import { drawRoadCell, drawWornPatch, ROAD_BY_ERA, roadTilesReady } from '../art/roadTiles';
 import { drawBridge, drawPatch, drawRipple, drawTuft, groundDetailReady, groundUnder, type Patch } from '../art/groundDetail';
 import { PROP_FINE, propFrames, propImage } from '../art/props';
+import { hash, latticeNoise, smooth } from './groundNoise';
 import { paintMountain, paintMountainEdge } from './mountainArt';
 
 /** How many of the shore's water cells show the bottom (the Seabed pack's corals, urchins, starfish and shells) through
@@ -23,7 +24,7 @@ const TIDE_POOLS = 0.22;
 
 /** Cells to a chunk's side. */
 export const CHUNK = 8;
-export { FOG_BAND };
+export { FOG_BAND, hash };
 
 interface Pal {
   grass: [string, string, string];
@@ -111,28 +112,19 @@ const WARP = 15;
 /** The size (px) of the borders' wiggles. */
 const WARP_SCALE = 20;
 
-/** Smooth value noise over world px (0..1), the same across chunks. */
-function smooth(seed: number, x: number, y: number, scale: number): number {
-  const gx = x / scale;
-  const gy = y / scale;
-  const ix = Math.floor(gx);
-  const iy = Math.floor(gy);
-  const fx = gx - ix;
-  const fy = gy - iy;
-  const sx = fx * fx * (3 - 2 * fx);
-  const sy = fy * fy * (3 - 2 * fy);
-  const a = hash(seed, ix, iy);
-  const b = hash(seed, ix + 1, iy);
-  const c = hash(seed, ix, iy + 1);
-  const d = hash(seed, ix + 1, iy + 1);
-  return a + (b - a) * sx + (c - a) * sy + (a - b - c + d) * sx * sy;
-}
-
-/** A quick deterministic hash of a point (0..1). */
-export function hash(seed: number, x: number, y: number): number {
-  let h = (seed * 374761393 + x * 668265263 + y * 2147483647) | 0;
-  h = Math.imul(h ^ (h >>> 13), 1274126177);
-  return ((h ^ (h >>> 16)) >>> 0) / 4294967296;
+/** The fog's colour (little-endian ABGR, no alpha) and the unseen's, which is fully dark. */
+const FOG_RGB = (18 << 16) | (10 << 8) | 8;
+const FOG_DARK = ((255 << 24) | (0x14 << 16) | (0x0d << 8) | 0x0b) >>> 0;
+let fogCache: { canvas: HTMLCanvasElement; g: CanvasRenderingContext2D; img: ImageData } | null = null;
+/** The small canvas a chunk's fog is laid on (one pixel to a 4px block), kept between chunks. */
+function fogImage(blocks: number): NonNullable<typeof fogCache> {
+  if (!fogCache || fogCache.canvas.width !== blocks) {
+    const canvas = document.createElement('canvas');
+    canvas.width = canvas.height = blocks;
+    const g = canvas.getContext('2d')!;
+    fogCache = { canvas, g, img: g.createImageData(blocks, blocks) };
+  }
+  return fogCache;
 }
 
 /** How a cell is seen: 2 known, 1 dim (just beyond the open land), 0 unseen. */
@@ -162,8 +154,8 @@ function rgb(c: string): number[] {
 /** Which of the ground's art sheets have loaded (part of every chunk's key; the map watches it to know when to look again). */
 export const groundArtReady = (): string => `${groundDetailReady() ? 1 : 0}${roadTilesReady() ? 1 : 0}${propImage('sea') ? 1 : 0}`;
 
-export function chunkKey(m: LandMap, cx: number, cy: number, season: string, td: boolean, era: Era = 'neolithic', blight = false, biome = 'forest'): string {
-  let s = `${season}|${biome}|${td ? 1 : 0}|${groundDetailReady() ? 1 : 0}|${blight ? 'b' : ''}|${roadTilesReady() ? ROAD_BY_ERA[era] : ''}|${m.open}|${propImage('sea') ? 's' : ''}|`;
+export function chunkKey(m: LandMap, cx: number, cy: number, season: string, _td: boolean, era: Era = 'neolithic', blight = false, biome = 'forest'): string {
+  let s = `${season}|${biome}|${groundDetailReady() ? 1 : 0}|${blight ? 'b' : ''}|${roadTilesReady() ? ROAD_BY_ERA[era] : ''}|${m.open}|${propImage('sea') ? 's' : ''}|`;
   for (let y = cy * CHUNK; y < (cy + 1) * CHUNK; y++) {
     const i0 = y * m.w + cx * CHUNK;
     s += m.cells.slice(i0, i0 + CHUNK) + m.roads.slice(i0, i0 + CHUNK);
@@ -307,21 +299,59 @@ export function paintChunk(m: LandMap, cx: number, cy: number, season: string, b
     }
     return c;
   };
-  // the colour at a world pixel: its cell's, or the cell's at a point nudged by smooth noise (null: not laid here)
+  // the colours of the cells in and two round the chunk, looked up by the base pass for every pixel (the warp reaches
+  // at most one cell out, and the shore's neighbour tests two pixels more)
+  const NEAR = CHUNK + 4;
+  const nearCell: (number[] | null)[] = [];
+  for (let j = 0; j < NEAR; j++) for (let i = 0; i < NEAR; i++) nearCell.push(softAt(x0 - 2 + i, y0 - 2 + j));
+  const cellColour = (wx: number, wy: number): number[] | null => nearCell[(Math.floor(wy / CELL) - (y0 - 2)) * NEAR + Math.floor(wx / CELL) - (x0 - 2)];
+  // (the warp's two noises, their lattice hashed once for the chunk rather than for each pixel)
+  const warpX = latticeNoise(0x51, x0 * CELL - 8, y0 * CELL - 8, x0 * CELL + size + 8, y0 * CELL + size + 8, WARP_SCALE);
+  const warpY = latticeNoise(0x77, x0 * CELL - 8, y0 * CELL - 8, x0 * CELL + size + 8, y0 * CELL + size + 8, WARP_SCALE);
+  // the colour at a world pixel: its cell's, or the cell's at a point nudged by smooth noise (null: not laid here); asked
+  // for each even pixel and again by the shore's neighbour tests, so kept for the chunk (from 2px left and 4px above it)
+  // (a cell whose neighbours are all its own colour, or unlaid, is that colour all through: the warp reaches under a
+  // cell's width, so the noise isn't asked)
+  const settledOf: (0 | 1 | 2)[] = new Array(NEAR * NEAR).fill(0);
+  const settled = (i: number, j: number): boolean => {
+    const k = j * NEAR + i;
+    if (!settledOf[k]) {
+      const own = nearCell[k];
+      let all = i > 0 && j > 0 && i < NEAR - 1 && j < NEAR - 1;
+      for (let dy = -1; all && dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) if (nearCell[k + dy * NEAR + dx] && nearCell[k + dy * NEAR + dx] !== own) all = false;
+      settledOf[k] = all ? 2 : 1;
+    }
+    return settledOf[k] === 2;
+  };
+  const memoW = size / 2 + 3;
+  const memo: (number[] | null | undefined)[] = new Array(memoW * memoW);
   const warped = (wx: number, wy: number): number[] | null => {
-    const own = softAt(Math.floor(wx / CELL), Math.floor(wy / CELL));
-    if (!own) return null;
-    const ux = wx + (smooth(0x51, wx, wy, WARP_SCALE) - 0.5) * 2 * WARP;
-    const uy = wy + (smooth(0x77, wx, wy, WARP_SCALE) - 0.5) * 2 * WARP;
-    return softAt(Math.floor(ux / CELL), Math.floor(uy / CELL)) ?? own;
+    const slot = ((wy - (y0 * CELL - 4)) >> 1) * memoW + ((wx - (x0 * CELL - 2)) >> 1);
+    let c = memo[slot];
+    if (c !== undefined) return c;
+    const own = cellColour(wx, wy);
+    if (own && settled(Math.floor(wx / CELL) - (x0 - 2), Math.floor(wy / CELL) - (y0 - 2))) c = own;
+    else if (own) {
+      const ux = wx + (warpX(wx, wy) - 0.5) * 2 * WARP;
+      const uy = wy + (warpY(wx, wy) - 0.5) * 2 * WARP;
+      c = cellColour(ux, uy) ?? own;
+    } else c = null;
+    memo[slot] = c;
+    return c;
   };
   if (pack) {
     const img = g.createImageData(size, size);
-    const d = img.data;
+    const d32 = new Uint32Array(img.data.buffer);
+    const pack32 = (c: number[]) => ((255 << 24) | (c[2] << 16) | (c[1] << 8) | c[0]) >>> 0;
+    // (a chunk whose surroundings are all one kind of ground, but water: the borders have nothing to wander between)
+    const first = nearCell[0];
+    const uniform = !!first && first !== water && first !== shallow && nearCell.every((c) => c === first);
     const landAt = (wx: number, wy: number) => {
       const c = warped(wx, wy);
       return !!c && c !== water && c !== shallow;
     };
+    if (uniform) d32.fill(pack32(first));
+    else
     for (let py = 0; py < size; py += 2)
       for (let px = 0; px < size; px += 2) {
         const wx = x0 * CELL + px;
@@ -337,13 +367,9 @@ export function paintChunk(m: LandMap, cx: number, cy: number, season: string, b
         } else if (c === water && (landAt(wx - 2, wy) || landAt(wx + 2, wy) || landAt(wx, wy - 2) || landAt(wx, wy + 2) || landAt(wx, wy - 4) || hash(seed, wx, wy) < 0.04)) c = shore;
         else if (c === shallow && (landAt(wx - 2, wy) || landAt(wx + 2, wy) || landAt(wx, wy - 2) || landAt(wx, wy + 2) || landAt(wx, wy - 4))) c = foam;
         else if (c === shallow && hash(seed, wx, wy) < 0.05) c = glint;
-        for (let k = 0; k < 4; k++) {
-          const i = ((py + (k >> 1)) * size + px + (k & 1)) * 4;
-          d[i] = c[0];
-          d[i + 1] = c[1];
-          d[i + 2] = c[2];
-          d[i + 3] = 255;
-        }
+        const v = pack32(c);
+        const i = py * size + px;
+        d32[i] = d32[i + 1] = d32[i + size] = d32[i + size + 1] = v;
       }
     g.putImageData(img, 0, 0);
   }
@@ -539,15 +565,24 @@ export function paintChunk(m: LandMap, cx: number, cy: number, season: string, b
   const cx0 = (m.camp.x + 0.5) * CELL;
   const cy0 = (m.camp.y + 0.5) * CELL;
   const near = Math.hypot(x0 * CELL + size / 2 - cx0, y0 * CELL + size / 2 - cy0) / CELL - m.open;
-  if (near > -CHUNK)
+  if (near > -CHUNK) {
+    // (one pixel to each 4px block, in a small image drawn up four times over: it was a fill for each of a chunk's four
+    // thousand blocks)
+    const blocks = size / 4;
+    const fog = fogImage(blocks);
+    const f32 = new Uint32Array(fog.img.data.buffer);
+    f32.fill(0);
     for (let py = 0; py < size; py += 4)
       for (let px = 0; px < size; px += 4) {
         const d = Math.hypot(x0 * CELL + px + 2 - cx0, y0 * CELL + py + 2 - cy0) / CELL - m.open;
         if (d <= -0.5) continue;
         // (fully dark before the band's last cells end, so the unseen cells' square edge never shows)
         const a = Math.min(1, 0.15 + 0.85 * Math.max(0, (d + 0.5) / (FOG_BAND - 0.3)));
-        rect(px, py, 4, 4, a >= 1 ? '#0b0d14' : `rgba(8, 10, 18, ${a.toFixed(2)})`);
+        f32[(py / 4) * blocks + px / 4] = a >= 1 ? FOG_DARK : (Math.round(Number(a.toFixed(2)) * 255) << 24) | FOG_RGB;
       }
+    fog.g.putImageData(fog.img, 0, 0);
+    g.drawImage(fog.canvas, 0, 0, blocks, blocks, 0, 0, size, size);
+  }
   // (the desert's sand under everything: the dunes' own grain)
   void biome;
   return Texture.from(canvas);
