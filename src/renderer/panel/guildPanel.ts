@@ -4,6 +4,7 @@
 
 import type { Snapshot } from '../../shared/sim/snapshot';
 import { el } from './dom';
+import { cardLink } from './infoCard';
 import { expandable, facts } from './details';
 import { guildBadge } from '../art/guildMarks';
 import { face } from './townsfolkPanel';
@@ -19,7 +20,7 @@ export function guildsSection(s: Snapshot, open: (id: number) => void): HTMLElem
     const c = el('div', `card guild${g.role === 'elite' ? ' elite' : ''}`);
     const top = el('div', 'card-top');
     const nm = el('span', 'card-name');
-    nm.append(guildBadge(g.role, 20), ` ${g.name}`);
+    nm.append(guildBadge(g.role, 20), ' ', cardLink(g.name, { kind: 'guild', id: g.id })); // (its card: infoCard.ts)
     top.append(nm, el('span', 'card-size', `${g.members.length} member${g.members.length === 1 ? '' : 's'}`));
     const chips = el('div', 'kin-row guild-chips');
     for (const m of g.members) {

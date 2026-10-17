@@ -142,6 +142,7 @@ import { destinationHidden, destinationOf, destinationUnlocked, foodNeeded, part
 import { modifiers, researchStation, researchStations, seatStageNow } from './research';
 import { tireless, carryCapacity, MAX_JOURNAL, ERA_MULTIPLIER, FX_TICKS, maxHp, RESEARCH_MULTIPLIER, poolSize, type PersonFx, type RaiderHitFx, type SpellTarget, SPELL_FX_TICKS, type Activity, type Building, type CraftOrder, type Debrief, type Expedition, type ExpeditionPhase, type GameState, type JournalEntry, type Ledger, type Needs, type Notice, type Person, type TileState, campCell, campX, campXY, BLOOD_LASTS, DEBRIS_LASTS, type DebrisKind, type ShopTalk } from './state';
 import { cellAt, groundAt, inMap, type LandMap, wet, CELL } from './land';
+import { uniqueViews, type UniqueView } from './provenance';
 import { calendar, TICK_HZ, TICKS_PER_HOUR, type Calendar } from './time';
 import { ABILITIES, abilitiesKnown } from '../data/abilities';
 import { SPELLS } from '../data/spells';
@@ -1092,8 +1093,9 @@ export interface Snapshot {
   blight: { x: number; y: number; r: number }[];
   /** The regions of the world map the town knows (data/regions.ts): home, and those its scouts have mapped. */
   regions: string[];
-  /** The unique weapons found (data/uniques.ts), in the order found, and who has each now (null: in storage). */
-  uniques: { id: string; holder: string | null }[];
+  /** The unique weapons found (data/uniques.ts), in the order found, who has each now (null: in storage), where it is
+   *  and its story (sim/provenance.ts: the item card). */
+  uniques: UniqueView[];
   /** The rare things the town has seen (sim/rare.ts): the phone's reveal cards and the legends shelf. */
   rare?: RareView;
   raid: RaidView | null;
@@ -1416,7 +1418,7 @@ export function snapshot(s: GameState): Snapshot {
     scene: sceneView(s),
     scenesSeen: (s.scenesSeen ?? []).map((r) => ({ key: r.key, id: r.id, title: r.title, tick: r.tick })),
     blight: blightSources(s),
-    uniques: (s.uniques ?? []).map((id) => ({ id, holder: s.people.find((p) => p.gear.weapon === id)?.name ?? null })),
+    uniques: uniqueViews(s),
     rare: rareView(s),
     wild: wildView(s),
     roamers: (s.roamers ?? []).map((r) => ({

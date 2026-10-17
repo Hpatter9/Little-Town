@@ -8,6 +8,7 @@ import type { Bridge } from '../../shared/ipc';
 import type { FactionView } from '../../shared/sim/factions';
 import type { Snapshot } from '../../shared/sim/snapshot';
 import { button, el } from './dom';
+import { cardLink } from './infoCard';
 
 const STANCE_CLASS: Record<string, string> = { war: 'bad', neutral: 'mid', peace: 'ok', trade: 'ok', alliance: 'good', vassal: 'good', destroyed: 'gone' };
 
@@ -32,7 +33,9 @@ export function renderRealm(s: Snapshot, bridge: Bridge | undefined): HTMLElemen
 function factionCard(f: FactionView, s: Snapshot, bridge: Bridge | undefined): HTMLElement {
   const card = el('div', `card realm-card ${STANCE_CLASS[f.stance] ?? ''}`);
   const head = el('div', 'realm-head');
-  head.append(el('div', 'realm-name', f.name), el('span', `realm-stance ${STANCE_CLASS[f.stance] ?? ''}`, f.known ? f.stanceName : 'Rumoured'));
+  const name = el('div', 'realm-name');
+  name.append(f.known ? cardLink(f.name, { kind: 'faction', id: f.id }) : f.name); // (its card: infoCard.ts)
+  head.append(name, el('span', `realm-stance ${STANCE_CLASS[f.stance] ?? ''}`, f.known ? f.stanceName : 'Rumoured'));
   card.append(head);
   if (!f.known) {
     card.append(el('div', 'hint', 'Travellers speak of another power beyond the hills. Its envoys will come in time.'));

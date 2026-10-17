@@ -7,8 +7,8 @@
 import { loadImage } from './loadImage';
 import groundGrass from './roads/ground_grass.png';
 import ripplesUrl from './water/ripples.png';
-import pierV from './roads/pier_v.png';
-import pierH from './roads/pier_h.png';
+import bridgeParts from './roads/bridge_parts.png';
+import { E, N, S, W, type BridgePiece } from './autotile';
 import tuft1 from './fields/tuft1.png';
 import tuft2 from './fields/tuft2.png';
 import tuft3 from './fields/tuft3.png';
@@ -37,7 +37,7 @@ import pebble6 from './fields/pebble6.png';
 const TUFTS = [tuft1, tuft2, tuft3, tuft4, tuft5, tuft6];
 const FLOWERS = [flower1, flower2, flower3, flower4, flower5, flower6, flower7, flower8, flower9, flower10, flower11, flower12];
 const PEBBLES = [pebble1, pebble2, pebble3, pebble4, pebble5, pebble6];
-const ALL = [groundGrass, ripplesUrl, pierV, pierH, ...TUFTS, ...FLOWERS, ...PEBBLES];
+const ALL = [groundGrass, ripplesUrl, bridgeParts, ...TUFTS, ...FLOWERS, ...PEBBLES];
 
 const images = new Map<string, HTMLImageElement>();
 let loading: Promise<void> | null = null;
@@ -134,12 +134,54 @@ export function drawRipple(g: CanvasRenderingContext2D, n: number, x: number, y:
   return true;
 }
 
-/** A cell of pier (a shore town's road out over the water): the Bridges pack's wooden planks with their rails, running
- *  across (`across`) or up and down, the cell's top-left at (x, y). */
-export function drawPier(g: CanvasRenderingContext2D, across: boolean, x: number, y: number): boolean {
-  const im = images.get(across ? pierH : pierV);
+/** Where the bridge's pieces lie on `bridge_parts.png` (tools/compose-walls.cjs cuts them from Craftpix's Bridges
+ *  pack): [x, y, w, h]. The bridge running north and south (its rails down either side, cols 0-6 and 25-31, the deck
+ *  between), the one running east and west (its rails along the top and the foot, rows 0-12 and 22-36, drawn 2px
+ *  high so its rails stand over the cell's top edge), the first's north and south ends, the second's west and east. */
+const BRIDGE_PARTS = { ns: [0, 0, 32, 32], ew: [32, 0, 32, 36], endN: [64, 0, 32, 12], endS: [64, 12, 32, 13], endW: [96, 0, 10, 36], endE: [106, 0, 10, 36] } as const;
+
+/** A cell of bridge (a road over the water: a street across a river, a shore town's pier) as its neighbours make it
+ *  (art/autotile.ts `bridgePiece`), laid from the pack's straight wooden bridge and its ends: the deck with its boards
+ *  across the way it runs, out to the cell's edge on every side a road goes on (so a deck coming in from the side
+ *  meets this one, not its rail), a rail on every side none does, the pack's end boards and posts where it steps off
+ *  onto a bank, and a post where a rail stops because a deck joins round the corner. The cell's top-left at (x, y). */
+export function drawBridge(g: CanvasRenderingContext2D, p: BridgePiece, x: number, y: number): boolean {
+  const im = images.get(bridgeParts);
   if (!im) return false;
-  g.drawImage(im, x, y + (across ? -2 : 0));
+  const part = (k: keyof typeof BRIDGE_PARTS, sx: number, sy: number, w: number, h: number, dx: number, dy: number) => {
+    const b = BRIDGE_PARTS[k];
+    g.drawImage(im, b[0] + sx, b[1] + sy, w, h, x + dx, y + dy, w, h);
+  };
+  if (p.along === 'ns') {
+    // the deck, its boards across; out to the edge where a way comes in from the side
+    part('ns', 6, 0, 19, 32, 6, 0);
+    if (!(p.rails & W)) part('ns', 9, 0, 6, 32, 0, 0);
+    if (!(p.rails & E)) part('ns', 14, 0, 7, 32, 25, 0);
+    if (p.rails & W) part('ns', 0, 0, 6, 32, 0, 0);
+    if (p.rails & E) part('ns', 25, 0, 7, 32, 25, 0);
+    // (a dead end over the water: the cross-rail of the bridge the other way; onto a bank, the pack's end boards)
+    if (p.banks & N) part('endN', 0, 0, 32, 12, 0, 0);
+    else if (p.rails & N) part('ew', 0, 0, 32, 12, 0, 0);
+    if (p.banks & S) part('endS', 0, 0, 32, 13, 0, 19);
+    else if (p.rails & S) part('ew', 0, 22, 32, 14, 0, 18);
+    // the posts where a rail stops (the end boards' own posts)
+    if (p.posts & 1 && !(p.banks & N)) part('endN', 25, 0, 7, 12, 25, 0);
+    if (p.posts & 8 && !(p.banks & N)) part('endN', 0, 0, 7, 12, 0, 0);
+    if (p.posts & 2 && !(p.banks & S)) part('endS', 25, 0, 7, 13, 25, 19);
+    if (p.posts & 4 && !(p.banks & S)) part('endS', 0, 0, 7, 13, 0, 19);
+    return true;
+  }
+  part('ew', 0, 0, 32, 36, 0, -2);
+  // (each end: closed by a rail across over the water, the pack's end posts either way)
+  if (p.rails & W) part('ns', 0, 8, 6, 14, 0, 9);
+  if (p.rails & E) part('ns', 25, 8, 7, 14, 25, 9);
+  if (p.rails & W || p.banks & W) part('endW', 0, 0, 10, 36, 0, -2);
+  if (p.rails & E || p.banks & E) part('endE', 0, 0, 10, 36, 22, -2);
+  // (the posts where a rail stops at a deck running north or south beside it)
+  if (p.posts & 8 && !(p.banks & W)) part('endW', 0, 0, 10, 14, 0, -2);
+  if (p.posts & 4 && !(p.banks & W)) part('endW', 0, 22, 10, 14, 0, 20);
+  if (p.posts & 1 && !(p.banks & E)) part('endE', 0, 0, 10, 14, 22, -2);
+  if (p.posts & 2 && !(p.banks & E)) part('endE', 0, 22, 10, 14, 22, 20);
   return true;
 }
 

@@ -7778,3 +7778,222 @@ Changes the HISTORY.md sections "Every building from the packs" and "More buildi
 - `panel/buildPanel.ts`: thumbs on the Building book cards, the "Being built" rows and the "Last decided" line; `townOverview.ts` passes the snapshot.
 - Painted only (no pack has them, so a pack pass can follow): gun_nest, gun_turret, laser_turret, launch_site, boiling_oil, ballista, catapult, flame_turret, mortar_pit, tide_pool_trap, acid_sprayer; the merfolk's stilt huts.
 - No building pictures on the reveal, milestone or New Town screens (they show none). Test: `test/buildingPicture.test.ts`.
+
+## The war map as an island (claude/war-island; the owner's ask: "an island surrounded by water so the whole thing is on the map to be viewed. Clean the map up and make it more readable")
+
+Changes HISTORY "Seasons of war with the realm" (its **Seen** and **The War tab on the phone** lines: the map's
+drawing) and "The Conquest update" (the painted map, `panel/warMap.ts`). Renderer only: the sim, its saves and
+`tools/sim-hash.mjs` are untouched (the realm's world is still `sim/conquest/world.ts` `makeWorld`, made from the seed
+on every load; nothing else, not the Expeditions world map nor `map/wideWorld.ts`, shares its positions).
+
+- **Why not in the sim.** The world is rebuilt from the seed whenever a save opens and the save keeps only who holds
+  which province, so a new generation would reshape every older realm under its save (province ids, neighbours and
+  holdings with them). Its land fills 62% of the square (`LAND_SHARE`), so it ran to the grid's edges (a fifth to a
+  third of the border), the provinces seeded far apart sat on those edges, and it stood in two to five pieces joined by
+  harbours.
+- **The island** (`panel/warIsland.ts`, pure, no DOM: `islandOf`, `piecesOf`, `islandMargin`): the map draws the world
+  through a projection. A ring of open sea `islandMargin` cells wide (a tenth of the side, at least 6) round the grid;
+  land at the old edge grown out into the ring by noise (0.4 to 3.2 cells, the corners rounded by distance; a
+  mountain meets the sea as shore), so the coast is ragged, never the grid's straight edge; then each piece apart from
+  the biggest joined to it across the narrowest water by a strip of shore two cells wide (`joinPieces`), each half
+  given to the province at its end. Every province keeps its cells and its place, shifted by the ring. Cached by the
+  world's cells. The province's card still says "on the sea" from the sim's own coast.
+- **The sea**: the painted ground's depth shades and foam (`art/warTerrain.ts` `paintGround`, as before) with the
+  Top-Down Seabed pack's weed, shells and stones faint in the shallows (`props/sea.png`, already in the game; the
+  drowned statues left out), as the town's own shore does (`map/groundArt.ts`). The wild props are thinned to half
+  (`densityMult` 0.5), so the marks read over them.
+- **One mark a place** (`warMap.ts` `drawMarks`, `placeKind`, `MARK`): the town, a power's seat, a realm's hold or free
+  ground; a disc in the holder's colour (the town's ringed gold, free ground dark) under the one pack building that
+  stands for it (by the holder's people and the tier: keep or castle for a seat, house, longhouse or gabled house for a
+  hold; tents for the nomads, the carved gate and a mine for the dwarves; a lair's cave on free ground), a banner on a
+  seat and the town, an occupier's garrison badge. Gone: the clusters of three to five buildings a province, the
+  landmarks beside them, the captains and their big flags on the march, and the compass (all overlapped).
+- **Roads**: a thin line between every pair of neighbours; a sea lane (the harbours' strait) dotted white.
+- **Hosts**: a dashed line in the host's colour to where it marches (a harvest raid dotted, the town's war party
+  gold), and an arrowhead on it pointing the way (`marchAt`, `marchColour`). A place a host marches on has a red ring.
+- **Labels** (`mapLabels`, `placeLabels`): every place's name and every host's strength asks for a spot below its
+  mark, then above, right, left; the most important first (the town 100, a seat 80, a host 60, a hold 40, free 10; +30
+  under attack, +200 the place picked, + its tier); one that fits nowhere clear of the labels already placed, of the
+  other marks and inside the view is left out (the town's may lie over a mark, `MUST_RANK`, so it is always named). 11 CSS px at least (12.5 the town's, a seat's and the picked); zoomed
+  in, the pass runs again at the new scale, so more names show.
+- **Tap**: the place whose mark is within 16 CSS px of the finger, else the province the ground is of.
+- **The key** under the map (`mapLegend`, `.war-key` `.ui-chip`s, `--ui-fs-small`): each realm's colour and count,
+  free land, a seat, a host on the march, and (with hosts out) under attack (`icon('raid')`).
+- **Fit** (`terrainCell`): upright the island takes the menu's width; sideways it fits the menu's own height less
+  the sub-tabs' row that stays over it (`#body`'s height, not the window's: the map was cut off under the tabs), no
+  sideways scroll. The zoom's buttons moved from over the map's corner (they hid names) to the end of the key's row.
+  Seen at 393x852 (map 340 px) and 852x393 (213 px) on the late-town fixture and a young town. The text sections stay under the map; the map paints only on a
+  redraw, which comes only when `warKey` changes.
+- **Tests** (`test/warIsland.test.ts`): on the fixture and on worlds of 2, 5, 9 and 12 realms from four seeds, every
+  land cell and province is kept where it was, every province's place stands on its own land, two cells of sea at
+  every edge, one landmass; on the fixture with four hosts, at 393 px wide (dpr 3 and 2.75), zoomed 2.5x and on a
+  desktop width, no two labels overlap, none is under 11 px, all inside the map, the town is named.
+
+## Tap anything for its card, and the story of every unique (the owner: "Make it so nearly everything is clickable with some sort of information. I went to look at the legendary unique weapon we made and I can't click on it. I want to know all about it. Like who made it, what makes it unique, and who's using it, etc.")
+
+Changes the HISTORY.md sections "Unique weapons and boss loot" (the record kept), "Tap for more" (cards over the menus),
+"Reveals: rare moments, opened hauls and the legends shelf" (the Shelf's tiles, the reveal card's "More about it", the
+haul's unique line), "The news bubble" (an "About it" action), "A queued study's card opens under its row" (the tappable
+look now shared), "The annals" (the Chronicle's lines) and "Favourites, obituaries and close calls" (the obituary's
+names).
+
+**The story of each unique** (`sim/provenance.ts`). Kept on the optional `GameState.uniqueLog` (`UniqueRecord` by item
+id), noted where the thing already happens, with no draws and nothing in the sim reading it:
+- how it came (`how`: `forged`, `found`, `quest`, `saga`) and the day (`day`, the calendar's): `noteUnique` in
+  `finishPiece` (sim/crafting.ts: the maker, the station's name, its piece `qn` as rolled), `dropLoot` (sim/bosses.ts:
+  the boss's name), `questsDone` (sim/quests.ts: the party and the place) and a saga's `unique` effect (sim/sagas.ts:
+  the hero and the saga's title). A boss slain on a trip names the party as the finders (`noteFinders`, from
+  sim/expeditions.ts' victory);
+- its bearers in turn (`bearers`: id, name, the day they took it up): `uniquesHourly` (from the step, once a game hour)
+  reads who holds each unique in any slot and adds anyone new to it;
+- its deeds: raiders felled with it in hand (`felled`, from `credit` in sim/raidRecap.ts, where the felled counts are
+  already kept) and bosses brought down by its bearer (`bosses`, names: a raid's in `credit`, a trip's in
+  `noteBossFelled`);
+- its end (`gone`: the day, how, with whom): a bearer dying on the road takes it with them (`noteBearerDied`, from
+  `killPerson` in sim/health.ts; at home it goes back to the armoury as before), and one found nowhere in the town in
+  the hourly look is marked gone.
+Only in a town run by its autopilot (as `noteSeen`). A unique found before the log has none: a record starts the first
+time someone takes it up, its coming unknown (`how` left out, `day` 0), and the card says "Forged before the
+chronicles" or "Found before the chronicles". The snapshot's `uniques` is now `UniqueView` (`uniqueViews`): the
+holder in any slot (it was the weapon slot only) with `holderId`, where it is (`at`: `hand`, `away`, `armoury`, `gone`),
+its piece now (`qn`) and the `story`.
+
+**Cards over the menus** (`panel/infoCard.ts`). A tapped name opens its card as a sheet from the bottom of the menu,
+outside the menu's body, so no menu's redraw key has to know about it: `refreshCard` (panel.ts, each snapshot) draws it
+again only when its own key changes. A card opened from a card stacks (‹ Back; a swipe or Escape goes back one; ✕ or a
+tap outside closes all; the menu shut closes them). A person's name or portrait opens their character sheet in the
+People tab (`inspectPerson`, a small export of townsfolkPanel.ts). Kinds: `item`, `building` (a kind of building),
+`topic`, `faction`, `god`, `guild`, `calling`, `saga`, `festival`, `place`, `event` (a Chronicle line). Pieces the
+cards share: `sec`, `para`, `portrait`/`portraits`, `factRows`, `cardLink`, `personLink`. `linked(text)` turns every
+name in a line that has a card (or a living person) into a link, from an index built once a snapshot: people, the
+uniques and trophies, the known powers, the gods, the guilds, the sagas, the festivals, the found places, the buildings
+the town has (six letters and up, so "Well" in a sentence is left alone) and the topics learned (likewise).
+
+**The item card** (`panel/itemCard.ts`). A unique: its icon large, "A unique spear", its name in gold, its lore line, then
+"What makes it unique" (one of a kind; `UNIQUE_EDGE` harder than any made of its family; its own quirks beyond its
+family's, from the data's effect fields in plain words via `quirkWords`; who carries it in the world, a quest's, a
+saga's or the guild's forge), "Its numbers" (`itemStats` at its piece now), "Made by" / "Found by" (how, where, the day,
+the maker or the party as portraits, its grade as it came out), "Borne by" (every bearer as a portrait, "now, since day
+N" on the one who has it), "Deeds" and "Where it is now" (in whose hand, away with whom on which trip, in the armoury,
+lost with whom on which day). Anything else: what it does, kind, how many the town has (stores and worn), where it is
+made (the station a link to its building card) and what it takes, its research (links), what it goes into (links), the
+callings that use it, and who carries one (portraits). A trophy says which boss it was won from.
+
+**The small cards** (`panel/infoCards.ts`): a building (its picture from the strip, `thumb`; its purpose, how many stand,
+cost, its research; who works and lives there), a research topic (the tree's own card, now exported as `topicCard` from
+researchPanel.ts, with its pick button), a power of the realm (its lord, seat, stance and mood, its town, its troops, an
+old tie, a host on the way, its deeds as a rising power, the council of war's view), a god (what it keeps, its favour,
+blessing, wrath, offerings, where it is worshipped, its signs), a guild (its gift, founding, members as portraits, its
+log), a calling (its five stages, how it fights, what it wears, how rare, who walks it), a saga (the story so far, or how
+it ended and its hero), a festival (when, its food, ware, god, gift and song, last time), a place (what waits there, a
+mine), a Chronicle line (the whole line, linked, and the people it names as portraits).
+
+**Where they open.** The Shelf (a seen unique's or saga's tile; hold still shows the lore), a person's Kit tab (each piece
+worn and each pouch slot), the inspect page's piece name, the calling and guild chips on the character sheet, the
+sheet's diary and "Lately" lines (linked), the Trips tab's unique weapons (the name; "Carried by" the bearer's name) and
+sagas, the stores' picked item, the workshops' recipes and the crafting queue, the shop's wares, stock, gear and
+furnishings, the Chronicle (every line's names, and the line itself), the away lines in the Chronicle, the obituaries and
+the midwinter chronicles (Heroes), the gods (Faith), the guilds, the powers of the realm (Trips), the next festival. On
+the phone page (`mobile/cardLink.ts` `openCardInMenu`, through the menus' `window.__openCard`): a unique's reveal card has
+"More about it ›" (`RevealCard.more`), a haul's unique line opens it once laid out (`data-item`), and a news line naming a
+unique gets "About it" (`NoticeAction` kind `card`). On the War tab's island map (0.149.0), a picked province's holder
+opens its power's card, when the realm knows it (one line in `provinceCard`, panel/warPanel.ts).
+
+**One look for tappable text** (`tapLink` in panel/structure.ts, `.tap-link`): a dotted underline in the people's heading
+colour (`--heading`), the same dotted underline the research queue used in 0.137.0. A tap on it never opens or closes an
+`expandable` card it sits in (`no-expand`).
+
+**Checks.** `test/provenance.test.ts`: forged → maker, day, station and piece; a plain game keeps nothing; each bearer
+added once a turn; a unique from before the log; raiders felled and bosses as deeds (through `credit`); dying on the road
+loses it, at home it goes back to the armoury; the snapshot's view. `tools/sim-hash.mjs` (now with `STRIP=a,b` to leave
+top-level fields out of the hash): with `STRIP=uniqueLog` all five hashes match main; without it only hash-b (a knights'
+town that forges or finds a unique) changes.
+
+## Stragglers sent away
+
+The owner's report: "A shinobi and a rat are still in town after several raids. They seem like stuck characters."
+Changes the sweeps in "Raids bite again" / "Tower-defence raids" (the raid's end), "Hostiles roaming the land" (a band
+`fighting` a skirmish) and "Raiders lamed" (a limping runner that can't be run down is still a live raider).
+
+**What was looked at.** Both kinds only ever appear in a raid (the Shinobi clan, `shinobi_night`, the rat swarm and the
+Rat Plague's waves), so the sim holds them in `s.raid.raiders` and `endRaid` drops the whole list. Read and run with
+`tools/stuck-scan.mjs` (forces six shinobi and six rat raids one after another on a young settlers town and on the
+late-town fixture, then looks for a raid still on, a band left behind, prisoners): every raid ended and nothing was left
+over. Also checked and found clean: `raiderWounds.ts` (a lame raider is a live raider in the raid, so it flees or is run
+down), `prisoners.ts` (only human raiders are taken; a rat never), `roamers.ts` and `nests.ts` (neither group names a
+shinobi or a rat except goblin nests' giant rats), `raidSkip.ts`, `raidWait.ts`, `raidOdds.ts` (a probe leaves
+nothing on the map), the `debris` corpses (they expire at `DEBRIS_LASTS`), `snapDelta.ts` (a `raid: null` is sent) and
+`map/mapRaiders.ts` (a sprite is destroyed the update its id is missing). The cause was not reproduced.
+
+**Where a foe could outlive its owner, so the net goes there.** The in-town raid loop (`updateRaid`) has no stall rule
+of its own (the tactics board has one, `STALL_TICKS`), so a raider that cannot step (a position gone to NaN, a
+castle path that never opens) keeps the raid on for ever; and a band whose `fighting` names a skirmish that no longer
+exists is skipped by `roamersTick` and kept by `roamersHourly` for ever.
+
+**The net (`sim/strays.ts`, `strays(s)`, once an hour after `updateRaid`, autopilot only, no draws from any stream).**
+- An active raid still going `STRAY_RAID_HOURS` (4) after its clock (`leavesTick`) has its live raiders sent away
+  (`gone`) and the raid ends the next tick as usual. A raid waiting on the player (`parley`, `mercyAsk`) is left alone.
+- A roaming band whose `fighting` skirmish is gone, or that is `STRAY_BAND_HOURS` (6) past its `until`, is removed.
+- Each sweep puts "A straggler slipped away in the night." in the journal (`STRAY_LINE`).
+Old saves heal on load for the same reason: nothing is stored.
+
+Test: `test/strays.test.ts`. Tool: `tools/stuck-scan.mjs`.
+
+## Walls, grates and bridges that meet round their corners (branch claude/seamless-walls; the owner's ask: "The walls, when they aren't straight, have bad connection on the many corners; make it look seamless. Same for the grates when the wall is going over water. And same with bridges, paths over water. If the path turns, one bridge dead-ends into the other visually; fix that.")
+
+Changes HISTORY "The ring wall" (its **Continuous walls** and **Palisades that join**: the box-corner joins `nw`/`ne`/
+`sw`/`se`, the side posts `v`/`ve` and `POST` are gone), "The wall's purpose" (the **Grates** bullet: they are no
+longer a straight run turned down a column) and "The merfolk rework" (the **Piers** bullet: `drawPier` is gone, every
+road over water is laid by `drawBridge`). Renderer only: the sim's hashes are unchanged (`tools/sim-hash.mjs`).
+
+- **The autotile (`src/renderer/art/autotile.ts`, pure, tested):** a cell's mask has a bit for each side the line goes
+  on past (`N` 1, `E` 2, `S` 4, `W` 8: `maskOf(has)`), and its piece is named by those arms (`pieceOf`: `'post'` alone,
+  `'n'`..`'w'` ends, `'ew'` a run along a row, `'ns'` one down a column, `'es'`/`'sw'`/`'ne'`/`'nw'` corners, `'nes'`,
+  `'esw'`, `'nsw'`, `'new'` T-joins, `'nesw'` a crossing; `armsOf` back). A wall's join is its piece, and the sides
+  where it stops against a grate after a slash (`wallJoinOf(mask, capped)`, `'ew/2'`; `readWallJoin` reads it, and
+  the old `h`, `v`, `ve`, `end` as their pieces). `bridgePiece(road, wet, diag)` says how a bridge cell is drawn: the
+  way its boards run (`along`), its rails (every side no road goes on), its banks (a road going on over land) and its
+  posts (a corner where a rail stops: the way it would run on along is taken by a deck coming in round the corner,
+  which the diagonal tells, or the bridge steps off onto a bank).
+- **The joins (`MapView.wallJoin`, map/mapView.ts):** the mask over the cells of walls, gates and grates
+  (`wallCellsNow`, once a sync, now with the grates' cells apart); a wall's sides against a grate are capped. Worked
+  out when a piece is synced (it's in the piece's `sig`), not each frame. A palisade gate keeps its own joins.
+- **The pieces (`src/renderer/art/wallTiles.ts`, pure, tested):** each set draws all sixteen pieces as parts from its
+  pack's own tiles; map/packBuildings.ts hangs them on the picks by `Pick.tile(join, id)`, tried before `Pick.joins`
+  (the graded copies for the other peoples keep it, so every people's wall joins).
+  - `palisadeTile` (the Village pack): a run along a row is the pack's run (`PAL_TOPS`/`PAL_FEET`, one of three by id);
+    half of it on each side the wall goes on where it turns or a way joins; the pack's own run ends (`palisade07`/`15`
+    the west end, `08`/`16` the east) where it stops; wherever it goes on north or south the pack's side-wall stakes
+    (`palCol`, cut from `palisade17`) down the middle of the cell (`PAL_COL_X` 9), before the runs it meets, over the
+    cell above too when it goes on north, a stake's point (`palisade42`) on top where it doesn't. Everything meets down
+    the middle, so the steps of a star fort's bastions or a round ring meet the next step's and the line reads as one.
+    A side capped against a grate ends in a column of stakes at the cell's edge.
+  - `stoneTile` (the Dungeon pack's `dwalls`, for stone, brick, concrete and force walls, graded as before): along a row
+    the face of the pack's free-standing block (`STONE_ROWS`: its cap, courses repeated to stand it 80 px tall, its
+    foot), cut clear of the column the pack draws over the block (the old `STONE_WALL` crop had that column in every
+    cell, the stripes), its outline where it stops (`STONE_LEFT_X`, `STONE_RIGHT_X`); down a column the pack's narrow
+    wall top (`STONE_STRIP`) raised to the face's height, its rounded end where it starts, the block's end face under
+    its south end; where they meet, the top passes over the face as the pack's own crossing has it. A lone piece is a
+    pillar of the block.
+  - `grateTile` (DawnLike's fence set, `src/renderer/art/packs/dl_grates.png`, a row per material: wooden, iron, pale):
+    the set's own corners, T-joins and crossing by mask (`GRATE_COL`); ends and a lone grate take the run they lie in.
+    The water is the ground under it; the walls either side end at a proper end where they meet it (capped).
+- **Bridges (`drawBridge`, art/groundDetail.ts; called from map/groundArt.ts as each ground chunk is drawn):** every
+  road cell over water, by `bridgePiece` from its road neighbours (over water or land) and diagonals, laid from the
+  Craftpix Bridges pack's wooden bridge (`src/renderer/art/roads/bridge_parts.png`, `BRIDGE_PARTS`): a bridge with a
+  way on north or south has the north-south bridge's deck (its boards across), widened to the cell's edge on any side a
+  road comes in; one running only east or west the east-west bridge. A rail on each side no road goes on (a dead end
+  over the water gets the other way's rail across it); the pack's end boards and posts where it steps onto a bank; a
+  post where a rail stops because a deck joins round the corner. So a bridge that turns, two that meet, and a street
+  joining a bridge from the side all join deck to deck; no deck runs into another's rail.
+- **Footpaths and roads:** the roads were already laid by quarter-tiles from each cell's neighbours (art/roadTiles.ts,
+  `roadTiles.json`); the test now checks every road style has every quarter. Worn footpaths are blobs of worn earth
+  (`drawWornPatch`), not tiles, so they have no corners to join.
+- **The cutter:** `tools/compose-walls.cjs` (run by hand) cuts `dl_grates.png` from DawnLike's `Objects/Fence.png` and
+  `bridge_parts.png` from the Bridges pack's sheet. New palisade tiles copied in: `palisade07`, `08`, `15`, `16`, `42`;
+  the corner and side tiles no longer used are removed (`palisade09`, `14`, `30`, `33`, `38`, `41`, `46`, and
+  `dl_fence.png`). Credits in CREDITS.md.
+- **Test:** `test/autotile.test.ts`: every mask has its own piece and names its arms; each set (palisade, stone,
+  grates) has a piece for every mask, reaching the cell's edges its arms go out to and no others; a lone cell is a post
+  or pillar; every bridge piece has no rail across a way a road goes on, a rail on every side none does, posts where
+  a deck turns and at the banks; every road quarter-tile is there.

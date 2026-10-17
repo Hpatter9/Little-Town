@@ -3,6 +3,7 @@
 // party is home it pays: a rescued captive joins the town, a bounty is paid, a relic hunt brings one of the uniques held
 // back for quests (data/uniques.ts QUEST_UNIQUES), a fallen delver's gear comes home. Unclaimed, a quest lapses.
 
+import { noteUnique } from './provenance';
 import { payParty } from './economy';
 import { DUNGEONS, DUNGEON_BY_ID } from '../data/dungeons';
 import { DESTINATION_BY_ID } from '../data/expeditions';
@@ -124,6 +125,7 @@ export function questsDone(s: GameState, dungeon: string, at: Pt, rng: Rng, part
       case 'relic':
         if (q.unique && !(s.uniques ?? []).includes(q.unique)) {
           (s.uniques ??= []).push(q.unique);
+          noteUnique(s, q.unique, 'quest', { by: party, where: DUNGEON_BY_ID[dungeon]?.name }); // (its story: sim/provenance.ts)
           addItems(s, q.unique, 1);
           notify(s, `The quest is done: ${ITEM_BY_ID[q.unique].name} is the town's, a unique weapon, one of a kind!`, true);
         }

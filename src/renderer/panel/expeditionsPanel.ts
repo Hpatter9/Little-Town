@@ -16,6 +16,8 @@ import type { Bridge } from '../../shared/ipc';
 import type { DestinationView, ExpeditionView, Snapshot } from '../../shared/sim/snapshot';
 import { bleedLeft, tripProgress } from '../../shared/format';
 import { button, duration, el } from './dom';
+import { openCard, personLink } from './infoCard';
+import { tapLink } from './structure';
 import { WorldMapView } from './worldMapView';
 import { underKey, underSection } from './underSection';
 import { ITEM_BY_ID } from '../../shared/data/items';
@@ -490,7 +492,7 @@ function sagaList(s: Snapshot, bridge: Bridge | undefined): HTMLElement[] {
   for (const g of open) {
     const c = el('div', 'card quest saga');
     const top = el('div', 'card-top');
-    top.append(el('span', 'card-name', g.title), el('span', 'card-size', 'Under way'));
+    top.append(tapLink(el('span', 'card-name', g.title), () => openCard({ kind: 'saga', id: g.title })), el('span', 'card-size', 'Under way'));
     c.append(top, el('div', 'purpose', g.now));
     for (const line of g.log.slice(-2)) c.append(el('div', 'lock short', line));
     if (g.dest) {
@@ -503,7 +505,7 @@ function sagaList(s: Snapshot, bridge: Bridge | undefined): HTMLElement[] {
   for (const g of done.slice(-6).reverse()) {
     const c = el('div', `card quest saga ${g.outcome}`);
     const top = el('div', 'card-top');
-    top.append(el('span', 'card-name', g.title), el('span', 'card-size', `${OUTCOME[g.outcome]}, day ${g.day}`));
+    top.append(tapLink(el('span', 'card-name', g.title), () => openCard({ kind: 'saga', id: g.title })), el('span', 'card-size', `${OUTCOME[g.outcome]}, day ${g.day}`));
     c.append(top);
     if (g.hero) c.append(el('div', 'lock short', `Its hero: ${g.hero}`));
     grid.append(expandable(c, `sagadone:${g.title}:${g.day}`, () => [g.blurb, facts([['Ended', `day ${g.day}`], ['How', OUTCOME[g.outcome]], ['Its hero', g.hero]])]));
@@ -526,7 +528,11 @@ function treasures(s: Snapshot): HTMLElement[] {
     const c = el('div', 'card unique');
     const top = el('div', 'card-top');
     const from = (UNIQUE_FROM[u.id] ?? []).map((b) => ENEMIES[b]?.name).filter(Boolean);
-    top.append(el('span', 'card-name', d.name), el('span', 'card-size', u.holder ? `Carried by ${u.holder}` : 'In storage'));
+    // (the name opens its whole story: itemCard.ts; the bearer's name their sheet)
+    const by = el('span', 'card-size');
+    if (u.holder) by.append(u.at === 'away' ? 'Away with ' : 'Carried by ', personLink(u.holder, u.holderId));
+    else by.append(u.at === 'gone' ? 'Lost' : 'In storage');
+    top.append(tapLink(el('span', 'card-name', d.name), () => openCard({ kind: 'item', id: u.id })), by);
     c.append(top, el('div', 'purpose', d.description));
     if (from.length) c.append(el('div', 'lock short', `From ${from.join(' or ')}`));
     else if (UNIQUE_FROM[u.id]?.includes(SAGA)) c.append(el('div', 'lock short', 'The prize of a saga'));
