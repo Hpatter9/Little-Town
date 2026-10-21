@@ -38,6 +38,7 @@ const harvest = (s: GameState, b: Building) => {
 
 test('each harvest tires the soil, and a tired field gives less', () => {
   const s = plainGame('soil');
+  s.townBuilds = true;
   const plot = field(s, 'garden_plot');
   plot.crop = { stage: 'ripe', growth: 1, work: 0 };
   const good = harvest(s, plot);
@@ -54,6 +55,7 @@ test('each harvest tires the soil, and a tired field gives less', () => {
 
 test('a worn-out field is left to rest while there is food, and sown anyway when the town is hungry', () => {
   const s = plainGame('rest');
+  s.townBuilds = true;
   s.tick = tickAt('spring', 1, 8);
   const plot = field(s, 'garden_plot');
   plot.crop = { stage: 'fallow', growth: 0, work: 0, soil: 0.4 };
@@ -65,6 +67,7 @@ test('a worn-out field is left to rest while there is food, and sown anyway when
 
 test('fallow ground rests, and muck from the pens mends it', () => {
   const s = plainGame('muck');
+  s.townBuilds = true;
   s.tick = tickAt('summer', 1, 6);
   const plot = field(s, 'garden_plot');
   plot.crop = { stage: 'growing', growth: 0.5, work: 0, soil: 0.5 };
@@ -81,6 +84,7 @@ test('fallow ground rests, and muck from the pens mends it', () => {
 
 test('blight takes the crop, and spreads through fields of the same kind (but not others)', () => {
   const s = plainGame('blight');
+  s.townBuilds = true;
   s.tick = tickAt('summer', 1, 6);
   const a = field(s, 'garden_plot');
   const b = field(s, 'garden_plot', 6);
@@ -95,6 +99,7 @@ test('blight takes the crop, and spreads through fields of the same kind (but no
 
 test('an orchard is planted once: it takes a while to bear, then fruits again without sowing, and never tires the soil', () => {
   const s = plainGame('orchard');
+  s.townBuilds = true;
   const o = field(s, 'orchard');
   o.crop = { stage: 'ripe', growth: 1, work: 0 };
   const fruit = harvest(s, o);
@@ -106,6 +111,7 @@ test('an orchard is planted once: it takes a while to bear, then fruits again wi
 
 test('nobody sows in late autumn what cannot ripen before winter; hardy vegetables still go in', () => {
   const s = plainGame('autumn');
+  s.townBuilds = true;
   s.tick = tickAt('autumn', DAYS_PER_SEASON, 0); // (autumn's last day)
   assert.equal(ripensInTime(s, field(s, 'garden_plot')), false);
   assert.equal(ripensInTime(s, field(s, 'vegetable_patch', 6)), true);
@@ -115,12 +121,14 @@ test('nobody sows in late autumn what cannot ripen before winter; hardy vegetabl
 
 test('at the turn of winter a well-stocked town holds a harvest home; a hungry one grumbles', () => {
   const s = plainGame('harvest');
+  s.townBuilds = true;
   field(s, 'garden_plot');
   s.tick = tickAt('winter', 1, 6);
   s.buildings.find((b) => b.def === 'campfire')!.store = { grain: 200 };
   tendFields(s, never);
   assert.ok(s.marks?.some((m) => m.text === 'The harvest home' && m.value > 0));
   const t = plainGame('harvest2');
+  t.townBuilds = true;
   field(t, 'garden_plot');
   t.tick = tickAt('winter', 1, 6);
   tendFields(t, never);
@@ -129,6 +137,7 @@ test('at the turn of winter a well-stocked town holds a harvest home; a hungry o
 
 test('two garden plots side by side, lying fallow, are ploughed into one open field (keeping the poorer soil)', () => {
   const s = plainGame('plough');
+  s.townBuilds = true;
   s.autopilot = true;
   s.research.done.push('early_agriculture', 'woodcutting', 'ard_plough');
   s.buildings.find((b) => b.def === 'campfire')!.store = { wood: 60, fiber: 30, grain: 200 };
@@ -146,6 +155,7 @@ test('two garden plots side by side, lying fallow, are ploughed into one open fi
 
 test('a field is reaped a section at a time: the crop comes in by sections, the farmer moving along it', () => {
   const s = plainGame('sections');
+  s.townBuilds = true;
   const plot = field(s, 'garden_plot');
   plot.crop = { stage: 'ripe', growth: 1, work: 0 };
   const p = s.people[0];

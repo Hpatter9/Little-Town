@@ -10,6 +10,7 @@ import { keepKin, mood, wantsSleep } from '../src/shared/sim/townsfolk';
 
 test('the lich is dead in body too: no hunger, no sleep, nobody in a lich town eats', () => {
   const s = newGame('undead-1', { origin: 'lich' });
+  s.townBuilds = true;
   const lich = s.people.find((p) => p.id === s.mainId)!;
   assert.ok(lich.undying && tireless(lich), 'the lich');
   assert.ok(s.people.every((p) => tireless(p)), 'and all the town');
@@ -23,6 +24,7 @@ test('the lich is dead in body too: no hunger, no sleep, nobody in a lich town e
 
 test('an older lich town\'s lich is made undying, and the raised are left neither hungry nor tired', () => {
   const s = newGame('undead-2', { origin: 'lich' });
+  s.townBuilds = true;
   const lich = s.people.find((p) => p.id === s.mainId)!;
   delete lich.undying;
   const p = { ...s.people[1], id: 77, monster: null, needs: { food: 0.1, rest: 0.1 } } as (typeof s.people)[number];
@@ -38,6 +40,7 @@ test('a lich town sows a field at most (for its tavern\'s guests); a settlers\' 
   const foodFields = (s: ReturnType<typeof newGame>) => s.buildings.filter((b) => CROPS[b.def] && FOOD_VALUE[CROPS[b.def].material]).length;
   const run = (origin: 'lich' | 'settlers', salt = '', days = 5) => {
     const s = newGame(`undead-farm-${origin}${salt}`, { origin });
+    s.townBuilds = true;
     s.nextRaidTick = Infinity;
     const sim = new Sim(s);
     for (let t = 0; t < days * TICKS_PER_DAY; t++) sim.step();
@@ -57,6 +60,7 @@ test('the dead don\'t bleed out: struck down, they fall apart and pull themselve
   const { knockDown, heal, REFORM_HOURS } = await import('../src/shared/sim/health');
   const { TICKS_PER_HOUR } = await import('../src/shared/sim/time');
   const s = newGame('undead-bleed', { origin: 'lich' });
+  s.townBuilds = true;
   s.items.medkit = 3;
   const p = s.people.find((q) => q.id !== s.mainId) ?? s.people[0];
   p.lastHit = s.tick;

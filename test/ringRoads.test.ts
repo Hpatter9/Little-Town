@@ -12,6 +12,7 @@ import { clearAround } from './helpers';
 
 function walled(seed: string): GameState {
   const s = newGame(seed);
+  s.townBuilds = true;
   s.research.done.push('palisades', 'basic_shelter');
   clearAround(s, 50);
   s.buildings[0].store = { wood: 3000, stone: 500, fiber: 300, berries: 400 };

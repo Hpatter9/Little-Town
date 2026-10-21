@@ -51,6 +51,7 @@ test('spirits low, someone takes a break on the village green before their work,
 
 test('never more than a share of the grown-ups at play at once; children play on the green, never in the yard', () => {
   const s = plainGame('share');
+  s.townBuilds = true;
   put(s, 'village_green', camp(s).x + 4, row(s));
   put(s, 'sparring_yard', camp(s).x - 6, row(s));
   s.tick = at(2, 12);
@@ -81,6 +82,7 @@ test('never more than a share of the grown-ups at play at once; children play on
 
 test('the yard teaches a little of the blade, and the jetty may bring a fish home; the jetty stands at the water', () => {
   const s = plainGame('jetty');
+  s.townBuilds = true;
   const p = s.people[0];
   const yard = put(s, 'sparring_yard', camp(s).x + 4, row(s));
   const xp = p.skills.melee.xp + p.skills.melee.level * 1000;
@@ -92,6 +94,7 @@ test('the yard teaches a little of the blade, and the jetty may bring a fish hom
   assert.equal(totalStock(s).fish ?? 0, fish + 1);
   // the planner puts a jetty at the water's edge (a coast town has water near)
   const c = newGame('jetty-coast', { biome: 'coast' });
+  c.townBuilds = true;
   c.land.open = 40;
   c.research.done.push('fish_traps');
   const def = BUILDING_BY_ID.fishing_jetty;
@@ -103,6 +106,7 @@ test('the yard teaches a little of the blade, and the jetty may bring a fish hom
 
 test('nights on the ground weigh heavier each night; someone sleeping rough makes the town want a roof first; low spirits, a comfort', () => {
   const s = plainGame('rough');
+  s.townBuilds = true;
   const p = s.people[0];
   p.lastSlept = 'ground';
   p.roughNights = 1;
@@ -112,6 +116,7 @@ test('nights on the ground weigh heavier each night; someone sleeping rough make
   assert.ok(four.value < one.value && four.text.includes('4 nights'), `${one.value} then ${four.value}: ${four.text}`);
   // a town with a bed to spare, but whose founder slept out: a home comes first
   const t = newGame('roof');
+  t.townBuilds = true;
   t.research.done.push('basic_shelter', 'woodcutting');
   clearAround(t, 20);
   t.buildings[0].store = { wood: 300, fiber: 60, stone: 60, berries: 100 };
@@ -122,6 +127,7 @@ test('nights on the ground weigh heavier each night; someone sleeping rough make
   assert.ok(t.buildings.some((b) => b.status === 'blueprint' && BUILDING_BY_ID[b.def].housing), `a home: ${t.buildings.filter((b) => b.status === 'blueprint').map((b) => b.def)}`);
   // the same town, slept in beds but glum: a place of leisure is wished for
   const u = newGame('glum');
+  u.townBuilds = true;
   u.research.done.push('basic_shelter', 'woodcutting');
   clearAround(u, 20);
   u.buildings[0].store = { wood: 300, fiber: 60, stone: 60, berries: 100 };

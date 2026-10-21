@@ -17,7 +17,7 @@ test('a town left entirely alone grows: people, homes, fields, research, and no 
   // laid by hand 'lone-7' reached 2 where 8 lone towns averaged 2.38, about as before; since builders build while
   // others haul, 'lone-4' reached 2 and 'lone-8' 5, where 8 lone towns average 2.75; since builders each take a spot
   // at the site, 'lone-8' reached 2 where 8 lone towns average 2.5 (2.4 before); 'lone-6' reaches 3 either way)
-  const sim = new Sim(newGame('lone-6'));
+  const sim = new Sim(Object.assign(newGame('lone-6'), { townBuilds: true }));
   const s = sim.state;
   for (let t = 0; t < 10 * TICKS_PER_DAY && !s.gameOver; t++) sim.step();
   assert.equal(s.gameOver, null);
@@ -29,7 +29,7 @@ test('a town left entirely alone grows: people, homes, fields, research, and no 
 
 test('the same town left alone twice turns out the same (the planner uses no chance)', () => {
   const run = () => {
-    const sim = new Sim(newGame('ant-farm-same'));
+    const sim = new Sim(Object.assign(newGame('ant-farm-same'), { townBuilds: true }));
     for (let t = 0; t < 2 * TICKS_PER_DAY; t++) sim.step();
     return JSON.stringify([sim.state.buildings.map((b) => [b.def, b.tile]), sim.state.research.done]);
   };
@@ -37,7 +37,7 @@ test('the same town left alone twice turns out the same (the planner uses no cha
 });
 
 test("it never orders what it can't make: nothing made from an item it hasn't got, nothing it has no makings for", () => {
-  const sim = new Sim(newGame('ant-farm-craft'));
+  const sim = new Sim(Object.assign(newGame('ant-farm-craft'), { townBuilds: true }));
   const s = sim.state;
   for (let t = 0; t < 6 * TICKS_PER_DAY; t++) {
     sim.step();
@@ -52,6 +52,7 @@ test("it never orders what it can't make: nothing made from an item it hasn't go
 
 test('full stores: surplus wood and stone are cleared out, food never is', () => {
   const s = newGame('ant-farm-room');
+  s.townBuilds = true;
   const fire = s.buildings[0];
   fire.store = { wood: 200, stone: 200, berries: 25 };
   s.tick = PLAN_TICKS * 10;
@@ -63,6 +64,7 @@ test('full stores: surplus wood and stone are cleared out, food never is', () =>
 test('its direction steers it: set on defence, it studies fighting or healing first', () => {
   const pick = (direction: 'growth' | 'defense') => {
     const s = newGame('ant-farm-dir');
+    s.townBuilds = true;
     s.direction = direction;
     s.research.done.push('flint_knapping', 'foraging', 'basic_shelter', 'fire_keeping');
     s.tick = PLAN_TICKS;
@@ -83,6 +85,7 @@ test('autopilot off: the planner leaves the town alone', () => {
 
 test('a blueprint stuck for want of what nobody has is set aside, its slot freed and its materials back', () => {
   const s = plainGame('stalled');
+  s.townBuilds = true;
   s.autopilot = true;
   const bp = { id: s.nextId++, def: 'barracks', tile: camp(s).x + 1, row: row(s), status: 'blueprint' as const, delivered: { stone: 5 }, progress: 0, store: {} };
   s.buildings.push(bp);

@@ -100,6 +100,7 @@ test('every open cell can be walked to from the camp and back: the ranges have p
 
 test('a path never crosses rock, and never climbs a cliff but at a ramp or a street (a drop off one is a jump)', () => {
   const s = newGame('paths-hills', { biome: 'highlands' });
+  s.townBuilds = true;
   const m = s.land;
   const c = campCell(s);
   let found = 0;
@@ -139,6 +140,7 @@ function ridge(s: GameState): number {
 
 test('a street tunnels through a thin ridge where going round is far longer, and walkers then take the tunnel', () => {
   const s = plainGame('tunnel-1');
+  s.townBuilds = true;
   clearAround(s, 10);
   const x0 = ridge(s);
   const c = campCell(s);
@@ -158,6 +160,7 @@ test('a street tunnels through a thin ridge where going round is far longer, and
   for (const p of way!) assert.notEqual(groundAt(m, p.x, p.y), 'mountain');
   // (a building's street, or a gate's path, through the ridge: planned through the rock, a tunnel to be cut)
   const t4 = plainGame('tunnel-4');
+  t4.townBuilds = true;
   clearAround(t4, 10);
   const x4 = ridge(t4);
   const c4 = campCell(t4);
@@ -166,6 +169,7 @@ test('a street tunnels through a thin ridge where going round is far longer, and
   assert.ok([0, 1, 2].every((k) => groundAt(t4.land, x4 + k, c4.y + 3) === 'mountain'));
   // (a ridge too thick, or one with a short way round, is not tunnelled)
   const t2 = plainGame('tunnel-2');
+  t2.townBuilds = true;
   clearAround(t2, 10);
   const c2 = campCell(t2);
   for (let y = c2.y - 2; y <= c2.y + 2; y++) for (let x = c2.x + 5; x < c2.x + 8; x++) {
@@ -175,6 +179,7 @@ test('a street tunnels through a thin ridge where going round is far longer, and
   assert.equal(tunnelThrough(t2, { x: c2.x + 4, y: c2.y }, { x: 1, y: 0 }), null, 'a short way round');
   // (a level land never tunnels)
   const flat = newGame('tunnel-3', { relief: false });
+  flat.townBuilds = true;
   assert.equal(tunnelThrough(flat, { x: campCell(flat).x, y: campCell(flat).y }, { x: 1, y: 0 }), null);
 });
 
@@ -192,6 +197,7 @@ function face(s: GameState, foot = 6): number {
 
 test('a building that may be cut into the rock is placed with its back row in the cliff and rock behind its door', () => {
   const s = plainGame('into-rock');
+  s.townBuilds = true;
   clearAround(s, 10);
   s.cheats.unlockAll = true;
   const top = face(s);
@@ -215,6 +221,7 @@ test('a building that may be cut into the rock is placed with its back row in th
 
 test('a quarry needs rock beside it, and only a land with relief has one; its loads hold the land\'s vein', () => {
   const s = plainGame('quarry-1');
+  s.townBuilds = true;
   clearAround(s, 10);
   const def = BUILDING_BY_ID[QUARRY];
   assert.ok(isUnlocked(unlockInfo(s), def));
@@ -236,6 +243,7 @@ test('a quarry needs rock beside it, and only a land with relief has one; its lo
   assert.equal(isUnlocked(unlockInfo(newGame('quarry-2', { relief: false })), def), false, 'no quarry on a level land');
   // (a highland quarry turns up a gem now and then)
   const hs = newGame('quarry-3', { biome: 'highlands' });
+  hs.townBuilds = true;
   let gems = 0;
   for (let k = 0; k < 12; k++) gems += quarryLoad(hs, q).gems ?? 0;
   assert.equal(gems, 2);
@@ -243,6 +251,7 @@ test('a quarry needs rock beside it, and only a land with relief has one; its lo
 
 test('fields on the hills yield less, orchards more; a level land is the same everywhere', () => {
   const s = plainGame('hill-fields');
+  s.townBuilds = true;
   const c = campCell(s);
   for (let y = c.y + 3; y < c.y + 8; y++) for (let x = c.x - 4; x < c.x + 4; x++) setRelief(s.land, x, y, '1');
   const field = { id: 900, def: 'garden_plot', tile: c.x - 3, row: c.y + 4, status: 'done', delivered: {}, progress: 1, store: {} } as GameState['buildings'][number];
@@ -250,6 +259,7 @@ test('fields on the hills yield less, orchards more; a level land is the same ev
   assert.ok(hillHarvest(s, field) < 1);
   assert.ok(hillHarvest(s, orchard) > 1);
   const flat = newGame('hill-fields', { relief: false });
+  flat.townBuilds = true;
   assert.equal(hillHarvest(flat, field), 1);
   assert.equal(footprint(field).x, c.x - 3);
 });
@@ -257,6 +267,7 @@ test('fields on the hills yield less, orchards more; a level land is the same ev
 test('a town founded in a bowl of hills, a ring of cliffs about it with a few ramps, still grows (the planner does not stall)', () => {
   const run = (bowl: boolean) => {
     const s = newGame('bowl-town', { biome: 'forest' });
+    s.townBuilds = true;
     const m = s.land;
     const c = campCell(s);
     if (bowl) {
