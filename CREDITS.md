@@ -1,5 +1,12 @@
 # Credits
 
+## Isometric building kits (the isometric view, in progress)
+
+The twelve peoples' building kits in `src/renderer/art/iso/kits/` (houses, walls, gates, ground tiles, roofs and
+props) were made for this project: drawn with ChatGPT's image generation from prompts written for the game, then cut
+into sprites, cleaned and reduced to 256 colours with the tools in the project's art pipeline. Made for and owned by
+the project.
+
 ## Character sprites
 
 Townsfolk are assembled from layers of the **Universal LPC Spritesheet**, built from Liberated Pixel Cup
