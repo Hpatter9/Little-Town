@@ -25,6 +25,10 @@ export function waitingOnFounder(s: GameState): boolean {
   let waiting = false;
   for (const p of s.prompts) {
     if (!p.waits) continue;
+    if (p.expedition === null) {
+      waiting = true; // (a dispute, a challenge or a trial for the founder: it waits until it is answered)
+      continue;
+    }
     const e = s.expeditions.find((x) => x.id === p.expedition && x.prompt === p.id);
     if (e && founderGoes(s, e)) waiting = true;
     else p.waits = undefined;

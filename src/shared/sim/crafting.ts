@@ -2,6 +2,7 @@
 // materials from storage, carries them to the item's station and makes it there. Items land in the town
 // inventory and are handed out as gear automatically; food and ammo go into storage as materials.
 
+import { askUniqueName } from './naming';
 import { noteUnique } from './provenance';
 import { addDeed } from './deeds';
 import { launch } from './boats';
@@ -205,6 +206,7 @@ export function finishPiece(s: GameState, o: CraftOrder, p: Person, rng?: Rng): 
       (s.uniques ??= []).push(def.id);
       noteUnique(s, def.id, 'forged', { by: [p], where: BUILDING_BY_ID[def.station]?.name, qn: q }); // (its story: sim/provenance.ts)
       notify(s, `${p.name} has forged ${def.name}: there is no other like it.`, true);
+      askUniqueName(s, def.id); // (the founder may name it: sim/naming.ts)
     }
     if (grade >= 5 || plus >= 3) notify(s, `${p.name} made a ${pieceLabel(def.name, q)}!`, true);
     payCrafter(s, def, q, p);

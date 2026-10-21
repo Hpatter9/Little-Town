@@ -425,6 +425,8 @@ export function trial(s: GameState, culprit: Person, crime: CrimeKind, what: str
     who: culprit.id,
     politics: 'trial',
   };
+  prompt.waits = true; // (the founder judges: the game waits for the sentence)
+  prompt.expiresTick = Number.MAX_SAFE_INTEGER;
   s.prompts.push(prompt);
   pol.trial = { prompt: prompt.id, who: culprit.id, crime, what, options, victim: victim?.id };
   log(s, 'crime', heresy ? `${culprit.name} ${what}. A heresy trial is called.` : `${culprit.name} ${what}, and was caught. A trial is called.`, true);

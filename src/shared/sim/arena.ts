@@ -232,7 +232,7 @@ function cardPower(s: GameState, card: ArenaCard): { power: { town: number; visi
   return { power: { town, visitor }, matchup: matchupOf(town, visitor) };
 }
 
-function visitorFighter(kind: string, scale: number, name: string): Fighter {
+export function visitorFighter(kind: string, scale: number, name: string): Fighter {
   const f = unitFighter(kind, 'enemy', 0);
   f.name = name;
   f.maxHp = Math.max(1, Math.round(f.maxHp * scale));
@@ -406,7 +406,7 @@ export function startBout(s: GameState): ArenaBout | null {
   return bout;
 }
 
-function refund(s: GameState, b: Bet): void {
+export function refund(s: GameState, b: Bet): void {
   if (b.who === -1) {
     s.coins = (s.coins ?? 0) + b.amount;
     earn(s, 'arena', b.amount);
