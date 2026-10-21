@@ -128,3 +128,53 @@ test('each people has its kit, and the grounds their tiles', () => {
   assert.equal(groundTile('grass', true, true).tile, 3);
   assert.notEqual(groundTile('water', false, false).tint, 0xffffff);
 });
+
+test('walls join: runs along either axis, corners where both axes have a neighbour, gates lie along their long side', async () => {
+  const { wallShape, gateFlip, wallPieceFor, wallMaskAt } = await import('../src/renderer/iso/isoTown');
+  const m = (n: boolean, e: boolean, s: boolean, w: boolean) => ({ n, e, s, w });
+  assert.deepEqual(wallShape(m(false, true, false, true)), { part: 'run', flip: false });
+  assert.deepEqual(wallShape(m(true, false, true, false)), { part: 'run', flip: true });
+  assert.deepEqual(wallShape(m(false, false, false, false)), { part: 'run', flip: false });
+  assert.equal(wallShape(m(true, false, false, true)).part, 'corner');
+  assert.equal(wallShape(m(true, true, true, true)).part, 'corner');
+  assert.equal(gateFlip({ w: 2, h: 1 }), false);
+  assert.equal(gateFlip({ w: 1, h: 2 }), true);
+  const cells = new Set(['3,4', '4,4']);
+  assert.deepEqual(wallMaskAt((x, y) => cells.has(`${x},${y}`), 3, 4), m(false, true, false, false));
+  const ids = [...kitOf('settlers').pieces.keys()];
+  assert.equal(wallPieceFor(ids, 'run', 'stone_wall'), 'stone_wall_run');
+  assert.equal(wallPieceFor(ids, 'run', 'palisade_wall'), 'palisade_run');
+  assert.equal(wallPieceFor(ids, 'gate', 'stone_gate'), 'stone_gate');
+  assert.equal(wallPieceFor(ids, 'corner', 'stone_wall'), 'palisade_corner');
+  // every kit has a run, a corner and a gate for the walls to use
+  for (const name of KIT_NAMES) {
+    const k = [...kitOf(name).pieces.keys()];
+    for (const part of ['run', 'corner', 'gate'] as const) assert.ok(wallPieceFor(k, part, 'palisade_wall'), `${name} ${part}`);
+  }
+});
+
+test('scenery and props are picked the same every time, from pieces the kit has', async () => {
+  const { sceneryFor, propFor, cellHash, BIOME_GROUND } = await import('../src/renderer/iso/isoTown');
+  assert.equal(cellHash(5, 9, 1), cellHash(5, 9, 1));
+  for (const name of KIT_NAMES) {
+    const ids = [...kitOf(name).pieces.keys()];
+    for (let i = 0; i < 40; i++) {
+      for (const g of ['forest', 'rock', 'hill', 'marsh', 'mountain', 'grass'] as const) {
+        const p = sceneryFor(ids, g, 'forest', cellHash(i, 1), cellHash(i, 2));
+        if (p) assert.ok(ids.includes(p), `${name} ${p}`);
+      }
+      const pr = propFor(ids, 'workshop', i, { x: 4, y: 4, w: 3, h: 2 });
+      if (pr) assert.ok(ids.includes(pr.piece));
+    }
+    assert.ok(ids.some((id) => sceneryFor(ids, 'forest', 'forest', 0.5, 0.5) === id), `${name} has a tree`);
+    assert.ok(sceneryFor(ids, 'rock', 'forest', 0.1, 0.5), `${name} has rocks`);
+  }
+  assert.equal(sceneryFor(['oak_tree'], 'grass', 'forest', 0.1, 0.1), null);
+  assert.deepEqual(propFor(['barrels'], 'workshop', 7, { x: 1, y: 1, w: 2, h: 2 }), propFor(['barrels'], 'workshop', 7, { x: 1, y: 1, w: 2, h: 2 }));
+  // a desert's open ground is not a forest's
+  assert.notDeepEqual(groundTile('grass', false, false, 'desert'), groundTile('grass', false, false));
+  assert.deepEqual(groundTile('grass', false, false, 'forest'), groundTile('grass', false, false));
+  assert.deepEqual(groundTile('water', false, false, 'desert'), groundTile('water', false, false));
+  assert.deepEqual(groundTile('grass', true, false, 'desert'), groundTile('grass', true, false));
+  assert.ok(Object.keys(BIOME_GROUND).length >= 6);
+});
