@@ -17,8 +17,8 @@ const GROUPS: Record<string, MenuTabs> = {
   // the Town: how it stands and the levers, what stands in it, what's in store, the money
   build: {
     groups: [
-      ['Overview', /^(At a glance|Direction|Town size|Raid battles|Lichcraft|The seasonal round|The days ahead|.*: powers)/],
-      ['Buildings', /^(Being built|In town|Build: )/],
+      ['Overview', /^(At a glance|In town|Direction|Town size|Raid battles|Lichcraft|The seasonal round|The days ahead|.*: powers)/],
+      ['Buildings', /^Build/],
       ['Stores', /^Stores/],
       ['Faith', /^(The gods|The faithful|Miracles|Signs from the gods)/],
       ['Villages', /^Daughter villages/],

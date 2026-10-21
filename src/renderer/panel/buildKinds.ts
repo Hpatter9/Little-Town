@@ -8,6 +8,12 @@ import { ITEMS } from '../../shared/data/items';
 export const BUILD_KINDS = ['Homes', 'Food and farms', 'Workshops', 'Stores and trade', 'Defence', 'Faith and rest', 'Other'] as const;
 export type BuildKind = (typeof BUILD_KINDS)[number];
 
+/** The build menu's tabs: the kinds above, folded into four. */
+export const BUILD_TABS = ['Homes and food', 'Work', 'Defence', 'Town'] as const;
+export type BuildTab = (typeof BUILD_TABS)[number];
+const TAB_OF_KIND: Record<BuildKind, BuildTab> = { Homes: 'Homes and food', 'Food and farms': 'Homes and food', Workshops: 'Work', 'Stores and trade': 'Work', Defence: 'Defence', 'Faith and rest': 'Town', Other: 'Town' };
+export const tabOf = (def: BuildingDef): BuildTab => TAB_OF_KIND[kindOf(def)];
+
 const STATIONS = new Set(ITEMS.map((i) => i.station as string));
 
 export function kindOf(def: BuildingDef): BuildKind {
@@ -35,6 +41,3 @@ export function whyOf(def: BuildingDef): string {
   if (STATIONS.has(def.id) || OPERATORS[def.id]) return 'Lets the town make more, and a townsperson takes the work.';
   return 'The town has learned to build it.';
 }
-
-/** The first sentence of what a building does. */
-export const shortPurpose = (def: BuildingDef): string => def.purpose.match(/^.*?[.!?](?=\s|$)/)?.[0] ?? def.purpose;
