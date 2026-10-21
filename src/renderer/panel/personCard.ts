@@ -141,11 +141,11 @@ function storyTab(p: PersonView, out: HTMLElement): void {
   if (p.secret) out.append(el('div', 'pc-sec', 'A secret'), el('div', 'pc-text', `${p.secret.name}: ${p.secret.text}`));
   if (p.diary.length) {
     out.append(el('div', 'pc-sec', 'Today, in their words'));
-    for (const l of p.diary) out.append(linked(l, 'div', 'pc-diary'));
+    for (const l of p.diary.slice(0, 3)) out.append(linked(l, 'div', 'pc-diary'));
   }
   if (p.recent.length) {
     out.append(el('div', 'pc-sec', 'Lately'));
-    for (const l of p.recent.slice(0, 5)) out.append(linked(l, 'div', 'pc-diary'));
+    for (const l of p.recent.slice(0, 3)) out.append(linked(l, 'div', 'pc-diary'));
   }
   const deeds = p.deeds.filter((d) => d.n > 0);
   if (deeds.length) {

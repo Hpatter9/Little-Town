@@ -159,7 +159,7 @@ function render(): void {
   else if (shown === 'alerts') body.replaceChildren(...renderAlerts(bridge));
   else if (snap && shown === 'founder') {
     hkKnow(snap.people);
-    body.replaceChildren(...tabbed([...renderFounder(snap, bridge), ...renderStory(snap)]));
+    body.replaceChildren(...tabbed([...renderFounder(snap, bridge, render), ...renderStory(snap)]));
   }
   else if (snap && isVenuePanel(shown)) {
     hkKnow(snap.people); // (who's who, so the keeper is dressed as the map dresses them: art/hkFolk.ts)

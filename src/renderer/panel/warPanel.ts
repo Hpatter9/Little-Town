@@ -57,7 +57,7 @@ export function renderWar(s: Snapshot, bridge: Bridge | undefined, redraw: () =>
   // ---- the map
   out.push(el('h2', '', 'War map'));
   out.push(seasonBanner(w));
-  out.push(el('div', 'hint', `The realm's borders, moved by its own wars. ${w.realms[0]?.provinces ?? 0} of ${w.provinces.length} provinces are the town's. The town picks no targets: its council answers the realm by the town's direction and its name for good or ill. Tap a place for its card; pinch, or + and −, to zoom in for every name.`));
+  out.push(el('div', 'hint', `${w.realms[0]?.provinces ?? 0} of ${w.provinces.length} provinces are the town's. The borders move with the realm's own wars. Tap a place for its card; pinch, or + and −, to zoom.`));
   const [map, zoom] = mapCanvas(w, s, redraw);
   const legend = mapLegend(w);
   legend.append(zoom);
@@ -69,7 +69,7 @@ export function renderWar(s: Snapshot, bridge: Bridge | undefined, redraw: () =>
   for (const x of w.wars) out.push(el('div', 'war-row', `⚔ ${x.a} against ${x.b}${x.days ? ` · ${x.days} day${x.days === 1 ? '' : 's'}` : ''}`));
   for (const f of w.fallen) out.push(el('div', 'war-row war-bare', `✕ ${f.name} fell to ${f.by} on day ${f.day}`));
   out.push(el('h2', '', 'Campaigns'));
-  out.push(el('div', 'hint', 'When a friend of the town\'s marches, its envoy may call the town to march beside it for a share of the spoils. The council answers, and raises the party itself; while a campaign is open you may raise a party for it, as for any expedition.'));
+  out.push(el('div', 'hint', 'A friend of the town may call it to march beside them for a share of the spoils. The council answers; while a campaign is open you may also raise a party for it.'));
   if (!w.campaigns.length) out.push(el('div', 'hint', 'No campaign has called on the town yet.'));
   const cards = el('div', 'cards wide realm');
   for (const c of w.campaigns) cards.append(campaignCard(c, s, bridge));
