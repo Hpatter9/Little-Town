@@ -29,7 +29,7 @@ const GROUPS: Record<string, MenuTabs> = {
     ],
     intro: 'Overview',
   },
-  research: { groups: [['Studying', /^(Studying|Stations)/], ['Tech tree', /^Tech tree/]], intro: 'Studying' },
+  research: { groups: [['Studying', /^(Studying|Stations)/], ['Next up', /^Next to study/], ['Tech tree', /^Tech tree/]], intro: 'Studying' },
   // the Quests tab (the panel's id is still 'expeditions'): what's out now, the quests, the places, the companies
   expeditions: {
     groups: [

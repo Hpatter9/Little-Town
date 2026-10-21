@@ -216,7 +216,8 @@ export function seatStageNow(s: GameState): number | undefined {
 
 /** The player's picks first, in their order (each after its own picked prerequisites), then the town's own. */
 function orderQueue(r: ResearchState): void {
-  const picked = (r.picked ?? []).filter((id) => r.queue.includes(id));
+  // (each topic once: a repeat in either list is dropped)
+  const picked = [...new Set(r.picked ?? [])].filter((id) => r.queue.includes(id));
   r.picked = picked;
   const out: string[] = [];
   const put = (id: string) => {
@@ -225,7 +226,7 @@ function orderQueue(r: ResearchState): void {
     out.push(id);
   };
   for (const id of picked) put(id);
-  r.queue = [...out, ...r.queue.filter((id) => !out.includes(id))];
+  r.queue = [...new Set([...out, ...r.queue])];
 }
 
 /** The player picks a topic by hand: queued ahead of the town's own choices (any of its prerequisites already queued
