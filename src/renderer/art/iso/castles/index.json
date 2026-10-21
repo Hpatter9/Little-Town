@@ -1,0 +1,66 @@
+{
+ "bloodcourt": [
+  {
+   "id": "blood_cellar",
+   "w": 288,
+   "h": 286
+  },
+  {
+   "id": "castle_gate",
+   "w": 237,
+   "h": 269
+  },
+  {
+   "id": "castle_hall",
+   "w": 364,
+   "h": 380
+  },
+  {
+   "id": "castle_keep",
+   "w": 265,
+   "h": 384
+  },
+  {
+   "id": "castle_tower",
+   "w": 147,
+   "h": 320
+  },
+  {
+   "id": "castle_wall",
+   "w": 269,
+   "h": 316
+  }
+ ],
+ "dwarves": [
+  {
+   "id": "hold_brewery",
+   "w": 316,
+   "h": 295
+  },
+  {
+   "id": "hold_forge",
+   "w": 301,
+   "h": 352
+  },
+  {
+   "id": "hold_gate",
+   "w": 367,
+   "h": 384
+  },
+  {
+   "id": "hold_hall",
+   "w": 375,
+   "h": 360
+  },
+  {
+   "id": "hold_tower",
+   "w": 269,
+   "h": 320
+  },
+  {
+   "id": "hold_wall",
+   "w": 312,
+   "h": 275
+  }
+ ]
+}

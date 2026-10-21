@@ -31,3 +31,11 @@ with PixelLab from the project's own front views.
   `cast_1h`. Armed looks (`<look>+axe`, `+hammer`, `+sword`, `+bow`, `+greatsword`, `+staff`) have their own folder
   with `chop`, `hammer`, `attack_1h`, `attack_bow`, `attack_2h` or `cast_2h`.
 - Only `settlers/woman_leather` (standing and walking) is here so far; the rest of the settlers follow.
+
+## castles/<people>/
+
+The castle and hold pieces drawn in each people's kit style (PixelLab): `bloodcourt/` (castle_keep, castle_tower,
+castle_wall, castle_gate, castle_hall, blood_cellar) and `dwarves/` (hold_gate, hold_hall, hold_tower, hold_wall,
+hold_forge, hold_brewery). `index.json` lists them with their sizes. They're drawn at the same scale as the kits'
+pieces before the kit's `scale` (a keep is about 1.5 cottages wide). Not yet copied into the build or drawn: the iso
+view will use them for the castle's and the hold's rooms, walls and gates.
