@@ -955,6 +955,9 @@ export class MapView {
     for (const i of m.marked) {
       const c = cellAt(m, i);
       g.rect(c.x * CELL + 1, c.y * CELL + 1, CELL - 2, CELL - 2).stroke({ color: 0xffe080, width: 2, alpha: 0.8 });
+      // (and a faint X, so a marked cell reads plainly even among trees)
+      const x0 = c.x * CELL + 5, y0 = c.y * CELL + 5, x1 = (c.x + 1) * CELL - 5, y1 = (c.y + 1) * CELL - 5;
+      g.moveTo(x0, y0).lineTo(x1, y1).moveTo(x1, y0).lineTo(x0, y1).stroke({ color: 0xffe080, width: 2, alpha: 0.55 });
     }
     if (this.highlight !== null && !isMarked(m, this.highlight)) {
       const c = cellAt(m, this.highlight);

@@ -43,7 +43,7 @@ import { castAt } from './powers';
 import { Rng } from '../rng';
 import { demolish, discardStock, placeBlueprint, townRadius, upgrade } from './buildings';
 import { cellAt, groundAt, isMarked, setGround, setMarked, type Pt, decayWear } from './land';
-import type { Command } from './commands';
+import { MARK_CLEAR_CAP, type Command } from './commands';
 import { restockKits } from './kit';
 import { equip, hourlyItems, queueCraft, reduceCraft } from './crafting';
 import { growCrops, tendFields } from './farming';
@@ -666,6 +666,14 @@ export class Sim {
       case 'toggleGather': {
         if (!s.land.pools[c.cell]) return;
         setMarked(s.land, c.cell, !isMarked(s.land, c.cell));
+        break;
+      }
+      case 'markClear': {
+        // (a drag's worth: only wild cells with something to gather can be marked; any can be unmarked)
+        for (const i of c.cells.slice(0, MARK_CLEAR_CAP)) {
+          if (i < 0 || i >= s.land.w * s.land.h || isMarked(s.land, i) === c.on) continue;
+          if (!c.on || s.land.pools[i]) setMarked(s.land, i, c.on);
+        }
         break;
       }
     }

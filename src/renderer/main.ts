@@ -173,6 +173,7 @@ const travellerDoing = (t: TravellerView) => {
 import { bleedLeft } from '../shared/format';
 import { poolSize } from '../shared/sim/state';
 import { hashSeed } from '../shared/rng';
+import { MARK_CLEAR_CAP } from '../shared/sim/commands';
 import { CELL, cellAt, groundAt, idx, isMarked, isRoad, wet, WILD } from '../shared/sim/land';
 import { loadCreatures } from './art/creatures';
 import { loadEffects } from './art/effects';
@@ -644,6 +645,34 @@ async function start(): Promise<void> {
     camera.centreOn(snap?.camp ?? first.camp, app.screen.width, app.screen.height);
   });
   document.body.append(homeButton);
+  // (the Clear button: while it's on, a tap or a drag over trees, scrub and rock marks them for the townsfolk to clear,
+  //  and a tap on a marked cell lifts the mark. The sweep is sent as one `markClear` when the finger lifts.)
+  let clearing = false;
+  let sweep: { id: number; on: boolean; cells: Set<number>; last: { x: number; y: number } } | null = null;
+  const CLEAR_TIP_KEY = 'littletown.clearTip';
+  const clearButton = document.createElement('button');
+  clearButton.id = 'clear-land';
+  clearButton.setAttribute('data-hit', '');
+  clearButton.title = 'Clear land';
+  clearButton.setAttribute('aria-label', 'Clear land');
+  clearButton.textContent = '⛏';
+  clearButton.addEventListener('click', (e) => {
+    e.stopPropagation();
+    clearing = !clearing;
+    sweep = null;
+    clearButton.classList.toggle('on', clearing);
+    if (!clearing) return banner.hide();
+    banner.show('Clearing land', 'Drag over trees and rock · tap a mark to lift it');
+    try {
+      if (!localStorage.getItem(CLEAR_TIP_KEY)) {
+        localStorage.setItem(CLEAR_TIP_KEY, '1');
+        toasts.push('The townsfolk clear marked land first.');
+      }
+    } catch {
+      /* (no storage: no tip) */
+    }
+  });
+  document.body.append(clearButton);
   camera.centreOn(first.camp, app.screen.width, app.screen.height); // (a nomad tribe's camp may be away on its pasture)
 
   /** The expedition shown in the split view: the most recently sent one. */
@@ -733,7 +762,10 @@ async function start(): Promise<void> {
   let selectedPerson: number | null = null;
   let placing: { def: BuildingDef; x: number; y: number; check: PlaceCheck } | null = null;
 
-  const banner = createBanner(() => stopPlacing());
+  const banner = createBanner(() => {
+    if (clearing) clearButton.click();
+    else stopPlacing();
+  });
 
   const setInteractive = (on: boolean) => {
     if (on === interactive) return;
@@ -1493,6 +1525,20 @@ async function start(): Promise<void> {
     battleHud.update(b, snap.raid?.name ?? 'Raiders');
     return true;
   };
+  /** A finger sweeping in Clear mode: the cells along its path that can take the sweep's mark (or lift it). */
+  const sweepOver = (sx: number, sy: number) => {
+    if (!sweep) return;
+    const steps = Math.max(1, Math.ceil(Math.hypot(sx - sweep.last.x, sy - sweep.last.y) / (CELL / 2)));
+    for (let k = 1; k <= steps; k++) {
+      const w = map.worldOf(sweep.last.x + ((sx - sweep.last.x) * k) / steps, sweep.last.y + ((sy - sweep.last.y) * k) / steps);
+      const cell = map.cellAt(w.x, w.y);
+      if (cell === null || sweep.cells.size >= MARK_CLEAR_CAP) continue;
+      if (sweep.on ? wildCell(cell) && !isMarked(snap.land, cell) : isMarked(snap.land, cell)) sweep.cells.add(cell);
+    }
+    sweep.last = { x: sx, y: sy };
+    const w = map.worldOf(sx, sy);
+    map.setHighlight(map.cellAt(w.x, w.y));
+  };
   // (a tactics battle has the screen: a tap is its, a drag looks about the board)
   let boardPress: { x: number; y: number; lx: number; ly: number; moved: boolean; id: number } | null = null;
   canvas.addEventListener('pointerdown', (e) => {
@@ -1515,11 +1561,19 @@ async function start(): Promise<void> {
         // a second finger: this is a pinch, not a drag or a tap
         if (camera.dragging) camera.endDrag(e.timeStamp);
         press = null;
+        sweep = null;
         pinchFrom = Math.max(20, spread());
         bridge.pinch('start', pinchFrom, ...between());
         return;
       }
       if (pinchFrom !== null || afterPinch) return;
+    }
+    if (clearing && !placing && e.button === 0 && !sweep) {
+      const cell = map.cellAt(map.worldOf(e.clientX, e.clientY).x, map.worldOf(e.clientX, e.clientY).y);
+      sweep = { id: e.pointerId, on: cell === null || !isMarked(snap.land, cell), cells: new Set(), last: { x: e.clientX, y: e.clientY } };
+      sweepOver(e.clientX, e.clientY);
+      canvas.setPointerCapture(e.pointerId);
+      return;
     }
     if (e.pointerType !== 'mouse') {
       // a touch has no hover beforehand: hit-test where the finger lands
@@ -1549,6 +1603,7 @@ async function start(): Promise<void> {
       boardPress.ly = e.clientY;
       return;
     }
+    if (sweep && e.pointerId === sweep.id) return sweepOver(e.clientX, e.clientY);
     if (battle.aiming) battle.lastAim = battle.toMap(e.clientX, e.clientY);
     if (touches.has(e.pointerId)) {
       touches.set(e.pointerId, { x: e.clientX, y: e.clientY });
@@ -1579,6 +1634,14 @@ async function start(): Promise<void> {
       afterPinch = true;
     }
     if (touches.size === 0) afterPinch = false;
+    if (sweep && e.pointerId === sweep.id) {
+      const done = sweep;
+      sweep = null;
+      if (canvas.hasPointerCapture(e.pointerId)) canvas.releasePointerCapture(e.pointerId);
+      map.setHighlight(null);
+      if (e.type === 'pointerup' && done.cells.size) bridge.command({ type: 'markClear', cells: [...done.cells].slice(0, MARK_CLEAR_CAP), on: done.on });
+      return;
+    }
     if (!press || e.pointerId !== press.id) return;
     const wasDrag = camera.dragging;
     camera.endDrag(e.timeStamp);
