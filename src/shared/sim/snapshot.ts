@@ -148,6 +148,8 @@ import { ENEMY } from '../data/social';
 import { canTrade, stalls } from './trade';
 import { JOBS, JOB_NAMES, RECRUIT_TYPES, TRAIT_BY_ID, type Job, type Look, type Priority } from '../data/people';
 import { canBeHeir, founderOf } from './founder';
+import { waitingOnFounder } from './founderQuests';
+import { storyView, type StoryBookView } from './story';
 import { buyableShops, isFounderShop, managerCandidates, managerWage, seasonOfShop, shopPrice, stockLineOf, stockLinesOf } from './founderShops';
 import { heirOf } from './health';
 import { RESEARCH_STATIONS, TOPIC_BY_ID } from '../data/research';
@@ -591,6 +593,8 @@ export interface PromptView {
   who: number | null;
   /** A fateful event: the box wears its heavier frame and reveals slowly (renderer/mobile/eventSheet.ts). */
   fateful?: boolean;
+  /** Waits as long as it takes: a road question for the founder holds the game (sim/founderQuests.ts). */
+  waits?: boolean;
   /** A commanded party's result: who came home and who did not, then the haul (sim/muster.ts `debrief`). */
   debrief?: Debrief;
   /** For the card's scene (renderer/panel/eventScenes.ts): the choice event's id, and what a question of politics or of a
@@ -1239,6 +1243,10 @@ export interface Snapshot {
   mainId: number;
   /** The founder's orders and heir (sim/founder.ts): what they were told to do, who would lead after them, and who could be named. */
   founder: FounderView | null;
+  /** The founder's story, one book a founder, the open one first (sim/story.ts). */
+  story: StoryBookView[];
+  /** The game is held for the founder's answer to a road question (sim/founderQuests.ts). */
+  waitingOnFounder: boolean;
   unlockAll: boolean;
   research: ResearchView;
   /** The player's building wishes (sim/pins.ts): what, whether it's going up and how far, or what it waits on. */
@@ -1590,6 +1598,7 @@ export function snapshot(s: GameState): Snapshot {
       picture: p.picture ?? null,
       who: p.who ?? null,
       ...(p.fateful ? { fateful: true } : {}),
+      ...(p.waits ? { waits: true } : {}),
       ...(p.debrief ? { debrief: p.debrief } : {}),
       ...(p.kind === 'event' && s.event?.prompt === p.id ? { eventId: s.event.def } : {}),
       ...(p.politics || p.village ? { about: p.politics ?? p.village?.about } : {}),
@@ -1678,6 +1687,8 @@ export function snapshot(s: GameState): Snapshot {
     upcoming: upcoming(s),
     mainId: s.mainId,
     founder: founderView(s),
+    story: storyView(s),
+    waitingOnFounder: waitingOnFounder(s),
     unlockAll: s.cheats.unlockAll,
     research: researchView(s),
     recommend: recommendationOf(s),

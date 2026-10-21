@@ -13,6 +13,7 @@ import { bookTakings, businessPrice } from './ambition';
 import { giveCoins } from './economy';
 import { founderOf } from './founder';
 import { OPERATORS } from '../data/operators';
+import { storyShop } from './story';
 import { isChild } from './social';
 import { earn, notify, remember, type Building, type GameState, type Person } from './state';
 import { DAYS_PER_SEASON, TICKS_PER_DAY } from './time';
@@ -61,6 +62,7 @@ export function founderBuyShop(s: GameState, id: number): boolean {
   sh.run = { stock: stockLinesOf(b)[0].id, price: 'fair', till: 0 };
   const name = BUILDING_BY_ID[b.def].name;
   remember(s, f, `Bought the ${name} (${price} coins)`);
+  storyShop(s, name, price);
   notify(s, `${f.name} bought the ${name} for ${price} coins. It needs a manager.`, true);
   return true;
 }

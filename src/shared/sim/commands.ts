@@ -36,7 +36,7 @@ export type Command =
   /** Forbid a destination to the town's parties, or allow it again; post (raise) or withdraw a bounty on one. */
   | { type: 'veto'; dest: string; on: boolean }
   /** The quest board (sim/questBoard.ts): take an offer up, or turn it down. */
-  | { type: 'quest'; op: 'accept' | 'decline'; sort: 'quest' | 'hunt'; id: number }
+  | { type: 'quest'; op: 'accept' | 'decline' | 'lead'; sort: 'quest' | 'hunt'; id: number }
   | { type: 'bounty'; dest: string; post: boolean }
   /** Mark a wild cell of the land for gathering (clearing it), or unmark it. */
   | { type: 'toggleGather'; cell: number }
@@ -186,7 +186,7 @@ export function parseCommand(raw: unknown): Command | null {
     case 'setTax':
       return TAX_RATES.includes(c.rate as TaxRate) ? { type: 'setTax', rate: c.rate as TaxRate } : null;
     case 'quest':
-      return (c.op === 'accept' || c.op === 'decline') && (c.sort === 'quest' || c.sort === 'hunt') && Number.isInteger(c.id) ? { type: 'quest', op: c.op, sort: c.sort, id: c.id as number } : null;
+      return (c.op === 'accept' || c.op === 'decline' || c.op === 'lead') && (c.sort === 'quest' || c.sort === 'hunt') && Number.isInteger(c.id) ? { type: 'quest', op: c.op, sort: c.sort, id: c.id as number } : null;
     case 'veto':
       return typeof c.dest === 'string' && typeof c.on === 'boolean' ? { type: 'veto', dest: c.dest, on: c.on } : null;
     case 'bounty':

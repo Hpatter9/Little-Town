@@ -268,7 +268,8 @@ export function sagaTripHome(s: GameState, e: Expedition): void {
   const c = chapterOf(r);
   if (c?.kind !== 'trip') return;
   if (e.cleared) {
-    r.hero = e.leader ?? e.members[0];
+    // (the founder is the hero whenever they led or joined the trip)
+    r.hero = e.members.includes(s.mainId) || e.start?.names[s.mainId] ? s.mainId : (e.leader ?? e.members[0]);
     say(s, r, `${person(s, r.hero)?.name ?? 'The party'} and the party won through at ${c.place.replace(/^The /, 'the ')}.`);
     goTo(s, r, c.win);
   } else if (!e.recalled) {

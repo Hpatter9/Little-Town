@@ -17,6 +17,7 @@ import { dynastyDeath } from './dynasty';
 import { grieve, isChild } from './social';
 import { revealOccult, tryRevive } from './occult';
 import { tireless, notify, maxHp, markBlood, personFx, type GameState, type Person } from './state';
+import { storyDeath } from './story';
 import { TICKS_PER_DAY, TICKS_PER_HOUR } from './time';
 import { closeCall } from './closeCalls';
 import { tally } from './deeds';
@@ -146,6 +147,7 @@ export function killPerson(s: GameState, p: Person, cause: string): void {
   if (p.id === s.mainId) {
     // someone takes up the leadership, if there's a grown-up left to; else the town is finished
     const heir = heirOf(s, p);
+    storyDeath(s, p, cause, heir); // (the founder's story closes, the heir's begins: sim/story.ts)
     if (!heir) {
       s.gameOver = { tick: s.tick, text: `${p.name} has died ${cause}, with no heir to take up the town. The camp breaks apart.`, founder: p.name, days: Math.floor(s.tick / TICKS_PER_DAY), cause };
       notify(s, s.gameOver.text, true);
