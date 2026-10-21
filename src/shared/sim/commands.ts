@@ -103,6 +103,12 @@ export type Command =
   | { type: 'founderRest' }
   | { type: 'founderGive'; amount: number }
   | { type: 'founderHeir'; person: number | null }
+  /** More ways to interact (sim/founderDealings.ts). */
+  | { type: 'founderVisitor'; terms: 'fee' | 'favour' }
+  | { type: 'founderApprentice'; child: number; master: number }
+  | { type: 'founderMatch'; person: number }
+  | { type: 'founderFeast'; grade: 'feast' | 'festival' }
+  | { type: 'founderHaggle'; offer: number }
   /** The founder's shops (sim/founderShops.ts): buy one, set its stock line and price, hire its manager (the founder's own
    *  id: they work the counter; null: shut it). */
   | { type: 'founderBuyShop'; building: number }
@@ -314,6 +320,16 @@ export function parseCommand(raw: unknown): Command | null {
       return Number.isInteger(c.building) && (c.price === 'low' || c.price === 'fair' || c.price === 'high') ? { type: 'founderShopPrice', building: c.building as number, price: c.price } : null;
     case 'founderShopManager':
       return Number.isInteger(c.building) && (c.person === null || Number.isInteger(c.person)) ? { type: 'founderShopManager', building: c.building as number, person: c.person as number | null } : null;
+    case 'founderVisitor':
+      return c.terms === 'fee' || c.terms === 'favour' ? { type: 'founderVisitor', terms: c.terms } : null;
+    case 'founderApprentice':
+      return Number.isInteger(c.child) && Number.isInteger(c.master) ? { type: 'founderApprentice', child: c.child as number, master: c.master as number } : null;
+    case 'founderMatch':
+      return Number.isInteger(c.person) ? { type: 'founderMatch', person: c.person as number } : null;
+    case 'founderFeast':
+      return c.grade === 'feast' || c.grade === 'festival' ? { type: 'founderFeast', grade: c.grade } : null;
+    case 'founderHaggle':
+      return Number.isInteger(c.offer) ? { type: 'founderHaggle', offer: c.offer as number } : null;
     case 'founderHeir':
       return c.person === null || Number.isInteger(c.person) ? { type: 'founderHeir', person: c.person as number | null } : null;
     case 'rally':

@@ -150,6 +150,7 @@ import { canTrade, stalls } from './trade';
 import { JOBS, JOB_NAMES, RECRUIT_TYPES, TRAIT_BY_ID, type Job, type Look, type Priority } from '../data/people';
 import { canBeHeir, founderOf } from './founder';
 import { waitingOnFounder } from './founderQuests';
+import { dealingsView, type DealingsView } from './founderDealings';
 import { storyView, type StoryBookView } from './story';
 import { buyableShops, isFounderShop, managerCandidates, managerWage, seasonOfShop, shopPrice, stockLineOf, stockLinesOf } from './founderShops';
 import { heirOf } from './health';
@@ -242,6 +243,8 @@ export interface FounderView {
   shops: FounderShopView[];
   buyable: { id: number; name: string; price: number }[];
   hires: { id: number; name: string; social: number; wage: number }[];
+  /** The visitor's terms, apprentices, matches and feasts (sim/founderDealings.ts). */
+  dealings: DealingsView;
 }
 export interface FounderShopView {
   id: number;
@@ -1389,7 +1392,7 @@ function founderView(s: GameState): FounderView | null {
     .filter((p) => canBeHeir(s, p))
     .map((p) => ({ id: p.id, name: p.name, role: roleOf(p) }))
     .sort((a, b) => rank[a.role] - rank[b.role]);
-  return { id: f.id, order, heir: next ? { id: next.id, name: next.name, named: next.id === s.heirId } : null, heirs, jobs: JOBS.filter((j) => j !== 'defend'), ...founderShopsView(s) };
+  return { id: f.id, order, heir: next ? { id: next.id, name: next.name, named: next.id === s.heirId } : null, heirs, jobs: JOBS.filter((j) => j !== 'defend'), ...founderShopsView(s), dealings: dealingsView(s) };
 }
 
 

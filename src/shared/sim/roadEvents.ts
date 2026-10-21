@@ -88,6 +88,7 @@ export function rollRoadEvent(s: GameState, e: Expedition, members: Person[], rn
 }
 
 /** Answer a question (by the player, or by default when the timer runs out). */
+import { answerDeal } from './founderDealings';
 export function answerPrompt(s: GameState, id: number, option: number, rng: Rng): void {
   const prompt = s.prompts.find((q) => q.id === id);
   if (!prompt) return;
@@ -115,6 +116,7 @@ export function answerPrompt(s: GameState, id: number, option: number, rng: Rng)
   if (prompt.kind === 'dragon') return answerDragon(s, prompt, option);
   if (prompt.kind === 'enemy') return answerEnemy(s, prompt, option);
   if (prompt.kind === 'evolve') return answerEvolve(s, prompt, option);
+  if (prompt.kind === 'deal') return answerDeal(s, prompt, option);
   if (prompt.kind === 'ways') return answerWays(s, prompt, option, rng);
   const e = s.expeditions.find((q) => q.id === prompt.expedition);
   if (!e) return;
