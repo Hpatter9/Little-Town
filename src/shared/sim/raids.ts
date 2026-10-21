@@ -114,6 +114,7 @@ import { fireAt, speedOf, tickBurns } from './defenses';
 import { rustle } from './livestock';
 import { circleWagons } from './nomads';
 import { battlesOn, startBattle, stepBattle } from './battle';
+import { noteFugitives, updateChase } from './chase';
 import { startTactics, stepTactics, tacticsOn, tacticsOver } from './tactics';
 
 /** Raiders start this far beyond the edge of the land. */
@@ -462,6 +463,7 @@ function wallBetween(s: GameState, from: Pt, target: Pt): Building | null {
 export function updateRaid(s: GameState, rng: Rng): void {
   const r = s.raid;
   if (!r) return;
+  if (r.chase) return updateChase(s, r, rng); // (a chase after fugitives: sim/chase.ts)
   const kind = RAID_KIND_BY_ID[r.kind];
   if (r.phase === 'warning') {
     if (s.tick < r.arrivesTick) return;
@@ -964,6 +966,7 @@ function endRaid(s: GameState, rng: Rng): void {
     stolen,
     spoils,
   });
+  noteFugitives(s, r, kind.name); // (those who got away may be chased: sim/chase.ts)
   oddsOver(s, r); // (mercy or the hunt, told in the recap; a survivor's grudge: sim/raidOdds.ts)
   // (a deed for everyone who stood and lived, when the town held: sim/deeds.ts)
   if (s.raidRecap.outcome !== 'pillaged') for (const row of s.raidRecap.rows) if (!row.died) addDeed(s.people.find((q) => q.id === row.id), 'defended');

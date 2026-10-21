@@ -580,7 +580,7 @@ async function start(): Promise<void> {
     },
     speed: (n) => bridge.command({ type: 'battleSpeed', speed: n }),
   });
-  const raidRecap = createRaidRecap();
+  const raidRecap = createRaidRecap(() => bridge.command({ type: 'giveChase' }));
   const cinema = startCinema(document.body); // (a big moment as a title card, the screen letterboxed)
   let lastNewsId = -2; // (-2: no snapshot yet; the news already there when the page opens is not shown again)
   const battleHud = createBattleHud({

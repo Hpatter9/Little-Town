@@ -16,6 +16,7 @@ import { worldHourly } from './worldLife';
 import { marketsHourly, setRoute } from './markets';
 import { empireHourly, empireTick } from './tradeEmpire';
 import { groveHourly } from './grove';
+import { giveChase } from './chase';
 import { skipRaid, skipRaidsTick } from './raidSkip';
 import { courtHourly } from './bargains';
 import { workHourly } from './greatWork';
@@ -499,6 +500,9 @@ export class Sim {
         break;
       case 'raidSkip':
         skipRaid(s);
+        break;
+      case 'giveChase':
+        giveChase(s);
         break;
       case 'skipRaids':
         s.skipRaids = c.on;

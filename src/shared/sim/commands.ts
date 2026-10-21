@@ -135,6 +135,8 @@ export type Command =
   | { type: 'battleSpeed'; speed: number }
   /** Skip the raid under way to its recap; or skip every raid (sim/raidSkip.ts). */
   | { type: 'raidSkip' }
+  /** Ride out after the raiders who got away (sim/chase.ts). */
+  | { type: 'giveChase' }
   | { type: 'skipRaids'; on: boolean }
   | { type: 'battleStyle'; style: 'trail' | 'tactics' }
   /** Spend one of a townsperson's stat points (data/attributes.ts), or all of them their class's way (`attr` null). */
@@ -326,6 +328,8 @@ export function parseCommand(raw: unknown): Command | null {
       return typeof c.speed === 'number' && (GAME_SPEEDS as readonly number[]).includes(c.speed) ? { type: 'gameSpeed', speed: c.speed } : null;
     case 'raidSkip':
       return { type: 'raidSkip' };
+    case 'giveChase':
+      return { type: 'giveChase' };
     case 'skipRaids':
       return typeof c.on === 'boolean' ? { type: 'skipRaids', on: c.on } : null;
     case 'battleSpeed':
