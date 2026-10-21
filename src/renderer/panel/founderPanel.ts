@@ -15,7 +15,7 @@ import { face } from './townsfolkPanel';
 export function founderKey(s: Snapshot): string {
   const f = s.people.find((p) => p.id === s.mainId);
   if (!f || !s.founder) return 'none';
-  return [f.name, f.clsName, f.level, Math.round(f.hp), f.maxHp, Math.round(f.morale), f.coins, f.doing, s.founder.order, s.founder.heir?.id, s.founder.heir?.named, s.founder.heirs.map((h) => h.id).join(','), Object.values(f.gear).join(','), s.coins].join('|');
+  return [f.name, f.clsName, f.level, Math.round(f.hp), f.maxHp, Math.round(f.morale), f.coins, f.doing, s.founder.order, s.founder.heir?.id, s.founder.heir?.named, s.founder.heirs.map((h) => h.id).join(','), s.founder.shops.map((x) => [x.id, x.manager?.id, x.stock, x.price, x.today, x.last, x.seasonNet].join(':')).join(';'), s.founder.buyable.map((x) => `${x.id}:${x.price}`).join(','), s.founder.hires.map((h) => h.id).join(','), Object.values(f.gear).join(','), s.coins].join('|');
 }
 
 export function renderFounder(s: Snapshot, bridge: Bridge): HTMLElement[] {
@@ -69,6 +69,38 @@ export function renderFounder(s: Snapshot, bridge: Bridge): HTMLElement[] {
   out.push(el('h2', '', 'Rest'));
   out.push(el('div', 'hint', 'Go home to heal and lift their spirits.'));
   out.push(button('Rest at home', () => bridge.command({ type: 'founderRest' })));
+
+  out.push(el('h2', '', 'Your shops'));
+  if (!v.shops.length) out.push(el('div', 'hint', 'You own no shop yet. Buy one below, hire a manager or work the counter yourself.'));
+  const PRICE_NAMES = { low: 'Low', fair: 'Fair', high: 'High' } as const;
+  for (const x of v.shops) {
+    const card = el('div', 'founder-shop');
+    card.style.cssText = 'border:1px solid rgba(255,255,255,.2);border-radius:6px;padding:8px;margin:6px 0;display:flex;flex-direction:column;gap:6px';
+    card.append(el('b', '', x.name));
+    card.append(el('div', 'hint', x.manager ? `Manager: ${x.manager.self ? 'you, at the counter' : `${x.manager.name} (${x.manager.wage} coins a day)`}` : 'No manager: the shop is shut.'));
+    card.append(el('div', 'hint', `Takings today ${x.today} coins · last day’s profit ${x.last} · this season ${x.seasonGross} taken, ${x.seasonNet} profit.`));
+    const stocks = el('div', 'founder-stock');
+    stocks.style.cssText = 'display:flex;flex-wrap:wrap;gap:6px';
+    for (const l of x.stocks) stocks.append(button(`${l.name}${l.id === x.stock ? ' ✓' : ''}`, () => bridge.command({ type: 'founderShopStock', building: x.id, stock: l.id })));
+    card.append(el('div', 'hint', 'Stock'), stocks);
+    const prices = el('div', 'founder-price');
+    prices.style.cssText = 'display:flex;gap:6px';
+    for (const p of ['low', 'fair', 'high'] as const) prices.append(button(`${PRICE_NAMES[p]}${p === x.price ? ' ✓' : ''}`, () => bridge.command({ type: 'founderShopPrice', building: x.id, price: p })));
+    card.append(el('div', 'hint', 'Price: low draws more customers and pleases the town; high earns more a sale and the town grumbles.'), prices);
+    const staff = el('div', 'founder-manager');
+    staff.style.cssText = 'display:flex;flex-wrap:wrap;gap:6px';
+    staff.append(button(x.manager?.self ? 'Working the counter ✓' : 'Work the counter myself', () => bridge.command({ type: 'founderShopManager', building: x.id, person: v.id })));
+    for (const h of v.hires) staff.append(button(`Hire ${h.name} (${h.wage}/day)${x.manager?.id === h.id ? ' ✓' : ''}`, () => bridge.command({ type: 'founderShopManager', building: x.id, person: h.id })));
+    if (x.manager) staff.append(button('Shut the shop', () => bridge.command({ type: 'founderShopManager', building: x.id, person: null })));
+    card.append(el('div', 'hint', 'Manager'), staff);
+    out.push(card);
+  }
+  out.push(el('h2', '', 'Buy a shop'));
+  if (!v.buyable.length) out.push(el('div', 'hint', 'No shop, tavern or stall in town is for sale.'));
+  const buy = el('div', 'founder-buy');
+  buy.style.cssText = 'display:flex;flex-wrap:wrap;gap:6px';
+  for (const b of v.buyable) buy.append(button(`${b.name}: ${b.price} coins`, () => bridge.command({ type: 'founderBuyShop', building: b.id }), { disabled: (f.coins ?? 0) < b.price }));
+  out.push(buy);
 
   out.push(el('h2', '', 'Name an heir'));
   out.push(el('div', 'hint', v.heir ? `${v.heir.name} would lead after you${v.heir.named ? ' (named)' : ''}. With no grown child, partner or named heir, the game ends when you die.` : 'You have no heir. With no grown child, partner or named heir, the game ends when you die.'));

@@ -93,6 +93,12 @@ export type Command =
   | { type: 'founderRest' }
   | { type: 'founderGive'; amount: number }
   | { type: 'founderHeir'; person: number | null }
+  /** The founder's shops (sim/founderShops.ts): buy one, set its stock line and price, hire its manager (the founder's own
+   *  id: they work the counter; null: shut it). */
+  | { type: 'founderBuyShop'; building: number }
+  | { type: 'founderShopStock'; building: number; stock: string }
+  | { type: 'founderShopPrice'; building: number; price: 'low' | 'fair' | 'high' }
+  | { type: 'founderShopManager'; building: number; person: number | null }
   /** Follow a townsperson, or stop (sim/favourites.ts): a view preference only. */
   | { type: 'favourite'; id: number; on: boolean }
   /** Go into a mine on the land and watch the digging (null: back to the town). */
@@ -282,6 +288,14 @@ export function parseCommand(raw: unknown): Command | null {
       return { type: 'founderRest' };
     case 'founderGive':
       return Number.isInteger(c.amount) && (c.amount as number) > 0 && (c.amount as number) <= 100000 ? { type: 'founderGive', amount: c.amount as number } : null;
+    case 'founderBuyShop':
+      return Number.isInteger(c.building) ? { type: 'founderBuyShop', building: c.building as number } : null;
+    case 'founderShopStock':
+      return Number.isInteger(c.building) && typeof c.stock === 'string' && (c.stock as string).length < 24 ? { type: 'founderShopStock', building: c.building as number, stock: c.stock as string } : null;
+    case 'founderShopPrice':
+      return Number.isInteger(c.building) && (c.price === 'low' || c.price === 'fair' || c.price === 'high') ? { type: 'founderShopPrice', building: c.building as number, price: c.price } : null;
+    case 'founderShopManager':
+      return Number.isInteger(c.building) && (c.person === null || Number.isInteger(c.person)) ? { type: 'founderShopManager', building: c.building as number, person: c.person as number | null } : null;
     case 'founderHeir':
       return c.person === null || Number.isInteger(c.person) ? { type: 'founderHeir', person: c.person as number | null } : null;
     case 'rally':

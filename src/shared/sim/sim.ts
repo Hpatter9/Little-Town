@@ -135,6 +135,7 @@ import { seafaringHourly } from './seafaring';
 import { oddsHourly } from './raidOdds';
 import { voteSettlementName } from './settlementName';
 import { setFavourite } from './favourites';
+import { founderBuyShop, founderShopManager, founderShopPrice, founderShopStock } from './founderShops';
 import { founderGive, founderGo, founderHeir, founderRest, founderTick, founderWork } from './founder';
 
 /** How the town trades at its shop: the planner decides what's spare and what to buy. */
@@ -576,6 +577,18 @@ export class Sim {
         break;
       case 'founderGive':
         founderGive(s, c.amount);
+        break;
+      case 'founderBuyShop':
+        founderBuyShop(s, c.building);
+        break;
+      case 'founderShopStock':
+        founderShopStock(s, c.building, c.stock);
+        break;
+      case 'founderShopPrice':
+        founderShopPrice(s, c.building, c.price);
+        break;
+      case 'founderShopManager':
+        founderShopManager(s, c.building, c.person);
         break;
       case 'founderHeir':
         founderHeir(s, c.person);

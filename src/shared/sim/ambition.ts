@@ -11,6 +11,7 @@ import { natureOf } from '../data/natures';
 import { PURSE_SCALE } from '../data/shop';
 import { SKILLS } from '../data/skills';
 import { giveCoins, moneyTown, payFromTreasury } from './economy';
+import { founderSale } from './founderShops';
 import { houseCut } from './intrigue';
 import { landPrice, materialsPrice } from './property';
 import { earn, notify, remember, type Building, type GameState, type LedgerLine, type Person } from './state';
@@ -69,6 +70,7 @@ export function businessPrice(s: GameState, b: Building): number {
 /** A sale at a venue: to its owner's purse (the treasury's when it's the town's), the keeper's cut out of it. */
 export function takeSale(s: GameState, b: Building, spent: number, keeper: Person | undefined, line: LedgerLine, who: string): void {
   if (spent <= 0) return;
+  if (founderSale(s, b, spent, keeper) !== null) return; // (the founder's own shop: its till, settled at dawn: sim/founderShops.ts)
   bookTakings(s, b, spent);
   const owner = b.owner === undefined ? undefined : s.people.find((p) => p.id === b.owner);
   const name = BUILDING_BY_ID[b.def].name;
@@ -115,7 +117,7 @@ export function buyBusinesses(s: GameState): void {
     .sort((a, b) => (ambitionOf(a) === 'keeper' ? 0 : 1) - (ambitionOf(b) === 'keeper' ? 0 : 1) || (b.coins ?? 0) - (a.coins ?? 0));
   for (const p of buyers) {
     const forSale = s.buildings
-      .filter((b) => VENUE(b) && b.owner !== p.id)
+      .filter((b) => VENUE(b) && b.owner !== p.id && !(b.owner === s.mainId && b.shop?.run))
       .filter((b) => {
         const seller = b.owner === undefined ? undefined : s.people.find((q) => q.id === b.owner);
         return !seller || ambitionOf(seller) !== 'keeper';

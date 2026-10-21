@@ -3,6 +3,7 @@
 // the founder's task choice reads `s.founderOrder` (sim/people.ts `founderTask`). Everyone else lives on their own.
 
 import { JOBS, type Job } from '../data/people';
+import { settleShops } from './founderShops';
 import { isChild } from './social';
 import { maxHp, notify, type GameState, type Person } from './state';
 import { TICKS_PER_DAY, TICKS_PER_HOUR } from './time';
@@ -77,6 +78,7 @@ export function founderHeir(s: GameState, id: number | null): void {
 
 /** Once an hour of a rest: the founder mends a little and their spirits lift. Called from the step. */
 export function founderTick(s: GameState): void {
+  settleShops(s);
   const o = s.founderOrder;
   const f = founderOf(s);
   if (!o || !f) return;
