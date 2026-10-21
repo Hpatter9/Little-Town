@@ -17,6 +17,7 @@ cpSync('out/renderer/music', `${OUT}/music`, { recursive: true });
 cpSync('out/renderer/packs', `${OUT}/packs`, { recursive: true });
 cpSync('out/renderer/backdrops', `${OUT}/backdrops`, { recursive: true });
 cpSync('out/renderer/himeko', `${OUT}/himeko`, { recursive: true });
+cpSync('out/renderer/iso', `${OUT}/iso`, { recursive: true });
 cpSync('out/renderer/props', `${OUT}/props`, { recursive: true });
 cpSync('out/renderer/scenery', `${OUT}/scenery`, { recursive: true });
 cpSync('out/renderer/eventprops', `${OUT}/eventprops`, { recursive: true });
@@ -124,7 +125,8 @@ const walk = (dir) => {
     if (statSync(p).isDirectory()) walk(p);
     // (the fights' backdrops are many and big: each is cached when a fight first shows it, see sw.js)
     // (and the townsfolk's layers, hundreds of them: each is cached when someone first wears it)
-    else if (!/^(backdrops|himeko)/.test(path.relative(OUT, p))) files.push(path.relative(OUT, p).replaceAll('\\', '/'));
+    // (and the isometric view's kits, megabytes for a dozen peoples: each piece cached when the view first draws it)
+    else if (!/^(backdrops|himeko|iso)/.test(path.relative(OUT, p))) files.push(path.relative(OUT, p).replaceAll('\\', '/'));
   }
 };
 walk(OUT);
