@@ -1,5 +1,6 @@
 // Shared test setup.
 
+import { keepOffer, OFFER_WAIT_TICKS } from '../src/shared/sim/researchOffer';
 import { JOBS, type Job, type Priority } from '../src/shared/data/people';
 import { maxHp, newGame, type GameState } from '../src/shared/sim/state';
 
@@ -102,4 +103,11 @@ export function clearAround(s: GameState, r: number): void {
   for (let y = c.y - r; y <= c.y + r; y++)
     for (let x = c.x - r; x <= c.x + r; x++) if (x >= 0 && y >= 0 && x < s.land.w && y < s.land.h && WILD.includes(groundAt(s.land, x, y))) setGround(s.land, x, y, 'grass');
   s.land.open = Math.max(s.land.open, r + 2);
+}
+
+/** The town's offer of research (sim/researchOffer.ts) drawn and left standing until it is overdue, so the next planner
+ *  pass chooses among the three. */
+export function overdueOffer(s: GameState): void {
+  keepOffer(s);
+  s.research.offerAt = s.tick - OFFER_WAIT_TICKS - 1;
 }

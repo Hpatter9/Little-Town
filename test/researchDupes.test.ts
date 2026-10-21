@@ -32,6 +32,8 @@ test('a repeated topic in the queue or the picks is tidied away when the queue i
   const sim = new Sim(s);
   for (let i = 0; i < TICKS_PER_HOUR; i++) sim.step();
   const r = s.research;
+  sim.command({ type: 'studyOffer', topic: r.offer![0] });
+  sim.step();
   const [a] = r.queue;
   r.queue.push(a);
   r.picked = [a, a];

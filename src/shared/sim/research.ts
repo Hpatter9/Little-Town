@@ -21,6 +21,14 @@ export interface ResearchState {
   picked?: string[];
   /** Topics the player took out of the queue: the planner leaves them be while it has anything else to study. */
   shelved?: string[];
+  /** The three topics on offer now (sim/researchOffer.ts), when they were offered (tick), how many offers have been
+   *  drawn (the seed of the next), and whether the last look found nothing to offer. */
+  offer?: string[];
+  offerAt?: number;
+  offers?: number;
+  offerEmpty?: boolean;
+  /** The two topics the planner would study first (always among the three offered: planner.ts planResearch). */
+  suggested?: string[];
 }
 
 export interface Modifiers {

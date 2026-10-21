@@ -6,6 +6,7 @@ import { housingCapacity } from '../src/shared/sim/townsfolk';
 import { runPlanner, PLAN_TICKS, STALL_HOURS } from '../src/shared/sim/planner';
 import { camp, plainGame, row } from './helpers';
 import { ITEM_BY_ID } from '../src/shared/data/items';
+import { offerableTopics, OFFER_WAIT_TICKS } from '../src/shared/sim/researchOffer';
 import { TOPIC_BY_ID } from '../src/shared/data/research';
 import { TICKS_PER_DAY, TICKS_PER_HOUR } from '../src/shared/sim/time';
 
@@ -66,6 +67,9 @@ test('its direction steers it: set on defence, it studies fighting or healing fi
     s.direction = direction;
     s.research.done.push('flint_knapping', 'foraging', 'basic_shelter', 'fire_keeping');
     s.tick = PLAN_TICKS;
+    // (the town chooses among what is on offer once the offer is overdue: here, every topic it could study)
+    s.research.offer = offerableTopics(s);
+    s.research.offerAt = s.tick - OFFER_WAIT_TICKS;
     runPlanner(s);
     return s.research.queue.map((id) => TOPIC_BY_ID[id].branch);
   };

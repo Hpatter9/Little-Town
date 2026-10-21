@@ -102,6 +102,7 @@ import { cancelResearch, moveResearch, pickResearch, researchNext, seatStageNow 
 import { autoPriorities, campCell, notify, type GameState } from './state';
 import { TICK_MS, TICKS_PER_HOUR } from './time';
 import { acceptVisitor, assignBeds, drillGuards, driftMorale, keepKin, maybeArrive, rejectVisitor, updateVisitor } from './townsfolk';
+import { chooseOffer, keepOffer } from './researchOffer';
 import { forSale, runPlanner, shoppingList } from './planner';
 import { syncRing } from './ringWall';
 import { chooseLich, watchLich } from './occult';
@@ -331,6 +332,7 @@ export class Sim {
     holdForFight(s); // (questions wait while a fight is on screen: sim/raidWait.ts)
     updateVisitor(s, (p: Person, to: Pt) => walkTo(s, p, to));
     // the town decides for itself what to research, make, build and gather
+    keepOffer(s); // (the three topics on offer: sim/researchOffer.ts)
     runPlanner(s);
 
     s.rngState = this.rng.state;
@@ -403,6 +405,9 @@ export class Sim {
       }
       case 'queueResearch':
         pickResearch(s.research, c.topic, s.cheats.unlockAll ? 'space' : s.era, s.origin, seatStageNow(s));
+        break;
+      case 'studyOffer':
+        chooseOffer(s, c.topic);
         break;
       case 'cancelResearch':
         cancelResearch(s.research, c.topic, true);

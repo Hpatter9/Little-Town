@@ -54,7 +54,8 @@ import { ROCK_FEW } from '../data/hills';
 import { SHAFT } from '../data/deep';
 import { openGround } from '../data/biomes';
 import { craftNeeded, craftSlots, itemUnlocked, queueCraft, reduceCraft, stationFor } from './crafting';
-import { canQueue, researchMods, queueResearch, seatStageNow, tidyPicks } from './research';
+import { researchMods, tidyPicks } from './research';
+import { chooseOffer, offerableTopics, offerOverdue } from './researchOffer';
 import { acceptVisitor, housingCapacity } from './townsfolk';
 import { tireless, eatersOf, foodDaysFor, addStock, campCell, poolSize, type Building, type GameState } from './state';
 import { calendar, TICKS_PER_HOUR } from './time';
@@ -329,47 +330,50 @@ function whyTopic(t: Topic, n: Needs): string {
   return 'it opens new things to build and make';
 }
 
-/** People a town needs before it studies refinements (topics that only make it better at what it does). */
-const REFINE_AT = 4;
 /** How much of a wanted topic's worth the one topic it still waits on inherits. */
 const LEADS_SHARE = 0.85;
 
 function planResearch(s: GameState, n: Needs, plan: TownPlan): void {
-  const slots = researchMods(s.research).researchSlots;
-  const seat = seatStageNow(s);
   tidyPicks(s.research);
-  // (the player's own picks stand first; the town fills the rest, leaving what the player took out unless there's
-  // nothing else)
-  const shelved = new Set(s.research.shelved ?? []);
-  while (s.research.queue.length < slots) {
-    let best: Topic | null = null;
+  // (what the town would study first, if it chose from everything it can: one of the three on offer is always this,
+  // so the town's needs, a Trading Post's Barter or a bed's Basic Shelter, still come up; the other two are drawn at
+  // random: sim/researchOffer.ts)
+  const done = new Set(s.research.done);
+  // (a topic that stands in the way of a wanted one counts most of that one's worth)
+  const leads = new Map<string, number>();
+  for (const t of TOPICS) {
+    if (done.has(t.id) || (t.origin && t.origin !== s.origin) || ERAS.indexOf(eraOfResearch(t.id)) > ERAS.indexOf(s.era)) continue;
+    const open = t.prereqs.filter((q) => !done.has(q));
+    if (open.length !== 1) continue;
+    leads.set(open[0], Math.max(leads.get(open[0]) ?? 0, topicScore(t, n) * LEADS_SHARE));
+  }
+  const worth = (id: string) => Math.max(topicScore(TOPICS.find((q) => q.id === id)!, n), leads.get(id) ?? 0);
+  const suggested = offerableTopics(s)
+    .map((id) => ({ id, sc: worth(id) }))
+    .sort((a, b) => b.sc - a.sc)
+    .slice(0, 2)
+    .map((q) => q.id);
+  // (a new suggestion not yet on offer takes the place of an offered topic that isn't one)
+  const offer = s.research.offer;
+  for (const id of suggested) {
+    if (!offer?.length || offer.includes(id) || (s.research.suggested ?? []).includes(id)) continue;
+    const at = offer.map((o) => suggested.includes(o)).lastIndexOf(false);
+    if (at >= 0) offer[at] = id;
+  }
+  s.research.suggested = suggested;
+  // (research is offered, three topics at a time: the player taps one, and if they haven't by the time the offer is
+  // overdue the town takes the one it likes best of the three: sim/researchOffer.ts)
+  if (offerOverdue(s)) {
+    let best: string | null = null;
     let bestScore = -Infinity;
-    // (a topic that stands in the way of a wanted one counts most of that one's worth: Fire Keeping opens nothing
-    // itself, but Barter and the shop wait on it, and a desert town once studied round it for weeks)
-    const done = new Set(s.research.done);
-    const leads = new Map<string, number>();
-    for (const t of TOPICS) {
-      if (done.has(t.id) || (t.origin && t.origin !== s.origin) || ERAS.indexOf(eraOfResearch(t.id)) > ERAS.indexOf(s.era)) continue;
-      const open = t.prereqs.filter((q) => !done.has(q));
-      if (open.length !== 1) continue;
-      leads.set(open[0], Math.max(leads.get(open[0]) ?? 0, topicScore(t, n) * LEADS_SHARE));
-    }
-    for (const pass of [false, true]) {
-      for (const t of TOPICS) {
-        // (refinements wait until the town is a few people strong: its first days go on shelter and food)
-        if (t.refinement && n.people < REFINE_AT) continue;
-        if (shelved.has(t.id) !== pass) continue;
-        if (!canQueue(s.research, t.id, s.era, s.origin, seat).ok) continue;
-        const sc = Math.max(topicScore(t, n), leads.get(t.id) ?? 0);
-        if (sc > bestScore) {
-          best = t;
-          bestScore = sc;
-        }
+    for (const id of s.research.offer ?? []) {
+      const sc = worth(id);
+      if (sc > bestScore) {
+        best = id;
+        bestScore = sc;
       }
-      if (best) break;
     }
-    if (!best) break;
-    queueResearch(s.research, best.id, s.era, s.origin, seat);
+    if (best) chooseOffer(s, best);
   }
   const head = s.research.queue[0];
   const t = head ? TOPICS.find((q) => q.id === head) : undefined;
