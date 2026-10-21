@@ -215,7 +215,7 @@ export function startSimHost(post: (m: FromHost) => void): (m: ToHost) => void {
       }
       case 'legend': {
         if (!game) return post({ t: 'reply', id: m.id, value: null });
-        const legend: (Legend & { enemy?: EnemyLegend }) | null = game.catchingUp ? null : legendOf(game.state, m.now);
+        const legend: (Legend & { enemy?: EnemyLegend }) | null = legendOf(game.state, m.now);
         const foe = legend ? enemyLegend(game.state) : undefined;
         if (legend && foe) legend.enemy = foe;
         leaving = true; // (nothing saves the finished town back)
