@@ -143,6 +143,7 @@ import { SKILLS, skillSpeed, xpToNext, type Skill } from '../data/skills';
 import { TERRAIN } from '../data/terrain';
 import { buildingCentre, buildingCentreX, buildSlots, defOf, enclosure, footprint, totalCapacity, totalStock } from './buildings';
 import { destinationHidden, destinationOf, destinationUnlocked, foodNeeded, partyCarry, planParty } from './expeditions';
+import { OFFER_WAIT_TICKS } from './researchOffer';
 import { modifiers, researchStation, researchStations, seatStageNow } from './research';
 import { tireless, carryCapacity, MAX_JOURNAL, ERA_MULTIPLIER, FX_TICKS, maxHp, RESEARCH_MULTIPLIER, poolSize, type PersonFx, type RaiderHitFx, type SpellTarget, SPELL_FX_TICKS, type Activity, type Building, type CraftOrder, type Debrief, type Expedition, type ExpeditionPhase, type GameState, type JournalEntry, type Ledger, type Needs, type Notice, type Person, type TileState, campCell, campX, campXY, BLOOD_LASTS, DEBRIS_LASTS, type DebrisKind, type ShopTalk } from './state';
 import { cellAt, groundAt, inMap, type LandMap, wet, CELL } from './land';
@@ -1317,6 +1318,9 @@ export interface ResearchView {
   /** Topics the player picked by hand (first in the queue), and those they took out. */
   picked: string[];
   shelved: string[];
+  /** The three topics on offer, and the ticks left before the town chooses one itself. */
+  offer: string[];
+  offerLeft: number;
   /** The seat's stage (1..5) the research gate reads (null: no gate), its name, and the next stage's name and era. */
   seat: { stage: number; name: string; next: string | null; nextEra: string | null; building: boolean } | null;
 }
@@ -2521,6 +2525,8 @@ function researchView(s: GameState): ResearchView {
     origin: s.origin,
     picked: [...(r.picked ?? [])],
     shelved: [...(r.shelved ?? [])],
+    offer: [...(r.offer ?? [])],
+    offerLeft: Math.max(0, OFFER_WAIT_TICKS - (s.tick - (r.offerAt ?? s.tick))),
     seat: seatView(s),
   };
 }

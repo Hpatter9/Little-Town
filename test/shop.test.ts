@@ -15,7 +15,7 @@ import { Sim } from '../src/shared/sim/sim';
 import { snapshot } from '../src/shared/sim/snapshot';
 import { newGame, type Building, type GameState, type Want } from '../src/shared/sim/state';
 import { TICKS_PER_DAY, TICKS_PER_HOUR } from '../src/shared/sim/time';
-import { camp, plainGame, row } from './helpers';
+import { camp, overdueOffer, plainGame, row } from './helpers';
 import { cellAt, setGround } from '../src/shared/sim/land';
 
 function addBuilding(s: GameState, def: string, tile: number, store = {}): Building {
@@ -168,6 +168,7 @@ test('the planner: with the land out of fiber, it studies Barter and builds a Tr
   s.research.done.push('fire_keeping', 'basic_shelter', 'flint_knapping', 'foraging');
   s.buildings[0].store = { wood: 25, stone: 25, berries: 5 };
   s.tick = PLAN_TICKS * 10;
+  overdueOffer(s);
   runPlanner(s);
   assert.equal(s.research.queue[0], 'barter', `researching ${s.research.queue.join(', ')}`);
   assert.match(s.plan!.research!.why, /fiber/);
@@ -378,6 +379,11 @@ test('drawing customers it has no wares for, the town studies what makes them', 
   s.buildings.find((b) => b.def === 'trading_post')!.shop = { pieces: [], renown: 50 }; // (nobles come: no noble's ware can be made yet)
   s.buildings[0].store = { wood: 25, stone: 25, berries: 25 };
   s.tick = PLAN_TICKS * 10;
+  overdueOffer(s);
+  runPlanner(s);
+  // (two studies at a time: the second is chosen at the next pass)
+  s.tick += PLAN_TICKS;
+  overdueOffer(s);
   runPlanner(s);
   // (any topic that opens a noble's ware: Iron Working's brooch, or Weaving's gowns and dyed bolts since the workshops)
   assert.ok(s.research.queue.some((id) => ITEMS.some((i) => i.ware?.tier === 3 && i.research.includes(id))), `queue ${s.research.queue}`);

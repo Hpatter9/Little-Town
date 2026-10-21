@@ -5,23 +5,27 @@ import { ERA_NAMES, nextEra } from '../../shared/data/eras';
 import { ITEMS } from '../../shared/data/items';
 import { TOPICS, TOPIC_BY_ID, type Topic } from '../../shared/data/research';
 import type { Bridge } from '../../shared/ipc';
-import { canQueue, prereqsMet, seatNeeded } from '../../shared/sim/research';
+import { TICKS_PER_HOUR } from '../../shared/sim/time';
+import { prereqsMet, seatNeeded } from '../../shared/sim/research';
 import type { Snapshot } from '../../shared/sim/snapshot';
 import { button, duration, el } from './dom';
 import { renderTree } from './techTree';
-import { forgone, studyPace, topicName } from '../../shared/data/originResearch';
+import { forgone, laneName, studyPace, topicName } from '../../shared/data/originResearch';
 
 /** Changes whenever something this panel shows changes (progress to the whole percent). */
 export const researchKey = (s: Snapshot) => {
   const r = s.research;
   const pct = Object.fromEntries(Object.entries(r.progress).map(([k, v]) => [k, Math.floor(v * 100)]));
-  return JSON.stringify([selected, s.era, s.unlockAll, r.done, r.revealed, r.queue, r.picked, r.shelved, r.seat, pct, r.slots, r.station, r.stations, r.speed, s.plan?.research]);
+  return JSON.stringify([selected, s.era, s.unlockAll, r.done, r.revealed, r.queue, r.offer, Math.ceil(r.offerLeft / TICKS_PER_HOUR), r.seat, pct, r.slots, r.station, r.stations, r.speed, s.plan?.research]);
 };
 
 /** Buildings and craftable items each topic unlocks, from their data. */
 const BUILDINGS_BY_TOPIC = new Map<string, string[]>();
 for (const b of BUILDINGS) if (b.research) BUILDINGS_BY_TOPIC.set(b.research, [...(BUILDINGS_BY_TOPIC.get(b.research) ?? []), b.name]);
 for (const i of ITEMS) for (const r of i.research) BUILDINGS_BY_TOPIC.set(r, [...(BUILDINGS_BY_TOPIC.get(r) ?? []), i.name]);
+
+/** What a topic unlocks, in one short line. */
+const unlocksOf = (t: Topic) => [...(BUILDINGS_BY_TOPIC.get(t.id) ?? []), ...(t.unlocks ? [t.unlocks] : [])].join(', ');
 
 const remaining = (s: Snapshot, t: Topic) => (t.seconds * studyPace(t.id, s.origin.id) * (1 - (s.research.progress[t.id] ?? 0))) / s.research.speed;
 /** A topic by the town's own people's name for it (data/originResearch.ts). */
@@ -32,77 +36,86 @@ let selected: string | null = null;
 
 export function renderResearch(s: Snapshot, bridge: Bridge | undefined, rerender: () => void = () => {}): HTMLElement[] {
   const r = s.research;
-  const send = (type: 'queueResearch' | 'cancelResearch' | 'researchNext', topic: string) => bridge?.command({ type, topic });
-  const move = (topic: string, dir: -1 | 1) => bridge?.command({ type: 'moveResearch', topic, dir });
+  // (a double tap, or one tap sent twice, must not do the thing twice)
+  let sentAt = 0;
+  const study = (topic: string) => {
+    const now = Date.now();
+    if (now - sentAt < 600) return;
+    sentAt = now;
+    bridge?.command({ type: 'studyOffer', topic });
+  };
   const out: HTMLElement[] = [];
+  const toggle = (id: string) => {
+    selected = selected === id ? null : id;
+    rerender();
+  };
 
-  // Now and next
-  const head = el('div', 'panel-head');
-  head.append(el('span', '', `Research queue ${r.queue.length}/${r.slots}`), el('span', '', `${r.stations.filter((st) => st.who).length}/${r.stations.length} stations in use`));
-  out.push(head);
+  // Studying now: what's under way, and how far it is
+  out.push(el('h2', '', 'Studying now'));
   if (s.why?.research) out.push(el('div', 'why-line', s.why.research));
-  const queue = el('div', 'queue');
-  if (!r.queue.length) queue.append(el('div', 'empty', 'Nothing left to study for now. Some research waits on the next era (and the next era can wait on an expedition).'));
-  r.queue.forEach((id, i) => {
-    const t = TOPIC_BY_ID[id];
+  if (!r.queue.length) out.push(el('div', 'empty', r.offer.length ? 'Nothing under way: choose a topic below.' : 'Nothing to study for now. More opens with the next era, and the next era can wait on an expedition.'));
+  for (const id of r.queue) {
     const p = r.progress[id] ?? 0;
-    const pick = r.picked.indexOf(id);
-    const row = el('div', pick >= 0 ? 'queue-row picked' : 'queue-row');
+    const now = el('div', 'rs-now');
+    const top = el('div', 'rs-top');
+    const name = el('span', 'rs-name tappable', `${nameOf(s, id)} ${selected === id ? '▾' : '▸'}`);
+    name.addEventListener('click', () => toggle(id));
+    top.append(name, el('span', 'queue-time', `${Math.floor(p * 100)}% · ${duration(remaining(s, TOPIC_BY_ID[id]))} left`));
     const bar = el('div', 'bar');
     const fill = el('div', 'bar-fill');
     fill.style.width = `${Math.floor(p * 100)}%`;
     bar.append(fill);
-    // (the name is tappable: its card, with what the topic unlocks, opens under the row)
-    const open = selected === id;
-    const name = el('span', open ? 'queue-name tappable open' : 'queue-name tappable', `${i + 1}. ${pick >= 0 ? '✋ ' : ''}${nameOf(s, id)} ${open ? '▾' : '▸'}`);
-    name.title = 'What this research does';
-    name.addEventListener('click', () => {
-      selected = open ? null : id;
-      rerender();
-    });
-    row.append(name, bar, el('span', 'queue-time', `${Math.floor(p * 100)}% · ${duration(remaining(s, t))} left · ${pick >= 0 ? 'your pick' : 'the town\'s choice'}`));
-    if (pick >= 0) {
-      // (reordered among the player's picks)
-      if (pick > 0) row.append(button('▲', () => move(id, -1), { cls: 'place small', title: 'Earlier' }));
-      if (pick < r.picked.length - 1) row.append(button('▼', () => move(id, 1), { cls: 'place small', title: 'Later' }));
-    } else {
-      row.append(button('Pick', () => send('queueResearch', id), { cls: 'place small', title: 'Make it your pick: it goes first' }));
-    }
-    row.append(button('Remove', () => send('cancelResearch', id), { cls: 'place small', title: 'Progress is kept if you pick it again' }));
-    queue.append(row);
-    if (open) queue.append(card(t, s, bridge));
-  });
-  out.push(queue);
-  out.push(el('div', 'hint', `Tap a topic's name to see what it does. ${r.picked.length ? '✋ Your picks are studied first, in your order. The town fills the rest of the queue itself.' : 'The town chooses what to study. Tap a topic in the tree and Pick it to have it studied first.'}`));
+    now.append(top, bar);
+    const who = r.stations.filter((st) => st.who && st.topic === nameOf(s, id)).map((st) => st.who);
+    now.append(el('div', 'hint', who.length ? `Being studied by ${who.join(', ')}` : 'Waiting for someone to sit down and study it'));
+    out.push(now);
+    if (selected === id) out.push(card(TOPIC_BY_ID[id], s));
+  }
   if (r.seat) out.push(el('div', r.seat.next && !r.seat.building ? 'lock' : 'hint', seatLine(r.seat)));
 
-  // where it's studied: one person at each station, each on a topic of their own where there is one
+  // Choose: three topics on offer, one to be studied
+  if (r.offer.length) {
+    out.push(el('h2', '', 'Choose a topic'));
+    const hours = Math.max(1, Math.ceil(r.offerLeft / TICKS_PER_HOUR));
+    out.push(el('div', 'hint', r.offerLeft > 0 ? `Tap Study on one. If you don't, the town chooses in about ${hours === 1 ? 'an hour' : `${hours} hours`}.` : 'The town is about to choose.'));
+    for (const id of r.offer) {
+      const t = TOPIC_BY_ID[id];
+      const box = el('div', 'rs-offer');
+      const top = el('div', 'rs-top');
+      const name = el('span', 'rs-name tappable', `${nameOf(s, id)} ${selected === id ? '▾' : '▸'}`);
+      name.addEventListener('click', () => toggle(id));
+      top.append(name, el('span', 'queue-time', `~${duration(remaining(s, t))}`));
+      box.append(top, el('div', 'rs-line', laneName(t.branch, s.origin.id)));
+      const unlocks = unlocksOf(t);
+      box.append(el('div', 'rs-info wrap', unlocks ? `Unlocks: ${unlocks}` : 'Makes the town better at what it already does.'));
+      box.append(button('Study', () => study(id), { cls: 'rs-btn wide study' }));
+      out.push(box);
+      if (selected === id) out.push(card(t, s));
+    }
+  }
+
+  // Stations: where it's studied
   out.push(el('h2', '', 'Stations'));
   for (const st of r.stations) {
     const row = el('div', 'queue-row');
     row.append(el('span', 'queue-name', `${st.label} ×${st.mult}`), el('span', 'queue-time', st.who ? `${st.who}${st.topic ? `: ${st.topic}` : ''}` : 'free'));
     out.push(row);
   }
-  out.push(el('div', 'hint', 'One person studies at each station at a time. The town builds more, and better ones, as it grows.'));
+  out.push(el('div', 'hint', `${r.stations.filter((st) => st.who).length}/${r.stations.length} in use. One person studies at each station at a time.`));
 
-  // the tech tree (techTree.ts), and the card of the topic tapped in it
+  // All topics: the tech tree (techTree.ts), to browse; and the card of the topic tapped in it
   const era = s.unlockAll ? 'space' : s.era;
-  out.push(el('h2', '', 'Tech tree'));
-  out.push(el('div', 'hint', 'Left to right: the eras, each branching out as it goes. Green is learned, gold being studied, lit what the town can study next. Tap a topic for more.'));
-  out.push(
-    renderTree(s, selected, (id) => {
-      selected = selected === id ? null : id;
-      rerender();
-    }),
-  );
-  // (a queued topic's card is already open under its queue row)
-  if (selected && TOPIC_BY_ID[selected] && !r.queue.includes(selected)) out.push(card(TOPIC_BY_ID[selected], s, bridge));
+  out.push(el('h2', '', 'All topics'));
+  out.push(el('div', 'hint', 'To browse only. Green is learned, gold being studied. Tap a topic for more.'));
+  out.push(renderTree(s, selected, toggle));
+  // (a topic shown above has its card open there already)
+  if (selected && TOPIC_BY_ID[selected] && !r.queue.includes(selected) && !r.offer.includes(selected)) out.push(card(TOPIC_BY_ID[selected], s));
   const next = nextEra(era);
   if (next && TOPICS.some((t) => t.era === next)) out.push(el('div', 'hint', `More research opens in the ${ERA_NAMES[next]} era.`));
   return out;
 }
 
-const rsOf = (s: Snapshot) => ({ done: s.research.done, queue: s.research.queue, progress: s.research.progress, revealed: s.research.revealed, picked: s.research.picked });
+const rsOf = (s: Snapshot) => ({ done: s.research.done, queue: s.research.queue, progress: s.research.progress, revealed: s.research.revealed });
 
 /** What the seat holds back (sim/research.ts: a topic of an age waits on the seat raised to that age's stage). */
 function seatLine(seat: NonNullable<Snapshot['research']['seat']>): string {
@@ -112,21 +125,19 @@ function seatLine(seat: NonNullable<Snapshot['research']['seat']>): string {
 }
 
 /** A topic's card (the tree's, the queue's, and the one a tapped topic name opens: infoCards.ts). */
-export function topicCard(t: Topic, s: Snapshot, bridge: Bridge | undefined): HTMLElement {
-  return card(t, s, bridge);
+export function topicCard(t: Topic, s: Snapshot, _bridge?: Bridge): HTMLElement {
+  return card(t, s);
 }
 
-function card(t: Topic, s: Snapshot, bridge: Bridge | undefined): HTMLElement {
+function card(t: Topic, s: Snapshot): HTMLElement {
   const r = s.research;
   const done = r.done.includes(t.id);
   const queuedAt = r.queue.indexOf(t.id);
   const rs = rsOf(s);
   const era = s.unlockAll ? 'space' : s.era;
   const seat = r.seat?.stage;
-  const check = canQueue(rs, t.id, era, s.origin.id, seat);
   const pre = prereqsMet(rs, t.id, era, s.origin.id, seat);
   const available = pre.ok;
-  const picked = r.picked.includes(t.id);
   const c = el('div', done ? 'card done' : !available && queuedAt < 0 ? 'card locked' : 'card');
 
   const top = el('div', 'card-top');
@@ -139,7 +150,7 @@ function card(t: Topic, s: Snapshot, bridge: Bridge | undefined): HTMLElement {
   if (pace < 0.95) c.append(el('div', 'purpose', `${s.origin.name} take to this: studied ${Math.round((1 - pace) * 100)}% quicker`));
   else if (pace > 1.05) c.append(el('div', 'lock', `Foreign to ${s.origin.name}: studied ${Math.round((pace - 1) * 100)}% slower`));
 
-  const unlocks = [...(BUILDINGS_BY_TOPIC.get(t.id) ?? []), ...(t.unlocks ? [t.unlocks] : [])].join(', ');
+  const unlocks = unlocksOf(t);
   if (unlocks) c.append(el('div', 'purpose', `Unlocks: ${unlocks}`));
   if (t.prereqs.length || t.requiresCount) {
     const needs = t.prereqs.filter((p) => !forgone(p, s.origin.id)).map((p) => `${r.done.includes(p) ? '✓ ' : ''}${nameOf(s, p)}`);
@@ -149,13 +160,10 @@ function card(t: Topic, s: Snapshot, bridge: Bridge | undefined): HTMLElement {
   const needSeat = seatNeeded(t.id);
   if (!done && r.seat && needSeat > 1) c.append(el('div', r.seat.stage >= needSeat ? 'purpose' : 'lock short', `${r.seat.stage >= needSeat ? '✓ ' : '🏛 '}Needs the seat at stage ${needSeat} (now ${r.seat.stage}: ${r.seat.name})`));
   if (!done) {
-    if (queuedAt >= 0) c.append(el('div', 'lock', `In queue (#${queuedAt + 1})${picked ? ': your pick' : ': the town\'s choice'}`));
-    else if (check.ok || available) c.append(el('div', 'lock', 'Can be studied: the town will get to it, or pick it'));
-    else if (t.requiresCount) c.append(el('div', 'lock short', check.reason ?? '')); // "(n so far)"; other missing prereqs are listed above
+    if (queuedAt >= 0) c.append(el('div', 'lock', 'Being studied now'));
+    else if (available) c.append(el('div', 'lock', 'Can be studied: it may be offered'));
+    else if (t.requiresCount) c.append(el('div', 'lock short', pre.reason ?? '')); // "(n so far)"; other missing prereqs are listed above
     else if (pre.reason?.startsWith('Opens')) c.append(el('div', 'lock short', pre.reason));
-    // (picking by hand: first in the queue)
-    if (!picked && available) c.append(button('✋ Pick: study this first', () => bridge?.command({ type: 'queueResearch', topic: t.id }), { cls: 'place' }));
-    if (picked) c.append(button('Remove from the queue', () => bridge?.command({ type: 'cancelResearch', topic: t.id }), { cls: 'place small' }));
   }
   const p = r.progress[t.id];
   if (!done && queuedAt < 0 && p) c.append(el('div', 'lock', `${Math.floor(p * 100)}% done earlier`));

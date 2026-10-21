@@ -49,6 +49,8 @@ export type Command =
   | { type: 'discardStock'; building: number; material: Material }
   /** Pick a topic by hand: queued ahead of the town's own choices (sim/research.ts pickResearch). */
   | { type: 'queueResearch'; topic: string }
+  /** Study one of the three offered topics (sim/researchOffer.ts). */
+  | { type: 'studyOffer'; topic: string }
   /** Remove a topic (and anything queued that depends on it) from the queue. Progress is kept; the town leaves it be
    *  while it has anything else to study. */
   | { type: 'cancelResearch'; topic: string }
@@ -214,6 +216,7 @@ export function parseCommand(raw: unknown): Command | null {
         ? { type: 'equip', person: c.person as number, slot: c.slot as Slot, item: c.item as string | null }
         : null;
     case 'queueResearch':
+    case 'studyOffer':
     case 'cancelResearch':
     case 'researchNext':
       return typeof c.topic === 'string' && TOPIC_BY_ID[c.topic] ? { type: c.type, topic: c.topic } : null;
