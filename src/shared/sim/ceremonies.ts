@@ -89,7 +89,7 @@ export function eatFeast(s: GameState, heads: number): void {
 }
 
 export const here = (s: GameState) => s.people.filter((p) => p.away === null && !p.downed);
-const tavernOf = (s: GameState) => s.buildings.find((b) => b.status === 'done' && (b.def === 'fireside_inn' || b.def === 'tavern'));
+export const tavernOf = (s: GameState) => s.buildings.find((b) => b.status === 'done' && (b.def === 'fireside_inn' || b.def === 'tavern'));
 const graveyardOf = (s: GameState) => s.buildings.find((b) => b.status === 'done' && b.def === 'graveyard');
 
 /** Begin a gathering: who, where, for how long; with `from`, it begins as a procession from there (the head walking at

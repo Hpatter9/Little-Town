@@ -144,6 +144,7 @@ import { oddsHourly } from './raidOdds';
 import { voteSettlementName } from './settlementName';
 import { setFavourite } from './favourites';
 import { founderBuyShop, founderShopManager, founderShopPrice, founderShopStock } from './founderShops';
+import { founderApprentice, founderFeast, founderHaggle, founderMatch, founderVisitor } from './founderDealings';
 import { founderGive, founderGo, founderHeir, founderRest, founderTick, founderWork } from './founder';
 
 /** How the town trades at its shop: the planner decides what's spare and what to buy. */
@@ -618,6 +619,21 @@ export class Sim {
         break;
       case 'founderHeir':
         founderHeir(s, c.person);
+        break;
+      case 'founderVisitor':
+        founderVisitor(s, c.terms);
+        break;
+      case 'founderApprentice':
+        founderApprentice(s, c.child, c.master);
+        break;
+      case 'founderMatch':
+        founderMatch(s, c.person);
+        break;
+      case 'founderFeast':
+        founderFeast(s, c.grade);
+        break;
+      case 'founderHaggle':
+        founderHaggle(s, c.offer);
         break;
       case 'holdPower':
         holdPower(s, c.power);

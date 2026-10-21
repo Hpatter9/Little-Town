@@ -30,6 +30,10 @@ import { biomeOf } from '../data/biomes';
 import { ORIGIN_DEFS, ORIGINS, type OriginId } from '../data/origins';
 import { FOOD_VALUE } from '../data/people';
 
+/** What each point of the founder's goodwill with the caravans eases the prices, and the most it can (sim/founderDealings.ts). */
+const GOODWILL_EACH = 0.04;
+const GOODWILL_MOST = 0.2;
+
 const market = (s: GameState) => s.buildings.find((b) => b.def === 'market' && b.status === 'done');
 
 /** Horses the stables can keep. */
@@ -60,6 +64,7 @@ export function updateTrade(s: GameState, rng: Rng): void {
   // (most caravans are another people's, with their own goods besides the era's: data/trade.ts FACTION_GOODS)
   const faction = rng.chance(FACTION_CARAVAN) ? rng.pick(ORIGINS.filter((o) => o !== (s.origin ?? 'settlers') && FACTION_GOODS[o])) : undefined;
   s.caravan = { x: buildingCentreX(m), leavesTick: s.tick + Math.round(stay * TICKS_PER_HOUR), arrived: s.tick, offers: makeOffers(s, rng, faction), faction };
+  if (s.dealings?.goodwill) s.dealings.goodwill = Math.max(0, s.dealings.goodwill - 1); // (goodwill fades with each caravan that comes)
   notify(s, `${faction ? `A caravan of ${ORIGIN_DEFS[faction].name}` : 'A trade caravan'} has arrived at the market. It stays ${Math.round(stay)} hours: see the Trade tab.`, true);
 }
 
@@ -71,7 +76,7 @@ function scheduleCaravan(s: GameState, rng: Rng): void {
 export function makeOffers(s: GameState, rng: Rng, faction?: OriginId): Offer[] {
   const stock = totalStock(s);
   // a merchant haggles: better prices both ways
-  const haggle = operatorSkill(s, 'market') * MERCHANT_PER_LEVEL;
+  const haggle = operatorSkill(s, 'market') * MERCHANT_PER_LEVEL + Math.min(GOODWILL_MOST, (s.dealings?.goodwill ?? 0) * GOODWILL_EACH);
   const markup = Math.max(1, SELL_MARKUP - haggle);
   const rate = Math.min(0.95, BUY_RATE + haggle);
   // what the town has most of, by worth (not the totem)

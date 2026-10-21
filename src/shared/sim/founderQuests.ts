@@ -3,6 +3,7 @@
 // waits for the player, with no timer and no default, and the game is held until it is answered (`waitingOnFounder`,
 // checked in the step).
 
+import { dealStands } from './founderDealings';
 import { HUNT_DEST } from './hunts';
 import { addMember, askable, cancelMuster, makeLeader, raiseParty, sendMuster, dropMember } from './muster';
 import { mostFor } from './parties';
@@ -23,8 +24,14 @@ export function holdForFounder(s: GameState, e: Expedition, prompt: Prompt): voi
 /** Is the game held for an answer from the founder? A question whose trip is gone (called home, all lost) is dropped. */
 export function waitingOnFounder(s: GameState): boolean {
   let waiting = false;
+  const dropped: Prompt[] = [];
   for (const p of s.prompts) {
     if (!p.waits) continue;
+    if (p.deal) {
+      if (dealStands(s, p)) waiting = true;
+      else dropped.push(p);
+      continue;
+    }
     if (p.expedition === null) {
       waiting = true; // (a dispute, a challenge or a trial for the founder: it waits until it is answered)
       continue;
@@ -33,6 +40,7 @@ export function waitingOnFounder(s: GameState): boolean {
     if (e && founderGoes(s, e)) waiting = true;
     else p.waits = undefined;
   }
+  if (dropped.length) s.prompts = s.prompts.filter((p) => !dropped.includes(p));
   return waiting;
 }
 
