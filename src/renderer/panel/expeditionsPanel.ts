@@ -75,7 +75,7 @@ export const expeditionsKey = (s: Snapshot) =>
     s.hunts.hunts.map((h) => [h.id, h.accepted, h.hoursLeft]),
     s.hunts.forge.map((f) => [f.made, f.ready, f.holder]),
     s.questLog.length,
-    s.sagas.open.map((g) => [g.run, g.now, g.log.length, g.dest]),
+    s.sagas.open.map((g) => [g.run, g.now, g.log.length, g.dest, g.turns]),
     s.sagas.done.length,
     s.fleet,
     s.airships.map((a) => [a.id, a.hull, a.away]),
@@ -313,7 +313,7 @@ function destDetails(d: Destination, v: DestinationView, s: Snapshot): More[] {
 
 /** A saga under way: what it's about, where it stands, and the whole story so far. */
 function sagaDetails(g: Snapshot['sagas']['open'][number]): More[] {
-  return [g.blurb, facts([['Began', `day ${g.began}`], ['Now', g.now]]), list('The story so far', g.story)];
+  return [g.blurb, facts([['Began', `day ${g.began}`], ['Turns so far', `${g.turns}`], ['Now', g.now]]), list('The story so far', g.story)];
 }
 
 /** A party out: each member's health, calling and level, what they've found and packed, and a delve's log. */
@@ -492,7 +492,7 @@ function sagaList(s: Snapshot, bridge: Bridge | undefined): HTMLElement[] {
   for (const g of open) {
     const c = el('div', 'card quest saga');
     const top = el('div', 'card-top');
-    top.append(tapLink(el('span', 'card-name', g.title), () => openCard({ kind: 'saga', id: g.title })), el('span', 'card-size', 'Under way'));
+    top.append(tapLink(el('span', 'card-name', g.title), () => openCard({ kind: 'saga', id: g.title })), el('span', 'card-size', `Under way, turn ${g.turns}`));
     c.append(top, el('div', 'purpose', g.now));
     for (const line of g.log.slice(-2)) c.append(el('div', 'lock short', line));
     if (g.dest) {
@@ -508,7 +508,7 @@ function sagaList(s: Snapshot, bridge: Bridge | undefined): HTMLElement[] {
     top.append(tapLink(el('span', 'card-name', g.title), () => openCard({ kind: 'saga', id: g.title })), el('span', 'card-size', `${OUTCOME[g.outcome]}, day ${g.day}`));
     c.append(top);
     if (g.hero) c.append(el('div', 'lock short', `Its hero: ${g.hero}`));
-    grid.append(expandable(c, `sagadone:${g.title}:${g.day}`, () => [g.blurb, facts([['Ended', `day ${g.day}`], ['How', OUTCOME[g.outcome]], ['Its hero', g.hero]])]));
+    grid.append(expandable(c, `sagadone:${g.title}:${g.day}`, () => [g.blurb, facts([['Began', `day ${g.began}`], ['Ended', `day ${g.day}`], ['How', OUTCOME[g.outcome]], ['Its hero', g.hero]]), ...(g.story.length ? [list('What happened', g.story)] : [])]));
   }
   out.push(grid);
   return out;

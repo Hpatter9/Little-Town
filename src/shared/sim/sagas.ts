@@ -112,7 +112,7 @@ export function beginSaga(s: GameState, id: string): SagaRun | null {
   }
   (s.sagas ??= []).push(run);
   s.lastSaga = s.tick;
-  notify(s, `A saga begins: ${def.title}. ${def.blurb}`, true);
+  notify(s, `A saga begins: ${def.title}. ${sagaText(s, run, def.blurb)} Follow it under Trips, in Quests.`, true);
   enter(s, run, def.first);
   return run;
 }
@@ -135,6 +135,7 @@ function goTo(s: GameState, r: SagaRun, next: Next): void {
 function enter(s: GameState, r: SagaRun, id: string): void {
   r.ch = id;
   r.at = s.tick;
+  r.turns = (r.turns ?? 0) + 1;
   const c = chapterOf(r);
   const def = defOf(r);
   switch (c.kind) {
@@ -157,7 +158,7 @@ function enter(s: GameState, r: SagaRun, id: string): void {
       break;
     }
     case 'trip':
-      say(s, r, `${sagaText(s, r, c.text)} A party is wanted at ${c.place.replace(/^The /, 'the ')} within ${c.days} days (on the Expedition Board).`);
+      say(s, r, `${sagaText(s, r, c.text)} A party is wanted at ${c.place.replace(/^The /, 'the ')} within ${c.days} days. It is on the trips board.`);
       break;
     case 'task':
       if (c.check(s)) goTo(s, r, c.done);
@@ -253,6 +254,8 @@ export function answerSaga(s: GameState, run: number | undefined, option: number
   const out = effects(s, r, o.effects ?? []);
   say(s, r, `${sagaText(s, r, o.label)}${out.length ? ` (${out.join(', ')})` : ''}.`);
   goTo(s, r, o.next);
+  // (an ending tells its own story: finish)
+  if (!(s.sagas ?? []).includes(r)) return;
   // (what was said from the answer on, the next chapter's opening or the ending too, for the event box)
   // (the answer's own line is the choice, already shown: what it brought, then the lines after it)
   setOutcome(s, defOf(r).title, sagaText(s, r, o.label), [out.length ? `${out.join(', ')}.` : '', ...r.log.slice(from + 1)].filter(Boolean).join(' '));
@@ -300,10 +303,31 @@ function finish(s: GameState, r: SagaRun, c: Extract<Chapter, { kind: 'end' }> |
   const outcome = c?.outcome ?? 'bittersweet';
   const ending = c ? sagaText(s, r, c.text) : 'The story trails off.';
   r.log.push(ending);
-  notify(s, `${def.title} is ended. ${ending}${out.length ? ` (${out.join(', ')})` : ''}`, true);
+  const story = tellSaga(s, r, ending, out, outcome);
+  notify(s, `${def.title} has ended. ${story.join(' ')}`, true);
+  setOutcome(s, def.title, null, story.join(' '));
   addDeed(heroOf(s, r), 'sagas');
-  (s.sagasDone ??= []).push({ id: r.id, outcome, tick: s.tick, hero: heroOf(s, r)?.name });
+  (s.sagasDone ??= []).push({ id: r.id, outcome, tick: s.tick, hero: heroOf(s, r)?.name, began: r.started, story });
   if (outcome === 'triumph') queueScene(s, 'saga_triumph', { vars: { saga: def.title }, people: heroOf(s, r) ? { hero: heroOf(s, r)! } : {} });
+}
+
+const HOW_ENDED = { triumph: 'It ended well.', bittersweet: 'It ended with mixed fortune.', ruin: 'It ended badly.' };
+const plural = (n: number, one: string) => `${n} ${one}${n === 1 ? '' : 's'}`;
+
+/** A saga told in a few short lines: how it began, how long it ran, who took part, the last turns and the ending. */
+export function tellSaga(s: GameState, r: SagaRun, ending: string, out: string[], outcome: 'triumph' | 'bittersweet' | 'ruin'): string[] {
+  const def = defOf(r);
+  const days = Math.max(1, Math.round((s.tick - r.started) / TICKS_PER_DAY));
+  const turns = r.turns ?? r.log.length;
+  const lines = [`It began on day ${Math.floor(r.started / TICKS_PER_DAY) + 1}: ${sagaText(s, r, def.blurb)}`, `It ran for ${plural(days, 'day')} and ${plural(turns, 'turn')}.`];
+  const who = [heroOf(s, r)?.name, person(s, r.a)?.name, person(s, r.b)?.name].filter((n, i, all): n is string => !!n && all.indexOf(n) === i);
+  if (who.length) lines.push(`Took part: ${who.join(', ')}.`);
+  // (the turns before the ending: the last two lines the saga told)
+  lines.push(...r.log.slice(-3, -1));
+  lines.push(ending);
+  if (out.length) lines.push(`${out.join(', ')}.`);
+  lines.push(HOW_ENDED[outcome]);
+  return lines;
 }
 
 /** A saga's effects: the events' own, and its own (the two it's about, the hero's title, a unique). */
@@ -394,6 +418,8 @@ export interface SagaView {
   began: number;
   /** Its place on the board, if a trip waits. */
   dest: string | null;
+  /** How many turns it has taken so far. */
+  turns: number;
 }
 export interface SagaDoneView {
   title: string;
@@ -401,19 +427,24 @@ export interface SagaDoneView {
   outcome: 'triumph' | 'bittersweet' | 'ruin';
   hero: string | null;
   day: number;
+  /** The tick it ended. */
+  tick: number;
+  /** Its whole story in a few short lines, and the day it began. */
+  story: string[];
+  began: number;
 }
 
 export function sagasView(s: GameState): { open: SagaView[]; done: SagaDoneView[] } {
   const open = (s.sagas ?? []).map((r) => {
     const c = chapterOf(r);
     const now =
-      c?.kind === 'choice' ? 'Waiting on the town’s answer.'
+      c?.kind === 'choice' ? 'Waiting for your answer.'
       : c?.kind === 'trip' ? `A party is wanted at ${c.place.replace(/^The /, 'the ')}.`
       : c?.kind === 'task' ? `The town needs ${c.need}.`
-      : c?.kind === 'raid' ? (s.raid?.saga === r.run ? 'Fighting at the gate.' : 'Trouble is coming.')
-      : 'Time passes.';
-    return { run: r.run, title: defOf(r).title, blurb: defOf(r).blurb, now, log: r.log.slice(-4), story: r.log.slice(-16), began: Math.floor(r.started / TICKS_PER_DAY) + 1, dest: c?.kind === 'trip' ? `${SAGA_DEST}${r.run}` : null };
+      : c?.kind === 'raid' ? (s.raid?.saga === r.run ? 'Fighting at the gate.' : 'A raid is coming.')
+      : 'Waiting for time to pass.';
+    return { run: r.run, title: defOf(r).title, blurb: defOf(r).blurb, now, log: r.log.slice(-4), story: r.log.slice(-16), began: Math.floor(r.started / TICKS_PER_DAY) + 1, dest: c?.kind === 'trip' ? `${SAGA_DEST}${r.run}` : null, turns: r.turns ?? r.log.length };
   });
-  const done = (s.sagasDone ?? []).map((d) => ({ title: SAGA_BY_ID[d.id]?.title ?? d.id, blurb: SAGA_BY_ID[d.id]?.blurb ?? '', outcome: d.outcome, hero: d.hero ?? null, day: Math.floor(d.tick / TICKS_PER_DAY) + 1 }));
+  const done = (s.sagasDone ?? []).map((d) => ({ title: SAGA_BY_ID[d.id]?.title ?? d.id, blurb: SAGA_BY_ID[d.id]?.blurb ?? '', outcome: d.outcome, hero: d.hero ?? null, day: Math.floor(d.tick / TICKS_PER_DAY) + 1, tick: d.tick, story: d.story ?? [], began: Math.floor((d.began ?? d.tick) / TICKS_PER_DAY) + 1 }));
   return { open, done };
 }
