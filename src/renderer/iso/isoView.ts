@@ -37,6 +37,8 @@ interface DrawnBuilding {
   door?: { g: Graphics; gate: boolean; open: number; held: number };
   /** Its windows' glow after dark. */
   windows: Sprite[];
+  /** Flames while it burns (`b.fire`), flickering in `animate`. */
+  flames?: Sprite[];
 }
 
 export class IsoView {
@@ -67,6 +69,8 @@ export class IsoView {
   /** Layers laid in world px through the affine map of the diamonds (`worldMatrix`): `flat` on the ground, under the
    *  things (blood, puddles: the top-down map's `under`), `lightLayer` over them all (the light map). */
   readonly flat = new Container();
+  /** The top-down map's `over` (effects over everything: ash, flood spray, confetti, spells), on the diamonds too. */
+  readonly overFlat = new Container();
   readonly lightLayer = new Container();
   /** After dark: the windows' and lamps' glow (added), the marked cells for clearing, the doors and gates. */
   private readonly glow = new Container();
@@ -98,7 +102,8 @@ export class IsoView {
     this.glow.eventMode = 'none';
     this.lightLayer.eventMode = 'none';
     this.flat.eventMode = 'none';
-    this.world.addChild(this.ground, this.overlay, this.flat, this.things, this.lightLayer, this.glow, this.marks);
+    this.overFlat.eventMode = 'none';
+    this.world.addChild(this.ground, this.overlay, this.flat, this.things, this.overFlat, this.lightLayer, this.glow, this.marks);
     this.root.addChild(this.world, this.air);
   }
 
@@ -122,7 +127,7 @@ export class IsoView {
     if (!this.land || this.land.w !== land.w || this.land.h !== land.h) {
       this.ox = isoOrigin(land.h);
       const m = worldMatrix(this.ox);
-      for (const c of [this.flat, this.lightLayer]) c.setFromMatrix(new Matrix(m.a, m.b, m.c, m.d, m.tx, m.ty));
+      for (const c of [this.flat, this.overFlat, this.lightLayer]) c.setFromMatrix(new Matrix(m.a, m.b, m.c, m.d, m.tx, m.ty));
       const b = isoBounds(land.w, land.h);
       this.width = b.w;
       this.height = b.h;
@@ -272,7 +277,7 @@ export class IsoView {
         }
       }
       const tex = this.texOf(piece);
-      const key = `${this.kit.name}:${piece}:${flip ? 'f' : ''}:${b.status}:${foot.x},${foot.y},${foot.w},${foot.h}:${tex ? 1 : 0}:${this.texGen}`;
+      const key = `${this.kit.name}:${piece}:${flip ? 'f' : ''}:${b.status}:${b.fire !== undefined ? 1 : 0}:${foot.x},${foot.y},${foot.w},${foot.h}:${tex ? 1 : 0}:${this.texGen}`;
       let d = this.buildings.get(b.id);
       if (!d) {
         const sprite = new Sprite();
@@ -297,15 +302,21 @@ export class IsoView {
       s.zIndex = footDepth(foot);
       // (a blueprint or a building going up: a ghost of what it will be)
       s.alpha = b.status === 'done' ? 1 : 0.45;
+      s.tint = b.fire !== undefined ? 0xff9060 : 0xffffff;
       this.setProps(d, b, role);
       this.setDoor(d, b, role, foot);
     }
+    this.setFlames(list);
     for (const [id, d] of this.buildings) {
       if (seen.has(id)) continue;
       d.sprite.destroy();
       this.own.delete(d.sprite);
       this.clearProps(d);
       this.clearDoor(d);
+      for (const f of d.flames ?? []) {
+        f.destroy();
+        this.own.delete(f);
+      }
       this.buildings.delete(id);
     }
     if (fields.size !== this.fieldCells.size || [...fields].some((c) => !this.fieldCells.has(c))) {
@@ -314,6 +325,37 @@ export class IsoView {
       this.groundKey = '';
     }
   }
+
+  /** A burning building (`b.fire`, 0..1 burned) gets flames along its front: a few glows that flicker in `animate`, more
+   *  as it burns. Added to `things` so a building in front hides them. */
+  private setFlames(list: readonly Building[]): void {
+    for (const b of list) {
+      const d = this.buildings.get(b.id);
+      if (!d) continue;
+      const n = b.fire === undefined ? 0 : 2 + Math.round(b.fire * 4);
+      if ((d.flames?.length ?? 0) === n) continue;
+      for (const f of d.flames ?? []) {
+        f.destroy();
+        this.own.delete(f);
+      }
+      d.flames = [];
+      for (let i = 0; i < n; i++) {
+        const f = new Sprite(glowTexture());
+        f.anchor.set(0.5, 0.8);
+        f.tint = i % 2 ? 0xff7020 : 0xffc040;
+        f.blendMode = 'add';
+        const u = (i + 0.5) / n;
+        const at = tileToIso(d.foot.x + u * d.foot.w, d.foot.y + d.foot.h * (0.3 + 0.5 * cellHash(b.id, i, 7)), this.ox);
+        f.position.set(Math.round(at.x), Math.round(at.y - 8));
+        f.zIndex = footDepth(d.foot) + 0.002;
+        this.things.addChild(f);
+        this.own.add(f);
+        d.flames.push(f);
+      }
+    }
+  }
+
+  private flicker = 0;
 
   private clearDoor(d: DrawnBuilding): void {
     d.door?.g.destroy();
@@ -363,7 +405,16 @@ export class IsoView {
 
   /** Each frame: doors and gates swing open as someone comes, and close behind them. */
   animate(dt: number): void {
+    this.flicker += dt;
     for (const [id, d] of this.buildings) {
+      if (d.flames?.length) {
+        d.flames.forEach((f, i) => {
+          const w = Math.sin(this.flicker * (9 + i * 1.7) + i * 2.1);
+          f.width = 26 + w * 6;
+          f.height = 34 + Math.sin(this.flicker * 7 + i) * 8;
+          f.alpha = 0.75 + w * 0.2;
+        });
+      }
       const door = d.door;
       if (!door) continue;
       const was = door.open;
@@ -594,6 +645,12 @@ export class IsoView {
       if (!best || s.zIndex > best.z) best = { id, z: s.zIndex };
     }
     return best?.id ?? null;
+  }
+
+  /** The screen's four corners as ground points (world px), for the minimap's frame: a slanted patch on the land. */
+  viewQuad(): { x: number; y: number }[] {
+    const v = this.view;
+    return [isoToWorld(v.x, v.y, this.ox), isoToWorld(v.x + v.w, v.y, this.ox), isoToWorld(v.x + v.w, v.y + v.h, this.ox), isoToWorld(v.x, v.y + v.h, this.ox)];
   }
 
   /** The part of the land in view, as a box of world px round the ground under the view's middle (for the layers
