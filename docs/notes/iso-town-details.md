@@ -18,3 +18,6 @@ Builds on "The isometric view, begun" (`docs/notes/iso-view.md`). Still behind t
 - **Assumptions**: the kits' runs lie along the land's x (down-right on the screen) and their corners point their
   front at the viewer, joining -x and -y; a corner for other joins is approximate. Streets still planned (`plannedRoads`)
   are not drawn.
+- **Continuous ground**: ground tiles (blocks and per-cell) are cut to their top face (`surfaceOf`: the slab under the
+  diamond dropped), drawn `OVERLAP` 1.06 over their cell so neighbours cover each other's rim, and mirrored by a
+  hash of their cell (`cellHash`) so the same ground doesn't repeat; no shade jitter, so a ground stays one shade.

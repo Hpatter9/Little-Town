@@ -7,7 +7,7 @@
 // Walls, streets as streets, props, lights, the weather and the other map layers are left for later: in this view
 // the walls are fitted pieces of the kit, the roads its path tile, and the rest isn't drawn.
 
-import { Container, Sprite, Texture } from 'pixi.js';
+import { Container, Rectangle, Sprite, Texture } from 'pixi.js';
 import { CELL, WEAR_FULL, WEAR_SHOW, groundAt, inMap, wet as wetCell, type LandMap } from '../../shared/sim/land';
 import type { Biome } from '../../shared/data/biomes';
 import { footprint } from '../../shared/sim/buildings';
@@ -16,11 +16,13 @@ import { loadImage } from '../art/loadImage';
 import { BUILDING_BY_ID } from '../../shared/data/buildings';
 import { cellHash, gateFlip, propFor, sceneryFor, wallMaskAt, wallPieceFor, wallShape } from './isoTown';
 import { fitted, groundTile, kitOf, kitUrl, pieceFor, roleOf, ISO_ART, type Kit } from './isoKits';
-import { cellsInView, footBase, footDepth, footWidth, isoBounds, isoOrigin, isoToWorld, ISO_TW, standingDepth, tileToIso, worldToIso, type Rect } from './isoMath';
+import { cellsInView, footBase, footDepth, footWidth, isoBounds, isoOrigin, isoToWorld, ISO_TH, ISO_TW, standingDepth, tileToIso, worldToIso, type Rect } from './isoMath';
 
 /** A building's picture may stand this much wider than its footprint before it is shrunk to fit (a big piece on a
  *  small building: a cottage piece on a one-cell trap). */
 const OVERHANG = 1.25;
+/** Ground tiles are drawn this much over their cell so neighbours overlap and no edge shows. */
+const OVERLAP = 1.06;
 
 interface DrawnBuilding {
   sprite: Sprite;
@@ -112,6 +114,19 @@ export class IsoView {
       })
       .catch(() => undefined);
     return null;
+  }
+
+  /** A ground tile's top face alone (the slab under it cut off, so no edge shows as a line between neighbours). */
+  private surfaces = new Map<string, { of: Texture; face: Texture }>();
+  private surfaceOf(piece: string): Texture | null {
+    const tex = this.texOf(piece);
+    if (!tex) return null;
+    const key = `${this.kit.name}:${piece}`;
+    const had = this.surfaces.get(key);
+    if (had?.of === tex) return had.face;
+    const face = new Texture({ source: tex.source, frame: new Rectangle(tex.frame.x, tex.frame.y, tex.width, Math.min(tex.height, Math.round(tex.width / 2))) });
+    this.surfaces.set(key, { of: tex, face });
+    return face;
   }
 
   /** The buildings (every snapshot): each on its footprint, a crop's field as field tiles in the ground. */
@@ -242,7 +257,7 @@ export class IsoView {
 
   private paintGround(bx0: number, by0: number, x1: number, y1: number, n: number): void {
     const land = this.land!;
-    const texs = this.kit.tiles.map((t) => this.texOf(t));
+    const texs = this.kit.tiles.map((t) => this.surfaceOf(t));
     const blocks: [number, number][] = [];
     for (let by = by0; by <= y1; by += n) for (let bx = bx0; bx <= x1; bx += n) blocks.push([bx, by]);
     // (back to front: each tile's slab edge is covered by the tiles in front of it)
@@ -261,9 +276,11 @@ export class IsoView {
       }
       used++;
       s.texture = tex;
-      s.scale.set((n * ISO_TW) / tex.width);
+      // (a little over size so neighbours overlap, and turned about by the block's hash so the same ground doesn't repeat)
+      const k = (n * ISO_TW * OVERLAP) / tex.width;
+      s.scale.set(cellHash(bx, by, 21) < 0.5 ? k : -k, k);
       const at = tileToIso(bx, by, this.ox);
-      s.position.set(Math.round(at.x), Math.round(at.y));
+      s.position.set(Math.round(at.x), Math.round(at.y - (n * ISO_TH * (OVERLAP - 1)) / 2));
       s.tint = g.tint;
       this.ground.addChild(s);
     }
@@ -305,10 +322,11 @@ export class IsoView {
         }
         used++;
         s.texture = tex;
-        s.scale.set(ISO_TW / tex.width);
+        const k = (ISO_TW * OVERLAP) / tex.width;
+        s.scale.set(cellHash(x, y, 22) < 0.5 ? k : -k, k);
         s.alpha = alpha;
         const at = tileToIso(x, y, this.ox);
-        s.position.set(Math.round(at.x), Math.round(at.y));
+        s.position.set(Math.round(at.x), Math.round(at.y - (ISO_TH * (OVERLAP - 1)) / 2));
         this.overlay.addChild(s);
         continue;
       }
