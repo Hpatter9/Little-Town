@@ -43,6 +43,17 @@ import { alignAnswered, recommend } from './alignment';
 import { shiftDread } from './calamity';
 import { faithOf, godOf } from './faith';
 import { DOMAINS, FAVOUR_MOST } from '../data/gods';
+import { originOptions } from '../data/originOptions';
+import { groveOf } from './grove';
+import { courtOf } from './bargains';
+import { orderOf } from './chivalry';
+import { hordeOf } from './warpath';
+import { packOn, packState } from './pack';
+import { foundryOf } from './foundry';
+import { workOf } from './greatWork';
+import { frontierOf } from './frontier';
+import { cellsOf } from './prisoners';
+import { NAMES } from '../data/people';
 
 /** Game hours an event waits for an answer before the default is taken (in play; it waits while you're away). */
 export const EVENT_HOURS = 3;
@@ -68,7 +79,7 @@ export function maybeEvent(s: GameState, rng: Rng): void {
     try {
       if (l.effects) apply(s, l.effects, l.fate !== undefined ? fateRng(s) : rng, l.who, out, l.fate);
       else {
-        const e = EVENT_BY_ID[l.event]?.options[l.option]?.effects[l.index];
+        const e = EVENT_BY_ID[l.event] ? optionsOf(s, EVENT_BY_ID[l.event])[l.option]?.effects[l.index] : undefined;
         if (e && 'later' in e) apply(s, e.effects, l.fate !== undefined ? fateRng(s) : rng, l.who, out, l.fate);
       }
       if (l.fate !== undefined) fateLanded(s, l.fate, [...heard!, ...out]);
@@ -107,14 +118,22 @@ function eventTelling(s: GameState, def: EventDef, who: Person | undefined): { s
   return { story, picture: eventPicture(def.id, `${def.title} ${def.text}`, now), ...(who ? { who: who.id } : {}) };
 }
 
+/** An event's answers in this town: its own, and the extra one for the town's people at the end (data/originOptions.ts). */
+export function optionsOf(s: GameState, def: EventDef): EventOption[] {
+  const extra = originOptions(s.origin, def.id);
+  return extra.length ? [...def.options, ...extra] : def.options;
+}
+
 /** Put an event to the player now. */
 export function startEvent(s: GameState, def: EventDef, rng: Rng): void {
   const pool = grownUps(s).filter((p) => p.id !== s.mainId);
   const who = def.who ? (pool.length ? rng.pick(pool) : grownUps(s)[0]) : undefined;
   const id = s.nextId++;
   // (the town's own pick: shown on the card, and what it takes if nobody answers in time, when it runs itself)
+  const options = optionsOf(s, def);
+  // (the town recommends from the common answers; a people's own is the player's call)
   const rec = recommend(s, def);
-  const usual = def.options.findIndex((o) => o.default);
+  const usual = options.findIndex((o) => o.default);
   s.prompts.push({
     id,
     kind: 'event',
@@ -122,7 +141,7 @@ export function startEvent(s: GameState, def: EventDef, rng: Rng): void {
     title: `${def.fateful ? '⚡ ' : ''}${fill(s, def.title, who)}`,
     ...(def.fateful ? { fateful: true } : {}),
     text: fill(s, def.text, who) + coinsLine(s, def),
-    options: def.options.map((o) => fill(s, o.label, who) + costOf(s, o)),
+    options: options.map((o) => fill(s, o.label, who) + costOf(s, o)),
     defaultOption: s.autopilot !== false ? rec.option : usual,
     recommended: rec.option,
     why: rec.why,
@@ -151,7 +170,7 @@ export function costOf(s: GameState, o: EventOption): string {
 
 /** Said under an event that asks for coins: what the treasury holds (the owner's ask: to know what there is to pay with). */
 export function coinsLine(s: GameState, def: EventDef): string {
-  const asks = def.options.some((o) => o.effects.some((e) => ('coins' in e && e.coins < 0) || ('take' in e && e.take === 'coins')));
+  const asks = optionsOf(s, def).some((o) => o.effects.some((e) => ('coins' in e && e.coins < 0) || ('take' in e && e.take === 'coins')));
   return asks ? ` (The treasury holds ${s.coins ?? 0} coins.)` : '';
 }
 
@@ -161,7 +180,7 @@ export function answerEvent(s: GameState, option: number, rng: Rng): void {
   s.event = undefined;
   if (!ev) return;
   const def = EVENT_BY_ID[ev.def];
-  const o = def?.options[option];
+  const o = def ? optionsOf(s, def)[option] : undefined;
   if (!o) return;
   // (a fateful answer is resolved on a stream of its own, and written down: sim/fates.ts)
   const fate = def.fateful ? s.tick : undefined;
@@ -355,6 +374,14 @@ export function apply(s: GameState, effects: readonly EventEffect[], rng: Rng, w
       for (const d of e.favour === 'all' ? DOMAINS : [e.favour]) f.favour[d] = Math.max(-FAVOUR_MOST, Math.min(FAVOUR_MOST, f.favour[d] + e.by));
       say(e.favour === 'all' ? `the gods' favour ${signed(e.by)}` : `${godOf(s, e.favour)[0]}'s favour ${signed(e.by)}`);
     }
+    else if ('ways' in e) ways(s, e.ways, e.by, say);
+    else if ('captives' in e) {
+      const room = Math.min(e.captives, Math.max(0, cellsOf(s) - s.prisoners.length));
+      const taken = [...s.people, ...s.prisoners].map((p) => p.name);
+      const free = NAMES.filter((x) => !taken.includes(x));
+      for (let i = 0; i < room; i++) s.prisoners.push({ id: s.nextId++, enemy: 'bandit', name: free.length ? free.splice(Math.floor(rng.next() * free.length), 1)[0] : rng.pick(NAMES), conviction: 0, since: s.tick, hungry: false });
+      say(room ? `${room} taken to the cells` : 'no cell free to hold them');
+    }
     else if ('research' in e) {
       const topic = s.research.queue[0];
       const t = topic ? TOPIC_BY_ID[topic] : undefined;
@@ -418,6 +445,26 @@ export function apply(s: GameState, effects: readonly EventEffect[], rng: Rng, w
     // (a later met inside a chance: kept with its effects)
     else if ('later' in e) (s.eventLater ??= []).push({ tick: s.tick + hours(e.later), event: '', option: 0, index: 0, who: whoId, effects: e.effects, ...(fate !== undefined ? { fate } : {}) });
   }
+}
+
+/** A people's own measure moved (data/originOptions.ts); nothing happens in a town of another people. */
+function ways(s: GameState, key: 'grove' | 'court' | 'honour' | 'fury' | 'renown' | 'power' | 'work' | 'wagons', by: number, say: (x: string) => void): void {
+  const clamp = (n: number, lo = -100, hi = 100) => Math.max(lo, Math.min(hi, Math.round(n)));
+  const g = key === 'grove' ? groveOf(s) : null;
+  const c = key === 'court' ? courtOf(s) : null;
+  const o = key === 'honour' ? orderOf(s) : null;
+  const h = key === 'fury' ? hordeOf(s) : null;
+  const f = key === 'power' ? foundryOf(s) : null;
+  const w = key === 'work' ? workOf(s) : null;
+  const fr = key === 'wagons' ? frontierOf(s) : null;
+  if (g) { g.favour = clamp(g.favour + by); say(`the grove's favour ${signed(by)}`); }
+  else if (c) { c.favour = clamp(c.favour + by); say(`the Court's favour ${signed(by)}`); }
+  else if (o) { o.honour = clamp(o.honour + by); say(`the Order's honour ${signed(by)}`); }
+  else if (h) { h.fury = clamp(h.fury + by, 0, 100); say(`the horde's fury ${signed(by)}`); }
+  else if (key === 'renown' && packOn(s)) { const p = packState(s); p.renown = Math.max(0, p.renown + by); say(`the pack's renown ${signed(by)}`); }
+  else if (f) { f.power = clamp(f.power + by, 0, 100); say(`the colony's power ${signed(by)}`); }
+  else if (w) { w.progress = Math.max(0, w.progress + by); say(`the Great Work ${signed(by)}`); }
+  else if (fr) { fr.wagons = Math.min(3, Math.max(0, (fr.wagons ?? 0) + by)); say('a wagon of settlers on the road'); }
 }
 
 /** Take a share of the town's food, its stores, or its coins. */
