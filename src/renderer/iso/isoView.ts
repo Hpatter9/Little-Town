@@ -7,22 +7,29 @@
 // Walls, streets as streets, props, lights, the weather and the other map layers are left for later: in this view
 // the walls are fitted pieces of the kit, the roads its path tile, and the rest isn't drawn.
 
-import { Container, Sprite, Texture } from 'pixi.js';
-import { CELL, groundAt, type LandMap } from '../../shared/sim/land';
+import { Container, Rectangle, Sprite, Texture } from 'pixi.js';
+import { CELL, WEAR_FULL, WEAR_SHOW, groundAt, inMap, wet as wetCell, type LandMap } from '../../shared/sim/land';
+import type { Biome } from '../../shared/data/biomes';
 import { footprint } from '../../shared/sim/buildings';
 import type { Building } from '../../shared/sim/state';
 import { loadImage } from '../art/loadImage';
+import { BUILDING_BY_ID } from '../../shared/data/buildings';
+import { cellHash, gateFlip, propFor, sceneryFor, wallMaskAt, wallPieceFor, wallShape } from './isoTown';
 import { fitted, groundTile, kitOf, kitUrl, pieceFor, roleOf, ISO_ART, type Kit } from './isoKits';
-import { cellsInView, footBase, footDepth, footWidth, isoBounds, isoOrigin, isoToWorld, ISO_TW, standingDepth, tileToIso, worldToIso, type Rect } from './isoMath';
+import { cellsInView, footBase, footDepth, footWidth, isoBounds, isoOrigin, isoToWorld, ISO_TH, ISO_TW, standingDepth, tileToIso, worldToIso, type Rect } from './isoMath';
 
 /** A building's picture may stand this much wider than its footprint before it is shrunk to fit (a big piece on a
  *  small building: a cottage piece on a one-cell trap). */
 const OVERHANG = 1.25;
+/** Ground tiles are drawn this much over their cell so neighbours overlap and no edge shows. */
+const OVERLAP = 1.06;
 
 interface DrawnBuilding {
   sprite: Sprite;
   key: string;
   foot: Rect;
+  /** The props beside it (a barrel, a crate: iso/isoTown.ts `propFor`). */
+  props: Sprite[];
 }
 
 export class IsoView {
@@ -46,6 +53,13 @@ export class IsoView {
   /** Bumped when a picture arrives: the ground and the buildings drawn again with it. */
   private texGen = 0;
   private readonly tiles: Sprite[] = [];
+  /** The per-cell ground over the blocks (streets, footpaths, fields), and the land's trees, bushes and rocks. */
+  private readonly cellTiles: Sprite[] = [];
+  private readonly scenery: Sprite[] = [];
+  private readonly overlay = new Container();
+  private biome: Biome = 'forest';
+  /** The cells walls, gates and grates stand on (y * land width + x), for joining them. */
+  private wallCells = new Set<number>();
   private groundKey = '';
   private readonly fieldCells = new Set<number>();
   private readonly buildings = new Map<number, DrawnBuilding>();
@@ -56,7 +70,7 @@ export class IsoView {
 
   constructor() {
     this.things.sortableChildren = true;
-    this.world.addChild(this.ground, this.things);
+    this.world.addChild(this.ground, this.overlay, this.things);
     this.root.addChild(this.world);
   }
 
@@ -66,6 +80,13 @@ export class IsoView {
     this.kit = kitOf(name);
     this.groundKey = '';
     for (const d of this.buildings.values()) d.key = '';
+  }
+
+  /** The land's biome: its ground tinted to match (data/biomes.ts). */
+  setBiome(b: Biome | undefined): void {
+    if ((b ?? 'forest') === this.biome) return;
+    this.biome = b ?? 'forest';
+    this.groundKey = '';
   }
 
   /** The land (every snapshot): its size, and the ground drawn again when it changed. */
@@ -95,6 +116,19 @@ export class IsoView {
     return null;
   }
 
+  /** A ground tile's top face alone (the slab under it cut off, so no edge shows as a line between neighbours). */
+  private surfaces = new Map<string, { of: Texture; face: Texture }>();
+  private surfaceOf(piece: string): Texture | null {
+    const tex = this.texOf(piece);
+    if (!tex) return null;
+    const key = `${this.kit.name}:${piece}`;
+    const had = this.surfaces.get(key);
+    if (had?.of === tex) return had.face;
+    const face = new Texture({ source: tex.source, frame: new Rectangle(tex.frame.x, tex.frame.y, tex.width, Math.min(tex.height, Math.round(tex.width / 2))) });
+    this.surfaces.set(key, { of: tex, face });
+    return face;
+  }
+
   /** The buildings (every snapshot): each on its footprint, a crop's field as field tiles in the ground. */
   syncBuildings(list: Building[]): void {
     if (list === this.builtFrom && this.builtGen === this.texGen) return;
@@ -103,6 +137,16 @@ export class IsoView {
     const land = this.land;
     const seen = new Set<number>();
     const fields = new Set<number>();
+    const walls = new Set<number>();
+    if (land)
+      for (const b of list) {
+        const d = roleOf(b.def);
+        if (!('role' in d) || (d.role !== 'wall_run' && d.role !== 'gate') || !BUILDING_BY_ID[b.def]?.hp) continue;
+        const f = footprint(b);
+        for (let y = f.y; y < f.y + f.h; y++) for (let x = f.x; x < f.x + f.w; x++) walls.add(y * land.w + x);
+      }
+    this.wallCells = walls;
+    const isWall = (x: number, y: number) => !!land && inMap(land, x, y) && walls.has(y * land.w + x);
     for (const b of list) {
       const foot = footprint(b);
       if ('field' in roleOf(b.def)) {
@@ -110,16 +154,31 @@ export class IsoView {
         continue;
       }
       seen.add(b.id);
-      const piece = pieceFor(this.kit, b.def);
+      let piece = pieceFor(this.kit, b.def);
+      let flip = false;
+      const role = roleOf(b.def);
+      if ('role' in role && (role.role === 'wall_run' || role.role === 'gate') && land) {
+        const ids = [...this.kit.pieces.keys()];
+        if (role.role === 'gate') {
+          flip = gateFlip(foot);
+          piece = wallPieceFor(ids, 'gate', b.def) ?? piece;
+        } else {
+          // (a one-cell wall joins the walls beside it: a run along x or y, or a corner)
+          const m = wallMaskAt(isWall, foot.x, foot.y);
+          const shape = wallShape(m);
+          flip = shape.flip;
+          piece = wallPieceFor(ids, shape.part, b.def) ?? piece;
+        }
+      }
       const tex = this.texOf(piece);
-      const key = `${this.kit.name}:${piece}:${b.status}:${foot.x},${foot.y},${foot.w},${foot.h}:${tex ? 1 : 0}`;
+      const key = `${this.kit.name}:${piece}:${flip ? 'f' : ''}:${b.status}:${foot.x},${foot.y},${foot.w},${foot.h}:${tex ? 1 : 0}:${this.texGen}`;
       let d = this.buildings.get(b.id);
       if (!d) {
         const sprite = new Sprite();
         sprite.anchor.set(0.5, 1);
         this.things.addChild(sprite);
         this.own.add(sprite);
-        d = { sprite, key: '', foot };
+        d = { sprite, key: '', foot, props: [] };
         this.buildings.set(b.id, d);
       }
       d.foot = foot;
@@ -131,17 +190,19 @@ export class IsoView {
       s.texture = tex;
       const span = footWidth(foot);
       const k = fitted(b.def) ? span / tex.width : Math.min(this.kit.scale * ISO_ART, (span * OVERHANG) / tex.width);
-      s.scale.set(k);
+      s.scale.set(flip ? -k : k, k);
       const at = footBase(foot, this.ox);
       s.position.set(Math.round(at.x), Math.round(at.y));
       s.zIndex = footDepth(foot);
       // (a blueprint or a building going up: a ghost of what it will be)
       s.alpha = b.status === 'done' ? 1 : 0.45;
+      this.setProps(d, b, role);
     }
     for (const [id, d] of this.buildings) {
       if (seen.has(id)) continue;
       d.sprite.destroy();
       this.own.delete(d.sprite);
+      this.clearProps(d);
       this.buildings.delete(id);
     }
     if (fields.size !== this.fieldCells.size || [...fields].some((c) => !this.fieldCells.has(c))) {
@@ -149,6 +210,32 @@ export class IsoView {
       for (const c of fields) this.fieldCells.add(c);
       this.groundKey = '';
     }
+  }
+
+  private clearProps(d: DrawnBuilding): void {
+    for (const p of d.props) {
+      p.destroy();
+      this.own.delete(p);
+    }
+    d.props = [];
+  }
+
+  /** A finished working building's prop, beside it: picked from its id, sorted in depth with everything else. */
+  private setProps(d: DrawnBuilding, b: Building, role: ReturnType<typeof roleOf>): void {
+    this.clearProps(d);
+    if (!('role' in role) || b.status !== 'done') return;
+    const pr = propFor([...this.kit.pieces.keys()], role.role, b.id, d.foot);
+    const tex = pr && this.texOf(pr.piece);
+    if (!pr || !tex) return;
+    const s = new Sprite(tex);
+    s.anchor.set(0.5, 1);
+    s.scale.set(this.kit.scale * ISO_ART * 0.6);
+    const at = tileToIso(pr.x, pr.y, this.ox);
+    s.position.set(Math.round(at.x), Math.round(at.y));
+    s.zIndex = pr.x + pr.y + 0.02;
+    this.things.addChild(s);
+    this.own.add(s);
+    d.props.push(s);
   }
 
   /** The camera: the screen position (on the diamonds) of the view's top-left, and the view's size. Only the ground
@@ -170,7 +257,7 @@ export class IsoView {
 
   private paintGround(bx0: number, by0: number, x1: number, y1: number, n: number): void {
     const land = this.land!;
-    const texs = this.kit.tiles.map((t) => this.texOf(t));
+    const texs = this.kit.tiles.map((t) => this.surfaceOf(t));
     const blocks: [number, number][] = [];
     for (let by = by0; by <= y1; by += n) for (let bx = bx0; bx <= x1; bx += n) blocks.push([bx, by]);
     // (back to front: each tile's slab edge is covered by the tiles in front of it)
@@ -178,16 +265,7 @@ export class IsoView {
     this.ground.removeChildren();
     let used = 0;
     for (const [bx, by] of blocks) {
-      // (a block shows a field if any of its cells is one, else a path if any is, else its first cell's ground)
-      let road = false;
-      let field = false;
-      for (let y = by; y < Math.min(by + n, land.h); y++)
-        for (let x = bx; x < Math.min(bx + n, land.w); x++) {
-          const i = y * land.w + x;
-          if (this.fieldCells.has(i)) field = true;
-          else if (land.roads[i] === '#') road = true;
-        }
-      const g = groundTile(groundAt(land, bx, by), road, field);
+      const g = groundTile(groundAt(land, bx, by), false, false, this.biome);
       const tex = texs[g.tile];
       if (!tex) continue;
       let s = this.tiles[used];
@@ -198,12 +276,86 @@ export class IsoView {
       }
       used++;
       s.texture = tex;
-      s.scale.set((n * ISO_TW) / tex.width);
+      // (a little over size so neighbours overlap, and turned about by the block's hash so the same ground doesn't repeat)
+      const k = (n * ISO_TW * OVERLAP) / tex.width;
+      s.scale.set(cellHash(bx, by, 21) < 0.5 ? k : -k, k);
       const at = tileToIso(bx, by, this.ox);
-      s.position.set(Math.round(at.x), Math.round(at.y));
+      s.position.set(Math.round(at.x), Math.round(at.y - (n * ISO_TH * (OVERLAP - 1)) / 2));
       s.tint = g.tint;
       this.ground.addChild(s);
     }
+    this.paintCells(Math.max(0, bx0), Math.max(0, by0), x1, y1, texs);
+  }
+
+  /** Over the blocks, a tile to each cell of a street, a worn footpath or a field (back to front), and the land's trees,
+   *  bushes and rocks on its wild cells (sprites in `things`, sorted with everything else). */
+  private paintCells(x0: number, y0: number, x1: number, y1: number, texs: (Texture | null)[]): void {
+    const land = this.land!;
+    this.overlay.removeChildren();
+    let used = 0;
+    let trees = 0;
+    const ids = [...this.kit.pieces.keys()];
+    const cells: number[] = [];
+    for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) cells.push(y * land.w + x);
+    cells.sort((a, b) => (a % land.w) + Math.floor(a / land.w) - ((b % land.w) + Math.floor(b / land.w)));
+    for (const i of cells) {
+      const x = i % land.w;
+      const y = Math.floor(i / land.w);
+      let tile = -1;
+      let alpha = 1;
+      if (this.fieldCells.has(i)) tile = 3;
+      else if (land.roads[i] === '#') tile = 2;
+      else {
+        const w = land.wear ? land.wear.charCodeAt(i) - 48 : 0;
+        if (w >= WEAR_SHOW) {
+          tile = 1;
+          alpha = Math.min(1, w / WEAR_FULL) * 0.8;
+        }
+      }
+      if (tile >= 0 && texs[tile] && !wetCell(groundAt(land, x, y))) {
+        const tex = texs[tile]!;
+        let s = this.cellTiles[used];
+        if (!s) {
+          s = new Sprite();
+          s.anchor.set(0.5, 0);
+          this.cellTiles.push(s);
+        }
+        used++;
+        s.texture = tex;
+        const k = (ISO_TW * OVERLAP) / tex.width;
+        s.scale.set(cellHash(x, y, 22) < 0.5 ? k : -k, k);
+        s.alpha = alpha;
+        const at = tileToIso(x, y, this.ox);
+        s.position.set(Math.round(at.x), Math.round(at.y - (ISO_TH * (OVERLAP - 1)) / 2));
+        this.overlay.addChild(s);
+        continue;
+      }
+      if (this.wallCells.has(i)) continue;
+      const g = groundAt(land, x, y);
+      if (land.regrow?.[i] || land.rubble?.[i] !== undefined) continue;
+      const piece = sceneryFor(ids, g, this.biome, cellHash(x, y, 1), cellHash(x, y, 2));
+      const tex = piece ? this.texOf(piece) : null;
+      if (!piece || !tex) continue;
+      let t = this.scenery[trees];
+      if (!t) {
+        t = new Sprite();
+        t.anchor.set(0.5, 0.9);
+        this.scenery.push(t);
+        this.own.add(t);
+      }
+      trees++;
+      t.texture = tex;
+      t.visible = true;
+      t.scale.set(this.kit.scale * ISO_ART * (/bush/.test(piece) ? 0.7 : 0.85));
+      const jx = x + 0.3 + cellHash(x, y, 3) * 0.4;
+      const jy = y + 0.3 + cellHash(x, y, 4) * 0.4;
+      const at = tileToIso(jx, jy, this.ox);
+      t.position.set(Math.round(at.x), Math.round(at.y));
+      t.zIndex = jx + jy;
+      if (!t.parent) this.things.addChild(t);
+    }
+    // (the pool's spare sprites are hidden, not destroyed: the view moves on and needs them again)
+    for (let k = trees; k < this.scenery.length; k++) this.scenery[k].visible = false;
   }
 
   /** Everything others put in `things` in world px (the townsfolk: map/mapPeople.ts), moved to its spot on the

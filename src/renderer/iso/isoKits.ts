@@ -22,6 +22,8 @@ import { CROPS } from '../../shared/data/crops';
 import { HERDS } from '../../shared/data/livestock';
 import type { Ground } from '../../shared/sim/land';
 import { kitTileCells } from './isoMath';
+import { BIOME_GROUND, mulTint } from './isoTown';
+import type { Biome } from '../../shared/data/biomes';
 
 /** The kits are drawn at this much of their `scale` (the view's cells are half the size the kits were made for:
  *  iso/isoMath.ts `ISO_TW`). */
@@ -168,7 +170,15 @@ export const fitted = (defId: string): boolean => {
 
 /** Which of a kit's ground tiles a cell is drawn with (0 open, 1 bare, 2 path, 3 field), and a tint for the grounds
  *  the kits have no tile of (water, for now, is the bare tile tinted blue). */
-export function groundTile(g: Ground, road: boolean, field: boolean): { tile: 0 | 1 | 2 | 3; tint: number } {
+export function groundTile(g: Ground, road: boolean, field: boolean, biome?: Biome): { tile: 0 | 1 | 2 | 3; tint: number } {
+  const t = baseTile(g, road, field);
+  const b = biome && BIOME_GROUND[biome];
+  // (the biome sets the open ground's look: snow, sand, swamp; water, stone and paths keep theirs)
+  if (!b || road || field || t.tile > 1 || g === 'water' || g === 'shallows' || g === 'rock' || g === 'mountain') return t;
+  return { tile: t.tile === 1 && g !== 'sand' ? 1 : b.tile, tint: mulTint(t.tint, b.tint) };
+}
+
+function baseTile(g: Ground, road: boolean, field: boolean): { tile: 0 | 1 | 2 | 3; tint: number } {
   if (field) return { tile: 3, tint: 0xffffff };
   if (road) return { tile: 2, tint: 0xffffff };
   switch (g) {
