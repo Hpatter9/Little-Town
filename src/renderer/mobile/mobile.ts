@@ -20,6 +20,7 @@ import { setTipsOn, tipsOn } from './tips';
 import { applyUiLook } from '../ui/frame';
 import { wireTips } from '../ui/tips';
 import { createTopBar } from '../ui/topBar';
+import { startUndergroundSwitch } from './undergroundSwitch';
 import { watchMilestones } from './milestoneCards';
 import type { LoadingHost } from './loading';
 import { townSketch } from '../loading/sketch';
@@ -313,6 +314,7 @@ bridge.onSnapshot((snap) => {
 });
 // the shared look (ui/): the people's frames, the alignment's warmth and the night; the quiet top bar; held tips
 const topBar = createTopBar($('top'), bridge);
+startUndergroundSwitch(bridge, $('top')); // (Surface / Underground: mobile/undergroundSwitch.ts)
 wireTips();
 watchMilestones(bridge); // (the rank's changes and the town's firsts, each told once as a card)
 bridge.onSnapshot((snap) => {
