@@ -28,7 +28,7 @@ import { ensureLayout, layoutSpot } from './layout';
 import { LEISURE, LEISURE_PEOPLE, LOW_SPIRITS } from '../data/recreation';
 import { TRAINING_BUILDINGS } from '../data/training';
 const TRAINING_IDS = new Set(TRAINING_BUILDINGS.map((d) => d.id));
-import { isGrate, isRingPiece, planRing, ringFull, ringSite, ringWants, RING_PEOPLE } from './ringWall';
+import { isGrate, isRingPiece, planRing, ringSite, ringWants, RING_PEOPLE } from './ringWall';
 import { inSea, seaBuild, seaTown } from './sea';
 import { castleCells, castleOn, coreRect, hallCells, HALLWAY, holdOf, isHallway, joinsCastle, nearCastle, roomKind, sharedEdges, solidCells } from './castle';
 import { BUILDINGS, BUILDING_BY_ID, UPGRADES, type BuildingDef } from '../data/buildings';
@@ -1251,7 +1251,6 @@ function planBuilding(s: GameState, n: Needs, plan: TownPlan): number[] {
   // nothing new to build: improve what's there (fields only through consolidateFields: when fallow, and wanted)
   for (const b of s.buildings) {
     if (b.status !== 'done' || !UPGRADES[b.def] || CROPS[b.def]) continue;
-    if (isRingPiece(b.def) && !ringFull(s)) continue; // (the wall is improved once the ground inside it is used up)
     const to = BUILDING_BY_ID[UPGRADES[b.def]];
     if (!to || !affordable(s, to, n.stock) || displaces(s, b) || !canUpgrade(s, b.id).ok) continue;
     const was = BUILDING_BY_ID[b.def].name;
