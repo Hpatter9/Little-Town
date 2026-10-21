@@ -266,6 +266,8 @@ test("the founder's death passes the town to an heir (their partner first); only
   assert.equal(s.gameOver, null);
   assert.equal(s.mainId, b.id, 'the partner leads');
   assert.ok(s.marks?.some((m) => m.lever === 'morale' && m.value < 0), 'the town mourns');
+  // (the new leader's heir is their own: a stranger takes up the town only if named)
+  s.heirId = a.id;
   killPerson(s, b, 'in a raid');
   assert.equal(s.mainId, a.id);
   killPerson(s, a, 'of hunger');

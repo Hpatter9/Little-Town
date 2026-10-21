@@ -661,7 +661,7 @@ async function start(): Promise<void> {
   const shownExpedition = () => snap.expeditions.at(-1) ?? null;
   const expHeader = createExpeditionHeader(() => bridge.openPanel('expeditions'));
   const promptCard = createPromptCard((prompt, option) => bridge.command({ type: 'answerPrompt', prompt, option }));
-  const gameOver = createGameOver(() => bridge.openPanel('newgame'));
+  const gameOver = createGameOver(() => (bridge.endTown ? void bridge.endTown() : bridge.openPanel('newgame')));
 
   // (an origin's look reaches its buildings too)
   const hud = createHud(bridge); // (the buildings' style follows the snapshot: see applySnapshot)
@@ -1169,6 +1169,8 @@ async function start(): Promise<void> {
         const actions = list.map((a, i) => act(`b${i}`, a.label, a.onClick, { danger: a.danger }));
         const venue = venuePanel(b.def);
         if (venue && inspectMenu === 'main') actions.unshift(act('venue', 'Look inside…', () => bridge.openPanel(venue), { primary: true }));
+        // (the founder's walk: tap a building, then send them: sim/founder.ts)
+        if (snap.founder && b.status === 'done' && inspectMenu === 'main') actions.push(act('founderGo', 'Send the founder here', () => (bridge.command({ type: 'founderGo', building: b.id }), inspectTarget(null))));
         return { title: d.title, lines: d.lines, actions, building: b.id };
       }
       case 'person': {
@@ -1204,7 +1206,8 @@ async function start(): Promise<void> {
         const fight = snap.skirmishes.find((k) => !k.over && k.who.includes(p.name));
         const watchAct = fight ? [act('watch', 'Watch the fight', () => bridge.command({ type: 'watch', expedition: fight.id }), { primary: true })] : [];
         if (fight) lines.unshift(`Fighting ${fight.foe} out on the land!`);
-        return { title: d.title, lines, actions: [...watchAct, ...rallyAct, followAct, act('more', 'Townsfolk…', () => bridge.openPanel('townsfolk'))] };
+        const founderAct = p.id === snap.mainId ? [act('founder', 'The founder…', () => bridge.openPanel('founder'), { primary: true })] : [];
+        return { title: d.title, lines, actions: [...founderAct, ...watchAct, ...rallyAct, followAct, act('more', 'Townsfolk…', () => bridge.openPanel('townsfolk'))] };
       }
       case 'place': {
         const p = snap.places.find((q) => q.id === h.id);
@@ -1917,7 +1920,7 @@ async function start(): Promise<void> {
     // (on the phone, a choice event has the whole screen: mobile/eventSheet.ts)
     if (q && view.mode === 'full' && !next.fightOn && !next.tactics && !((q.kind === 'event' || q.kind === 'secret' || q.kind === 'saga' || q.kind === 'road' || q.kind === 'debrief' || q.kind === 'envoy' || q.kind === 'watch' || q.kind === 'dragon' || q.kind === 'evolve' || q.kind === 'refugees' || q.kind === 'village' || q.kind === 'council' || q.kind === 'trial' || q.kind === 'revolt' || q.kind === 'ways' || q.kind === 'enemy') && (window as unknown as { __eventSheet?: boolean }).__eventSheet)) promptCard.show(q);
     else promptCard.hide();
-    if (next.gameOver) gameOver.show(next.gameOver.text, next.gameOver.won);
+    if (next.gameOver) gameOver.show(next.gameOver.text, next.gameOver.won, next.gameOver);
     // a boss roars or sweeps: the strip shakes (only for fresh moments, not ones from before a reload)
     if (next.bossShake !== lastShake) {
       if (lastShake !== null && next.tick - next.bossShake < 20) shakeUntil = performance.now() + SHAKE_MS;
@@ -2161,6 +2164,8 @@ async function start(): Promise<void> {
       if (held) applySnapshot(held);
     },
   });
+  /** How long the camera leaves the view alone after the player pans it, before easing back to the founder. */
+  const FOLLOW_WAIT_MS = 4000;
   app.ticker.add((ticker) => {
     const w = layoutSplit(); // the town's share of the width
     // zoomed (the strip got wider or narrower): keep the middle of the view where it was
@@ -2170,8 +2175,13 @@ async function start(): Promise<void> {
       viewW = w;
       viewH = h;
     }
-    // (the camera follows nobody, the hero and the raid's lead raider included: the owner found it jumping about;
-    // it moves only when the player moves it, or once to the gate as a battle begins)
+    // (the camera follows the person you follow, else the founder, and waits while you pan about: it eases to them,
+    // and a battle's own move to the gate is left alone)
+    const lead = snap.people.find((q) => q.id === (snap.hero ?? snap.mainId));
+    if (lead && !snap.raid && !snap.gameOver) {
+      const at = people.posOf(lead.id) ?? { x: lead.x, y: lead.y };
+      camera.follow(at, w, h, performance.now(), FOLLOW_WAIT_MS);
+    }
     const moving = camera.update(ticker.deltaMS / 1000, w, h);
     if (iso) {
       iso.setCamera(camera.x, camera.y, w, h);

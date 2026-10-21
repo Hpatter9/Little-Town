@@ -133,7 +133,9 @@ import { PARTS, PROSTHETIC_BY_ITEM, fitsOf, type BodyPart } from '../data/injuri
 import { bountyOn, bountyStep, mayGo, proposeParty, roomAway, vetoed } from './parties';
 import { ENEMY } from '../data/social';
 import { canTrade, stalls } from './trade';
-import { RECRUIT_TYPES, TRAIT_BY_ID, type Job, type Look, type Priority } from '../data/people';
+import { JOBS, JOB_NAMES, RECRUIT_TYPES, TRAIT_BY_ID, type Job, type Look, type Priority } from '../data/people';
+import { canBeHeir, founderOf } from './founder';
+import { heirOf } from './health';
 import { RESEARCH_STATIONS, TOPIC_BY_ID } from '../data/research';
 import { SKILLS, skillSpeed, xpToNext, type Skill } from '../data/skills';
 import { TERRAIN } from '../data/terrain';
@@ -206,6 +208,18 @@ export interface SkillView {
   /** 0..1 toward the next level. */
   progress: number;
   passion: boolean;
+}
+
+export interface FounderView {
+  id: number;
+  /** What the founder was told to do, in words (null: nothing). */
+  order: string | null;
+  /** Who leads after them (the named heir, then the partner, then the eldest grown child), and whether they were named. */
+  heir: { id: number; name: string; named: boolean } | null;
+  /** Grown-ups who could be named, partner and children first. */
+  heirs: { id: number; name: string; role: 'partner' | 'child' | 'other' }[];
+  /** Jobs the founder could take up for the day. */
+  jobs: Job[];
 }
 
 export interface PersonView {
@@ -1102,7 +1116,7 @@ export interface Snapshot {
   reputation: number;
   /** The town's alignment: the bar, its label, and the cast the town is tinted by (sim/alignment.ts). */
   align: ReturnType<typeof alignView>;
-  gameOver: { text: string; won: boolean } | null;
+  gameOver: { text: string; won: boolean; founder?: string; days?: number; cause?: string } | null;
   /** An epic boss in a fight right now (in town first, else on an expedition): its health bar. */
   bossBar: { name: string; hp: number; maxHp: number; enraged: boolean; where: string } | null;
   /** The dead outnumber the living: ghosts walk at night. */
@@ -1181,6 +1195,8 @@ export interface Snapshot {
   biome: Biome;
   ironman: boolean;
   mainId: number;
+  /** The founder's orders and heir (sim/founder.ts): what they were told to do, who would lead after them, and who could be named. */
+  founder: FounderView | null;
   unlockAll: boolean;
   research: ResearchView;
   /** The player's building wishes (sim/pins.ts): what, whether it's going up and how far, or what it waits on. */
@@ -1275,6 +1291,23 @@ export interface ResearchView {
   /** The seat's stage (1..5) the research gate reads (null: no gate), its name, and the next stage's name and era. */
   seat: { stage: number; name: string; next: string | null; nextEra: string | null; building: boolean } | null;
 }
+
+function founderView(s: GameState): FounderView | null {
+  const f = founderOf(s);
+  if (!f) return null;
+  const o = s.founderOrder;
+  const site = o?.kind === 'go' ? s.buildings.find((b) => b.id === o.building) : undefined;
+  const order = !o ? null : o.kind === 'go' ? `Walking to the ${BUILDING_BY_ID[site?.def ?? '']?.name ?? 'building'}` : o.kind === 'work' ? `Working at ${JOB_NAMES[o.job].toLowerCase()} for the day` : 'Resting at home';
+  const next = heirOf(s, f);
+  const roleOf = (p: Person): 'partner' | 'child' | 'other' => (p.id === f.partner ? 'partner' : (p.parents ?? []).includes(f.id) ? 'child' : 'other');
+  const rank = { partner: 0, child: 1, other: 2 } as const;
+  const heirs = s.people
+    .filter((p) => canBeHeir(s, p))
+    .map((p) => ({ id: p.id, name: p.name, role: roleOf(p) }))
+    .sort((a, b) => rank[a.role] - rank[b.role]);
+  return { id: f.id, order, heir: next ? { id: next.id, name: next.name, named: next.id === s.heirId } : null, heirs, jobs: JOBS.filter((j) => j !== 'defend') };
+}
+
 
 export function snapshot(s: GameState): Snapshot {
   const stock = totalStock(s);
@@ -1526,7 +1559,7 @@ export function snapshot(s: GameState): Snapshot {
       : null,
     reputation: s.reputation,
     align: alignView(s),
-    gameOver: s.gameOver ? { text: s.gameOver.text, won: !!s.gameOver.won } : null,
+    gameOver: s.gameOver ? { text: s.gameOver.text, won: !!s.gameOver.won, ...(s.gameOver.founder ? { founder: s.gameOver.founder, days: s.gameOver.days, cause: s.gameOver.cause } : {}) } : null,
     biome: s.biome ?? 'forest',
     turnable: turnable(s),
     bossBar: bossBar(s),
@@ -1567,6 +1600,7 @@ export function snapshot(s: GameState): Snapshot {
     foreshadow: foreshadow(s),
     upcoming: upcoming(s),
     mainId: s.mainId,
+    founder: founderView(s),
     unlockAll: s.cheats.unlockAll,
     research: researchView(s),
     pins: (s.pins ?? []).map((p) => {

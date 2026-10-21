@@ -135,6 +135,7 @@ import { seafaringHourly } from './seafaring';
 import { oddsHourly } from './raidOdds';
 import { voteSettlementName } from './settlementName';
 import { setFavourite } from './favourites';
+import { founderGive, founderGo, founderHeir, founderRest, founderTick, founderWork } from './founder';
 
 /** How the town trades at its shop: the planner decides what's spare and what to buy. */
 const SHOP_TOWN: ShopTown = { forSale, wants: shoppingList };
@@ -190,6 +191,7 @@ export class Sim {
 
     s.tick++;
     voteSettlementName(s);
+    founderTick(s); // (the founder's orders end, and a rest mends: sim/founder.ts)
     const ctx = newTickContext();
     for (const p of s.people) {
       if (p.away !== null) continue;
@@ -562,6 +564,21 @@ export class Sim {
         break;
       case 'follow':
         s.hero = c.person !== null && s.people.some((p) => p.id === c.person) ? c.person : undefined;
+        break;
+      case 'founderGo':
+        founderGo(s, c.building);
+        break;
+      case 'founderWork':
+        founderWork(s, c.job);
+        break;
+      case 'founderRest':
+        founderRest(s);
+        break;
+      case 'founderGive':
+        founderGive(s, c.amount);
+        break;
+      case 'founderHeir':
+        founderHeir(s, c.person);
         break;
       case 'holdPower':
         holdPower(s, c.power);

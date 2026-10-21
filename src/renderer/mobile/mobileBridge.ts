@@ -9,7 +9,8 @@ import type { JournalEntryView, Snapshot } from '../../shared/sim/snapshot';
 import { SnapAssembler } from '../../shared/snapDelta';
 import type { FromHost, NewTown, ToHost, startSimHost } from '../../shared/simHost';
 import { mayBuzz, readVibrate } from '../vibration';
-import { beginTown, noteCurrent } from './saveSlots';
+import { beginTown, deleteSlot, noteCurrent, readSlots } from './saveSlots';
+import type { Legend } from '../../shared/sim/legacy';
 import { ENTER_KEY } from './mainMenu';
 
 const SAVE_KEY = 'littletown.save';
@@ -126,7 +127,7 @@ export function mobileBridge(): Bridge {
         return;
     }
   });
-  const ask = <T>(m: Record<string, unknown> & { t: 'save' | 'journal' | 'newGame' }): Promise<T> =>
+  const ask = <T>(m: Record<string, unknown> & { t: 'save' | 'journal' | 'newGame' | 'legend' }): Promise<T> =>
     new Promise<T>((res) => {
       const id = nextAsk++;
       asked.set(id, res as (v: unknown) => void);
@@ -262,6 +263,21 @@ export function mobileBridge(): Bridge {
         } catch {}
         location.reload();
       });
+    },
+    // (the town is over: its legend is kept, the save is let go, and the page starts over at the main menu)
+    endTown: async () => {
+      if (leaving) return;
+      const legend = await ask<Legend | null>({ t: 'legend', now: Date.now() });
+      leaving = true;
+      (window as unknown as { __noSave?: boolean }).__noSave = true;
+      if (legend) keepLegend(legend);
+      const book = readSlots(localStorage);
+      if (book.current) deleteSlot(localStorage, book.current);
+      try {
+        localStorage.removeItem(SAVE_KEY);
+        sessionStorage.removeItem(ENTER_KEY);
+      } catch {}
+      location.reload();
     },
     command: (c) => send({ t: 'command', c }),
     // (the loading screen has gone: the clock runs)

@@ -86,6 +86,13 @@ export type Command =
   /** Follow a townsperson (null: nobody). */
   | { type: 'follow'; person: number | null }
   | { type: 'watch'; expedition: number | null }
+  /** Play the founder (sim/founder.ts): walk to a building, work a job for the day (null: the town's choice), rest at
+   *  home, give coins to the town, name an heir (null: none). */
+  | { type: 'founderGo'; building: number }
+  | { type: 'founderWork'; job: Job | null }
+  | { type: 'founderRest' }
+  | { type: 'founderGive'; amount: number }
+  | { type: 'founderHeir'; person: number | null }
   /** Follow a townsperson, or stop (sim/favourites.ts): a view preference only. */
   | { type: 'favourite'; id: number; on: boolean }
   /** Go into a mine on the land and watch the digging (null: back to the town). */
@@ -267,6 +274,16 @@ export function parseCommand(raw: unknown): Command | null {
       return c.place === null || Number.isInteger(c.place) ? { type: 'watchMine', place: c.place as number | null } : null;
     case 'follow':
       return c.person === null || Number.isInteger(c.person) ? { type: 'follow', person: c.person as number | null } : null;
+    case 'founderGo':
+      return Number.isInteger(c.building) ? { type: 'founderGo', building: c.building as number } : null;
+    case 'founderWork':
+      return c.job === null || (typeof c.job === 'string' && (JOBS as readonly string[]).includes(c.job)) ? { type: 'founderWork', job: c.job as Job | null } : null;
+    case 'founderRest':
+      return { type: 'founderRest' };
+    case 'founderGive':
+      return Number.isInteger(c.amount) && (c.amount as number) > 0 && (c.amount as number) <= 100000 ? { type: 'founderGive', amount: c.amount as number } : null;
+    case 'founderHeir':
+      return c.person === null || Number.isInteger(c.person) ? { type: 'founderHeir', person: c.person as number | null } : null;
     case 'rally':
       return Number.isInteger(c.person) ? { type: 'rally', person: c.person as number } : null;
     case 'battlePlace':
