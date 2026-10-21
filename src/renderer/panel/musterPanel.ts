@@ -31,6 +31,7 @@ export function renderMuster(m: MusterView, s: Snapshot, bridge: Bridge | undefi
   said.append(el('div', 'muster-leader', leader ? `${leader.name} will lead` : 'Nobody to lead'), el('div', 'muster-odds', `“${m.odds}”`));
   brief.append(said);
   sheet.append(brief);
+  if (m.powerLine) sheet.append(el('div', 'hint muster-power', m.powerLine));
   sheet.append(stakeCard(m, s));
 
   // the party

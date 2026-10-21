@@ -162,7 +162,7 @@ export function createHud(bridge: Bridge, onTheme?: (theme: Theme) => void): Hud
         cast.title = mine.description;
       }
       if (r) {
-        const t = r.phase === 'warning' ? `${r.name} in ${Math.ceil(r.secondsToArrival)}s` : `${r.name} in town!${r.hexes.length ? ` · ${r.hexes.join(' · ')}` : ''}`;
+        const t = r.phase === 'warning' ? `${r.name} in ${Math.ceil(r.secondsToArrival)}s · ${r.matchup} (${r.power} vs ${r.townPower})` : `${r.name} in town! ${r.matchup}${r.hexes.length ? ` · ${r.hexes.join(' · ')}` : ''}`;
         if (raid.textContent !== t) raid.textContent = t;
       }
       // anyone bleeding out in town: who has least time left (a dressing or an infirmary saves them)

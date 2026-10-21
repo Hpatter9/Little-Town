@@ -112,7 +112,7 @@ function head(p: PersonView, s: Snapshot, hooks: SheetHooks): HTMLElement {
   const chips = el('div', 'pc-chips');
   if (p.clsName) chips.append(p.cls ? tapLink(chip(`${p.clsName} · Lv ${p.level}`, 'calling'), () => openCard({ kind: 'calling', id: p.cls! })) : chip(`${p.clsName} · Lv ${p.level}`, 'calling'));
   else chips.append(chip(p.typeName));
-  chips.append(chip(`${p.ageYears} years${p.elder ? ', an elder' : ''}`), chip(p.natureName));
+  chips.append(chip(`${p.ageYears} years${p.elder ? ', an elder' : ''}`), chip(p.natureName), chip(`Power ${p.battle.power}`));
   if (p.job) chips.append(chip(`${p.job.title} at ${p.job.at}`));
   for (const t of p.titles) chips.append(chip(t, 'title'));
   for (const g of guilds) {

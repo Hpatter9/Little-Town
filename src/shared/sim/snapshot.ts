@@ -78,6 +78,7 @@ import type { ClassId } from '../data/classes';
 import { beastForm, levelOf, stageOf, type BeastForm } from '../data/levels';
 import { callingName, callingText } from '../data/founderClasses';
 import { personFighter, weaponRange } from './combat';
+import { foesToExpect, matchupOf, powerOfEnemy, powerOfGroup, powerOfParty, powerOfPerson, type Matchup } from './power';
 import { kitOf } from './actions';
 import { kitCap } from './kit';
 import { levelProgress } from './classes';
@@ -382,7 +383,7 @@ export interface PersonView {
   rounds: boolean;
   /** How they'd fight now (as a fighter in the front rank), for the inspect page: a blow's damage, shares of hit
    *  chance, dodge, armour and block, and the chance to strike true. */
-  battle: { damage: [number, number]; accuracy: number; dodge: number; armor: number; block: number; crit: number; ranged: boolean; attrs: Attrs; mp: number; sp: number; interval: number; range: number };
+  battle: { damage: [number, number]; accuracy: number; dodge: number; armor: number; block: number; crit: number; ranged: boolean; attrs: Attrs; mp: number; sp: number; interval: number; range: number; power: number };
   /** The spells they keep ready and the skills they've learned (actives first), with what each costs. */
   kit: { name: string; spell: boolean; level: number; cost: number; pool: 'mp' | 'sp' | 'limit'; text: string }[];
   /** The passive skills they've learned (always on), with what each gives. */
@@ -473,6 +474,8 @@ export interface RaiderView {
   hitFx: RaiderHitFx | null;
   kind: string;
   name: string;
+  /** Power level (sim/power.ts); absent for the beasts of a ranch. */
+  power?: number;
   /** How high up a castle's keep it has climbed, in floors; null on the ground. */
   floor: number | null;
   x: number;
@@ -517,6 +520,10 @@ export interface RaidView {
   alarm: boolean;
   /** A rival lord's hexes and blessings on the fight ("Entangle 6s"). */
   hexes: string[];
+  /** Power levels (sim/power.ts): the raiders', the town's able fighters', and how they match ("Even", "Risky"...). */
+  power: number;
+  townPower: number;
+  matchup: Matchup;
   raiders: RaiderView[];
 }
 
@@ -758,6 +765,10 @@ export interface DestinationView {
   /** Only an airship reaches it; and which airship a trip would take (sim/skies.ts airshipLine). */
   bySky?: boolean;
   airship?: string;
+  /** Power levels (sim/power.ts): the party the town would send, the foes to expect, and how they match. */
+  partyPower: number;
+  foesPower: number;
+  matchup: Matchup | null;
 }
 
 export interface VisitorView extends PersonView {
@@ -877,6 +888,8 @@ export interface RoamerView {
   dir: 1 | -1;
   /** Each foe in the band (enemy kind and name). */
   foes: { kind: string; name: string }[];
+  /** The band's power level (sim/power.ts). */
+  power?: number;
   fighting: boolean;
   /** The fight it's in (a skirmish id, to watch), and who it's after. */
   skirmish: number | null;
@@ -1349,6 +1362,7 @@ export function snapshot(s: GameState): Snapshot {
       tripSeconds: ((d.outSeconds * 2 + d.workSeconds) * ERA_MULTIPLIER[s.era]),
       foodPerMember: foodNeeded(s, d, 1),
       ...partyView(s, d.id),
+      ...destPower(s, d),
       vetoed: vetoed(s, d.id),
       bounty: bountyOn(s, d.id),
       ...(d.byBoat ? { byBoat: true } : {}),
@@ -1429,6 +1443,7 @@ export function snapshot(s: GameState): Snapshot {
       y: r.y,
       dir: r.dir,
       foes: Object.entries(r.group).flatMap(([k, n]) => Array.from({ length: n }, () => ({ kind: k, name: ENEMIES[k]?.name ?? k }))),
+      power: Math.round(powerOfGroup(r.group)),
       fighting: r.fighting !== undefined,
       skirmish: r.fighting ?? null,
       chasing: r.chasing !== null ? (s.people.find((p) => p.id === r.chasing)?.name ?? null) : null,
@@ -1497,10 +1512,12 @@ export function snapshot(s: GameState): Snapshot {
           side: s.raid.side,
           alarm: alarmRaised(s),
           hexes: hexesNow(s).map((h) => `${h.name} ${h.seconds}s`),
+          ...raidPowers(s),
           raiders: s.raid.raiders.map((r) => ({
             id: r.id,
             kind: r.kind,
             name: ENEMIES[r.kind].name,
+            power: powerOfEnemy(r.kind, r.might ?? 1),
             floor: null,
             x: r.x,
             y: r.y,
@@ -1929,6 +1946,13 @@ function tripsView(s: GameState): TripsView {
   return { forming, fit, room, bountyStep: bountyStep(s), adventurers };
 }
 
+function destPower(s: GameState, d: Destination): { partyPower: number; foesPower: number; matchup: Matchup | null } {
+  const plan = slow(s, `party:${d.id}`, () => planParty(s, d.id));
+  const mine = powerOfParty(plan.members.flatMap((id) => s.people.find((q) => q.id === id) ?? []));
+  const foes = foesToExpect(d);
+  return { partyPower: mine, foesPower: foes, matchup: foes > 0 ? matchupOf(mine, foes) : null };
+}
+
 function partyView(s: GameState, dest: string): { party: string[]; partyHorses: number; partyTruck: boolean } {
   const plan = slow(s, `party:${dest}`, () => planParty(s, dest));
   // (the plan is kept a while: someone in it may have died since)
@@ -2224,6 +2248,16 @@ function roadView(s: GameState, p: Person): PersonView['road'] {
   return { name: node.name, text: node.text, next, at: node.stage >= 4 ? null : STAGE_LEVELS[node.stage + 1], promptId: prompt?.id ?? null };
 }
 
+/** The raid's power against the town's able fighters (children, the downed and those away don't count; nor the raid's
+ *  own allies on the raid's side). */
+function raidPowers(s: GameState): { power: number; townPower: number; matchup: Matchup } {
+  const raid = s.raid!;
+  const power = raid.raiders.filter((r) => !r.ally && !r.down && !r.gone).reduce((t, r) => t + powerOfEnemy(r.kind, r.might ?? 1), 0);
+  const allies = raid.raiders.filter((r) => r.ally && !r.down && !r.gone).reduce((t, r) => t + powerOfEnemy(r.kind, r.might ?? 1), 0);
+  const town = s.people.filter((p) => p.type !== 'child' && !p.downed && p.away === null && p.hp > 0).reduce((t, p) => t + powerOfPerson(p), 0) + allies;
+  return { power, townPower: town, matchup: matchupOf(town, power) };
+}
+
 /** Someone's fighting stats and kit, worked out again only when what they depend on changes. */
 const fightCache = new Map<number, { key: string; view: Pick<PersonView, 'battle' | 'kit' | 'passives' | 'arcana'> }>();
 function fightView(p: Person): Pick<PersonView, 'battle' | 'kit' | 'passives' | 'arcana'> {
@@ -2235,7 +2269,7 @@ function fightView(p: Person): Pick<PersonView, 'battle' | 'kit' | 'passives' | 
   const f = personFighter(p, 'fighter', 'front');
   const kit = kitOf(p);
   const view = {
-    battle: { damage: f.damage, accuracy: f.accuracy, dodge: f.dodge, armor: f.armor, block: f.block, crit: f.quirks?.crit ?? 0, ranged: f.ranged, attrs: f.attrs!, mp: f.maxMp ?? 0, sp: f.maxSp ?? 0, interval: f.interval, range: weaponRange(p, ranged(p)) },
+    battle: { damage: f.damage, accuracy: f.accuracy, dodge: f.dodge, armor: f.armor, block: f.block, crit: f.quirks?.crit ?? 0, ranged: f.ranged, attrs: f.attrs!, mp: f.maxMp ?? 0, sp: f.maxSp ?? 0, interval: f.interval, range: weaponRange(p, ranged(p)), power: powerOfPerson(p) },
     kit: (kit?.actions ?? []).map((a) => ({ name: a.name, spell: a.spell, level: a.level, cost: a.cost, pool: a.pool, text: describeAct(a.effects, a.cooldown / TICK_HZ, a.pool === 'limit') })),
     passives: p.cls ? abilitiesKnown(p.cls, levelOf(p), p.road).filter((a) => a.passive).map((a) => ({ name: a.name, level: a.level, text: describePassive(a.passive!) })) : [],
     arcana: arcanaView(p),

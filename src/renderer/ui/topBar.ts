@@ -40,7 +40,7 @@ export function topLines(s: Snapshot): { urgent: string | null; turn: string[] }
   const urgent = s.catchingUp != null
     ? `Catching up… ${Math.floor(s.catchingUp * 100)}%`
     : r
-      ? r.phase === 'warning' ? `${r.name} in ${Math.ceil(r.secondsToArrival)}s` : `${r.name} in town!`
+      ? r.phase === 'warning' ? `${r.name} in ${Math.ceil(r.secondsToArrival)}s · ${r.matchup}` : `${r.name} in town! ${r.matchup}`
       : dying.length
         ? `${dying[0].name} bleeding out: ${bleedLeft(dying[0].bleedMinutes)}${dying.length > 1 ? ` (+${dying.length - 1})` : ''}`
         : starving

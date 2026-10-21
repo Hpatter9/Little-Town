@@ -277,7 +277,7 @@ function fillRow(row: HTMLElement, p: PersonView, s: Snapshot): void {
   const q = (sel: string) => row.querySelector<HTMLElement>(sel)!;
   const face = row.querySelector<HTMLCanvasElement>('canvas.folk-face');
   if (face) refreshFace(face, p, s);
-  setText(q('.folk-class'), `${p.job ? `${p.job.title} · ` : ''}${p.natureName} · ${p.cls ? `${p.clsName} · Lv ${p.level}` : p.growsUpIn !== null ? 'Child' : `${p.typeName} · Lv ${p.level}`} · ${p.ageYears}y${p.elder ? ' · Elder' : ''}${p.coins !== null ? ` · ● ${p.coins}` : ''}${p.owns.length ? ' · 🏠' : ''}`);
+  setText(q('.folk-class'), `${p.job ? `${p.job.title} · ` : ''}${p.natureName} · ${p.cls ? `${p.clsName} · Lv ${p.level}` : p.growsUpIn !== null ? 'Child' : `${p.typeName} · Lv ${p.level}`} · Power ${p.battle.power} · ${p.ageYears}y${p.elder ? ' · Elder' : ''}${p.coins !== null ? ` · ● ${p.coins}` : ''}${p.owns.length ? ' · 🏠' : ''}`);
   setText(q('.folk-doing'), p.away !== null ? `Away: ${p.away}` : p.doing);
   fillBar(q('.mini-bar.hp'), p.hp / p.maxHp);
   fillBar(q('.mini-bar.mood'), p.morale / 100);
@@ -578,7 +578,7 @@ function paperDoll(p: PersonView, s: Snapshot, rerender: () => void): HTMLElemen
   const doll = el('div', 'doll');
   const fig = el('div', 'doll-figure');
   fig.append(figure(p, s, 3));
-  fig.append(el('div', 'doll-level', `${p.cls ? `${p.clsName} · Lv ${p.level}` : `Level ${p.level}`} · Aged ${p.ageYears}${p.elder ? ' · Elder' : ''}`));
+  fig.append(el('div', 'doll-level', `${p.cls ? `${p.clsName} · Lv ${p.level}` : `Level ${p.level}`} · Power ${p.battle.power} · Aged ${p.ageYears}${p.elder ? ' · Elder' : ''}`));
   fig.append(el('div', 'hint doll-age', p.ageText));
   if (p.job) fig.append(el('div', 'hint doll-age', `${p.job.title} at the ${p.job.at}`));
   fig.append(el('div', 'hint doll-age', `${p.natureName}: ${p.natureLine}`));
@@ -685,6 +685,7 @@ function fightCard(p: PersonView, bridge?: Bridge): HTMLElement {
     grid.append(c);
   };
   const pc = (v: number) => `${Math.round(v * 100)}%`;
+  stat('Power', String(b.power));
   stat('Health', `${Math.round(Math.min(p.hp, p.maxHp))}/${p.maxHp}`);
   stat(b.ranged ? 'Damage (range)' : 'Damage', b.damage[0] === b.damage[1] ? String(b.damage[0]) : `${b.damage[0]}–${b.damage[1]}`);
   stat('Aim', pc(Math.min(1, b.accuracy)));
