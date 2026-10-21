@@ -83,7 +83,7 @@ function cards(s: Snapshot, bridge: Bridge | undefined, rerender: () => void): C
   } else dsub.push('no raiders in sight');
   dsub.push(s.wall ? `wall ${s.wall.done}/${s.wall.of} raised` : 'wall: none going up');
   dsub.push(`${g.n} of ${g.wanted} guards`);
-  out.push({ id: 'danger', label: 'Danger', icon: sheetIcon('ShortWep', 0), value: dvalue, sub: dsub, urgency: durg, to: go('build', 'Treasury', 'Guards') });
+  out.push({ id: 'danger', label: 'Danger', icon: sheetIcon('ShortWep', 0), value: dvalue, sub: dsub, urgency: durg, to: go('build', 'Stores', 'Guards') });
   // spirits
   const mood = moodOf(s);
   const low = s.people.filter((p) => p.morale < 30).length;
@@ -98,7 +98,7 @@ function cards(s: Snapshot, bridge: Bridge | undefined, rerender: () => void): C
     bar: mood / 100,
   });
   // the purse
-  out.push({ id: 'treasury', label: 'Treasury', icon: sheetIcon('Money', 0), value: `${s.coins ?? 0} coins`, sub: [`tax: ${s.tax}`], urgency: (s.coins ?? 0) < 5 && s.guards.n > 0 ? 25 : 0, to: go('build', 'Treasury', 'Treasury') });
+  out.push({ id: 'treasury', label: 'Treasury', icon: sheetIcon('Money', 0), value: `${s.coins ?? 0} coins`, sub: [`tax: ${s.tax}`], urgency: (s.coins ?? 0) < 5 && s.guards.n > 0 ? 25 : 0, to: go('build', 'Stores', 'Treasury') });
   // faith
   if (s.faith.on && s.faith.gods.length) {
     const worst = [...s.faith.gods].sort((a, b) => a.favour - b.favour)[0];
@@ -109,7 +109,7 @@ function cards(s: Snapshot, bridge: Bridge | undefined, rerender: () => void): C
       value: worst.mood === 'wrathful' ? 'Wrathful' : worst.favour < 0 ? 'Uneasy' : 'At peace',
       sub: [worst.favour < 0 ? `${worst.name} is ${worst.mood}` : 'all four content', s.faith.nextRite !== null ? `next rite in ${s.faith.nextRite} days` : ''].filter(Boolean),
       urgency: worst.mood === 'wrathful' ? 65 : 0,
-      to: go('build', 'Faith', 'The gods'),
+      to: go('build', 'More', 'The gods'),
     });
   }
   // what's going up now, with the planner's reason

@@ -498,7 +498,7 @@ function drawMenu(): void {
       zoomStart = null;
       setZoom(Number(zoomInput.value) / 100);
     };
-    const showZoom = () => (zoomLabel.textContent = `Map zoom: ${zoomInput.value}%`);
+    const showZoom = () => (zoomLabel.textContent = `Map zoom: ${zoomInput.value}% (or pinch with two fingers)`);
     showZoom();
     zoomInput.addEventListener('pointerdown', startZoomPreview);
     zoomInput.addEventListener('keydown', startZoomPreview);
@@ -524,19 +524,21 @@ function drawMenu(): void {
               });
             }),
           ]),
+      label('Sound and feel'),
       item(`Music: ${s.music ? 'on' : 'off'}`, () => (bridge.setMusic(!s.music), drawMenu())),
       slider('music', 'Music volume'),
       slider('sfx', 'Sound effects volume'),
-      item(`Minimap: ${minimapShown() ? 'on' : 'off'}`, () => (setMinimap(!minimapShown()), drawMenu())),
       // (the phone buzzes softly at the big moments: vibration.ts; its own setting, not the sound's)
       ...('vibrate' in navigator ? [item(`Vibration: ${readVibrate() ? 'on' : 'off'}`, () => (saveVibrate(!readVibrate()), drawMenu()))] : []),
-      item(`Tips: ${tipsOn() ? 'on' : 'off'}`, () => (setTipsOn(!tipsOn()), drawMenu())),
-      item(`Reveal cards: ${revealsOn() ? 'on' : 'off'}`, () => (setRevealsOn(!revealsOn()), drawMenu())),
+      label('Screen'),
+      item(`Minimap: ${minimapShown() ? 'on' : 'off'}`, () => (setMinimap(!minimapShown()), drawMenu())),
       // (the loading screen's scene behind the logo, off for a slow phone: mobile/loading.ts)
       item(`Loading scene: ${loadingSceneOn() ? 'on' : 'off'}`, () => (setLoadingScene(!loadingSceneOn()), drawMenu())),
-      ...(fromMenu ? [] : [item('Phone alerts…', () => bridge.openPanel('alerts'))]),
-      label('Zoom, or pinch the town with two fingers'),
       zooms,
+      label('Help'),
+      item(`Tips: ${tipsOn() ? 'on' : 'off'}`, () => (setTipsOn(!tipsOn()), drawMenu())),
+      item(`Reveal cards: ${revealsOn() ? 'on' : 'off'}`, () => (setRevealsOn(!revealsOn()), drawMenu())),
+      ...(fromMenu ? [] : [item('Phone alerts…', () => bridge.openPanel('alerts'))]),
       ...(installed ? [] : [label('To install: Chrome menu ⋮ → Add to Home screen')]),
       version(),
     );

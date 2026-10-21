@@ -23,7 +23,7 @@ export function renderEmpire(s: Snapshot): HTMLElement[] {
         'hint',
         s.direction === 'trade'
           ? 'With a trade house (a market stall) and a little spare coin, the town will found its first trading post at a far market it knows the way to: map a region with a scouting party, or meet a power.'
-          : 'Set the town\'s direction to Trade (the Plan tab) and, once it has a trade house, it will found trading posts at far markets, run caravans between them, take the merchant guilds\' deals and spend its coin on safety.',
+          : 'Set the town\'s direction to Trade (Town, More) and, once it has a trade house, it will found trading posts at far markets, run caravans between them, take the merchant guilds\' deals and spend its coin on safety.',
       ),
     );
     return out;

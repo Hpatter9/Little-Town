@@ -1293,10 +1293,10 @@ async function start(): Promise<void> {
     return true;
   };
 
-  /** The Town menu's Villages tab (panel/villagesPanel.ts), asked for through the storage the frames share. */
+  /** The Town menu's More tab, where the villages are (panel/villagesPanel.ts), asked for through the storage the frames share. */
   const openVillages = () => {
     try {
-      localStorage.setItem('littletown.subtab.build', 'Villages');
+      localStorage.setItem('littletown.subtab.build', 'More');
     } catch {}
     bridge.openPanel('build');
   };

@@ -1,4 +1,4 @@
-// Research panel: what's being researched, the queue, and every topic by branch.
+// Research panel (the Studies menu), in two tabs: what's being studied (the topics lined up, and the stations), and the tech tree.
 
 import { BUILDINGS } from '../../shared/data/buildings';
 import { ERA_NAMES, nextEra } from '../../shared/data/eras';
@@ -38,11 +38,11 @@ export function renderResearch(s: Snapshot, bridge: Bridge | undefined, rerender
 
   // Now and next
   const head = el('div', 'panel-head');
-  head.append(el('span', '', `Research queue ${r.queue.length}/${r.slots}`), el('span', '', `${r.stations.filter((st) => st.who).length}/${r.stations.length} stations in use`));
+  head.append(el('span', '', `Studying ${r.queue.length}/${r.slots}`), el('span', '', `${r.stations.filter((st) => st.who).length}/${r.stations.length} stations in use`));
   out.push(head);
   if (s.why?.research) out.push(el('div', 'why-line', s.why.research));
   const queue = el('div', 'queue');
-  if (!r.queue.length) queue.append(el('div', 'empty', 'Nothing left to study for now. Some research waits on the next era (and the next era can wait on an expedition).'));
+  if (!r.queue.length) queue.append(el('div', 'empty', 'Nothing to study just now. More opens with the next age.'));
   r.queue.forEach((id, i) => {
     const t = TOPIC_BY_ID[id];
     const p = r.progress[id] ?? 0;
@@ -73,7 +73,7 @@ export function renderResearch(s: Snapshot, bridge: Bridge | undefined, rerender
     if (open) queue.append(card(t, s, bridge));
   });
   out.push(queue);
-  out.push(el('div', 'hint', `Tap a topic's name to see what it does. ${r.picked.length ? '✋ Your picks are studied first, in your order. The town fills the rest of the queue itself.' : 'The town chooses what to study. Tap a topic in the tree and Pick it to have it studied first.'}`));
+  out.push(el('div', 'hint', `Tap a topic to see what it does.${r.picked.length ? ' ✋ is your pick: studied first.' : ' Pick one from the tree to study it first.'}`));
   if (r.seat) out.push(el('div', r.seat.next && !r.seat.building ? 'lock' : 'hint', seatLine(r.seat)));
 
   // where it's studied: one person at each station, each on a topic of their own where there is one
@@ -83,12 +83,12 @@ export function renderResearch(s: Snapshot, bridge: Bridge | undefined, rerender
     row.append(el('span', 'queue-name', `${st.label} ×${st.mult}`), el('span', 'queue-time', st.who ? `${st.who}${st.topic ? `: ${st.topic}` : ''}` : 'free'));
     out.push(row);
   }
-  out.push(el('div', 'hint', 'One person studies at each station at a time. The town builds more, and better ones, as it grows.'));
+  out.push(el('div', 'hint', 'One person studies at each station at a time. New buildings add stations.'));
 
   // the tech tree (techTree.ts), and the card of the topic tapped in it
   const era = s.unlockAll ? 'space' : s.era;
   out.push(el('h2', '', 'Tech tree'));
-  out.push(el('div', 'hint', 'Left to right: the eras, each branching out as it goes. Green is learned, gold being studied, lit what the town can study next. Tap a topic for more.'));
+  out.push(el('div', 'hint', 'Green is learned, gold being studied, lit what can be studied next. Tap a topic for more.'));
   out.push(
     renderTree(s, selected, (id) => {
       selected = selected === id ? null : id;
@@ -150,7 +150,7 @@ function card(t: Topic, s: Snapshot, bridge: Bridge | undefined): HTMLElement {
   if (!done && r.seat && needSeat > 1) c.append(el('div', r.seat.stage >= needSeat ? 'purpose' : 'lock short', `${r.seat.stage >= needSeat ? '✓ ' : '🏛 '}Needs the seat at stage ${needSeat} (now ${r.seat.stage}: ${r.seat.name})`));
   if (!done) {
     if (queuedAt >= 0) c.append(el('div', 'lock', `In queue (#${queuedAt + 1})${picked ? ': your pick' : ': the town\'s choice'}`));
-    else if (check.ok || available) c.append(el('div', 'lock', 'Can be studied: the town will get to it, or pick it'));
+    else if (check.ok || available) c.append(el('div', 'lock', 'Can be studied now'));
     else if (t.requiresCount) c.append(el('div', 'lock short', check.reason ?? '')); // "(n so far)"; other missing prereqs are listed above
     else if (pre.reason?.startsWith('Opens')) c.append(el('div', 'lock short', pre.reason));
     // (picking by hand: first in the queue)
