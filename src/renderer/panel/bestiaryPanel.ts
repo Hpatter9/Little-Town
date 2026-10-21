@@ -1,6 +1,7 @@
 // The Bestiary (the Chronicle's last tab): every foe in the world, by family, the ones the town has met in colour and
 // the rest as shadows. The menagerie's (data/menagerie.ts) by their families, then the rest (bosses first).
 
+import { powerOfEnemy } from '../../shared/sim/power';
 import { ENEMIES, natureOf, type EnemyDef } from '../../shared/data/enemies';
 import { BEAST_BY_ID, BEASTS, type Family, type Habitat } from '../../shared/data/menagerie';
 import { creatureThumb } from '../art/creatureThumbs';
@@ -86,6 +87,7 @@ function beastDetails(e: EnemyDef, met: boolean): HTMLElement {
   const kit = e.kit;
   c.append(
     facts([
+      ['Power', powerOfEnemy(e.id)],
       ['Health', e.hp],
       ['A blow', `${e.damage[0]}–${e.damage[1]}, every ${e.interval} s`],
       ['Aim', `${Math.round(e.accuracy * 100)}%`],

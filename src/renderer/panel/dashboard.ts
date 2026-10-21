@@ -75,6 +75,7 @@ function cards(s: Snapshot, bridge: Bridge | undefined, rerender: () => void): C
   if (s.raid) {
     dvalue = s.raid.name;
     dsub.push(s.raid.phase === 'warning' ? `at the gate in ${Math.max(1, Math.ceil(s.raid.secondsToArrival / 60))} min` : 'fighting now');
+    dsub.push(`power ${s.raid.power} against the town's ${s.raid.townPower}: ${s.raid.matchup}`);
     durg = 100;
   } else if (s.doom) {
     dvalue = s.doom.name;

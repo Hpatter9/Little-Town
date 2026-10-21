@@ -113,7 +113,7 @@ function travellerPerson(t: TravellerView): PersonView {
     partner: null, married: false, friends: [], rivals: [], enemies: [], devoted: [], body: { wounds: [], lasting: [], fitted: [], sight: 1, handling: 1, moving: 1, pain: 0, marks: [] }, growsUpIn: null, breakdown: null, ageDays: 0,
   ageYears: 0, lifeStage: 'prime', ageText: '', elder: false, swimming: false, mer: false, nature: 'cheerful', natureName: 'Cheerful', natureLine: '', creed: null, job: null,
   monster: null, tireless: false, order: null, sick: false, rounds: false,
-    battle: { damage: [0, 0], accuracy: 0, dodge: 0, armor: 0, block: 0, crit: 0, ranged: false, attrs: { str: 8, dex: 8, vit: 8, int: 8, wis: 8, cha: 8 }, mp: 0, sp: 0, interval: 12, range: 1 }, kit: [], passives: [], road: null, roadId: null, freePts: 0, autoStats: false,
+    battle: { damage: [0, 0], accuracy: 0, dodge: 0, armor: 0, block: 0, crit: 0, ranged: false, attrs: { str: 8, dex: 8, vit: 8, int: 8, wis: 8, cha: 8 }, mp: 0, sp: 0, interval: 12, range: 1, power: 0 }, kit: [], passives: [], road: null, roadId: null, freePts: 0, autoStats: false,
   favours: [],
   diary: [],
   pastime: null,
@@ -816,14 +816,14 @@ async function start(): Promise<void> {
         const r = snap.raid?.raiders.find((q) => q.id === h.id);
         if (!r) return null;
         const doing = r.captive ? `Carrying off ${r.captive}! Stop them!` : r.fleeing ? (r.carrying ? 'Running off with your goods!' : 'Fleeing') : 'Raiding';
-        return { title: r.name, lines: [`${doing} · health ${r.hp}/${r.maxHp}`], y: overheadY(raiders.posOf(r.id), 54) };
+        return { title: r.name, lines: [`${doing} · health ${r.hp}/${r.maxHp}${r.power ? ` · power ${r.power}` : ''}`], y: overheadY(raiders.posOf(r.id), 54) };
       }
       case 'roamer': {
         const r = snap.roamers.find((q) => q.id === h.id);
         if (!r) return null;
         const doing = r.fighting ? 'Fighting townsfolk out on the land!' : r.chasing ? `After ${r.chasing}!` : 'Roaming the land: anyone out alone is in danger';
         const foes = Object.entries(r.foes.reduce<Record<string, number>>((n, f) => ((n[f.name] = (n[f.name] ?? 0) + 1), n), {})).map(([name, n]) => (n > 1 ? `${n} × ${name}` : name));
-        return { title: r.name ? `${r.name[0].toUpperCase()}${r.name.slice(1)} from a nest` : ROAMER_TITLE[r.kind], lines: [doing, foes.join(', ')], y: overheadY(roamers.posOf(r.id * ROAMER_IDS), 54) };
+        return { title: r.name ? `${r.name[0].toUpperCase()}${r.name.slice(1)} from a nest` : ROAMER_TITLE[r.kind], lines: [doing, `${foes.join(', ')}${r.power ? ` · power ${r.power}` : ''}`], y: overheadY(roamers.posOf(r.id * ROAMER_IDS), 54) };
       }
       case 'sign':
         return { title: 'Signpost', lines: Signposts.lines(h.sign), y: map.screenOf((h.sign.postX + 0.5) * CELL, (h.sign.postY + 0.5) * CELL).y - 40 };
