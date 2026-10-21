@@ -32,7 +32,7 @@ import { BattleJuice } from '../battle/juice';
 import { ShotPainter, shotTicks } from '../battle/projectiles';
 import { BoardLife, logTexture } from './boardLife';
 import { actFx } from '../../shared/data/actFx';
-import { ghostStep } from '../battle/juiceRules';
+import { FIRST_BLOOD, ghostStep, LAG_MAX_MS, ROUTED } from '../battle/juiceRules';
 import { uiPlate } from '../ui/pixiFrame';
 import { isoViewOn } from '../iso/isoSetting';
 import { IsoBoardArt } from './isoBoard';
@@ -116,6 +116,7 @@ export class TacticsScene {
   private tiles: { c: Container; mark: Graphics; top: number }[] = [];
   private pictures: Sprite[] = [];
   private hits = new Map<string, { born: number }>();
+  private tookFirst = false;
   private marks: Text[] = [];
   private chestSprites: Sprite[] = [];
   /** The camera: where it looks (x, y), its scale, the finger's pan, the last unit it followed (fx, fy: kept between
@@ -188,11 +189,12 @@ export class TacticsScene {
 
     this.view = t;
     this.root.visible = !!t;
-    this.lastUpdate = performance.now();
+    this.lastUpdate = performance.now() - this.lag;
     if (!t) {
       this.juice.reset();
       this.seenBanner = '';
       this.lastKilled = 0;
+      this.tookFirst = false;
       this.ults.clear();
       this.ghosts.clear();
       if (this.key) {
@@ -201,8 +203,8 @@ export class TacticsScene {
         this.tiles = [];
         this.pictures = [];
         this.key = '';
-        this.people.update([], null, performance.now());
-        this.raiders.update([], performance.now());
+        this.people.update([], null, performance.now() - this.lag);
+        this.raiders.update([], performance.now() - this.lag);
         this.cam.set = false;
         this.cam.fx = this.cam.fy = NaN;
         this.selected = null;
@@ -239,7 +241,7 @@ export class TacticsScene {
     const turn = t.act?.key ?? t.orders?.key ?? '';
     this.people.activeId = turn[0] === 'p' ? Number(turn.slice(1)) : null;
     this.raiders.activeId = turn[0] === 'r' ? Number(turn.slice(1)) : null;
-    const now = performance.now();
+    const now = performance.now() - this.lag;
     this.people.update(people, null, now);
     this.raiders.update(raiders, now);
     // (a new turn waiting on the player opens on the menu)
@@ -598,9 +600,22 @@ export class TacticsScene {
     this.cam.panY -= dy / this.cam.k;
   }
 
-  render(now: number): void {
+  /** The board's own clock runs behind the real one while a blow holds the screen (hit-stop) or the final blow slows it:
+   *  `lag` is how far behind (ms), eased back in afterwards. Everything on the board is drawn by this clock. */
+  private lag = 0;
+  private lagAt = 0;
+  private clock(now: number): number {
+    const dt = this.lagAt ? Math.min(100, Math.max(0, now - this.lagAt)) : 0;
+    this.lagAt = now;
+    const rate = this.juice.timeRate();
+    this.lag = rate >= 1 ? Math.max(0, this.lag - dt * 0.15) : Math.min(LAG_MAX_MS, this.lag + dt * (1 - rate));
+    return now - this.lag;
+  }
+
+  render(real: number): void {
     const t = this.view;
     if (!t) return;
+    const now = this.clock(real);
     const { w, h } = this;
     // the sky behind the board, darker by night
     this.back.clear();
@@ -654,8 +669,12 @@ export class TacticsScene {
       }
     // (the juice's shake: heavy blows, kills and ultimates)
     const [sx, sy] = this.juice.shake();
-    this.world.scale.set(k);
-    this.world.position.set(Math.round(w / 2 - this.cam.x * k + sx), Math.round(top + (h - top - bottom) / 2 - this.cam.y * k + sy));
+    // (a short zoom on a kill or a crit, leaning in on the blow)
+    const z = this.juice.punch;
+    const px = w / 2 - this.cam.x * k;
+    const py = top + (h - top - bottom) / 2 - this.cam.y * k;
+    this.world.scale.set(k * (1 + z));
+    this.world.position.set(Math.round(px - k * z * this.juice.focus.x + sx), Math.round(py - k * z * this.juice.focus.y + sy));
     this.people.render(now);
     this.raiders.render(now);
     this.renderFx(t, now);
@@ -667,13 +686,21 @@ export class TacticsScene {
     this.renderHud(t, now);
     this.juiceUp(t);
     this.juice.top = 48;
-    this.juice.render(now, w, h);
+    this.juice.render(real, w, h);
     this.drawBars(now);
   }
 
   /** What the juice hears from the board: kills, banners and the end. */
   private juiceUp(t: TacticsView): void {
-    if (t.killed > this.lastKilled) this.juice.killed(t.killed - this.lastKilled);
+    if (t.killed > this.lastKilled) {
+      this.juice.killed(t.killed - this.lastKilled);
+      // (the first raider felled in the battle, and the last one: the board slows for the final blow)
+      if (this.lastKilled === 0 && t.killed === 1 && !this.tookFirst) {
+        this.tookFirst = true;
+        this.juice.callout(FIRST_BLOOD, 0xff4030);
+      }
+      if (!t.units.some((u) => u.foe && !u.ally) && !t.waiting && t.phase !== 'done') this.juice.slowmo();
+    }
     this.lastKilled = t.killed;
     const b = t.banner;
     const id = b ? `${b.kind}|${b.text}` : '';
@@ -682,7 +709,10 @@ export class TacticsScene {
       if (b.kind === 'win' || b.kind === 'lose') this.juice.win(b.kind === 'win', `${t.turns} turns · ${t.killed} down${t.lost ? ` · ${t.lost} lost` : ''}`);
       else if (b.kind === 'start') this.juice.showBanner(b.text, 'The battle begins', 0xffe070, 3.2);
       else if (b.kind === 'wave') this.juice.showBanner(b.text, `${t.waiting} more to come`, 0xff9a40);
-      else if (b.kind === 'leader') this.juice.showBanner(b.text, 'Their leader is down!', 0xffd040);
+      else if (b.kind === 'leader') {
+        this.juice.showBanner(b.text, 'Their leader is down!', 0xffd040);
+        this.juice.callout(ROUTED, 0xff9a40);
+      }
       else this.juice.showBanner(b.text, null, 0xff6050);
     }
   }
@@ -826,7 +856,7 @@ export class TacticsScene {
       const at = f.to.length ? f.to : [f.from];
       at.forEach(([u, v], i) => {
         const [x, y] = lift(u, v, 20);
-        this.sheet(look, x, y, age - delay - i * 0.8, f.kind === 'blow' ? 0.6 : 0.85);
+        this.sheet(look, x, y, age - delay - i * 0.8, f.kind === 'blow' ? 0.85 : f.ult ? 1.7 : 1.3);
       });
       // (a spell or skill: a ring of light under its caster as it goes off)
       if (f.kind === 'act' && age < 8) {

@@ -483,6 +483,8 @@ export interface Raid {
   skipIt?: boolean;
   /** Fled on arrival, at the sight of the town (and spared, or not). */
   turned?: boolean;
+  /** A chase after the fugitives of an earlier raid (sim/chase.ts): fought on the tactics board, close and the town first. */
+  chase?: boolean;
 }
 
 export interface Needs {
@@ -1335,6 +1337,8 @@ export interface GameState {
   eventOutcome?: { title: string; choice: string | null; text: string; tick: number };
   /** The last raid's recap (sim/raidRecap.ts). */
   raidRecap?: RaidRecap;
+  /** The fugitives of the last raid, while they can still be chased (sim/chase.ts). */
+  chaseOffer?: import('./chase').ChaseOffer;
   /** The annals (sim/annals.ts): the fallen, the year's chronicles, and the year being reckoned. */
   fallen?: Fallen[];
   /** The famous dead the town means to raise statues to, in the order they fell (sim/memorials.ts). */

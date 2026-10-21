@@ -4,7 +4,22 @@
 
 const TICK_MS = 220;
 
-export const reducedMotion = (): boolean => typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches;
+/** The Settings switch "Reduce motion" (the ☰ menu), for a phone that doesn't set it itself: no shake, hit-stop, zoom or
+ *  slow-motion on the battle boards, and the menus keep still. */
+export const REDUCE_KEY = 'littletown.reduceMotion';
+export function setReduceMotion(on: boolean): void {
+  try {
+    localStorage.setItem(REDUCE_KEY, on ? '1' : '0');
+  } catch {}
+}
+export const reduceMotionSet = (): boolean => {
+  try {
+    return localStorage.getItem(REDUCE_KEY) === '1';
+  } catch {
+    return false;
+  }
+};
+export const reducedMotion = (): boolean => reduceMotionSet() || (typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches);
 
 /** The number a value starts with and what's round it ("2.8 days" -> 2.8, "", " days"), or null. */
 export function leadingNumber(text: string): { n: number; pre: string; post: string; places: number } | null {

@@ -39,6 +39,7 @@ import type { Chronicle, Fallen } from './annals';
 import { fatesView, type Fate } from './fates';
 import { honouredView, type HonouredView } from './memorials';
 import { ruinsView, type RuinView } from './ruins';
+import { canChase } from './chase';
 import { RECAP_HOURS, type RaidRecap } from './raidRecap';
 import { gatheringRadius, processing, processionHead } from './ceremonies';
 import { festivalsView, type FestivalsView } from './festivals';
@@ -976,6 +977,8 @@ export interface Snapshot {
   eventOutcome: { title: string; choice: string | null; text: string; tick: number } | null;
   /** The last raid's recap while it's fresh (sim/raidRecap.ts), and how long ago it ended (game hours). */
   raidRecap: (RaidRecap & { hoursAgo: number }) | null;
+  /** Raiders who got away and can be chased (sim/chase.ts), while the trail is warm. */
+  chase: { name: string; count: number; hoursLeft: number } | null;
   calendar: Calendar;
   /** Everything in storage, summed. */
   stock: Stock;
@@ -1398,6 +1401,7 @@ export function snapshot(s: GameState): Snapshot {
     speed: s.gameSpeed ?? 1,
     fightSpeed: s.battleSpeed ?? 1,
     raidRecap: s.raidRecap && s.tick - s.raidRecap.tick < RECAP_HOURS * TICKS_PER_HOUR ? { ...s.raidRecap, hoursAgo: (s.tick - s.raidRecap.tick) / TICKS_PER_HOUR } : null,
+    chase: canChase(s) ? { name: s.chaseOffer!.name, count: s.chaseOffer!.runners.length, hoursLeft: (s.chaseOffer!.until - s.tick) / TICKS_PER_HOUR } : null,
     eventOutcome: s.eventOutcome && s.tick - s.eventOutcome.tick < OUTCOME_HOURS * TICKS_PER_HOUR ? { title: s.eventOutcome.title, choice: s.eventOutcome.choice, text: s.eventOutcome.text, tick: s.eventOutcome.tick } : null,
     calendar: calendar(s.tick),
     stock,

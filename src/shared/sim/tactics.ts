@@ -30,6 +30,7 @@ import { aimTiles, areaLabel, areaOf, areaTiles, spreads, SPREAD_POWER, type Tac
 import { attributesOf } from './attributes';
 import { hasMana, manaMax, manaNow, manaTurn, setMana } from './mana';
 import { fighters, gateCell, ranged } from './battle';
+import { CHASE_AT, CHASE_GAP, chasers } from './chase';
 import { footprint } from './buildings';
 import { ally } from './classes';
 import { personFighter, weaponOf, weaponRange } from './combat';
@@ -612,16 +613,31 @@ const swims = (s: GameState) => s.origin === 'merfolk';
 /** The raiders have come: cut the board, set the town's fighters along its town end, the raiders at the far edge. */
 export function startTactics(s: GameState, r: Raid): void {
   const foes = r.raiders.filter((rd) => !rd.ally && !rd.down && !rd.gone);
-  const folk = fighters(s);
+  const chase = !!r.chase;
+  const folk = chase ? chasers(s) : fighters(s);
   const board = makeBoard(s, r.side, foes.length + folk.length >= BIG_AT || !!r.host, s.tick);
   const auto = s.tacticsAuto !== false || !!s.raidSkip || runtime.quiet || s.autopilot === false;
   const t: Tactics = { ...board, units: [], waiting: [], auto, phase: 'fighting', turns: 0, killed: 0, through: 0, lost: 0, started: s.tick, hits: [], fx: [], chests: [] };
   r.tactics = t;
+  // (a chase is run over open ground: the field the two sides cross is levelled, with no boulders, hills or logs to slow it)
+  if (chase)
+    for (let i = 0; i < t.tiles.length; i++) {
+      const tile = t.tiles[i];
+      if (i % t.w > CHASE_AT + CHASE_GAP + 3 || tile.g === 'water' || tile.block === 'wall' || tile.wall) continue;
+      tile.h = 1;
+      tile.block = undefined;
+      tile.hill = undefined;
+      tile.log = undefined;
+      tile.tree = undefined;
+      tile.trap = undefined;
+    }
   r.leavesTick = Math.max(r.leavesTick, s.tick + 3 * TICKS_PER_HOUR);
   // the town's fighters: blockers in the front rows, shooters behind them, the town's allies with the blockers
   const sorted = [...folk].sort((a, b) => (ranged(a) || castsMagic(a.cls) ? 1 : 0) - (ranged(b) || castsMagic(b.cls) ? 1 : 0) || b.hp - a.hp);
   const allies = r.raiders.filter((q) => q.ally && !q.down && !q.gone);
-  const rows = [t.w - 1 - TOWN_ROWS, t.w - TOWN_ROWS, t.w - TOWN_ROWS + 1, t.w - 1];
+  // (a chase: the town starts `CHASE_GAP` tiles behind the fugitives, not at its own gate)
+  const front = chase ? CHASE_AT + CHASE_GAP : t.w - 1 - TOWN_ROWS;
+  const rows = chase ? [front, front + 1, front + 2, front + 3] : [t.w - 1 - TOWN_ROWS, t.w - TOWN_ROWS, t.w - TOWN_ROWS + 1, t.w - 1];
   const order = across(t.h);
   const place = (key: string, shooter: boolean, extra?: Partial<TacUnit>) => {
     for (const u of shooter ? [...rows].reverse() : rows)
@@ -652,15 +668,29 @@ export function startTactics(s: GameState, r: Raid): void {
   // (the leader comes on last, behind its own)
   for (const rd of [...foes.filter((q) => q !== lead), ...(lead ? [lead] : [])]) {
     rd.bt = { d: 0, lane: 0, wave: 0 };
-    t.waiting.push(rd.id);
+    if (!chase) t.waiting.push(rd.id);
   }
-  if (lead) t.leader = `r${lead.id}`;
-  spawn(s, r, t);
+  if (chase) {
+    // the fugitives are already running, spread across the field `CHASE_AT` columns in
+    t.broken = true;
+    let col = CHASE_AT;
+    for (const rd of foes) {
+      let spot: [number, number] | null = null;
+      for (; col >= 0 && !spot; col--)
+        for (const v of order) if (!spot && standable(tileAt(t, col, v), true, true) && !t.units.some((x) => x.u === col && x.v === v)) spot = [col, v];
+      if (!spot) break;
+      col++; // (the column may hold more)
+      t.units.push({ key: `r${rd.id}`, foe: true, u: spot[0], v: spot[1], facing: 0, ct: 0 });
+    }
+  } else {
+    if (lead) t.leader = `r${lead.id}`;
+    spawn(s, r, t);
+  }
   // (each starts with a little charge, by the seed, so the first turns aren't all at once)
-  for (const u of t.units) u.ct = ((mixSeed(hashSeed(s.seed), s.tick, hashSeed(u.key)) >>> 0) % 40) + (u.foe ? 0 : 40);
+  for (const u of t.units) u.ct = ((mixSeed(hashSeed(s.seed), s.tick, hashSeed(u.key)) >>> 0) % 40) + (u.foe ? 0 : chase ? 100 : 40); // (a chase: the town's fill is full, it goes first)
   syncPlaces(s, r, t);
-  t.banner = { text: lead ? `Defeat ${ENEMIES[lead.kind].name}!` : 'Rout the raiders!', tick: s.tick, kind: 'start' };
-  notify(s, `${foes.length} raiders on the field: the battle is joined!`, true);
+  t.banner = { text: chase ? 'Give chase!' : lead ? `Defeat ${ENEMIES[lead.kind].name}!` : 'Rout the raiders!', tick: s.tick, kind: 'start' };
+  notify(s, chase ? `The town gives chase: ${foes.length} fugitives ahead!` : `${foes.length} raiders on the field: the battle is joined!`, true);
 }
 
 /** Rows across the board from the middle out. */
@@ -867,7 +897,13 @@ export function stepTactics(s: GameState, r: Raid, rng: Rng): boolean {
   if (t.fx.length) t.fx = t.fx.filter((x) => s.tick - x.tick < 2 * TICK_HZ);
   const foes = t.units.filter((u) => u.foe);
   const standing = t.units.filter((u) => !u.foe && u.key[0] !== 't' && u.count === undefined);
+  if (r.chase && !foes.length) return finish(s, r, t, r.raiders.some((rd) => rd.down && !rd.ally) ? 'won' : 'fled', r.raiders.some((rd) => rd.down && !rd.ally) ? `The chase is won! ${t.killed} caught.` : 'The fugitives got clean away.');
   if (!foes.length && !t.waiting.length) return finish(s, r, t, 'won', `Victory! ${t.killed} raiders down${t.through ? `, ${t.through} got through` : ''}.`);
+  if (r.chase && !standing.length && !t.act) {
+    for (const rd of r.raiders) if (!rd.ally && !rd.down) rd.gone = true;
+    t.waiting = [];
+    return finish(s, r, t, 'lost', 'The chase is lost: nobody is left to run them down.');
+  }
   if (!standing.length && !t.act) {
     // (nobody left standing on the field: the raiders walk on into the town)
     for (const u of foes) through(s, r, t, u);

@@ -24,6 +24,7 @@ import { watchMilestones } from './milestoneCards';
 import type { LoadingHost } from './loading';
 import { townSketch } from '../loading/sketch';
 import { isoViewOn, setIsoView } from '../iso/isoSetting';
+import { reduceMotionSet, setReduceMotion } from '../ui/motion';
 
 /** A phone on its side (the same test as the page's CSS): the tabs run across the top, and the town fills the
  *  rest of the screen under them. */
@@ -551,6 +552,8 @@ function drawMenu(): void {
       item(`Minimap: ${minimapShown() ? 'on' : 'off'}`, () => (setMinimap(!minimapShown()), drawMenu())),
       // (the phone buzzes softly at the big moments: vibration.ts; its own setting, not the sound's)
       ...('vibrate' in navigator ? [item(`Vibration: ${readVibrate() ? 'on' : 'off'}`, () => (saveVibrate(!readVibrate()), drawMenu()))] : []),
+      // (battle shake, hit-stop, zoom and slow-motion off: ui/motion.ts)
+      item(`Reduce motion: ${reduceMotionSet() ? 'on' : 'off'}`, () => (setReduceMotion(!reduceMotionSet()), drawMenu())),
       item(`Tips: ${tipsOn() ? 'on' : 'off'}`, () => (setTipsOn(!tipsOn()), drawMenu())),
       item(`Reveal cards: ${revealsOn() ? 'on' : 'off'}`, () => (setRevealsOn(!revealsOn()), drawMenu())),
       // (the loading screen's scene behind the logo, off for a slow phone: mobile/loading.ts)

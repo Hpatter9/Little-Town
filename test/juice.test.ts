@@ -30,3 +30,22 @@ test("banners slide in, hold and slide out; numbers pop and settle; a bar's ghos
   assert.ok(g < 0.8 && g >= 0.5, 'draining');
   assert.equal(ghostStep(0.6, 0.7, 1, 0.1), 0.7, 'healing: no ghost');
 });
+
+test('the second pass: blows are tiered, crits bigger and louder, and the extras are capped', async () => {
+  const r = await import('../src/renderer/battle/juiceRules');
+  assert.equal(r.blowTier(0.1), 'normal');
+  assert.equal(r.blowTier(0.35), 'heavy');
+  assert.equal(r.blowTier(0.6), 'crit');
+  assert.equal(r.blowTier(0.1, true), 'heavy', 'a small kill is still heavy');
+  assert.equal(r.blowTier(0.35, true), 'crit');
+  assert.equal(r.blowTier(0.01, false, true), 'crit', 'an ultimate');
+  assert.ok(r.NUMBER_SIZE.crit > r.NUMBER_SIZE.heavy && r.NUMBER_SIZE.heavy > r.NUMBER_SIZE.normal);
+  assert.notEqual(r.NUMBER_COLOUR.crit, r.NUMBER_COLOUR.heavy);
+  assert.ok(r.HIT_STOP.crit > r.HIT_STOP.heavy && r.HIT_STOP.normal === 0);
+  assert.ok(r.ZOOM_PUNCH.crit > r.ZOOM_PUNCH.heavy);
+  assert.ok(r.SLOWMO_RATE < 1 && r.SLOWMO_SECS > 0);
+  assert.equal(r.fadePunch(0.001, 1), 0);
+  assert.ok(r.fadePunch(0.1, 0.1) < 0.1);
+  assert.ok(r.slamScale(0) > 2 && r.slamScale(1) === 1, 'a word slams in big and settles');
+  assert.ok(r.SPARK_CAP <= 60 && r.IMPACT_CAP <= 20, 'particles are capped for a phone');
+});
