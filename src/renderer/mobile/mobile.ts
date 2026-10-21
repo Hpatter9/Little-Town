@@ -561,6 +561,7 @@ function drawMenu(): void {
       ...(fromMenu ? [] : [item('Phone alerts…', () => bridge.openPanel('alerts'))]),
       label('Zoom, or pinch the town with two fingers'),
       zooms,
+      ...offlineLine(),
       ...(installed ? [] : [label('To install: Chrome menu ⋮ → Add to Home screen')]),
       version(),
     );
@@ -664,6 +665,40 @@ document.addEventListener('pointerdown', (e) => {
 
 /* ------------------------------------------------------------ offline */
 
+// The service worker (sw.js) keeps the whole game on the phone. Once it is installed the page asks it to fetch the
+// big art folders in the background, and shows how far it has got in the ☰ menu.
+type OfflineState = { done: number; total: number; ready: boolean; downloading: boolean; failed?: boolean };
+let offline: OfflineState | null = null;
+let offlineSeen = -1;
+const askWorker = (msg: string): void => {
+  void navigator.serviceWorker.ready.then((r) => r.active?.postMessage(msg)).catch(() => {});
+};
+function offlineLine(): HTMLElement[] {
+  if (!offline) return [];
+  const row = label(offline.ready ? 'Ready to play offline ✓' : `Downloading for offline: ${Math.floor((offline.done / Math.max(1, offline.total)) * 100)}%`);
+  if (offline.ready || offline.downloading) return [row];
+  const b = document.createElement('button');
+  b.className = 'item';
+  b.textContent = 'Download now';
+  b.addEventListener('click', () => (askWorker('offline-start'), drawMenu()));
+  return [row, b];
+}
 if ('serviceWorker' in navigator && location.protocol !== 'file:') {
-  navigator.serviceWorker.register('sw.js').catch((err) => console.warn('[mobile] no offline support:', err));
+  navigator.serviceWorker.addEventListener('message', (e: MessageEvent) => {
+    if (e.data?.type !== 'offline-status') return;
+    offline = e.data as OfflineState;
+    if (!menu.hidden) drawMenu();
+  });
+  // (with no signal the register call fails, but the worker installed earlier is still there to ask)
+  navigator.serviceWorker.register('sw.js').catch((err) => console.warn('[mobile] sw.js not checked:', err));
+  void navigator.serviceWorker.ready.then(() => {
+    askWorker('offline-start');
+    // (a worker the phone put to sleep mid-download is woken again: resumable, so nothing is fetched twice)
+    setInterval(() => {
+      if (offline?.ready) return;
+      const stuck = offline !== null && offline.done === offlineSeen && !offline.downloading;
+      offlineSeen = offline?.done ?? -1;
+      askWorker(stuck && navigator.onLine ? 'offline-start' : 'offline-status');
+    }, 5000);
+  });
 }
