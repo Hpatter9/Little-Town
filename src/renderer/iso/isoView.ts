@@ -16,6 +16,7 @@ import { loadImage } from '../art/loadImage';
 import { BUILDING_BY_ID } from '../../shared/data/buildings';
 import { cellHash, gateFlip, propFor, sceneryFor, wallMaskAt, wallPieceFor, wallShape } from './isoTown';
 import { fitted, groundTile, kitOf, kitUrl, pieceFor, roleOf, ISO_ART, type Kit } from './isoKits';
+import { IsoCastleView, type CastleIn } from './isoCastleView';
 import { cellsInView, footBase, footDepth, footWidth, isoBounds, isoOrigin, isoToWorld, ISO_TH, ISO_TW, standingDepth, tileToIso, worldToIso, type Rect } from './isoMath';
 
 /** A building's picture may stand this much wider than its footprint before it is shrunk to fit (a big piece on a
@@ -65,6 +66,9 @@ export class IsoView {
   private readonly buildings = new Map<number, DrawnBuilding>();
   private builtFrom: Building[] = [];
   private builtGen = -1;
+  /** A Blood Court castle or a dwarves' hold, from the castle pieces (iso/isoCastle.ts). */
+  private readonly castle = new IsoCastleView(this.things, this.own, (url) => this.texUrl(url));
+  private castleIn: CastleIn | null = null;
   /** The view the camera last showed (screen px on the diamonds). */
   view = { x: 0, y: 0, w: 0, h: 0 };
 
@@ -103,7 +107,9 @@ export class IsoView {
 
   /** A kit piece's picture, asked for the first time it's wanted (null until it has loaded). */
   private texOf(piece: string): Texture | null {
-    const url = kitUrl(this.kit.name, piece);
+    return this.texUrl(kitUrl(this.kit.name, piece));
+  }
+  private texUrl(url: string): Texture | null {
     const had = this.tex.get(url);
     if (had !== undefined) return had;
     this.tex.set(url, null);
@@ -129,6 +135,11 @@ export class IsoView {
     return face;
   }
 
+  /** The town's castle or hold (every snapshot, before the buildings), or none. */
+  setCastle(c: CastleIn | null): void {
+    this.castleIn = c;
+  }
+
   /** The buildings (every snapshot): each on its footprint, a crop's field as field tiles in the ground. */
   syncBuildings(list: Building[]): void {
     if (list === this.builtFrom && this.builtGen === this.texGen) return;
@@ -147,7 +158,10 @@ export class IsoView {
       }
     this.wallCells = walls;
     const isWall = (x: number, y: number) => !!land && inMap(land, x, y) && walls.has(y * land.w + x);
+    this.castle.sync(this.castleIn, list, land?.w ?? 0, footprint, this.ox, this.kit.scale * ISO_ART, this.texGen);
     for (const b of list) {
+      // (a castle's rooms are drawn by the castle: iso/isoCastleView.ts)
+      if (b.room && b.status === 'done' && this.castle.people) continue;
       const foot = footprint(b);
       if ('field' in roleOf(b.def)) {
         if (land) for (let y = foot.y; y < foot.y + foot.h; y++) for (let x = foot.x; x < foot.x + foot.w; x++) fields.add(y * land.w + x);
@@ -396,6 +410,8 @@ export class IsoView {
     const x = sx - this.world.x - this.root.x;
     const y = sy - this.world.y - this.root.y;
     let best: { id: number; z: number } | null = null;
+    const room = this.castle.roomAt(x, y);
+    if (room !== null) best = { id: room, z: -1 };
     for (const [id, d] of this.buildings) {
       const s = d.sprite;
       if (!s.visible) continue;

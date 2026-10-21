@@ -1993,6 +1993,7 @@ async function start(): Promise<void> {
       iso.syncLand(next.land);
       iso.setKit(kitNameFor(next.origin.id, next.theme));
       iso.setBiome(next.biome);
+      iso.setCastle(next.castle ?? null);
       iso.syncBuildings(next.buildings);
     }
     minimap.setLand(next.land, next.calendar.season);

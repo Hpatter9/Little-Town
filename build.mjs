@@ -30,6 +30,8 @@ cpSync('src/renderer/art/backdrops', 'out/renderer/backdrops', { recursive: true
 cpSync('src/renderer/art/himeko', 'out/renderer/himeko', { recursive: true });
 // and the isometric view's building kits (iso/isoKits.ts `kitUrl`), each piece fetched when the view first draws it
 cpSync('src/renderer/art/iso/kits', 'out/renderer/iso/kits', { recursive: true, filter: (f) => !f.endsWith('.json') && !f.endsWith('.md') });
+// and the castle and hold pieces (iso/isoCastle.ts `castleUrl`)
+cpSync('src/renderer/art/iso/castles', 'out/renderer/iso/castles', { recursive: true, filter: (f) => !f.endsWith('.json') && !f.endsWith('.md') });
 // and the raid map's scenery atlases (tools/compose-props.cjs)
 cpSync('src/renderer/art/props', 'out/renderer/props', { recursive: true });
 cpSync('src/renderer/art/scenery', 'out/renderer/scenery', { recursive: true });
