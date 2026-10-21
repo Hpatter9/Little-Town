@@ -45,9 +45,9 @@ test('a raid ends with a recap: who fought, the harm they dealt and took, the ra
   assert.ok(['victory', 'driven', 'pillaged'].includes(c.outcome));
   // and told: where they came from, how it ended, the one who fought hardest by name
   assert.ok(c.story.length >= 2, c.story.join(' '));
-  assert.match(c.story[0], /came (out of the (west|east)|up out of the sea)/);
+  assert.match(c.story[0], /came (from the (west|east)|up from the sea)/);
   const best = c.rows.find((x) => x.id === c.best);
-  if (best) assert.ok(c.story.some((l) => l.startsWith(`${best.name} fought hardest`)), c.story.join(' '));
+  if (best) assert.ok(c.story.some((l) => l.startsWith(`${best.name} fought best`)), c.story.join(' '));
   // carried by the snapshot a while, then dropped
   assert.ok(snapshot(s).raidRecap, 'in the snapshot');
   s.tick += RECAP_HOURS * TICKS_PER_HOUR;
