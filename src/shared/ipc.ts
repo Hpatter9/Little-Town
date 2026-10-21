@@ -11,12 +11,12 @@ export type StripMode = 'full' | 'minimal';
 
 /** 'alerts' and 'newgame' are opened from the tray (or the game-over card), and 'shop' and 'tavern' (their bird's-eye
  *  views) by tapping them in town, not from the dock. */
-export type PanelId = 'build' | 'research' | 'expeditions' | 'townsfolk' | 'crafting' | 'trade' | 'journal' | 'war' | 'alerts' | 'newgame' | 'shop' | 'tavern' | StorePanelId;
+export type PanelId = 'build' | 'research' | 'expeditions' | 'townsfolk' | 'crafting' | 'trade' | 'journal' | 'war' | 'alerts' | 'founder' | 'newgame' | 'shop' | 'tavern' | StorePanelId;
 /** The specialty shops' windows (data/stores.ts): `store_` and the line. */
 export type StorePanelId = 'store_furniture' | 'store_weapons' | 'store_armour' | 'store_medicine';
 export const STORE_PANELS: readonly StorePanelId[] = ['store_furniture', 'store_weapons', 'store_armour', 'store_medicine'];
 export const storePanel = (line: string): StorePanelId => `store_${line}` as StorePanelId;
-export const PANEL_IDS: readonly PanelId[] = ['build', 'research', 'expeditions', 'townsfolk', 'crafting', 'trade', 'journal', 'war', 'alerts', 'newgame', 'shop', 'tavern', ...STORE_PANELS];
+export const PANEL_IDS: readonly PanelId[] = ['build', 'research', 'expeditions', 'townsfolk', 'crafting', 'trade', 'journal', 'war', 'alerts', 'founder', 'newgame', 'shop', 'tavern', ...STORE_PANELS];
 
 /** The menus along the bottom (the redo, the owner's ask: one tab an area of the game). The ids are the old ones, so
  *  saved tabs and the desktop app keep working: 'build' is the Town, 'trade' the Market (with the workshops: the old
@@ -119,6 +119,8 @@ export interface Bridge {
   command(c: Command): void;
   /** The phone's loading screen has gone: the game's clock, held till now, runs (renderer/mobile/loading.ts). */
   release?(): void;
+  /** The town is over (game over): keep its legend, let the save go and go back to the main menu (the phone). */
+  endTown?(): Promise<void>;
   /** Hold the clock and save the town now (the phone's "Main menu"). */
   suspend?(): Promise<void>;
   getSnapshot(): Promise<Snapshot>;

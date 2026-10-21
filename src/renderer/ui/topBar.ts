@@ -110,8 +110,11 @@ export function createTopBar(top: HTMLElement, bridge: Bridge): TopBar {
     const speed = snap.speed ?? 1;
     bridge.command({ type: 'gameSpeed', speed: GAME_SPEEDS[(GAME_SPEEDS.indexOf(speed as never) + 1) % GAME_SPEEDS.length] });
   });
+  const founder = el('button', 'top-btn top-founder', '♛');
+  founder.dataset.tip = 'The founder|Your character: where they go, their work, their purse and their heir.';
+  founder.addEventListener('click', () => bridge.openPanel('founder'));
   const btns = el('div', 'top-btns');
-  btns.append(pause, fast);
+  btns.append(founder, pause, fast);
   if (menuBtn) btns.append(menuBtn);
   top.replaceChildren(mark, main, btns);
   top.classList.add('top-quiet');

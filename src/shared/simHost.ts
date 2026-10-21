@@ -63,6 +63,8 @@ export type ToHost =
   | { t: 'save'; id: number }
   | { t: 'journal'; id: number }
   | { t: 'newGame'; id: number; opts: unknown; heir?: Legend; now: number }
+  /** The town is over (its founder fell with no heir): its legend, and nothing saved after it. */
+  | { t: 'legend'; id: number; now: number }
   | { t: 'step'; n: number }
   | { t: 'debug'; name: string; args: unknown[] };
 
@@ -210,6 +212,14 @@ export function startSimHost(post: (m: FromHost) => void): (m: ToHost) => void {
           text: serialize(town, m.now),
         };
         return post({ t: 'reply', id: m.id, value });
+      }
+      case 'legend': {
+        if (!game) return post({ t: 'reply', id: m.id, value: null });
+        const legend: (Legend & { enemy?: EnemyLegend }) | null = game.catchingUp ? null : legendOf(game.state, m.now);
+        const foe = legend ? enemyLegend(game.state) : undefined;
+        if (legend && foe) legend.enemy = foe;
+        leaving = true; // (nothing saves the finished town back)
+        return post({ t: 'reply', id: m.id, value: legend });
       }
       case 'step':
         if (game) for (let i = 0; i < m.n; i++) (game as unknown as { sim: { step(): void } }).sim.step();

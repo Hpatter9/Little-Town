@@ -1123,7 +1123,7 @@ export interface GameState {
   /** Goodwill from helping strangers; draws more wanderers. */
   reputation: number;
   /** Set when the main character dies. The sim stops. */
-  gameOver: { tick: number; text: string; won?: boolean } | null;
+  gameOver: { tick: number; text: string; won?: boolean; /** The founder who fell with no heir: their name, the days the town lasted and how they died. */ founder?: string; days?: number; cause?: string } | null;
   /** The ship is built: it lifts off at this tick (the game is won). */
   launchTick?: number | null;
   /** Everyone is saddened by a death until this tick. */
@@ -1472,6 +1472,8 @@ export interface GameState {
   fates?: import('./fates').Fate[];
   /** The founder's chosen heir (a stranger taken in by a fateful choice: sim/events.ts `adopt`); heirOf prefers them. */
   heirId?: number;
+  /** What the player has told the founder to do (sim/founder.ts). */
+  founderOrder?: import('./founder').FounderOrder;
   /** The town's alignment, good to evil (sim/alignment.ts). */
   align?: import('./alignment').AlignState;
   /** When a wanderer last came to the gate (arrivals are a question to the player, and come no oftener than

@@ -17,7 +17,7 @@ import { dynastyDeath } from './dynasty';
 import { grieve, isChild } from './social';
 import { revealOccult, tryRevive } from './occult';
 import { tireless, notify, maxHp, markBlood, personFx, type GameState, type Person } from './state';
-import { TICKS_PER_HOUR } from './time';
+import { TICKS_PER_DAY, TICKS_PER_HOUR } from './time';
 import { closeCall } from './closeCalls';
 
 /** How long someone downed has before they bleed out, unless a medic (or the camp) tends them. */
@@ -93,12 +93,20 @@ export const isInjured = (p: Person) => p.hp < maxHp(p) * INJURED;
 export const SUCCESSION_MORALE = -15;
 export const SUCCESSION_HOURS = 48;
 
-/** Who leads after the leader: their partner, else their eldest grown child, else the grown-up the town thinks most
- *  of (the best at getting on with people, then at learning). Someone at home before someone away. None if only
- *  children are left. */
+/** Who leads after the leader. The founder's heir (the owner's rule): the named heir if they live (`s.heirId`, set by
+ *  the Name an heir action or an adoption), then the partner, then the eldest grown child (the lowest id: born first).
+ *  Nobody else: with none of them alive and grown, the game is over. A later leader (not the founder) is followed by
+ *  their partner, else their eldest grown child, else the grown-up the town thinks most of (the best at getting on
+ *  with people, then at learning), someone at home before someone away. */
 export function heirOf(s: GameState, dead: Person): Person | undefined {
   const grown = s.people.filter((q) => q !== dead && !isChild(q));
   if (!grown.length) return undefined;
+  if (dead.id === s.mainId) {
+    const named = grown.find((q) => q.id === s.heirId);
+    const partner = grown.find((q) => q.id === dead.partner);
+    const child = grown.filter((q) => (q.parents ?? []).includes(dead.id)).sort((a, b) => a.id - b.id)[0];
+    return named ?? partner ?? child;
+  }
   const rank = (q: Person) =>
     (q.id === s.heirId ? 2000 : 0) + (q.away === null ? 1000 : 0) + (q.id === dead.partner ? 500 : 0) + ((q.parents ?? []).includes(dead.id) ? 300 : 0) + q.skills.social.level * 3 + q.skills.research.level;
   return [...grown].sort((a, b) => rank(b) - rank(a))[0];
@@ -137,7 +145,7 @@ export function killPerson(s: GameState, p: Person, cause: string): void {
     // someone takes up the leadership, if there's a grown-up left to; else the town is finished
     const heir = heirOf(s, p);
     if (!heir) {
-      s.gameOver = { tick: s.tick, text: `${p.name} has died ${cause}. Without them, the camp breaks apart.` };
+      s.gameOver = { tick: s.tick, text: `${p.name} has died ${cause}, with no heir to take up the town. The camp breaks apart.`, founder: p.name, days: Math.floor(s.tick / TICKS_PER_DAY), cause };
       notify(s, s.gameOver.text, true);
       return;
     }
