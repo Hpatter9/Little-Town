@@ -422,6 +422,8 @@ export interface SagaRun {
   b?: number;
   /** What has happened so far, a line a chapter. */
   log: string[];
+  /** How many chapters it has been through (older saves: counted from the log). */
+  turns?: number;
 }
 
 export interface Raid {
@@ -1169,7 +1171,7 @@ export interface GameState {
   sabotage?: number;
   /** The sagas under way (sim/sagas.ts), those finished (by id), and when the last began. */
   sagas?: SagaRun[];
-  sagasDone?: { id: string; outcome: 'triumph' | 'bittersweet' | 'ruin'; tick: number; hero?: string }[];
+  sagasDone?: { id: string; outcome: 'triumph' | 'bittersweet' | 'ruin'; tick: number; hero?: string; began?: number; story?: string[] }[];
   lastSaga?: number;
   /** The Monster Hunters' Guild (sim/hunts.ts): hunts on its board, when it last posted one, and hunts won by quarry. */
   hunts?: Hunt[];
