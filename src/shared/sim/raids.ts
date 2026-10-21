@@ -882,6 +882,9 @@ export const rallyPoint = (s: GameState): Pt => ({ x: townEdgeX(s, s.raid?.side 
 /** A raid's name to follow "the" (a name of its own, like The Cave Bear, keeps its capitals and loses its "The"). */
 const theName = (name: string) => (/^the /i.test(name) ? name.slice(4) : name.toLowerCase());
 
+import { storyRaid } from './story';
+import { goneRaid } from './steward';
+
 function endRaid(s: GameState, rng: Rng): void {
   const r = s.raid!;
   s.raid = null;
@@ -946,6 +949,8 @@ function endRaid(s: GameState, rng: Rng): void {
           ? 'They got away.'
           : 'They were driven off.';
   notify(s, `Raid by the ${theName(kind.name)} is over. ${outcome}${took.length ? ` They took ${took.join(', ')}.` : ''}`, true);
+  storyRaid(s, theName(kind.name), outcome); // (a chapter of the founder's story: sim/story.ts)
+  goneRaid(s, theName(kind.name)); // (and a line for the founder back from a trip: sim/steward.ts)
   // the recap card (sim/raidRecap.ts)
   const boss = r.raiders.find((rd) => !rd.ally && ENEMIES[rd.kind]?.boss);
   s.raidRecap = raidRecap(s, r, kind.name, {

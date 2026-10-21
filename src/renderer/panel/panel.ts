@@ -21,6 +21,7 @@ import { renderTrade, tradeKey } from './tradePanel';
 import { renderWar, warKey } from './warPanel';
 import { renderAlerts } from './alertsPanel';
 import { founderKey, renderFounder } from './founderPanel';
+import { renderStory, storyKey } from './storyPanel';
 import { renderNewGame, restartNewGame } from './newGamePanel';
 import { isVenuePanel, renderShop, shopKey, venueView } from './shopPanel';
 import { hkKnow } from '../art/hkFolk';
@@ -111,7 +112,7 @@ function keyOf(): string {
                   : isVenuePanel(shown)
                     ? shown + shopKey(snap, shown)
                   : shown === 'founder'
-                    ? 'f' + founderKey(snap)
+                    ? 'f' + founderKey(snap) + '|' + storyKey(snap)
                   : shown === 'newgame'
                     ? 'n' + !!snap.gameOver + legendsVersion()
                     : shown;
@@ -157,7 +158,7 @@ function render(): void {
   else if (shown === 'alerts') body.replaceChildren(...renderAlerts(bridge));
   else if (snap && shown === 'founder') {
     hkKnow(snap.people);
-    body.replaceChildren(...renderFounder(snap, bridge));
+    body.replaceChildren(...tabbed([...renderFounder(snap, bridge), ...renderStory(snap)]));
   }
   else if (snap && isVenuePanel(shown)) {
     hkKnow(snap.people); // (who's who, so the keeper is dressed as the map dresses them: art/hkFolk.ts)

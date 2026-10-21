@@ -825,6 +825,9 @@ export interface Prompt {
   road?: string;
   /** A saga's question: the run it belongs to (sim/sagas.ts). */
   saga?: number;
+  /** A road question on a trip the founder is on: no timer, no default, and the game is held until it is answered
+   *  (sim/founderQuests.ts). */
+  waits?: boolean;
   /** The expedition it's about (strangers), or null. */
   expedition: number | null;
   title: string;
@@ -1481,6 +1484,10 @@ export interface GameState {
   heirId?: number;
   /** What the player has told the founder to do (sim/founder.ts). */
   founderOrder?: import('./founder').FounderOrder;
+  /** The founder's story, chapter by chapter (sim/story.ts). */
+  story?: import('./story').Story;
+  /** The founder is away: who minds the town, and what stood when they left (sim/steward.ts). */
+  gone?: import('./steward').Gone;
   /** The town's alignment, good to evil (sim/alignment.ts). */
   align?: import('./alignment').AlignState;
   /** When a wanderer last came to the gate (arrivals are a question to the player, and come no oftener than
