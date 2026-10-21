@@ -126,6 +126,22 @@ test('the Burnt Cart: a question, a trip on the board, a raid, and a triumph tha
   assert.ok(s.uniques!.includes('maudbane'));
   assert.ok(hero.titles?.includes("Maud's Bane"));
   assert.equal(s.people.length, people + 1, 'Wynn joins');
+  // (the ending tells the story in order: how it began, how long, who, and how it ended)
+  const story = s.sagasDone![0].story!;
+  assert.match(story[0], /^It began on day \d+:/);
+  assert.match(story[1], /^It ran for \d+ days? and \d+ turns?\.$/);
+  assert.ok(story.some((l) => /^Took part:/.test(l)));
+  assert.equal(story.at(-1), 'It ended well.');
+  assert.ok(story.length <= 9, 'a few short lines');
+  assert.ok(s.notices.some((n) => /has ended/.test(n.text)));
+});
+
+test('a saga that begins is announced, with where to follow it', () => {
+  const s = town('sagas-told');
+  beginSaga(s, 'burnt_cart');
+  const n = s.notices.find((x) => /^A saga begins:/.test(x.text))!;
+  assert.ok(n && /Quests/.test(n.text));
+  assert.ok(s.journal.some((j) => j.key && /^A saga begins:/.test(j.text)), 'kept in the journal');
 });
 
 test('nobody goes in time: the story bends (Wynn is lost, the boy stays)', () => {

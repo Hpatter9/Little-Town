@@ -164,6 +164,10 @@ export function situationNotices(s: Snapshot): Notice[] {
       } else waiting.set(k, { name: p.name, foes: p.foes ?? 'Something', n: 1, ids: [p.id] });
     }
   for (const w of waiting.values()) out.push({ key: `place:${w.ids.join(',')}`, tone: 'gold', mark: '⚑', title: `${w.name} found${w.n > 1 ? ` ×${w.n}` : ''}`, text: `${w.foes} there. A party may go after it; post a bounty or raise a party.`, action: { label: 'Trips', kind: 'panel', panel: 'expeditions' } });
+  // (a saga under way, told once when it begins and again as it moves; one lately ended, with its story)
+  for (const g of s.sagas.open) out.push({ key: `saga:${g.run}:${g.turns}`, tone: 'gold', mark: '📜', title: `Saga: ${g.title}`, text: `${g.blurb} ${g.now} Turn ${g.turns}.`, action: { label: 'Quests', kind: 'panel', panel: 'expeditions', tab: 'Quests' } });
+  const sd = s.sagas.done.at(-1);
+  if (sd && s.tick - sd.tick < 8 * 600) out.push({ key: `sagaend:${sd.title}:${sd.tick}`, tone: sd.outcome === 'ruin' ? 'red' : 'gold', mark: '📜', title: `Saga ended: ${sd.title}`, text: sd.story.join(' '), action: { label: 'Quests', kind: 'panel', panel: 'expeditions', tab: 'Quests' } });
   const rr = s.raidRecap;
   if (rr && !s.raid) {
     const word = rr.outcome === 'victory' ? 'Victory' : rr.outcome === 'driven' ? 'Driven off' : 'Pillaged';

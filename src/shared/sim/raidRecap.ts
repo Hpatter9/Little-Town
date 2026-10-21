@@ -186,31 +186,31 @@ export function tellRaid(c: RaidRecap, o: { side: -1 | 1; fromSea: boolean; boss
   const out: string[] = [];
   const who = /^the /i.test(c.name) ? c.name : `the ${c.name.toLowerCase()}`;
   // (night prowlers slip in where the wall has gaps: sim/prowlers.ts)
-  const where = o.sneak ? 'in by night, where nothing stood to stop them' : o.fromSea ? 'up out of the sea' : o.side < 0 ? 'out of the west' : 'out of the east';
+  const where = o.sneak ? 'in by night, where nothing stood in their way' : o.fromSea ? 'up from the sea' : o.side < 0 ? 'from the west' : 'from the east';
   const cap = (t: string) => t.charAt(0).toUpperCase() + t.slice(1);
-  out.push(`${cap(who)} came ${where}: ${c.came === 1 ? 'one alone' : `${c.came} of them`}${c.waves > 1 ? `, in ${c.waves} waves` : ''}.`);
-  if (c.boss) out.push(o.bossDown ? `${c.boss} led them, and fell.` : `${c.boss} led them, and lived to boast of it.`);
+  out.push(`${cap(who)} came ${where}. ${c.came === 1 ? 'There was one of them' : `There were ${c.came}`}${c.waves > 1 ? `, in ${c.waves} waves` : ''}.`);
+  if (c.boss) out.push(o.bossDown ? `${c.boss} led them, and was killed.` : `${c.boss} led them, and got away.`);
   const best = c.rows.find((x) => x.id === c.best);
-  if (best) out.push(best.kills ? `${best.name} fought hardest, felling ${best.kills === 1 ? 'one' : best.kills} and dealing ${best.dealt} harm.` : `${best.name} fought hardest, dealing ${best.dealt} harm.`);
+  if (best) out.push(best.kills ? `${best.name} fought best. They killed ${best.kills === 1 ? 'one' : best.kills} and did ${best.dealt} damage.` : `${best.name} fought best, and did ${best.dealt} damage.`);
   const stalwart = [...c.rows].filter((x) => x !== best && !x.fell && x.taken > 0).sort((a, b) => b.taken - a.taken)[0];
-  if (stalwart && stalwart.taken >= 20) out.push(`${stalwart.name} took the worst of it, ${stalwart.taken} harm, and kept their feet.`);
+  if (stalwart && stalwart.taken >= 20) out.push(`${stalwart.name} took ${stalwart.taken} damage and stayed on their feet.`);
   if (c.runDown) {
     const all = c.takenAlive === c.runDown;
-    out.push(`${c.runDown === 1 ? 'One, lamed in the fight, was' : `${c.runDown}, lamed in the fight, were`} run down as ${c.runDown === 1 ? 'it' : 'they'} limped away${c.takenAlive ? (all ? ` and taken alive` : `; ${c.takenAlive} taken alive`) : ''}.`);
-  } else if (c.limped) out.push(`${c.limped === 1 ? 'One limped' : `${c.limped} limped`} away hurt.`);
+    out.push(`${c.runDown === 1 ? 'One raider was' : `${c.runDown} raiders were`} hurt in the leg, caught as ${c.runDown === 1 ? 'it' : 'they'} limped away${c.takenAlive ? (all ? ' and taken prisoner' : `. ${c.takenAlive} taken prisoner`) : ''}.`);
+  } else if (c.limped) out.push(`${c.limped === 1 ? 'One raider' : `${c.limped} raiders`} limped away hurt.`);
   const fell = c.rows.filter((x) => x.fell && !x.died).map((x) => x.name);
-  if (fell.length) out.push(`${names(fell)} ${fell.length === 1 ? 'was' : 'were'} struck down, but ${fell.length === 1 ? 'lives' : 'live'} yet.`);
+  if (fell.length) out.push(`${names(fell)} ${fell.length === 1 ? 'was' : 'were'} knocked down, but ${fell.length === 1 ? 'is' : 'are'} alive.`);
   const died = c.rows.filter((x) => x.died).map((x) => x.name);
   if (died.length) out.push(`${names(died)} died defending the town.`);
-  if (c.towers?.kills) out.push(`The towers and traps brought down ${c.towers.kills === 1 ? 'one' : c.towers.kills}.`);
-  else if (c.towers?.dealt) out.push('The towers and traps did their part.');
-  if (!c.rows.length) out.push('Nobody stood against them.');
+  if (c.towers?.kills) out.push(`The towers and traps killed ${c.towers.kills === 1 ? 'one' : c.towers.kills}.`);
+  else if (c.towers?.dealt) out.push('The towers and traps helped.');
+  if (!c.rows.length) out.push('Nobody fought them.');
   const stolen = stockWords(c.stolen);
-  if (c.outcome === 'pillaged') out.push(`They got away with ${stolen || 'what they came for'}.`);
-  else if (c.killed >= c.came) out.push(c.came === 1 ? 'It never got away.' : 'Not one of them got away.');
-  else out.push(`${c.killed ? 'The rest' : 'They'} broke and fled${c.through ? `, ${c.through} of them through the town` : ''}.`);
+  if (c.outcome === 'pillaged') out.push(`They escaped with ${stolen || 'what they came for'}.`);
+  else if (c.killed >= c.came) out.push(c.came === 1 ? 'It did not escape.' : 'None of them escaped.');
+  else out.push(`${c.killed ? 'The rest' : 'They'} ran away${c.through ? `. ${c.through} ran through the town first` : ''}.`);
   // (those run down and taken were told above)
   const more = c.prisoners - c.takenAlive;
-  if (more > 0) out.push(`${more === 1 ? `One${c.takenAlive ? ' more' : ''} was` : `${more}${c.takenAlive ? ' more' : ''} were`} taken alive.`);
+  if (more > 0) out.push(`${more === 1 ? `One${c.takenAlive ? ' more was' : ' was'}` : `${more}${c.takenAlive ? ' more were' : ' were'}`} taken prisoner.`);
   return out;
 }
