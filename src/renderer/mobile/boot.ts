@@ -1,5 +1,5 @@
 // The phone page's first script, tiny and loaded in the head (index.html): it starts the game's worker and sends it
-// the saved town at once, so the catch-up after time away is under way while the page's own 2 MB script (mobile.js)
+// the saved town at once, so the town is loaded while the page's own 2 MB script (mobile.js)
 // is still loading. What the worker says meanwhile is kept for the page (mobileBridge.ts `startGame` takes it all
 // over). A browser with no workers, or `?inpage`, is left to mobileBridge as before.
 

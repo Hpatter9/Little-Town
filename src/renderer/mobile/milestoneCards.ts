@@ -19,7 +19,6 @@ export function cardsOf(s: Snapshot): { key: string; card: RevealCard }[] {
 export function watchMilestones(bridge: Bridge): void {
   let seen: Set<string> | null = null;
   bridge.onSnapshot((s) => {
-    if (s.catchingUp != null) return;
     const cards = cardsOf(s);
     if (!seen) {
       seen = new Set(cards.map((c) => c.key));

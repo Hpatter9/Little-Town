@@ -43,7 +43,7 @@ export function watchFavourites(strip: HTMLIFrameElement): (snap: Snapshot) => v
     // (once the strip can draw their face)
     if (!(strip.contentWindow as StripWindow | null)?.__picture) return;
     for (const id of snap.favouritesGone ?? []) {
-      if (seen.includes(id) || snap.catchingUp != null) continue;
+      if (seen.includes(id)) continue;
       if (!showObituary(snap, id, strip, true)) continue;
       seen = [...seen, id].slice(-20);
       try {

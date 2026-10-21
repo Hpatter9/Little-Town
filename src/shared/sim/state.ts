@@ -459,10 +459,6 @@ export interface Raid {
   prompt: number | null;
   /** A rival lord's hexes on the defenders and blessings on its army, until these ticks (sim/rivals.ts). */
   hex?: Partial<Record<'hold' | 'fog' | 'emp' | 'frenzy' | 'ward', { until: number; name: string }>>;
-  /** Held at the gate for the player (sim/offline.ts): the real ms it has waited so far. Unset once it's under way,
-   *  and `alone` once it has been left to play out without them. */
-  waiting?: number;
-  alone?: boolean;
   /** The tower-defence battle on the trail (sim/battle.ts), while it's on and after. */
   battle?: TownBattle;
   /** The same raid fought as a tactics battle (sim/tactics.ts), when the town fights that way. */
@@ -1400,8 +1396,8 @@ export interface GameState {
   /** Choice events (sim/events.ts): the one being asked now (its def, prompt and the townsperson it's about), when the
    *  next may come, the last few drawn (not drawn again soon), the marks answers left on the town (a lever or
    *  everyone's morale, until a tick), and effects still to come. */
-  /** The choice event waiting for an answer; `held` once it has paused the town during time away (offline.ts). */
-  event?: { def: string; prompt: number; who?: number; held?: boolean };
+  /** The choice event waiting for an answer. */
+  event?: { def: string; prompt: number; who?: number };
   /** The townsperson the player follows (the camera keeps them in view; their big moments send phone alerts). */
   hero?: number;
   /** The expedition (or delve, or a skirmish on the land: sim/roamers.ts) the player is watching, in place of the
@@ -1607,11 +1603,9 @@ export interface Notice {
 }
 
 export interface JournalEntry extends Notice {
-  /** A milestone (finished research or building, a death, a raid's outcome...): "while you were away"
-   *  reports list these and only count the rest. */
+  /** A milestone (finished research or building, a death, a raid's outcome...). */
   key?: true;
-  /** A "while you were away" report: `text` is its title, `lines` the summary, and the three biggest things that
-   *  happened, as pictures (sim/highlights.ts). */
+  /** A report entry from an older save: `text` is its title, `lines` the summary, `highlights` pictures of the biggest things. */
   lines?: string[];
   highlights?: { text: string; building?: string; person?: number }[];
 }

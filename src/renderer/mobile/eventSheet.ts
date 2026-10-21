@@ -51,7 +51,7 @@ export function createEventSheet(onAnswer: (prompt: number, option: number) => v
   let answered: { id: number; from: number; at: number; box: HTMLElement; told: boolean } | null = null;
   let tick = 0;
   let lastSnap: Snapshot | null = null;
-  /** Debriefs read, and questions answered (closed at once, never shown again while the sim catches up). */
+  /** Debriefs read, and questions answered (closed at once, never shown again). */
   const read = new Set<number>();
   /** Waiting this long (real ms) with nothing come of it, the box says so and lets you go on. */
   const QUIET_MS = 2500;

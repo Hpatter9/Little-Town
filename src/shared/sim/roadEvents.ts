@@ -14,7 +14,6 @@ import { answerCrossroads } from './muster';
 import { answerVisitor } from './townsfolk';
 import { answerRefugees } from './bands';
 import { answerThirst } from './monsters';
-import { openGate } from './raidWait';
 import { answerEvent } from './events';
 import { answerLich } from './doom';
 import { the, The } from '../data/expeditions';
@@ -99,7 +98,6 @@ export function answerPrompt(s: GameState, id: number, option: number, rng: Rng)
   if (prompt.kind === 'raid') return answerRaidPrompt(s, prompt.options[option], rng);
   if (prompt.kind === 'rite') return answerRite(s, prompt.options[option]);
   if (prompt.kind === 'lich') return answerLich(s, prompt.options[option]);
-  if (prompt.kind === 'gate') return openGate(s);
   if (prompt.kind === 'event') return answerEvent(s, option, rng);
   if (prompt.kind === 'thirst') return answerThirst(s, prompt.options[option]);
   if (prompt.kind === 'visitor') return answerVisitor(s, prompt.options[option]);
