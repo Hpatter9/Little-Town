@@ -264,6 +264,7 @@ export function ranchHourly(s: GameState): void {
 
 /** The town raises a ranch once it has a beast to keep (or a tamer to win one), and a second when the first is full. */
 export function buildRanch(s: GameState): void {
+  if (!s.townBuilds) return; // (the founder builds: the town lays no blueprint of its own)
   const def = BUILDING_BY_ID.beast_ranch;
   if (!def || !isUnlocked(unlockInfo(s), def)) return;
   const mine = s.buildings.filter((b) => b.def === 'beast_ranch');

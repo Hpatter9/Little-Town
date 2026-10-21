@@ -1,5 +1,6 @@
 // What the renderers see of the sim: a read-only copy sent over IPC each tick.
 
+import { recommendBuilding, type Recommendation } from './planner';
 import { foreshadow } from './foreshadow';
 import { upcoming } from './calendar';
 import { ancestryView, type AncestryView } from './ancestors';
@@ -103,6 +104,17 @@ import { battleView, ranged, type BattleView } from './battle';
 const wholeIncome = (i: { today: number; yesterday: number }, last: string | null) => ({ today: Math.floor(i.today), yesterday: Math.floor(i.yesterday), last });
 
 /** How the game looks: the classic town, or an origin's own (a lich founder makes any town a necropolis). */
+/** The recommendation, worked out again about every game hour (it walks the whole building list). */
+const recCache = new WeakMap<GameState, { at: number; key: string; rec: Recommendation | null }>();
+function recommendationOf(s: GameState): Recommendation | null {
+  const c = recCache.get(s);
+  const key = `${(s.pins ?? []).length}|${s.buildings.length}|${!!s.ringOrder}`;
+  if (c && c.key === key && s.tick - c.at < TICKS_PER_HOUR && s.tick >= c.at) return c.rec;
+  const rec = recommendBuilding(s);
+  recCache.set(s, { at: s.tick, key, rec });
+  return rec;
+}
+
 export type ThemeId = 'town' | Exclude<OriginId, 'settlers'>;
 const themeOf = (s: GameState): ThemeId => (s.lich ? 'lich' : !s.origin || s.origin === 'settlers' ? 'town' : s.origin);
 import { itemUnlocked, qualitiesOf } from './crafting';
@@ -1231,6 +1243,12 @@ export interface Snapshot {
   research: ResearchView;
   /** The player's building wishes (sim/pins.ts): what, whether it's going up and how far, or what it waits on. */
   pins: { def: string; name: string; building: boolean; progress: number; why: string | null }[];
+  /** What the town would build next if asked (planner.ts recommendBuilding), the founder's orders for the wall and the
+   *  streets, and what the wall stands at. Refreshed about every game hour. */
+  recommend: Recommendation | null;
+  ringOrdered: boolean;
+  streetsOrdered: boolean;
+  ringState: 'none' | 'building' | 'standing';
   notices: Notice[];
   /** Spare items (not worn), and the craft queue. */
   items: Record<string, number>;
@@ -1662,6 +1680,10 @@ export function snapshot(s: GameState): Snapshot {
     founder: founderView(s),
     unlockAll: s.cheats.unlockAll,
     research: researchView(s),
+    recommend: recommendationOf(s),
+    ringOrdered: !!s.ringOrder,
+    streetsOrdered: !!s.streetsOrder,
+    ringState: !s.ring ? 'none' : s.ring.done ? 'standing' : 'building',
     pins: (s.pins ?? []).map((p) => {
       const b = p.building !== undefined ? s.buildings.find((q) => q.id === p.building) : undefined;
       return { def: p.def, name: BUILDING_BY_ID[p.def]?.name ?? p.def, building: !!b, progress: b?.progress ?? 0, why: p.why ?? null };

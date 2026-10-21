@@ -56,6 +56,10 @@ export type Command =
   | { type: 'cancelResearch'; topic: string }
   /** Pin (on) or unpin a building from the Building book: the town builds it next (sim/pins.ts). */
   | { type: 'pinBuilding'; def: string; on: boolean }
+  /** Order the ring wall raised, widened or upgraded (the town picks the line and works it until it stands). */
+  | { type: 'orderRing' }
+  /** Order the streets laid where folk walk and to the gates (done at the next hour). */
+  | { type: 'orderStreets' }
   /** Move a hand-picked topic a place earlier (-1) or later (1) among the picks. */
   | { type: 'moveResearch'; topic: string; dir: -1 | 1 }
   /** Move a topic to the front of the queue. */
@@ -220,6 +224,9 @@ export function parseCommand(raw: unknown): Command | null {
     case 'cancelResearch':
     case 'researchNext':
       return typeof c.topic === 'string' && TOPIC_BY_ID[c.topic] ? { type: c.type, topic: c.topic } : null;
+    case 'orderRing':
+    case 'orderStreets':
+      return { type: c.type };
     case 'pinBuilding':
       return typeof c.def === 'string' && BUILDING_BY_ID[c.def] && typeof c.on === 'boolean' ? { type: 'pinBuilding', def: c.def, on: c.on } : null;
     case 'moveResearch':

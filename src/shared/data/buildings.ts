@@ -215,7 +215,6 @@ export const HOLD_HALLWAY: BuildingDef = { id: 'hold_hallway', name: 'Hallway', 
 export const BUILDINGS: readonly BuildingDef[] = [HOLD_HALLWAY, ...BASE_BUILDINGS, ...DEFENSE_BUILDINGS, ...ORIGIN_DEFENSES, ...SEAT_DEFS, BLOOD_FARM, ...WORKSHOP_BUILDINGS, ...MINERAL_BUILDINGS, QUARRY_BUILDING, ...STORE_BUILDINGS, BOATYARD, HARBOUR, AIRSHIP_MAST, MONSTER_GUILD, ...PRISON_BUILDINGS, ...FAITH_BUILDINGS, ...RELIGION_BUILDINGS, ...RECREATION_BUILDINGS, ...TRAINING_BUILDINGS, WARD_BUILDING, MONUMENT_BUILDING, SHAFT_BUILDING, ...PORTAL_BUILDINGS, STATUE_BUILDING, RANCH_BUILDING, ARENA_BUILDING, ...MAGIC_BUILDINGS];
 export const BUILDING_BY_ID: Readonly<Record<string, BuildingDef>> = Object.fromEntries(BUILDINGS.map((b) => [b.id, b]));
 
-export const LAYER_NAMES: Record<BuildLayer, string> = { fore: 'Foreground (walkway)', mid: 'Midground', back: 'Background (fields)' };
 
 /** Upgrades in place (DESIGN §4): what each building can be rebuilt into where it stands (it may grow wider). */
 export const UPGRADES: Readonly<Record<string, string>> = {

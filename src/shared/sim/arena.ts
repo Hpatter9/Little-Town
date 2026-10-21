@@ -180,6 +180,7 @@ function tourneyToday(s: GameState): boolean {
 
 /** The town raises an arena once it's big enough. */
 export function buildArena(s: GameState): void {
+  if (!s.townBuilds) return; // (the founder builds: the town lays no blueprint of its own)
   const def = BUILDING_BY_ID.arena;
   if (!def || !isUnlocked(unlockInfo(s), def) || s.buildings.some((b) => b.def === 'arena')) return;
   if (s.people.filter((p) => !isChild(p)).length < ARENA_PEOPLE) return;

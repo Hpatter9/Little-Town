@@ -16,6 +16,7 @@ const onRock = (s: ReturnType<typeof newGame>, p: { x: number; y: number }) => g
 
 test('a path never crosses the mountain, and a face of rock is worked from the ground beside it', () => {
   const s = newGame('solid-paths', { origin: 'dwarves' });
+  s.townBuilds = true;
   const c = campCell(s);
   const from = { x: (c.x + 0.5) * CELL, y: (c.y + 0.5) * CELL };
   for (const [dx, dy] of [[20, -12], [-18, -9], [0, -20], [30, -4], [-25, 6], [10, 12]]) {
@@ -32,6 +33,7 @@ test('a path never crosses the mountain, and a face of rock is worked from the g
 
 test('a walker with no way found goes only as far as the rock', () => {
   const s = newGame('solid-straight', { origin: 'dwarves' });
+  s.townBuilds = true;
   clearAround(s, 6);
   const c = campCell(s);
   // a goal sealed inside the rock, far from any open ground
@@ -45,6 +47,7 @@ test('a walker with no way found goes only as far as the rock', () => {
 
 test('strangers come in on open ground even where a spur of the mountain reaches the camp row', () => {
   const s = newGame('solid-edge', { origin: 'dwarves' });
+  s.townBuilds = true;
   const c = campCell(s);
   for (const side of [-1, 1] as const) {
     const e = edgeXY(s, side);
@@ -60,6 +63,7 @@ test('strangers come in on open ground even where a spur of the mountain reaches
 
 test('a courier still reaches a town walled in by the mountain on one side, never riding over the rock', () => {
   const s = newGame('solid-courier', { origin: 'dwarves' });
+  s.townBuilds = true;
   const couriers = new Couriers();
   // news from due north, where the whole land is rock
   assert.ok(couriers.dispatch(s.land, s.buildings, 0, -Math.PI / 2), 'a rider sent');
@@ -69,6 +73,7 @@ test('a courier still reaches a town walled in by the mountain on one side, neve
 
 test('a mountain hold digs a room from its doorway inward, cell by cell, from ground someone stands on', () => {
   const s = newGame('solid-dig', { origin: 'dwarves' });
+  s.townBuilds = true;
   clearAround(s, 12);
   const core = coreRect(s);
   assert.ok(placeBlueprint(s, 'workbench', core.x + core.w, core.y).ok);
@@ -94,7 +99,7 @@ test('a mountain hold digs a room from its doorway inward, cell by cell, from gr
 });
 
 test('a dwarves hold finishes its rooms with nobody standing in the rock', () => {
-  const sim = new Sim(newGame('solid-hold', { origin: 'dwarves' }));
+  const sim = new Sim(Object.assign(newGame('solid-hold', { origin: 'dwarves' }), { townBuilds: true }));
   const s = sim.state;
   let on = 0;
   for (let t = 0; t < 5 * TICKS_PER_DAY && !s.gameOver; t++) {
@@ -107,7 +112,7 @@ test('a dwarves hold finishes its rooms with nobody standing in the rock', () =>
 });
 
 test('every new room of a hold opens off the entrance hall or a hallway, and the hallways join the entrance', () => {
-  const sim = new Sim(newGame('solid-halls', { origin: 'dwarves' }));
+  const sim = new Sim(Object.assign(newGame('solid-halls', { origin: 'dwarves' }), { townBuilds: true }));
   const s = sim.state;
   for (let t = 0; t < 8 * TICKS_PER_DAY && !s.gameOver; t++) sim.step();
   const m = s.land;

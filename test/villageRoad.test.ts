@@ -24,6 +24,7 @@ const dayAt = (day: number) => (day - 1) * TICKS_PER_DAY + ((VILLAGE_ROAD_HOUR -
 
 function townWithVillage(seed: string): { s: GameState; v: Village } {
   const s = plainGame(seed);
+  s.townBuilds = true;
   const rng = new Rng(9);
   const c = s.people[0];
   while (s.people.length < 11) s.people.push(makePerson(rng, s.nextId++, 'gatherer', { x: c.x + s.people.length * 4, y: c.y }, s.people.map((p) => p.name)));
@@ -161,6 +162,7 @@ test('a village behind a row of buildings gets a road round it to the town', () 
 
 test('a village outside the ring wall gets a road that ends at a gate', () => {
   const s = newGame('vroad-ring');
+  s.townBuilds = true;
   s.research.done.push('palisades', 'basic_shelter');
   clearAround(s, 50);
   s.buildings[0].store = { wood: 3000, stone: 500, fiber: 300, berries: 400 };

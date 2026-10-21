@@ -203,6 +203,15 @@ export function streetsHourly(s: GameState): void {
   if (s.tick % TICKS_PER_HOUR !== 0) return;
   liftRoadsOffWall(s); // (roads an older town laid over the wall's line are lifted, so the wall can be raised there)
   if (s.autopilot === false) return;
+  // (the founder lays the streets: nothing is planned unless ordered, and then once, whatever the hour)
+  if (!s.townBuilds) {
+    if (!s.streetsOrder) return;
+    delete s.streetsOrder;
+    layoutHourly(s);
+    gatePaths(s);
+    planStreets(s);
+    return;
+  }
   layoutHourly(s); // (the town plan's main streets kept ahead of the town: sim/layout.ts)
   gatePaths(s);
   if (Math.floor(s.tick / TICKS_PER_HOUR) % 24 !== 6) return;

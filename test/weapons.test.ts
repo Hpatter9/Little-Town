@@ -136,6 +136,7 @@ test('the town makes a weapon for whoever has a calling and nothing to fight wit
   const { Sim } = await import('../src/shared/sim/sim');
   const { TICKS_PER_DAY } = await import('../src/shared/sim/time');
   const s = newGame('arm-them');
+  s.townBuilds = true;
   s.nextRaidTick = Infinity;
   const sim = new Sim(s);
   for (const p of s.people) p.cls = 'archer';

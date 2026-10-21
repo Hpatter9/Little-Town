@@ -307,6 +307,7 @@ export function magicHourly(s: GameState): void {
 
 /** The Mage Tower stands where the ley runs strongest near the town: the town lays it itself, once it knows how. */
 function placeTower(s: GameState): void {
+  if (!s.townBuilds) return; // (the founder orders the tower; the town picks the ley)
   // (looked to every six hours: the queue may be full, and the planner may lay one first)
   if (calendar(s.tick).hour % 6 !== 0 || s.buildings.some((b) => b.def === MAGE_TOWER)) return;
   // (never in the way of the town's homes and food: a few hands first, and a spare slot in the queue)

@@ -217,6 +217,7 @@ function stageStory(s: GameState, c: CalamityState, stage: number): string {
 
 /** Ward stones: one for each stage from the spreading, up to `WARDS_MOST`, raised one at a time. */
 function raiseWards(s: GameState, c: CalamityState): void {
+  if (!s.townBuilds) return; // (the founder builds: the town lays no blueprint of its own)
   const wards = s.buildings.filter((b) => b.def === WARD);
   if (wards.some((b) => b.status !== 'done') || wards.length >= Math.min(WARDS_MOST, c.stage - 1)) return;
   const d = BUILDING_BY_ID[WARD];

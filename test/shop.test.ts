@@ -85,6 +85,7 @@ test('with no fiber on the land, the town buys it from travellers, whatever it c
 
 test('what it could gather itself, it buys only for a building it is waiting on, and keeps coins back', () => {
   const s = plainGame('shop-thrifty');
+  s.townBuilds = true;
   addBuilding(s, 'trading_post', camp(s).x + 3);
   s.coins = 5;
   // wood grows here: it isn't essential, and with no blueprint waiting on it the town doesn't buy it
@@ -141,6 +142,7 @@ test('a better-furnished shop draws more travellers', () => {
 
 test('a second piece just like one already out adds half its appeal', () => {
   const s = plainGame('shop-variety');
+  s.townBuilds = true;
   const shop = addBuilding(s, 'trading_post', camp(s).x + 3);
   shop.shop = { pieces: [{ item: 'plank_shelf', x: 0, y: 0 }] };
   const one = appeal(shop);
@@ -164,6 +166,7 @@ test('rebuilt bigger, the shop keeps its furnishings, and what no longer fits go
 
 test('the planner: with the land out of fiber, it studies Barter and builds a Trading Post, and then its homes get built', () => {
   const s = newGame('shop-plan', { biome: 'desert' });
+  s.townBuilds = true;
   bareLand(s);
   s.research.done.push('fire_keeping', 'basic_shelter', 'flint_knapping', 'foraging');
   s.buildings[0].store = { wood: 25, stone: 25, berries: 5 };
@@ -189,6 +192,7 @@ test('the planner: with the land out of fiber, it studies Barter and builds a Tr
 
 test('the shop sells only what is spare: food beyond several days, never the totem, nothing a blueprint needs', () => {
   const s = plainGame('shop-spare');
+  s.townBuilds = true;
   addBuilding(s, 'stockpile', camp(s).x - 6, { wood: 100, berries: 4, totem: 1 });
   const spare = forSale(s);
   assert.ok((spare.wood ?? 0) > 0);
@@ -198,6 +202,7 @@ test('the shop sells only what is spare: food beyond several days, never the tot
 
 test('old saves (from before the shop) load and play on, with an empty purse', () => {
   const s = plainGame('shop-old-save');
+  s.townBuilds = true;
   const text = serialize(s, 1000);
   const raw = JSON.parse(text);
   for (const k of ['coins', 'travellers', 'nextTravellerTick', 'nextGuestTick', 'itemQ']) delete raw.state[k];
@@ -226,7 +231,7 @@ test('the shop window: layout, furnishings and the log reach the snapshot', () =
 });
 
 test('left alone in the desert, a town builds a shop, furnishes it, and earns coins', () => {
-  const sim = new Sim(newGame('d3', { biome: 'desert' }));
+  const sim = new Sim(Object.assign(newGame('d3', { biome: 'desert' }), { townBuilds: true }));
   const s = sim.state;
   // (it starts bare, and every piece has to be paid for out of what travellers spend; a lone founder's town in the
   // sand, raided on the battle map, gets there in about three weeks)
@@ -315,6 +320,7 @@ test('ordinary travellers never buy the finer wares; the grand buy the finest th
 
 test('coins go into the shop: a crowded floor is extended, and pieces are improved a level at a time', () => {
   const s = plainGame('shop-spend');
+  s.townBuilds = true;
   s.autopilot = true;
   const shop = addBuilding(s, 'trading_post', camp(s).x + 3);
   const { cols, rows } = shopLayout(shop);
@@ -336,6 +342,7 @@ test('coins go into the shop: a crowded floor is extended, and pieces are improv
   assert.ok(appeal(shop) >= before);
   // a poor town keeps its coins
   const poor = plainGame('shop-poor');
+  poor.townBuilds = true;
   poor.autopilot = true;
   const p2 = addBuilding(poor, 'trading_post', camp(poor).x + 3);
   p2.shop = { pieces: [{ item: 'plank_shelf', x: 0, y: 0 }] };
@@ -347,6 +354,7 @@ test('coins go into the shop: a crowded floor is extended, and pieces are improv
 
 test('an improved piece adds half its appeal again per level', () => {
   const s = plainGame('shop-levels');
+  s.townBuilds = true;
   const shop = addBuilding(s, 'trading_post', camp(s).x + 3);
   shop.shop = { pieces: [{ item: 'trestle_table', x: 0, y: 1 }] };
   const base = appeal(shop);
@@ -356,6 +364,7 @@ test('an improved piece adds half its appeal again per level', () => {
 
 test('the town makes wares from what it has spare, never from what it can only buy', () => {
   const s = newGame('shop-wares', { biome: 'desert' });
+  s.townBuilds = true;
   bareLand(s);
   s.research.done.push('fire_keeping', 'flint_knapping', 'foraging', 'cordage', 'barter', 'herbalism');
   addBuilding(s, 'trading_post', camp(s).x + 3);
@@ -370,6 +379,7 @@ test('the town makes wares from what it has spare, never from what it can only b
 
 test('drawing customers it has no wares for, the town studies what makes them', () => {
   const s = newGame('shop-study');
+  s.townBuilds = true;
   s.era = 'medieval';
   s.direction = 'trade';
   s.research.done = TOPICS.filter((t) => !t.era && !t.hidden && t.branch !== 'occult').map((t) => t.id).concat(['mining']);
@@ -408,6 +418,7 @@ test('a specialty shop: its own customers come for its line, buy what the town h
 
 test('the planner opens a specialty shop once it has a general store, the craft and enough people', () => {
   const s = newGame('store-plan');
+  s.townBuilds = true;
   s.research.done.push('barter', 'iron_working');
   addBuilding(s, 'trading_post', camp(s).x + 3);
   for (let i = 0; i < 6; i++) s.people.push({ ...s.people[0], id: s.nextId++, name: `Helper ${i}`, partner: null });

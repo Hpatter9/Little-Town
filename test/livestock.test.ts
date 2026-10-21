@@ -31,6 +31,7 @@ test('data: every pen is a background building, unlocked by research, with a her
 
 test('a farmer tends the pen: eggs into the stores', () => {
   const s = plainGame('coop');
+  s.townBuilds = true;
   const sim = new Sim(s);
   const p = s.people[0];
   p.priorities = priorities({ farm: 1 });
@@ -46,6 +47,7 @@ test('a farmer tends the pen: eggs into the stores', () => {
 
 test('herds breed in spring and summer, not in winter; a full pen stops growing', () => {
   const s = plainGame('breed');
+  s.townBuilds = true;
   const b = pen(s, 'pig_sty', 90);
   const h = herdOf(s, b);
   h.head = 2;
@@ -60,6 +62,7 @@ test('herds breed in spring and summer, not in winter; a full pen stops growing'
 
 test('in winter the herd eats grain, and starves without it', () => {
   const s = plainGame('winter');
+  s.townBuilds = true;
   const b = pen(s, 'cattle_pasture', 90);
   const h = herdOf(s, b);
   h.head = HERDS.cattle_pasture.start;
@@ -80,6 +83,7 @@ test('in winter the herd eats grain, and starves without it', () => {
 
 test('raiders who get away can drive off livestock', () => {
   const s = plainGame('rustle');
+  s.townBuilds = true;
   const b = pen(s, 'sheep_fold', 90);
   herdOf(s, b).head = 8;
   let lost = false;
@@ -92,7 +96,7 @@ test('raiders who get away can drive off livestock', () => {
 
 test('a druid town keeps building: a goat pen does not make hide count as available', async () => {
   const { newGame } = await import('../src/shared/sim/state');
-  const sim = new Sim(newGame('soak-druid-0', { origin: 'druid' }));
+  const sim = new Sim(Object.assign(newGame('soak-druid-0', { origin: 'druid' }), { townBuilds: true }));
   const done = () => sim.state.buildings.filter((b) => b.status === 'done').length;
   for (let t = 0; t < 3 * TICKS_PER_DAY; t++) sim.step();
   const early = done();
@@ -102,6 +106,7 @@ test('a druid town keeps building: a goat pen does not make hide count as availa
 
 test('a pen is built empty: its animals are bought in, it widens as the herd fills it, and a full pen sells its surplus', () => {
   const s = plainGame('pens');
+  s.townBuilds = true;
   clearAround(s, 14);
   const b = pen(s, 'goat_pen', camp(s).x + 6);
   const h = herdOf(s, b);

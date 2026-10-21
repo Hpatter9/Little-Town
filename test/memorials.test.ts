@@ -42,6 +42,7 @@ test('who is famous: the founder always, a title, many raiders felled, a high le
 
 test('a famous death is honoured with their look and gear; an ordinary one is not', () => {
   const s = plainGame('memorial-honour');
+  s.townBuilds = true;
   const hero = someone(s);
   hero.titles = ['Wolfsbane'];
   hero.felled = 15;
@@ -63,6 +64,7 @@ test('a famous death is honoured with their look and gear; an ordinary one is no
 
 test('the town raises a statue to the honoured before its seat, one at a time, the oldest dead first', () => {
   const s = plainGame('memorial-statue');
+  s.townBuilds = true;
   clearAround(s, 14);
   s.autopilot = true;
   const first = someone(s);
@@ -97,6 +99,7 @@ test('the town raises a statue to the honoured before its seat, one at a time, t
 
 test('no statue without the stone, nor past the most, nor with the autopilot off', () => {
   const s = plainGame('memorial-limits');
+  s.townBuilds = true;
   clearAround(s, 14);
   const hero = someone(s);
   hero.titles = ['the Bold'];
@@ -115,6 +118,7 @@ test('no statue without the stone, nor past the most, nor with the autopilot off
 
 test('a statue is never pulled down to make room', () => {
   const s = plainGame('memorial-clear');
+  s.townBuilds = true;
   const at = freeSpot(s, STATUE);
   const b = put(s, STATUE, at.x, at.y, { statue: 1 });
   assert.equal(mayClear(b), false);
@@ -126,6 +130,7 @@ test('a statue is never pulled down to make room', () => {
 
 test('a home pulled down leaves its foundation, named for who lived there, cleared in its time', () => {
   const s = plainGame('memorial-ruin');
+  s.townBuilds = true;
   const at = freeSpot(s, 'lean_to');
   const home = put(s, 'lean_to', at.x, at.y, { owner: s.people[0].id, homeName: 'Bramble End' });
   demolish(s, home.id);
@@ -146,6 +151,7 @@ test('a home pulled down leaves its foundation, named for who lived there, clear
 
 test('building over a ruin is allowed, and clears it at once', () => {
   const s = plainGame('memorial-over');
+  s.townBuilds = true;
   const at = freeSpot(s, 'lean_to');
   const home = put(s, 'lean_to', at.x, at.y);
   demolish(s, home.id);
@@ -158,6 +164,7 @@ test('building over a ruin is allowed, and clears it at once', () => {
 
 test('a building that burns down leaves a blackened shell; blueprints, walls and fields leave nothing', () => {
   const s = plainGame('memorial-burn');
+  s.townBuilds = true;
   const at = freeSpot(s, 'workbench');
   const bench = put(s, 'workbench', at.x, at.y, { fire: 1 });
   updateFires(s, new Rng(1));
@@ -192,6 +199,7 @@ test('a home name is decided by its id and its person, the same every time; each
 
 test('homes are named for their owner, else their eldest resident, and keep the name after', () => {
   const s = plainGame('memorial-names');
+  s.townBuilds = true;
   const at = freeSpot(s, 'lean_to');
   const owned = put(s, 'lean_to', at.x, at.y, { owner: s.people[0].id });
   const empty = put(s, 'lean_to', at.x + 4, at.y);
