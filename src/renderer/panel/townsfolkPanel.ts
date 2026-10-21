@@ -140,7 +140,7 @@ export function renderTownsfolk(s: Snapshot, bridge: Bridge | undefined, rerende
   head.append(el('span', '', `People ${s.housing.people} · Beds ${s.housing.beds}`), el('span', '', `Food in storage: ${food}`));
   out.push(head);
   if (s.housing.beds <= s.housing.people && !s.visitor) {
-    out.push(el('div', 'hint', 'Wanderers only come while a bed is free. Build a Lean-to (Basic Shelter research).'));
+    out.push(el('div', 'hint', 'Wanderers only join while a bed is free. Build a home to make room.'));
   }
   if (s.visitor) out.push(visitorCard(s.visitor, s, bridge));
 
@@ -165,7 +165,7 @@ export function renderTownsfolk(s: Snapshot, bridge: Bridge | undefined, rerende
 
   out.push(el('h2', '', 'Jobs'));
   out.push(priorityGrid(s, bridge));
-  out.push(el('div', 'hint', 'Click a cell to cycle High, Normal, Low, Off. People do High jobs first. Auto sets them from skills. Defend: when raiders come, anyone not set to Off fights; the rest shelter (safest in a bed).'));
+  out.push(el('div', 'hint', 'Tap a cell to cycle High, Normal, Low, Off. High jobs come first. Auto sets them from skills. Defend: in a raid, anyone not set to Off fights; the rest shelter.'));
 
   out.push(
     ...familiesSection(s, (id) => {
@@ -189,7 +189,7 @@ export function renderTownsfolk(s: Snapshot, bridge: Bridge | undefined, rerende
 
   if (s.prisoners.length) {
     out.push(el('h2', '', 'Prisoners'));
-    out.push(el('div', 'hint', 'Taken in raids. They eat a ration a day and may slip away; in time they come round and join the town (faster with someone good at Social).'));
+    out.push(el('div', 'hint', 'Taken in raids. They eat a ration a day and may slip away. In time they may come round and join the town.'));
     for (const pr of s.prisoners) {
       const c = el('div', 'card person');
       const top = el('div', 'card-top');
@@ -237,7 +237,7 @@ let listScroll = 0;
 
 /* ------------------------------------------------------------ the list */
 
-/** One short row: their face (badged with the stat points they have to spend and a mark when an evolution waits
+/** One short row: their face (badged with the stat points they have to spend and a mark when a promotion waits
  *  on them: the owner's ask), name, calling and level, what they're up to, their health and spirits, and any
  *  trouble. Tap for the rest. The live parts are filled by `fillRow`, again on every snapshot. */
 function folkRow(p: PersonView, s: Snapshot, open: () => void): HTMLElement {
@@ -354,7 +354,7 @@ function inspectView(p: PersonView, s: Snapshot, bridge: Bridge | undefined, rer
   }
   card.append(el('div', 'lock inspect-doing', p.away !== null ? `Away on an expedition: ${p.away}` : p.doing));
   card.append(classRow(p, bridge, rerender));
-  // (the same marks as the list's rows: points to spend, an evolution to choose; each a tap to where it's done)
+  // (the same marks as the list's rows: points to spend, a promotion to choose; each a tap to where it's done)
   const asking = !!p.road && p.road.promptId !== null;
   if (p.freePts > 0 || asking) {
     const badges = el('div', 'row folk-badges');

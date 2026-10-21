@@ -30,21 +30,19 @@ const GROUPS: Record<string, MenuTabs> = {
     intro: 'Overview',
   },
   // the founder's card: their orders and purse, and their story (chapters, one book a founder)
-  founder: { groups: [['Founder', /^(Gear|Go to|Work at|Give to the town|Rest|Your shops|Buy a shop|Host a feast|Visitors and apprentices|Matches and courting|Name an heir)/], ['Story', /^(The founder's story|.*'s story)/]], intro: 'Founder' },
+  founder: { groups: [['Founder', /^(Orders|Your shops|People|Host a feast)/], ['Story', /^(The founder's story|.*'s story)/]], intro: 'Founder' },
   research: { groups: [['Studying', /^(Studying|Choose|Stations)/], ['All topics', /^All topics/]], intro: 'Studying' },
-  // the Quests tab (the panel's id is still 'expeditions'): what's out now, the quests, the places, the companies
+  // the Quests tab (the panel's id is still 'expeditions'): what's out now (with the companies), the quests, the places, the rest
   expeditions: {
     groups: [
-      ['Out now', /^(Out now|Boats|The Calamity|The Great Enemy)/],
+      ['Out now', /^(Out now|Boats|The Calamity|The Great Enemy|Companies)/],
       ['Quests', /^(Accepted quests|Quest board|Sagas|Quest log)/],
       ['Places', /^(Places|On the town's land|Below the town|The pack|Destinations|Not yet reachable)/],
-      ['Companies', /^Companies/],
-      ['Realm', /^(The realm|Assaults)/],
-      ['Treasures', /^(Guild forge|Unique weapons)/],
+      ['More', /^(The realm|Assaults|Guild forge|Unique weapons)/],
     ],
     intro: 'Out now',
   },
-  townsfolk: { groups: [['People', /^People/], ['Jobs', /^Jobs/], ['Families', /^Families/], ['Guilds', /^Guilds/], ['Prisoners', /^Prisoners/], ['Arena', /^(The arena|Standings|Bouts|Champions)/]] },
+  townsfolk: { groups: [['People', /^People/], ['Jobs', /^Jobs/], ['Families', /^(Families|Guilds)/], ['More', /^(Prisoners|The arena|Standings|Bouts|Champions)/]] },
   // the War (the seasons of war): the map of provinces, the realm's wars and campaigns, the home front, the news
   war: {
     groups: [

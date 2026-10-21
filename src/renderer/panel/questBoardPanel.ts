@@ -110,7 +110,7 @@ export function questBoard(s: Snapshot, bridge: Bridge | undefined): HTMLElement
   const offers = entries(s).filter((e) => !e.accepted);
   const taken = entries(s).filter((e) => e.accepted).length;
   const out: HTMLElement[] = [el('h2', '', 'Quest board')];
-  out.push(el('div', 'hint', 'Offered at the tavern and posted by the guild. Accept one and its clock starts. Left unanswered, the town takes one up itself if it has an adventurer to send.'));
+  out.push(el('div', 'hint', 'Offered at the tavern and posted by the guild. Accept one and its clock starts.'));
   if (!offers.length) out.push(el('div', 'empty', taken ? 'Nothing new offered.' : 'Nothing offered just now. Guests at the tavern ask of an evening; the guild posts hunts every day or two.'));
   const grid = el('div', 'cards wide');
   for (const e of offers) {
