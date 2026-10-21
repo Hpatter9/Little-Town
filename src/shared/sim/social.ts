@@ -3,6 +3,7 @@
 // researched, couples marry and may welcome children, who grow up over about a week of real time and
 // take after a parent. Losing someone close hits hard.
 
+import { askChildName } from './naming';
 import { comeOfAge, recordBirth } from './lineage';
 import { weddingFeast } from './ceremonies';
 import { natureFit, natureOf } from '../data/natures';
@@ -216,6 +217,7 @@ function welcomeChild(s: GameState, a: Person, b: Person, rng: Rng): void {
   adjust(s, child.id, a.id, 60);
   adjust(s, child.id, b.id, 60);
   notify(s, `${a.name} and ${b.name} welcomed a child, ${child.name}.`, true);
+  askChildName(s, child); // (the founder may name their own: sim/naming.ts)
 }
 
 /** Children come of age: a few skill points (more in their passion), their own priorities. */

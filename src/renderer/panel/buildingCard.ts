@@ -26,7 +26,7 @@ export function buildingCardKey(s: Snapshot, id: number): string {
   if (!b) return '';
   const orders = s.crafting.filter((o) => o.station === id).map((o) => [o.item, o.count, o.made, Math.floor(o.progress * 20), o.waiting, o.crafter]);
   const living = s.people.filter((p) => p.bedId === id).map((p) => p.id);
-  return JSON.stringify([b.status, Math.floor(b.progress * 50), Math.round(b.hp ?? -1), b.fire !== undefined, b.operator, orders, living, poolSize(b.store), Math.floor(poolSize(b.delivered)), b.crop && [b.crop.stage, Math.floor(b.crop.growth * 20)], b.herd?.head]);
+  return JSON.stringify([b.status, b.homeName, Math.floor(b.progress * 50), Math.round(b.hp ?? -1), b.fire !== undefined, b.operator, orders, living, poolSize(b.store), Math.floor(poolSize(b.delivered)), b.crop && [b.crop.stage, Math.floor(b.crop.growth * 20)], b.herd?.head]);
 }
 
 const portrait = (art: BuildingArt, p: { id: number; name: string }, note: string): HTMLElement => {
@@ -46,7 +46,7 @@ const portrait = (art: BuildingArt, p: { id: number; name: string }, note: strin
 };
 
 /** The card for building `id`, or null when it is gone. */
-export function buildingCard(s: Snapshot, id: number, art: BuildingArt): HTMLElement | null {
+export function buildingCard(s: Snapshot, id: number, art: BuildingArt, onName?: (name: string) => void): HTMLElement | null {
   const b = s.buildings.find((q) => q.id === id);
   const def = b && BUILDING_BY_ID[b.def];
   if (!b || !def) return null;
@@ -71,6 +71,26 @@ export function buildingCard(s: Snapshot, id: number, art: BuildingArt): HTMLEle
   if (done && b.scorched !== undefined) state.append(el('span', 'pc-chip', 'Scorched'));
   top.append(state);
   sheet.append(top, el('div', 'bc-name', b.homeName ? `${b.homeName} (${def.name})` : def.name), el('div', 'pc-text', def.purpose));
+
+  // name it (sim/naming.ts): a box and a button, for any finished building but a wall
+  if (done && onName && b.ring === undefined && !b.room) {
+    const form = el('form', 'bc-name-form');
+    const input = document.createElement('input');
+    input.type = 'text';
+    input.maxLength = 24;
+    input.placeholder = b.named ? 'Rename it' : 'Give it a name';
+    input.autocomplete = 'off';
+    const go = el('button', 'place small', b.named ? 'Rename' : 'Name it');
+    go.type = 'submit';
+    form.append(input, go);
+    form.addEventListener('submit', (ev) => {
+      ev.preventDefault();
+      const name = input.value.replace(/\s+/g, ' ').trim();
+      if (name.length < 2) return void input.focus();
+      onName(name);
+    });
+    sheet.append(form);
+  }
 
   // who works or lives there
   const people = el('div', 'bc-people');

@@ -44,7 +44,7 @@ export class HomeSigns {
     const show = zoom >= SIGN_ZOOM;
     const seen = new Set<number>();
     for (const b of list) {
-      if (!b.homeName || b.status !== 'done' || b.room || b.id < 0 || !BUILDING_BY_ID[b.def]?.housing) continue;
+      if (!b.homeName || b.status !== 'done' || b.room || b.id < 0 || !(BUILDING_BY_ID[b.def]?.housing || b.named)) continue;
       seen.add(b.id);
       const f = footprint(b);
       const key = `${b.homeName}|${f.x},${f.y},${f.w},${f.h}`;

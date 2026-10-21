@@ -22,6 +22,9 @@ import type { Material } from '../data/materials';
 import type { Rng } from '../rng';
 import { startBattle } from './combat';
 import { destinationOf, partyCarry } from './expeditions';
+import { answerName } from './naming';
+import { answerDuel } from './duel';
+import { answerDispute } from './disputes';
 import { holdForFounder } from './founderQuests';
 import { answerRaidPrompt } from './raids';
 import { answerRite } from './occult';
@@ -97,6 +100,9 @@ export function answerPrompt(s: GameState, id: number, option: number, rng: Rng)
   if (option < 0 || option >= prompt.options.length) return;
   s.prompts = s.prompts.filter((q) => q !== prompt);
   if (answerAlignPrompt(s, prompt, option)) return; // (the alignment's own questions: sim/alignment.ts)
+  if (prompt.kind === 'name') return answerName(s, prompt, option);
+  if (prompt.kind === 'duel') return answerDuel(s, prompt, option);
+  if (prompt.kind === 'dispute') return answerDispute(s, prompt, option);
   if (prompt.kind === 'raid') return answerRaidPrompt(s, prompt.options[option], rng);
   if (prompt.kind === 'rite') return answerRite(s, prompt.options[option]);
   if (prompt.kind === 'lich') return answerLich(s, prompt.options[option]);

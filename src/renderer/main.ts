@@ -1,6 +1,7 @@
 // Strip renderer: draws the town and HUD, turns clicks into sim commands, and decides when the strip
 // should capture the mouse.
 
+import { applyGivenNames } from './art/givenNames';
 import { guildsOf } from './art/guildMarks';
 import { withDeltas } from './deltaBridge';
 import { biomeById } from '../shared/data/biomes';
@@ -1148,11 +1149,14 @@ async function start(): Promise<void> {
   // anyone clearing a forest), and buildings' options live there instead of in a bar over the building.
   let inspected: Hover = null;
   let inspectMenu: BuildingMenu = 'main';
+  // (a challenge being put: whose card shows the power levels and the two terms; sim/duel.ts)
+  let duelAsk: number | null = null;
   let inspectKey = '';
   const inspectRuns = new Map<string, () => void>();
   const inspectTarget = (h: Hover) => {
     inspected = h && h.kind !== 'scenery' ? h : null;
     inspectMenu = 'main';
+    duelAsk = null;
     publishInspect();
     refreshHover();
   };
@@ -1227,8 +1231,28 @@ async function start(): Promise<void> {
         const fight = snap.skirmishes.find((k) => !k.over && k.who.includes(p.name));
         const watchAct = fight ? [act('watch', 'Watch the fight', () => bridge.command({ type: 'watch', expedition: fight.id }), { primary: true })] : [];
         if (fight) lines.unshift(`Fighting ${fight.foe} out on the land!`);
+        // challenge a rival or a troublemaker: the power levels first, then the terms
+        const foe = snap.founder?.duels.find((q) => q.id === p.id);
+        if (foe && snap.founder && p.id !== snap.mainId) {
+          if (duelAsk === p.id) {
+            const why = snap.founder.duelBlock;
+            return {
+              title: d.title,
+              lines: [`A duel with ${p.name}: ${foe.why === 'rival' ? 'a rival' : 'a troublemaker'}.`, foe.line, ...(why ? [why] : ['Win and the town respects you. Lose and you are hurt, or dead.'])],
+              actions: why
+                ? [act('duelBack', 'Back', () => ((duelAsk = null), publishInspect()))]
+                : [
+                    act('duelYield', 'Fight to yield', () => (bridge.command({ type: 'duel', foe: p.id, to: 'yield' }), inspectTarget(null)), { primary: true }),
+                    act('duelDeath', 'Fight to the death', () => (bridge.command({ type: 'duel', foe: p.id, to: 'death' }), inspectTarget(null)), { danger: true }),
+                    act('duelBack', 'Back', () => ((duelAsk = null), publishInspect())),
+                  ],
+            };
+          }
+          lines.push(foe.line);
+        }
+        const duelAct = foe && p.id !== snap.mainId ? [act('duel', 'Challenge to a duel…', () => ((duelAsk = p.id), publishInspect()))] : [];
         const founderAct = p.id === snap.mainId ? [act('founder', 'The founder…', () => bridge.openPanel('founder'), { primary: true })] : [];
-        return { title: d.title, lines, actions: [...founderAct, ...watchAct, ...rallyAct, followAct, act('more', 'Townsfolk…', () => bridge.openPanel('townsfolk'))] };
+        return { title: d.title, lines, actions: [...founderAct, ...duelAct, ...watchAct, ...rallyAct, followAct, act('more', 'Townsfolk…', () => bridge.openPanel('townsfolk'))] };
       }
       case 'place': {
         const p = snap.places.find((q) => q.id === h.id);
@@ -2153,6 +2177,7 @@ async function start(): Promise<void> {
     if (selectedPerson !== null) showPersonCard();
   };
   bridge.onSnapshot((next) => {
+    applyGivenNames(next); // (a unique's own name over its default: sim/naming.ts)
     if (pinching) heldSnap = next;
     else applySnapshot(next);
   });

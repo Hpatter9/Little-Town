@@ -17,6 +17,7 @@ import { MATERIALS, type Material } from '../data/materials';
 import { ORDER_NAMES, type StandingOrder } from '../data/monsters';
 import { JOBS, type Job, type Priority } from '../data/people';
 import { TOPIC_BY_ID } from '../data/research';
+import { cleanName } from './naming';
 import { DIRECTIONS, type Direction } from './planner';
 
 export type MusterOp = 'raise' | 'add' | 'drop' | 'lead' | 'persuade' | 'order' | 'set' | 'send' | 'cancel';
@@ -123,6 +124,10 @@ export type Command =
   | { type: 'ranch'; id: number; op: 'name' | 'keep'; name?: string; keep?: boolean }
   /** The treasury's bet on tonight's bout at the arena (0 takes it back: sim/arena.ts). */
   | { type: 'arenaBet'; on: 'town' | 'visitor'; amount: number }
+  /** Challenge someone to a duel (a person's id; -1 the arena's champion), to yield or to the death (sim/duel.ts). */
+  | { type: 'duel'; foe: number; to: 'yield' | 'death' }
+  /** Name a building, a child of the founder's family, or a unique weapon (sim/naming.ts). */
+  | { type: 'name'; kind: 'building' | 'person' | 'unique'; id: number | string; name: string }
   /** Open or close a trade route to a power (sim/markets.ts). */
   | { type: 'tradeRoute'; to: string; open: boolean }
   /** Rally a defender in a raid (a burst of courage; sim/rally.ts). */
@@ -284,6 +289,10 @@ export function parseCommand(raw: unknown): Command | null {
       return c.op === 'keep' && typeof c.keep === 'boolean' ? { type: 'ranch', id: c.id as number, op: 'keep', keep: c.keep } : null;
     case 'arenaBet':
       return (c.on === 'town' || c.on === 'visitor') && Number.isInteger(c.amount) && (c.amount as number) >= 0 && (c.amount as number) <= 100000 ? { type: 'arenaBet', on: c.on, amount: c.amount as number } : null;
+    case 'duel':
+      return Number.isInteger(c.foe) && (c.to === 'yield' || c.to === 'death') ? { type: 'duel', foe: c.foe as number, to: c.to } : null;
+    case 'name':
+      return (c.kind === 'building' || c.kind === 'person' || c.kind === 'unique') && (typeof c.id === 'string' || Number.isInteger(c.id)) && cleanName(c.name) ? { type: 'name', kind: c.kind, id: c.id as number | string, name: cleanName(c.name)! } : null;
     case 'tradeRoute':
       return typeof c.to === 'string' && typeof c.open === 'boolean' ? { type: 'tradeRoute', to: c.to, open: c.open } : null;
     case 'lookInside':

@@ -10,7 +10,7 @@ import { button, el } from './dom';
 
 export const arenaKey = (s: Snapshot) => {
   const a = s.arena;
-  return JSON.stringify(a && [a.built, a.inSeason, a.season, a.renown, a.card && [a.card.id, a.card.hoursLeft, a.card.pot, a.card.treasury], a.bout, a.ladder.map((e) => [e.key, e.points]), a.past.length, a.past[0]?.day, a.champions.length, a.nextSeason, s.coins]);
+  return JSON.stringify(a && [a.built, a.inSeason, a.season, a.renown, a.card && [a.card.id, a.card.hoursLeft, a.card.pot, a.card.treasury], a.bout, a.ladder.map((e) => [e.key, e.points]), a.past.length, a.past[0]?.day, a.champions.length, a.nextSeason, s.coins, s.founder?.duels.some((d) => d.id === -1), s.founder?.duelBlock]);
 };
 
 export function arenaSection(s: Snapshot, bridge: Bridge | undefined): HTMLElement[] {
@@ -49,6 +49,17 @@ export function arenaSection(s: Snapshot, bridge: Bridge | undefined): HTMLEleme
       row.append(el('span', 'bet-on', on === 'town' ? `On ${k.town.name}` : `On ${k.visitor.name}`));
       for (const n of PLAYER_BETS) row.append(button(`${n}`, () => bridge?.command({ type: 'arenaBet', on, amount: n }), { cls: 'place small', disabled: n > s.coins + (t?.amount ?? 0) }));
       c.append(row);
+    }
+    // the founder may take the visiting champion's place in the ring (sim/duel.ts): the power levels first
+    const champ = s.founder?.duels.find((d) => d.id === -1);
+    if (champ && s.founder) {
+      c.append(el('div', 'hint', `Challenge ${champ.name} yourself, in place of ${k.town.name}: ${champ.line}.`));
+      if (s.founder.duelBlock) c.append(el('div', 'hint', s.founder.duelBlock));
+      else {
+        const row = el('div', 'row');
+        row.append(button('Duel to yield', () => bridge?.command({ type: 'duel', foe: -1, to: 'yield' }), { cls: 'place small' }), button('Duel to the death', () => bridge?.command({ type: 'duel', foe: -1, to: 'death' }), { cls: 'place small danger' }));
+        c.append(row);
+      }
     }
     if (t) c.append(button('Take the bet back', () => bridge?.command({ type: 'arenaBet', on: t.on, amount: 0 }), { cls: 'place small' }));
     out.push(c);
