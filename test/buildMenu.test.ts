@@ -24,6 +24,7 @@ test('an ordered building is laid by the town, and cancelling clears the order a
   assert.ok(s.buildings.some((b) => b.id === id && b.status === 'blueprint'));
   sim.command({ type: 'pinBuilding', def: def.id, on: false });
   sim.command({ type: 'demolish', building: id });
+  sim.step();
   assert.equal(s.pins!.length, 0);
   assert.ok(!s.buildings.some((b) => b.id === id && b.status === 'blueprint'));
 });
