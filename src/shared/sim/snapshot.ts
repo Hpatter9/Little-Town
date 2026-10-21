@@ -136,6 +136,7 @@ import { ENEMY } from '../data/social';
 import { canTrade, stalls } from './trade';
 import { JOBS, JOB_NAMES, RECRUIT_TYPES, TRAIT_BY_ID, type Job, type Look, type Priority } from '../data/people';
 import { canBeHeir, founderOf } from './founder';
+import { buyableShops, isFounderShop, managerCandidates, managerWage, seasonOfShop, shopPrice, stockLineOf, stockLinesOf } from './founderShops';
 import { heirOf } from './health';
 import { RESEARCH_STATIONS, TOPIC_BY_ID } from '../data/research';
 import { SKILLS, skillSpeed, xpToNext, type Skill } from '../data/skills';
@@ -221,6 +222,24 @@ export interface FounderView {
   heirs: { id: number; name: string; role: 'partner' | 'child' | 'other' }[];
   /** Jobs the founder could take up for the day. */
   jobs: Job[];
+  /** The founder's shops, the town's shops they could buy, and grown-ups free to manage one (sim/founderShops.ts). */
+  shops: FounderShopView[];
+  buyable: { id: number; name: string; price: number }[];
+  hires: { id: number; name: string; social: number; wage: number }[];
+}
+export interface FounderShopView {
+  id: number;
+  name: string;
+  /** The manager (null: none, so the shop is shut; `self`: the founder works the counter). */
+  manager: { id: number; name: string; self: boolean; wage: number } | null;
+  stock: string;
+  stocks: { id: string; name: string; text: string }[];
+  price: 'low' | 'fair' | 'high';
+  /** Takings so far today, the last day's profit and this season's takings and profit. */
+  today: number;
+  last: number;
+  seasonGross: number;
+  seasonNet: number;
 }
 
 export interface PersonView {
@@ -1302,6 +1321,28 @@ export interface ResearchView {
   seat: { stage: number; name: string; next: string | null; nextEra: string | null; building: boolean } | null;
 }
 
+function founderShopsView(s: GameState): Pick<FounderView, 'shops' | 'buyable' | 'hires'> {
+  const shops = s.buildings.filter((b) => isFounderShop(s, b)).map((b): FounderShopView => {
+    const m = b.operator != null ? s.people.find((p) => p.id === b.operator) : undefined;
+    const books = seasonOfShop(s, b);
+    return {
+      id: b.id,
+      name: BUILDING_BY_ID[b.def]?.name ?? b.def,
+      manager: m ? { id: m.id, name: m.name, self: m.id === s.mainId, wage: m.id === s.mainId ? 0 : managerWage(s, m) } : null,
+      stock: stockLineOf(b)?.id ?? '',
+      stocks: stockLinesOf(b).map((l) => ({ id: l.id, name: l.name, text: l.text })),
+      price: b.shop!.run!.price,
+      today: Math.round(b.shop!.run!.till),
+      last: Math.round(b.shop!.run!.last ?? 0),
+      seasonGross: Math.round(books.gross),
+      seasonNet: Math.round(books.net),
+    };
+  });
+  const buyable = buyableShops(s).map((b) => ({ id: b.id, name: BUILDING_BY_ID[b.def]?.name ?? b.def, price: shopPrice(s, b) }));
+  const hires = managerCandidates(s).slice(0, 8).map((p) => ({ id: p.id, name: p.name, social: p.skills.social.level, wage: managerWage(s, p) }));
+  return { shops, buyable, hires };
+}
+
 function founderView(s: GameState): FounderView | null {
   const f = founderOf(s);
   if (!f) return null;
@@ -1315,7 +1356,7 @@ function founderView(s: GameState): FounderView | null {
     .filter((p) => canBeHeir(s, p))
     .map((p) => ({ id: p.id, name: p.name, role: roleOf(p) }))
     .sort((a, b) => rank[a.role] - rank[b.role]);
-  return { id: f.id, order, heir: next ? { id: next.id, name: next.name, named: next.id === s.heirId } : null, heirs, jobs: JOBS.filter((j) => j !== 'defend') };
+  return { id: f.id, order, heir: next ? { id: next.id, name: next.name, named: next.id === s.heirId } : null, heirs, jobs: JOBS.filter((j) => j !== 'defend'), ...founderShopsView(s) };
 }
 
 

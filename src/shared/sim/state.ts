@@ -160,6 +160,9 @@ export interface Building {
     decor?: { style: DecorId; level: number };
     /** What it took today and yesterday (sim/ambition.ts: a business's price). */
     takings?: { day: number; today: number; yesterday: number };
+    /** The founder's own shop (sim/founderShops.ts): its stock line, price level, the takings not yet settled, and the
+     *  season's books. */
+    run?: { stock: string; price: import('../data/founderShops').ShopPrice; till: number; season?: { n: number; gross: number; net: number }; last?: number };
   };
   /** Loads quarried from it (a quarry: sim/farming.ts `quarryLoad`). */
   dug?: number;

@@ -64,6 +64,7 @@ export function assignOperators(s: GameState): void {
       b.operator = null;
       b.operatorChosen = false;
     }
+    if (b.owner === s.mainId && b.shop?.run) continue; // (the founder's own shop: they hire its manager, sim/founderShops.ts)
     if (b.operator != null && daily && !b.operatorChosen) {
       const now = s.people.find((p) => p.id === b.operator)!;
       const better = candidates(s, b).sort((x, y) => skillOf(y, b) - skillOf(x, b))[0];
