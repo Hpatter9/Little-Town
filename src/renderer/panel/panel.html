@@ -1301,6 +1301,23 @@
         min-width: 0;
         overflow-wrap: anywhere;
       }
+      /* the build menu (buildPanel.ts): compact rows, the details only on a tap */
+      .brows { display: flex; flex-direction: column; gap: 4px; margin-top: 6px; }
+      .brow { display: flex; flex-direction: column; padding: 6px 8px; background: #2c2018; border: 1px solid #4a3522; border-radius: 4px; }
+      .brow.short .card-name { opacity: 0.7; }
+      .brow-main { display: flex; align-items: center; gap: 8px; }
+      .brow-text { flex: 1; min-width: 0; }
+      .brow-cost { color: var(--text-dim); font-size: 12px; }
+      .brow-cost.short { color: #d08a6a; }
+      .brow .more-hint { display: none; }
+      .brow .place.small { min-width: 64px; min-height: 36px; }
+      .thumb-gap { width: 28px; flex: none; }
+      .queue-row.strip { padding: 4px 8px; margin-bottom: 4px; font-size: 13px; }
+      .queue-row.strip .queue-name { min-width: 0; flex: 1; }
+      .queue-row.strip .queue-time { min-width: 0; }
+      .card.recommend { margin: 4px 0 6px; }
+      .card.recommend .card-top { justify-content: flex-start; align-items: center; }
+      .card.recommend .card-name { font-size: 16px; }
       .place.build-btn {
         width: 100%;
         min-height: 44px;
