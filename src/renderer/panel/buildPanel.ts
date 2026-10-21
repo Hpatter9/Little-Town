@@ -17,7 +17,7 @@ import { MATERIAL_NAMES, type Material } from '../../shared/data/materials';
 import { eraOfResearch, TOPIC_BY_ID } from '../../shared/data/research';
 import { PINS_MOST } from '../../shared/sim/pins';
 import { isRingPiece } from '../../shared/sim/ringWall';
-import { BUILD_KINDS, kindOf } from './buildKinds';
+import { BUILD_KINDS, kindOf, shortPurpose, whyOf } from './buildKinds';
 import type { Bridge } from '../../shared/ipc';
 import { DIRECTION_DEFS, DIRECTIONS } from '../../shared/sim/planner';
 import { blueprintCount, isUnlocked } from '../../shared/sim/buildings';
@@ -81,6 +81,8 @@ export const buildKey = (s: Snapshot, tab: string | null = null) => {
     on(['Overview', 'Faith'], () => faithKey(s)),
     s.skipRaids,
     s.pins.map((p) => [p.def, p.building, Math.floor(p.progress * 20), p.why]),
+    s.recommend && [s.recommend.def ?? s.recommend.kind, s.recommend.why],
+    s.ringOrdered, s.streetsOrdered, s.ringState,
   ]);
 };
 
@@ -251,10 +253,11 @@ export function renderBuild(s: Snapshot, bridge: Bridge | undefined, rerender: (
 
   // everything it can build now: tap Build and the town picks the spot (sim/pins.ts, the planner's own placement)
   out.push(
-    el('h2', '', 'Build: pick one'),
-    el('div', 'hint', 'Tap Build: the town picks the spot and its builders put it up ahead of its own plans.'),
+    el('h2', '', 'Build: your orders'),
+    el('div', 'hint', 'Tap Build: the town picks the spot and its builders put it up.'),
     hide.row([['built', 'Built', 'Hide the buildings the town already has'], ['locked', "Can't build yet", 'Hide the buildings still waiting on research']], rerender),
   );
+  out.push(...recommendedBlock(s, bridge), ...wallsAndStreets(s, bridge));
   let hidden = 0;
   const known = BUILDINGS.filter((b) => !b.never && !isRingPiece(b.id) && !b.seat && !(b.hp && b.width === 1 && !b.defense) && (s.unlockAll || !b.research || (eraReached(s.era, TOPIC_BY_ID[b.research]?.era) && topicKnown(s, b.research))));
   for (const kind of BUILD_KINDS) {
@@ -279,6 +282,40 @@ export function renderBuild(s: Snapshot, bridge: Bridge | undefined, rerender: (
 
 /** What to hide in the list of buildings (kept across visits, per phone). */
 const hide = new HidePrefs('littletown.buildHide', ['built', 'locked'] as const);
+
+/** The town's recommended building at the top: tap to order it. */
+function recommendedBlock(s: Snapshot, bridge: Bridge | undefined): HTMLElement[] {
+  const r = s.recommend;
+  if (!r) return [];
+  const c = el('div', 'card');
+  const top = el('div', 'card-top');
+  if (r.def) top.append(thumb(r.def, 36, s));
+  top.append(el('span', 'card-name', r.name));
+  c.append(el('div', 'panel-head', 'The town recommends'), top, el('div', 'hint', `Why: ${r.why}.`));
+  const def = r.def ? BUILDING_BY_ID[r.def] : undefined;
+  if (def) c.append(el('div', 'purpose', shortPurpose(def)));
+  const ordered = r.def ? s.pins.some((p) => p.def === r.def) : s.ringOrdered;
+  c.append(button(ordered ? 'Ordered' : 'Build', () => bridge?.command(r.def ? { type: 'pinBuilding', def: r.def, on: true } : { type: 'orderRing' }), { cls: 'place build-btn', disabled: ordered || (!!r.def && s.pins.length >= PINS_MOST) }));
+  return [c];
+}
+
+/** The ring wall and the streets: ordered like a building, the town picks the line. */
+function wallsAndStreets(s: Snapshot, bridge: Bridge | undefined): HTMLElement[] {
+  const out: HTMLElement[] = [el('h2', '', 'Build: Walls and streets')];
+  const grid = el('div', 'cards');
+  const card2 = (name: string, text: string, label: string, done: boolean, order: { type: 'orderRing' } | { type: 'orderStreets' }) => {
+    const c = el('div', 'card');
+    c.append(el('div', 'card-top', name), el('div', 'purpose', text), button(done ? 'Ordered' : label, () => bridge?.command(order), { cls: 'place build-btn', disabled: done }));
+    return c;
+  };
+  const wall = s.ringState === 'none' ? 'Raise the palisade' : s.ringState === 'building' ? 'Finish the ring wall' : 'Widen or upgrade the wall';
+  grid.append(
+    card2(wall, 'A wall round the town with gates where the roads cross: raiders have to break it. The town picks the line and works it until it stands. Worth widening once the space inside is mostly built on.', 'Build', s.ringOrdered, { type: 'orderRing' }),
+    card2('Lay the streets', 'Paves the paths folk have worn, and a road to each gate of the wall.', 'Build', s.streetsOrdered, { type: 'orderStreets' }),
+  );
+  out.push(grid);
+  return out;
+}
 
 /** What's ordered and under way: the player's orders (waiting, or going up), then the town's own sites. Cancel takes an
  *  order back and clears its site. */
@@ -330,7 +367,7 @@ function card(def: BuildingDef, s: Snapshot, bridge: Bridge | undefined): HTMLEl
     if (icon) chip.prepend(icon);
     cost.append(chip);
   }
-  c.append(top, cost, el('div', 'purpose', def.purpose));
+  c.append(top, cost, el('div', 'purpose', `${shortPurpose(def)}`), el('div', 'hint', `Why: ${whyOf(def)}`));
   if (!unlocked) c.append(el('div', 'lock', `Needs research: ${topicName(def.research!, s.origin.id)}`));
   else {
     const n = s.buildings.filter((b) => b.def === def.id && b.status === 'done').length;

@@ -28,7 +28,8 @@ import { ensureLayout, layoutSpot } from './layout';
 import { LEISURE, LEISURE_PEOPLE, LOW_SPIRITS } from '../data/recreation';
 import { TRAINING_BUILDINGS } from '../data/training';
 const TRAINING_IDS = new Set(TRAINING_BUILDINGS.map((d) => d.id));
-import { isGrate, isRingPiece, planRing, ringSite, ringWants, RING_PEOPLE } from './ringWall';
+import { isGrate, isRingPiece, planRing, ringAdvice, ringSite, ringWants, RING_PEOPLE } from './ringWall';
+import { pinRefusal } from './pins';
 import { inSea, seaBuild, seaTown } from './sea';
 import { castleCells, castleOn, coreRect, hallCells, HALLWAY, holdOf, isHallway, joinsCastle, nearCastle, roomKind, sharedEdges, solidCells } from './castle';
 import { BUILDINGS, BUILDING_BY_ID, UPGRADES, type BuildingDef } from '../data/buildings';
@@ -1080,6 +1081,19 @@ function planPins(s: GameState, n: Needs, plan: TownPlan): boolean {
   return false;
 }
 
+/** The ordered ring wall's pieces rebuilt as the next of their line (palisade, then the better walls), one a pass.
+ *  Whether one was started. */
+function upgradeRing(s: GameState, n: Needs): boolean {
+  if (blueprintCount(s) >= buildSlots(s)) return true;
+  for (const b of s.buildings) {
+    if (b.status !== 'done' || !isRingPiece(b.def) || !UPGRADES[b.def]) continue;
+    const to = BUILDING_BY_ID[UPGRADES[b.def]];
+    if (!to || !unlocked(s, to.id) || !affordable(s, to, n.stock) || !canUpgrade(s, b.id).ok) continue;
+    if (upgrade(s, b.id).ok) return true;
+  }
+  return s.buildings.some((b) => isRingPiece(b.def) && b.status !== 'done');
+}
+
 /** Fewer, bigger fields: two garden plots side by side, both lying fallow, are ploughed into one open field (and an
  *  open field grows into an estate farm where it stands, if there's room). In winter, when nothing's in the ground
  *  anyway, or whenever more food is wanted. */
@@ -1190,6 +1204,14 @@ function planBuilding(s: GameState, n: Needs, plan: TownPlan): number[] {
   // (the seat first, even with the queue full: the new age's studies wait on it; then the player's wishes)
   if (planSeat(s, n, plan)) return clear;
   if (planPins(s, n, plan)) return clear;
+  // (the founder builds: the town lays nothing of its own, only the ring wall they ordered goes on, and its upgrades)
+  if (!s.townBuilds) {
+    if (s.ringOrder) {
+      clear.push(...planRing(s, true, n.raided));
+      if (s.ring?.done && !upgradeRing(s, n)) delete s.ringOrder;
+    }
+    return clear;
+  }
   if (blueprintCount(s) >= buildSlots(s)) {
     // (the queue full, the ring's plan still goes on: its planned pieces take no slot, and the trees and rocks on its
     // line are marked to clear; no section is released into work without room: the owner's ask that a wall laid
@@ -1532,6 +1554,30 @@ export function runPlanner(s: GameState): void {
   planShop(s);
   planPens(s);
   s.plan = plan;
+}
+
+/** What the town would build next, if the founder asked it to: one building (or the ring wall) and why. The planner's old
+ *  choices as advice (the menu's top card). Homes first when beds are short, whatever the people; the wall only once
+ *  the space inside it is mostly built on (ringAdvice). */
+export interface Recommendation {
+  kind: 'building' | 'ring';
+  def?: string;
+  name: string;
+  why: string;
+}
+export function recommendBuilding(s: GameState): Recommendation | null {
+  const n = needs(s);
+  const orderable = (id: string) => {
+    const d = BUILDING_BY_ID[id];
+    return !!d && !isRingPiece(id) && !isWall(d) && pinRefusal(s, d) === null && !s.buildings.some((b) => b.def === id && b.status === 'blueprint');
+  };
+  const homes = n.freeBeds < 1 ? BUILDINGS.filter((d) => d.housing && !d.never && unlocked(s, d.id) && orderable(d.id)).sort((a, b) => b.housing! - a.housing!)[0] : undefined;
+  if (homes) return { kind: 'building', def: homes.id, name: homes.name, why: n.roughSleepers > 0 ? `${n.roughSleepers} sleep out of doors` : `${n.people} people and ${n.people + n.freeBeds} beds` };
+  const grownUps = s.people.filter((p) => !isChild(p)).length;
+  const why = ringAdvice(s, grownUps, n.raided || n.direction === 'defense');
+  if (why) return { kind: 'ring', name: s.ring ? 'The ring wall' : 'The palisade', why };
+  const w = wishes(s, n).find((q) => orderable(q.def));
+  return w ? { kind: 'building', def: w.def, name: BUILDING_BY_ID[w.def].name, why: w.why } : null;
 }
 
 /** The town's building wishes as it stands (for the tests). */

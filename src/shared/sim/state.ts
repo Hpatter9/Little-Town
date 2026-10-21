@@ -1268,6 +1268,13 @@ export interface GameState {
   pins?: Pin[];
   /** False turns the town's own planner off (tests of single mechanics). On when left out. */
   autopilot?: boolean;
+  /** Old behaviour switched back on (tests): the town lays its own blueprints. Missing or false: the founder orders every
+   *  building, wall, field, pen and street from the build menu, and the town only picks the spot (CLAUDE.md, Priorities). */
+  townBuilds?: boolean;
+  /** The founder has ordered the ring wall raised, widened or upgraded: the planner works it until it stands. */
+  ringOrder?: boolean;
+  /** The founder has ordered the streets laid: done at the next hour. */
+  streetsOrder?: boolean;
   /** The player's veto on destinations, the treasury's bounties on them (coins set aside), and when the last party
    *  formed itself (sim/parties.ts). */
   vetoed?: string[];

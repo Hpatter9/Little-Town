@@ -407,6 +407,12 @@ export class Sim {
       case 'cancelResearch':
         cancelResearch(s.research, c.topic, true);
         break;
+      case 'orderRing':
+        s.ringOrder = true;
+        break;
+      case 'orderStreets':
+        s.streetsOrder = true;
+        break;
       case 'pinBuilding': {
         const no = setPin(s, c.def, c.on);
         if (no) notify(s, `Can't wish for that: ${no.toLowerCase()}.`);

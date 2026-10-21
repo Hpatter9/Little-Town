@@ -165,7 +165,7 @@ export function planAirships(s: GameState): void {
   if (!s.research.done.includes('aeronautics')) return;
   const grown = s.people.filter((p) => !isChild(p)).length;
   if (!s.buildings.some((b) => b.def === 'airship_mast')) {
-    if (grown < 4) return;
+    if (grown < 4 || !s.townBuilds) return;
     const at = findSpot(s, BUILDING_BY_ID.airship_mast);
     if (at) placeBlueprint(s, 'airship_mast', at.x, at.y, false, false, !!at.wild);
     return;

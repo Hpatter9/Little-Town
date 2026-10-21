@@ -19,3 +19,22 @@ export function kindOf(def: BuildingDef): BuildKind {
   if (def.morale || def.healing || def.arrivals) return 'Faith and rest';
   return 'Other';
 }
+
+/** One short line on why you'd build it, from what it gives the town. */
+export function whyOf(def: BuildingDef): string {
+  if (def.housing) return `Beds for ${def.housing}: a town with no bed to spare gets no newcomers.`;
+  if (CROPS[def.id]) return 'Food: the town starves without fields.';
+  if (def.defense) return 'Raiders are met here before they reach the homes.';
+  if (def.warningMinutes) return 'Time to arm: raiders are seen coming.';
+  if (def.cells) return 'Somewhere to hold the raiders taken alive.';
+  if (def.storage) return 'Room for more goods before the stores overflow.';
+  if (def.floor) return def.floor.venue === 'tavern' ? 'Travellers eat and drink here, and spend.' : 'Travellers buy here: coins for the treasury.';
+  if (def.healing) return 'The hurt mend faster.';
+  if (def.morale) return 'Lifts spirits: low spirits slow work and bring trouble.';
+  if (def.arrivals) return 'More wanderers find the town.';
+  if (STATIONS.has(def.id) || OPERATORS[def.id]) return 'Lets the town make more, and a townsperson takes the work.';
+  return 'The town has learned to build it.';
+}
+
+/** The first sentence of what a building does. */
+export const shortPurpose = (def: BuildingDef): string => def.purpose.match(/^.*?[.!?](?=\s|$)/)?.[0] ?? def.purpose;

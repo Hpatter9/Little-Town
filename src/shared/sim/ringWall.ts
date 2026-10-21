@@ -842,3 +842,31 @@ export function ringHaulTarget(s: GameState, ring: Ring, at: Pt): Building | nul
   }
   return best;
 }
+
+/** The ring's share of cells built on: the buildings standing or going up inside its rectangle (fields and walls left out)
+ *  over the rectangle's area. A town wall isn't worth widening or upgrading until this is `RING_FILL`. */
+export const RING_FILL = 0.4;
+export function ringFill(s: GameState): number {
+  const r = s.ring?.rect;
+  if (!r) return 0;
+  let used = 0;
+  for (const b of s.buildings) {
+    const def = BUILDING_BY_ID[b.def];
+    if (!def || def.layer === 'back' || isRingPiece(b.def) || (def.hp && def.width === 1)) continue;
+    if (b.tile >= r.x && b.tile < r.x + r.w && b.row >= r.y && b.row < r.y + r.h) used += def.width * depth(def);
+  }
+  return used / Math.max(1, r.w * r.h);
+}
+
+/** Why the founder might raise (or widen, or upgrade) the ring wall now, or null: no wall yet once the town is a few
+ *  strong and raided or set on defence or six strong; a wider or better one only when the space inside is mostly built on. */
+export function ringAdvice(s: GameState, grownUps: number, pressed: boolean): string | null {
+  if (!ringTown(s) || s.ringOrder || !bestWall(s) || grownUps < 4) return null;
+  const cur = s.ring;
+  if (!cur) return pressed || grownUps >= RING_PEOPLE ? (pressed ? 'raiders keep coming: a wall round the town' : 'a palisade round the growing town') : null;
+  if (!cur.done) return 'the wall round the town is unfinished';
+  if (ringFill(s) < RING_FILL) return null;
+  if (!contains(cur.rect, wantRect(s))) return 'the town has grown past its wall';
+  if (cur.wall !== bestWall(s)) return 'a better wall is known';
+  return null;
+}

@@ -169,7 +169,7 @@ export function planBoats(s: GameState): void {
   if (!s.research.done.includes('boatbuilding')) return;
   const yards = s.buildings.filter((b) => b.def === 'boatyard');
   if (!yards.length) {
-    const at = boatyardSpot(s);
+    const at = s.townBuilds ? boatyardSpot(s) : null; // (the founder orders the boatyard)
     if (at) placeBlueprint(s, 'boatyard', at.x, at.y);
     // (no water within the known land, or only at its very edge: the town looks a little further out)
     else if (s.land.open < OPEN_TO_WATER) {

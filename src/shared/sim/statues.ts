@@ -43,6 +43,7 @@ export function nextToHonour(s: GameState): Honoured | undefined {
 
 /** Lay out a statue to the next of the honoured, if the town may. Returns whether one was laid. */
 export function raiseStatue(s: GameState): boolean {
+  if (!s.townBuilds) return false;
   const statues = s.buildings.filter((b) => b.def === STATUE);
   if (statues.some((b) => b.status !== 'done') || statues.length >= STATUES_MOST) return false;
   if (s.raid && s.raid.phase === 'active') return false;
