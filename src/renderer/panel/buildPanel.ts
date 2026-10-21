@@ -243,8 +243,6 @@ export function renderBuild(s: Snapshot, bridge: Bridge | undefined, rerender: (
   // what's ordered and under way (the player's orders first, then the town's own), each with a cancel
   out.push(...ordersBlock(s, bridge, used));
 
-  // what stands in town, each tappable (townOverview.ts)
-  out.push(...inTown(s, bridge));
   out.push(...faithSection(s));
   out.push(...villagesSection(s, bridge));
   out.push(...politicsSection(s, bridge));
@@ -274,6 +272,8 @@ export function renderBuild(s: Snapshot, bridge: Bridge | undefined, rerender: (
     out.push(grid);
   }
   out.push(...hiddenNote(hidden));
+  // what stands in town, each tappable (townOverview.ts)
+  out.push(...inTown(s, bridge));
   return out;
 }
 
