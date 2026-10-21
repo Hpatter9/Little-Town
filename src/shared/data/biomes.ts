@@ -254,7 +254,7 @@ export const DIFFICULTIES = ['easy', 'normal', 'hard'] as const;
 export type Difficulty = (typeof DIFFICULTIES)[number];
 export const DIFFICULTY_DEFS: Record<Difficulty, { name: string; description: string; raidStrength: number; raidGap: number; doomGap: number }> = {
   easy: { name: 'Easy', description: 'Smaller raids, further apart; fewer disasters.', raidStrength: 0.6, raidGap: 1.5, doomGap: 1.5 },
-  normal: { name: 'Normal', description: 'As designed.', raidStrength: 1, raidGap: 1, doomGap: 1 },
+  normal: { name: 'Normal', description: 'The intended balance of raids and disasters.', raidStrength: 1, raidGap: 1, doomGap: 1 },
   hard: { name: 'Hard', description: 'Bigger raids, more often; more disasters.', raidStrength: 1.4, raidGap: 0.75, doomGap: 0.75 },
 };
 export const difficultyOf = (s: { difficulty?: Difficulty }) => DIFFICULTY_DEFS[s.difficulty ?? 'normal'];
