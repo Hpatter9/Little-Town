@@ -6,6 +6,7 @@
 import { ERA_NAMES } from '../data/eras';
 import { ITEM_BY_ID } from '../data/items';
 import { PLACE_DEFS } from '../data/places';
+import { SAGA_BY_ID } from '../data/sagas';
 import { openThreads } from './foreshadow';
 import type { RaidRecap } from './raidRecap';
 import type { GameState } from './state';
@@ -23,6 +24,9 @@ export interface AwayBefore {
   lastRecap: RaidRecap | undefined;
   /** The favourites when the player left (sim/favourites.ts). */
   favourites?: { id: number; name: string }[];
+  /** The sagas under way (by run) and how many had ended. */
+  sagas?: Set<number>;
+  sagasDone?: number;
   /** The villages whose road to the town was already open. */
   roads?: Set<number>;
 }
@@ -43,6 +47,8 @@ export function awayBefore(s: GameState): AwayBefore {
     uniques: s.uniques?.length ?? 0,
     raids: [],
     lastRecap: s.raidRecap,
+    sagas: new Set((s.sagas ?? []).map((g) => g.run)),
+    sagasDone: s.sagasDone?.length ?? 0,
     roads: new Set((s.villages ?? []).filter((v) => v.road?.done !== undefined).map((v) => v.id)),
     favourites: favouritesOf(s).map((id) => ({ id, name: s.people.find((p) => p.id === id)?.name ?? '' })),
   };
@@ -56,6 +62,7 @@ export function awayWatch(s: GameState, b: AwayBefore): void {
 }
 
 const names = (xs: string[]) => (xs.length <= 1 ? xs.join('') : `${xs.slice(0, -1).join(', ')} and ${xs.at(-1)}`);
+const cap = (t: string) => t.charAt(0).toUpperCase() + t.slice(1);
 const MOST_NAMED = 4;
 const named = (xs: string[]) => (xs.length > MOST_NAMED ? `${names(xs.slice(0, MOST_NAMED - 1))} and ${xs.length - MOST_NAMED + 1} more` : names(xs));
 
@@ -70,33 +77,36 @@ export function awaySummary(s: GameState, b: AwayBefore): AwayLine[] {
   // the dead (from the annals, with how), and anyone else gone from the town
   const dead = (s.fallen ?? []).filter((f) => !b.fallen.has(f) && b.people.has(f.id) && !fav.has(f.id));
   for (const f of dead.slice(0, MOST_NAMED)) out.push({ tone: 'bad', text: `${f.name} died ${f.cause}.` });
-  if (dead.length > MOST_NAMED) out.push({ tone: 'bad', text: `${dead.length - MOST_NAMED} more died.` });
+  if (dead.length > MOST_NAMED) out.push({ tone: 'bad', text: `${dead.length - MOST_NAMED} more people died.` });
   const deadIds = new Set(dead.map((f) => f.id));
   const left = [...b.people].filter((id) => !now.has(id) && !deadIds.has(id) && !fav.has(id)).length;
-  if (left) out.push({ tone: 'bad', text: `${left === 1 ? 'One' : left} left the town.` });
+  if (left) out.push({ tone: 'bad', text: `${left === 1 ? 'One person' : `${left} people`} left the town.` });
   // raids and how they ended
   for (const r of b.raids) {
-    const how = r.outcome === 'pillaged' ? 'got in and took what they came for' : r.outcome === 'victory' ? 'were beaten off' : 'were driven off';
-    out.push({ tone: r.outcome === 'pillaged' ? 'bad' : 'good', text: `${r.name} raided: they ${how}${r.killed ? ` (${r.killed} felled)` : ''}.` });
+    const how = r.outcome === 'pillaged' ? 'got in and took what they came for' : r.outcome === 'victory' ? 'were beaten' : 'were driven off';
+    out.push({ tone: r.outcome === 'pillaged' ? 'bad' : 'good', text: `${cap(r.name)} attacked. They ${how}${r.killed ? `. ${r.killed} of them died` : ''}.` });
   }
+  // sagas that began, and sagas that ended (told in a few lines)
+  for (const g of s.sagas ?? []) if (!b.sagas?.has(g.run)) out.push({ tone: 'news', text: `A saga began: ${SAGA_BY_ID[g.id]?.title ?? g.id}.` });
+  for (const d of (s.sagasDone ?? []).slice(b.sagasDone ?? 0)) out.push({ tone: d.outcome === 'ruin' ? 'bad' : 'good', text: `The saga "${SAGA_BY_ID[d.id]?.title ?? d.id}" ended. ${(d.story ?? []).slice(-2).join(' ')}`.trim() });
   // births and newcomers
   const fresh = s.people.filter((p) => !b.people.has(p.id));
   const born = fresh.filter((p) => p.bornTick != null && p.bornTick >= b.tick).map((p) => p.name);
   const came = fresh.filter((p) => !(p.bornTick != null && p.bornTick >= b.tick)).map((p) => p.name);
-  if (born.length) out.push({ tone: 'good', text: `Born: ${named(born)}.` });
-  if (came.length) out.push({ tone: 'good', text: `Joined the town: ${named(came)}.` });
+  if (born.length) out.push({ tone: 'good', text: `New babies: ${named(born)}.` });
+  if (came.length) out.push({ tone: 'good', text: `New arrivals: ${named(came)}.` });
   // a new age, treasures, places found
-  if (s.era !== b.era) out.push({ tone: 'good', text: `The town reached the ${ERA_NAMES[s.era]}.` });
-  for (const u of (s.uniques ?? []).slice(b.uniques)) out.push({ tone: 'good', text: `Won ${ITEM_BY_ID[u]?.name ?? 'a treasure'}.` });
+  if (s.era !== b.era) out.push({ tone: 'good', text: `The town has entered the ${ERA_NAMES[s.era]}.` });
+  for (const u of (s.uniques ?? []).slice(b.uniques)) out.push({ tone: 'good', text: `The town won ${ITEM_BY_ID[u]?.name ?? 'a treasure'}.` });
   const found = (s.places ?? []).filter((p) => p.found != null && !b.places.has(p.id));
   const kinds = new Map<string, number>();
   for (const p of found) kinds.set(PLACE_DEFS[p.kind]?.name ?? 'a place', (kinds.get(PLACE_DEFS[p.kind]?.name ?? 'a place') ?? 0) + 1);
-  if (found.length) out.push({ tone: 'news', text: `Found: ${names([...kinds].map(([k, n]) => (n > 1 ? `${k} ×${n}` : k)))}.` });
+  if (found.length) out.push({ tone: 'news', text: `New places found: ${names([...kinds].map(([k, n]) => (n > 1 ? `${k} ×${n}` : k)))}.` });
   // a road to a daughter village finished
   for (const v of s.villages ?? []) if (v.road?.done !== undefined && !b.roads?.has(v.id)) out.push({ tone: 'good', text: `The road to ${v.name} is open.` });
   // what waits on the player
   const asks = s.prompts.length;
-  if (asks) out.push({ tone: 'ask', text: asks === 1 ? `A question waits: ${s.prompts[0].title}.` : `${asks} questions wait for you.` });
+  if (asks) out.push({ tone: 'ask', text: asks === 1 ? `A question needs you: ${s.prompts[0].title}.` : `${asks} questions need you.` });
   // (a favourite who is simply well is no reason for the card by itself)
   if (!out.length && !favs.some((l) => l.tone !== 'good')) return [];
   // the open threads to end on (sim/foreshadow.ts), after the recap
