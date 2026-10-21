@@ -49,7 +49,7 @@ at the gate for you (up to twelve real hours), and one choice event can hold the
   delves, war), and the version.
 - Big moments take the whole screen: a **choice event** (a picture, the story, two or three answers, and what came
   of it), a **raid battle** on its board, a watched party's **fight** in the old Final Fantasy style, a **mine** being
-  dug, an **envoy**, a hero's **evolution** with illuminated cards for the two roads.
+  dug, an **envoy**, a hero's **promotion** with illuminated cards for the two roads.
 
 ## Founding a town
 
@@ -83,7 +83,7 @@ passes the town to an heir while a grown-up is left.
 ## What you do
 
 - **Set the direction** (Town tab): Growth, Defence, Trade or Knowledge; the tax lever; the town's size (5, 10, 20,
-  40 or no limit); whether evolutions and stat points are put to you or left to the town; how raids are fought.
+  40 or no limit); whether promotions and stat points are put to you or left to the town; how raids are fought.
 - **Answer** the questions: strangers at the gate (take them in or send them on), choice events (about 525, some of
   them fateful), envoys, the dragon's demands, secrets found out, sagas, a party asking to be watched.
 - **Trips** (Trips tab): parties form themselves and an adventurer leads them, but you hold a **veto** on any place

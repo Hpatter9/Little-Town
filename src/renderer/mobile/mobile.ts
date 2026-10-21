@@ -359,7 +359,27 @@ new ResizeObserver(() => {
   layout();
 }).observe(tabs);
 
+// The game waits while a menu is open (the owner's ask): opening one pauses the town unless the player had paused it
+// already, and closing it lets the town run again. Pressing ▶ inside the menu is the player's own call and is kept.
+let heldByMenu: 'wait' | 'on' | null = null;
+let townPaused = false;
+bridge.onSnapshot((snap) => {
+  townPaused = snap.paused;
+  if (heldByMenu === 'wait' && snap.paused) heldByMenu = 'on';
+  else if (heldByMenu === 'on' && !snap.paused) heldByMenu = null;
+});
+const holdForMenu = (open: boolean) => {
+  if (open && !heldByMenu && !townPaused) {
+    heldByMenu = 'wait';
+    bridge.command?.({ type: 'setPaused', paused: true });
+  } else if (!open && heldByMenu) {
+    heldByMenu = null;
+    bridge.command?.({ type: 'setPaused', paused: false });
+  }
+};
+
 const applyState = (s: StripState) => {
+  holdForMenu(!!s.panel && s.panel !== 'newgame');
   sheet.hidden = !s.panel;
   document.body.classList.toggle('menu-open', !!s.panel); // (menus take the whole screen)
   if (s.panel) menu.hidden = true;

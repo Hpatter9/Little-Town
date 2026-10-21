@@ -289,7 +289,7 @@ function fillRow(row: HTMLElement, p: PersonView, s: Snapshot): void {
   const evo = q('.folk-evo');
   const asking = !!p.road && p.road.promptId !== null;
   setText(evo, asking ? '⬆' : '');
-  evo.title = asking ? 'An evolution waits: choose their road' : '';
+  evo.title = asking ? 'A promotion waits: choose their road' : '';
 }
 const setText = (e: HTMLElement, text: string) => {
   if (e.textContent !== text) e.textContent = text;
@@ -362,7 +362,7 @@ function inspectView(p: PersonView, s: Snapshot, bridge: Bridge | undefined, rer
       inspectTab = 'character';
       rerender();
     }, { cls: 'place small folk-badge pts' }));
-    if (asking) badges.append(button('⬆ An evolution awaits', () => {
+    if (asking) badges.append(button('⬆ A promotion awaits', () => {
       classOpen = p.id;
       rerender();
     }, { cls: 'place small folk-badge evo' }));
