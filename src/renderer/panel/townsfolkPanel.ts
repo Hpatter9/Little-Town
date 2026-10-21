@@ -50,7 +50,7 @@ export const townsfolkKey = (s: Snapshot) => {
       who.id, who.job, who.order, who.sick, who.gear, who.gearQ, who.pouch, who.owns, who.debt, who.bedroll, who.carryCapacity, who.partner, who.married, who.friends, who.rivals, who.enemies, who.devoted,
       who.body, who.growsUpIn !== null && Math.ceil(who.growsUpIn / 24), Math.round(who.hp / 5), who.downed, who.bleedMinutes !== null, Math.round(who.morale / 5), Math.round(who.moodTarget / 5),
       Math.round(who.needs.food * 10), Math.round(who.needs.rest * 10), who.bed, SKILLS.map((k) => [who.skills[k].level, Math.floor(who.skills[k].progress * 4)]),
-      who.cls, who.monster, who.clsName, who.stage, who.level, Math.floor(who.levelProgress * 4), who.away, who.battle, who.kit.length, who.carrying, who.recent, who.freePts, who.autoStats, who.road, who.coins, who.income, who.traits.length, who.titles, who.deeds.map((d) => d.n),
+      who.cls, who.monster, who.clsName, who.stage, who.level, Math.floor(who.levelProgress * 4), who.away, who.battle, who.kit.length, who.carrying, who.recent, who.freePts, who.autoStats, who.road, who.coins, who.income, who.traits.length, who.titles, Object.keys(who.titleWhy).length, who.deeds.map((d) => d.n),
       who.arcana,
       who.mana,
     ],
@@ -459,7 +459,11 @@ function backgroundTab(p: PersonView, s: Snapshot, out: HTMLElement): void {
   const who = el('div', 'card person');
   // their own story first (data/backstories.ts)
   if (p.story) who.append(el('div', 'story', p.story));
-  if (p.titles.length) who.append(el('div', 'story titles', `Known as ${p.titles.join(', ')}.`));
+  if (p.titles.length) {
+    who.append(el('div', 'story titles', `Known as ${p.titles.join(', ')}.`));
+    // and how each was earned (sim/titles.ts)
+    for (const t of p.titles) if (p.titleWhy[t]) who.append(el('div', 'lock', `${t}: ${p.titleWhy[t]}`));
+  }
   // their deeds, and the title each leads to next (sim/deeds.ts)
   if (p.deeds.length) {
     const deeds = el('div', 'deeds');

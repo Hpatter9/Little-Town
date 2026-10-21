@@ -56,6 +56,7 @@ import { askWays, tellStory } from './telling';
 import { noteJousts } from './arena';
 import { calendar, TICKS_PER_DAY, TICKS_PER_HOUR } from './time';
 import { gainSkill } from './townsfolk';
+import { tally } from './deeds';
 
 export interface SwornVow {
   vow: VowId;
@@ -164,12 +165,14 @@ function keepVow(s: GameState, o: OrderState, p: Person, sv: SwornVow): void {
   for (let i = 0; i < KEPT_LEVELS; i++) gainSkill(p, 'melee', 200);
   (s.marks ??= []).push({ lever: 'morale', value: KEPT_MORALE / 2, until: s.tick + TICKS_PER_DAY, text: `${p.name} kept their vow` });
   p.keptVow = true;
+  tally(p, 'vows');
   log(s, o, `${p.name} kept ${VOWS[sv.vow].name}. The Order's honour rises.`);
   notify(s, `${p.name} has kept ${VOWS[sv.vow].name}, and the Order honours them.`, true);
 }
 
 function breakVow(s: GameState, o: OrderState, p: Person, sv: SwornVow): void {
   delete o.vows[p.id];
+  tally(p, 'vowsBroken');
   o.broken++;
   o.honour = clamp(o.honour + BROKEN_HONOUR);
   p.sore = { until: s.tick + TICKS_PER_DAY, value: BROKEN_MORALE, text: `Broke ${VOWS[sv.vow].name}` };

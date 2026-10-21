@@ -4,7 +4,7 @@
 // (`capacities`): their work, their pace, their aim and blows, and the pain on their mood. A lost part is made good
 // by a prosthetic the town crafts (the planner orders the best it can make) and its healer fits in surgery.
 
-import { addDeed } from './deeds';
+import { addDeed, tally } from './deeds';
 import { sickbedHealing } from './sickbeds';
 import { ENEMIES } from '../data/enemies';
 import {
@@ -73,6 +73,7 @@ export function woundPerson(s: GameState, p: Person, dmg: number, kind: WoundKin
   const part = parts.length ? pickPart(parts, rng) : 'torso';
   const sev = Math.min(1, (dmg / Math.max(1, maxHp(p))) * SEVERITY_PER_SHARE);
   const k = typeof kind === 'function' ? kind(sev) : kind;
+  tally(p, 'wounds');
   const wounds = (p.wounds ??= []);
   const old = wounds.find((w) => w.part === part && w.kind === k);
   const w: Wound = old ?? { part, kind: k, sev: 0, peak: 0 };

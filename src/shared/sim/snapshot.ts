@@ -366,6 +366,8 @@ export interface PersonView {
   story: string;
   /** Titles earned by deeds, the sagas and the rest (sim/deeds.ts, sim/annals.ts), the latest last. */
   titles: string[];
+  /** How each title was earned (sim/titles.ts). */
+  titleWhy: Record<string, string>;
   /** Their deeds counted toward titles, and the next title each leads to (sim/deeds.ts). */
   deeds: { label: string; n: number; next: string | null; at: number | null }[];
   /** A special newcomer's secret, once the town knows it (sim/specials.ts). */
@@ -2122,6 +2124,7 @@ function personSlow(s: GameState, p: Person): Omit<PersonView, FastPart> {
     creed: s.autopilot !== false && p.bornTick == null ? creedLine(s, p) : null,
     story: storyOf(s, p),
     titles: p.titles ?? [],
+    titleWhy: p.titleWhy ?? {},
     deeds: deedLines(p),
     secret: secretView(p),
     ambition: p.bornTick == null ? { name: AMBITIONS[ambitionOf(p)].name, line: AMBITIONS[ambitionOf(p)].line } : null,
