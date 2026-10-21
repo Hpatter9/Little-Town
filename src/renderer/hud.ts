@@ -187,9 +187,8 @@ export function createHud(bridge: Bridge, onTheme?: (theme: Theme) => void): Hud
         const t = d.phase === 'signs' ? `${d.name} coming (${Math.ceil(d.hoursLeft)}h)` : d.name === 'Plague' ? `Plague: ${d.sick} sick` : `${d.name}: ${Math.ceil(d.hoursLeft)}h left`;
         if (doom.textContent !== t) doom.textContent = t;
       }
-      // while the main process simulates time away, say so (the town fast-forwards meanwhile)
       const badge =
-        snap.catchingUp != null ? `Catching up… ${Math.floor(snap.catchingUp * 100)}%` : snap.launchHours != null ? `Lift-off in ${Math.ceil(snap.launchHours)}h` : null;
+        snap.launchHours != null ? `Lift-off in ${Math.ceil(snap.launchHours)}h` : null;
       launch.hidden = badge === null;
       if (badge !== null && launch.textContent !== badge) launch.textContent = badge;
       // how long the stored food lasts everyone who eats (the undead don't), in days; red under a day

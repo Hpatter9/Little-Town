@@ -4,7 +4,6 @@ import { parseCommand } from '../src/shared/sim/commands';
 import { FAVOURITES_MOST, favouriteRefusal, isFavourite, nameDays } from '../src/shared/sim/favourites';
 import { buildObituary, obituaryLines, topicOfCause } from '../src/shared/sim/obituary';
 import { closeCall, isShaken, raidCloseCalls, SHAKEN_HOURS } from '../src/shared/sim/closeCalls';
-import { awayBefore, awaySummary } from '../src/shared/sim/awaySummary';
 import { killPerson, knockDown } from '../src/shared/sim/health';
 import { diaryOf, nearlyMine } from '../src/shared/sim/diary';
 import { journalView, snapshot } from '../src/shared/sim/snapshot';
@@ -138,28 +137,6 @@ test('close calls: a raid that left someone with a sliver of health is told in t
   // (told once: a second count finds it told)
   assert.equal(raidCloseCalls(s, 0, [{ id: a.id, died: false, fell: false }]).length, 1);
   assert.equal(a.closeCalls?.length, 1);
-});
-
-test('the away card leads with the favourites, one line each, and does not tell them twice', () => {
-  const s = town('fav-away');
-  const [, a, b, c] = s.people;
-  s.favourites = [a.id, b.id, c.id];
-  const before = awayBefore(s);
-  s.tick += 6000;
-  killPerson(s, a, 'of the plague');
-  closeCall(s, b, `${b.name} nearly bled out; Osric stopped the bleeding.`);
-  const lines = awaySummary(s, before);
-  assert.deepEqual(lines.slice(0, 3).map((l) => l.text.slice(0, 2)), ['♥ ', '♥ ', '♥ ']);
-  assert.equal(lines[0].text, `♥ ${a.name} died of the plague.`);
-  assert.ok(lines[1].text.includes('nearly bled out'));
-  assert.ok(lines[2].text.startsWith(`♥ ${c.name} is well`));
-  assert.equal(lines.filter((l) => l.text.includes(`${a.name} died`)).length, 1, 'their death told once');
-  // (a favourite who is simply well is no reason for a card)
-  const quiet = town('fav-quiet');
-  quiet.favourites = [quiet.people[1].id];
-  const b2 = awayBefore(quiet);
-  quiet.tick += 600;
-  assert.deepEqual(awaySummary(quiet, b2), []);
 });
 
 test('the news: a close call is gold, a death opens the obituary, a favourite gets a ♥ and their funeral can be watched', async () => {

@@ -34,7 +34,7 @@ import { specialsHourly } from './specials';
 import { sagasHourly } from './sagas';
 import { huntsHourly } from './hunts';
 import { dragonTick } from './dragon';
-import { holdForFight, openGate } from './raidWait';
+import { holdForFight } from './raidWait';
 import { maybeEvent } from './events';
 import { alignmentHourly } from './alignment';
 import { rally } from './rally';
@@ -600,7 +600,6 @@ export class Sim {
         break;
       case 'setPaused':
         s.paused = c.paused;
-        if (!c.paused) openGate(s); // (raiders held at the gate come on when the town runs again)
         break;
       case 'becomeLich':
         chooseLich(s);

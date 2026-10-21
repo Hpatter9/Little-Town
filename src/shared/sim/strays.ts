@@ -20,7 +20,7 @@ export function strays(s: GameState): number {
   if (s.tick % TICKS_PER_HOUR !== 0 || s.autopilot === false) return 0;
   let n = 0;
   const r = s.raid;
-  if (r && r.phase === 'active' && s.tick >= r.leavesTick + STRAY_RAID_HOURS * TICKS_PER_HOUR && !r.waiting && !r.parley && r.mercyAsk === undefined) {
+  if (r && r.phase === 'active' && s.tick >= r.leavesTick + STRAY_RAID_HOURS * TICKS_PER_HOUR && !r.parley && r.mercyAsk === undefined) {
     for (const rd of r.raiders)
       if (!rd.ally && !rd.down && !rd.gone) {
         rd.gone = true;

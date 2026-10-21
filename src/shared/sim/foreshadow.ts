@@ -14,7 +14,6 @@ import { FESTIVAL_DAY, FESTIVAL_HOUR, festivalFor } from '../data/festivals';
 import { FOOD_VALUE } from '../data/people';
 import { MARRY, MAX_CHILDREN } from '../data/social';
 import { totalStock } from './buildings';
-import { destinationOf } from './expeditions';
 import { tireless, type GameState, type Person } from './state';
 import { calendar, DAYS_PER_SEASON, SEASONS, TICKS_PER_DAY, TICKS_PER_HOUR } from './time';
 
@@ -182,32 +181,4 @@ export function foreshadow(s: GameState): Hint[] {
     .sort((a, b) => a.hours - b.hours || b.sure - a.sure)
     .slice(0, HINTS_MOST)
     .map(({ voiced: _, ...h }) => h);
-}
-
-/** The most open threads on the "While you were away" card. */
-export const THREADS_MOST = 3;
-
-/** What's still hanging as the player comes back (the away card's last lines): a party still out, a host on the march,
- *  a trial waiting, a child of the ascended growing, a dweller below unslain; then the nearest hints. A line or three. */
-export function openThreads(s: GameState): string[] {
-  if (s.autopilot === false || s.gameOver) return [];
-  const out: string[] = [];
-  const kinds = new Set<string>();
-  const party = s.expeditions.find((e) => e.phase !== 'back');
-  if (party) {
-    const lead = byId(s, party.leader ?? party.members[0]);
-    const where = destinationOf(s, party.dest)?.name;
-    out.push(`${lead ? `${lead.name}'s party` : 'A party'} is still out${where ? ` at ${where}` : ''}.`);
-  }
-  const host = (s.factions ?? []).find((f) => f.host);
-  if (host) out.push(`${(FACTION_BY_ID[host.id]?.name ?? 'A power').replace(/^the /, 'The ')}'s host is on the march.`);
-  const heir = s.people.find((p) => p.bornTick != null && p.parents?.length === 2 && p.parents.every((id) => byId(s, id)?.ascended));
-  if (heir) out.push(`${heir.name}, a child of the ascended, is growing.`);
-  else if (s.mythicOmen) out.push('The old powers are stirring: the next to take a calling may be touched.');
-  for (const h of foreshadow(s)) {
-    if (kinds.has(h.kind) || (h.kind === 'party' && party)) continue;
-    kinds.add(h.kind);
-    out.push(h.text);
-  }
-  return out.slice(0, THREADS_MOST);
 }

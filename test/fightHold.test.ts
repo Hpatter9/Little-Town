@@ -32,12 +32,20 @@ test("while a raid's battle is on screen, nothing pops up over it: the questions
   if (fightOnScreen(s)) assert.ok(s.prompts.some((p) => p.id === 99), 'still waiting for the player');
 });
 
-test('a fight left on the screen waits in the background: the time away is not played', () => {
-  const { s } = fighting('hold-away');
+test('a hidden page holds the game still, and it carries on from the same tick when it is back', async () => {
+  const { s } = fighting('hold-hidden');
+  s.battles = false;
   const loop = new GameLoop(s, () => {});
+  const pump = () => (loop as unknown as { pump(): void }).pump();
+  const wait = (ms: number) => new Promise((r) => setTimeout(r, ms));
   const tick = s.tick;
-  let done = false;
-  loop.catchUp(3_600_000, () => (done = true));
-  assert.ok(done && !loop.catchingUp, 'no catch-up');
-  assert.equal(s.tick, tick);
+  loop.hidden = true;
+  await wait(300);
+  pump();
+  assert.equal(s.tick, tick, 'no time passes while hidden');
+  loop.hidden = false;
+  pump(); // (the clock was held, so the time hidden is not owed)
+  await wait(250);
+  pump();
+  assert.ok(s.tick - tick < 10, `carried on with no catch-up (${s.tick - tick} ticks)`);
 });

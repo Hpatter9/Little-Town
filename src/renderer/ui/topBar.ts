@@ -37,9 +37,7 @@ export function topLines(s: Snapshot): { urgent: string | null; turn: string[] }
   const dying = s.people.filter((p) => p.away === null && p.bleedMinutes !== null).sort((a, b) => a.bleedMinutes! - b.bleedMinutes!);
   const starving = s.people.filter((p) => p.away === null && p.needs.food <= 0.02 && p.monster !== 'undead').length;
   const d = s.doom;
-  const urgent = s.catchingUp != null
-    ? `Catching up… ${Math.floor(s.catchingUp * 100)}%`
-    : r
+  const urgent = r
       ? r.phase === 'warning' ? `${r.name} in ${Math.ceil(r.secondsToArrival)}s` : `${r.name} in town!`
       : dying.length
         ? `${dying[0].name} bleeding out: ${bleedLeft(dying[0].bleedMinutes)}${dying.length > 1 ? ` (+${dying.length - 1})` : ''}`

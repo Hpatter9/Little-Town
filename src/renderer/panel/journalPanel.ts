@@ -1,5 +1,5 @@
-// Town Journal: the running history of the town, newest first, grouped by day. "While you were away"
-// reports stand out as cards. A filter at the top narrows it to the key events, or to the dead.
+// Town Journal: the running history of the town, newest first, grouped by day. Report entries from older saves
+// stand out as cards. A filter at the top narrows it to the key events, or to the dead.
 
 import type { AncestryView } from '../../shared/sim/ancestors';
 import type { JournalEntryView } from '../../shared/sim/snapshot';

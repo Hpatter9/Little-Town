@@ -1326,7 +1326,7 @@ const BUILDER_JOBS = ['construct', ...JOBS.filter((j) => j !== 'construct')] as 
 /** Reachable cells around a construction footprint; each can hold one builder at a time. */
 /** The first free spot beside a site's footprint (its rows above and below, then its sides) that isn't water (unless
  *  they swim), under another building, or taken by another builder, as a point in px. Checked one at a time, the
- *  cheapest test first (the catch-up after time away spent a tenth of its time listing them all). */
+ *  cheapest test first (listing them all once took a tenth of the time). */
 /** Which buildings stand on each cell (`y * 65536 + x`), for `buildSpot` (each spot looked over every building's
  *  footprint, for every site, for everyone idle): made again only when a building is put up, pulled down or changed. */
 type Cover = Map<number, number[]>;

@@ -3,7 +3,6 @@
 
 import { DEFAULT_ALERTS, type AlertSettings, type Bridge, type StripState } from '../shared/ipc';
 import { Sim } from '../shared/sim/sim';
-import { catchUp } from '../shared/sim/offline';
 import { journalView, snapshot, type Snapshot } from '../shared/sim/snapshot';
 import { newGame } from '../shared/sim/state';
 import { customSheetUrl } from './art/customIcons';
@@ -29,9 +28,8 @@ export function localBridge(): Bridge {
   const speed = Number(new URLSearchParams(location.search).get('speed') ?? 1);
   const biome = (new URLSearchParams(location.search).get('biome') ?? 'forest') as Biome;
   const sim = new Sim(newGame(seed, { biome: BIOMES.includes(biome) ? biome : 'forest' }));
-  // For poking at the preview from the browser console (never used in the app). __away(ms) pretends the
-  // game was closed for that long.
-  Object.assign(window, { __sim: sim, __away: (ms: number) => catchUp(sim, ms), __iconSheet: customSheetUrl });
+  // For poking at the preview from the browser console (never used in the app).
+  Object.assign(window, { __sim: sim, __iconSheet: customSheetUrl });
   let alerts: AlertSettings = { ...DEFAULT_ALERTS };
   const snapListeners = new Set<(s: Snapshot) => void>();
   const placeListeners = new Set<(defId: string) => void>();

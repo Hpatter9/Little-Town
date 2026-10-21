@@ -1,10 +1,8 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { FESTIVAL_DAY, festivalFor } from '../src/shared/data/festivals';
-import { awayBefore, awaySummary } from '../src/shared/sim/awaySummary';
 import { addCalendarSource, omensFor, upcoming, CALENDAR_DAYS } from '../src/shared/sim/calendar';
-import { foreshadow, hintCandidates, openThreads, RAID_SEEN_HOURS, whenWords } from '../src/shared/sim/foreshadow';
-import type { RaidRecap } from '../src/shared/sim/raidRecap';
+import { foreshadow, hintCandidates, RAID_SEEN_HOURS, whenWords } from '../src/shared/sim/foreshadow';
 import { serialize } from '../src/shared/sim/save';
 import { maxHp, type GameState, type Person } from '../src/shared/sim/state';
 import { calendar, DAYS_PER_SEASON, TICKS_PER_DAY, TICKS_PER_HOUR } from '../src/shared/sim/time';
@@ -28,12 +26,11 @@ function at(s: GameState, dayOfSeason: number, hour: number) {
 const party = (s: GameState, phase: 'out' | 'back', hoursLeft: number) =>
   s.expeditions.push({ id: s.nextId++, dest: 'nowhere', members: [s.people[1].id], leader: s.people[1].id, phase, elapsed: 0, outTicks: 1, workTicks: 1, backTicks: hoursLeft * TICKS_PER_HOUR, battle: null } as never);
 
-test('no hints, threads or omens with the autopilot off', () => {
+test('no hints or omens with the autopilot off', () => {
   const s = town('ant-off');
   s.nextRaidTick = s.tick + 2 * TICKS_PER_HOUR;
   s.autopilot = false;
   assert.deepEqual(hintCandidates(s), []);
-  assert.deepEqual(openThreads(s), []);
   assert.deepEqual(omensFor(s, 0), []);
 });
 
@@ -83,22 +80,6 @@ test('a party on its way home, the festival, the season turning and thin stores'
   assert.ok(hintCandidates(s).some((h) => h.kind === 'season'));
   for (const h of hintCandidates(s)) assert.ok(!/\d/.test(h.text), h.text);
   assert.equal(whenWords(1), 'any moment now');
-});
-
-test('the away card ends on the open threads, only after something worth a card', () => {
-  const s = town('ant-away');
-  party(s, 'out', 40);
-  let b = awayBefore(s);
-  s.tick += 600;
-  assert.deepEqual(awaySummary(s, b), [], 'a quiet absence still has no card');
-  b = awayBefore(s);
-  s.tick += 600;
-  s.raidRecap = { tick: s.tick, name: 'Wolves', outcome: 'victory', killed: 2 } as RaidRecap;
-  const lines = awaySummary(s, b);
-  const next = lines.filter((l) => l.tone === 'next');
-  assert.ok(next.length >= 1 && next.length <= 3, JSON.stringify(lines));
-  assert.equal(lines.at(-1)!.tone, 'next', 'the threads come last');
-  assert.ok(next[0].text.startsWith(`${s.people[1].name}'s party is still out`), next[0].text);
 });
 
 test('the calendar: the festival, the next season, the rite, a caravan, other systems\' dates', () => {

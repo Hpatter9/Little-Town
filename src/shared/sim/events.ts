@@ -1,8 +1,6 @@
 // Choice events (EVENTS.md; CLAUDE.md, "Choices that wait for you"). Now and then something happens that stops and
 // asks the player: a stranger at the gate, a comet, a quarrel. Each is a prompt with two or three answers and a
-// default the town takes if nobody answers in time, so it never stalls. While the town is being caught up after time
-// away the town stops at the question (holdForEvent, from offline.ts): paused, so at most one comes while you're away,
-// and it waits for the player to come back and answer, which sets the town going again.
+// default the town takes if nobody answers in time, so it never stalls.
 // The events are data (data/events.ts); what each answer does is a list of effects, applied here.
 
 import { strangerTurn } from './specials';
@@ -162,7 +160,6 @@ export function answerEvent(s: GameState, option: number, rng: Rng): void {
   const ev = s.event;
   s.event = undefined;
   if (!ev) return;
-  if (ev.held) s.paused = false; // (it stopped the town while you were away: answered, the town runs on)
   const def = EVENT_BY_ID[ev.def];
   const o = def?.options[option];
   if (!o) return;
@@ -213,21 +210,6 @@ const stockLine = (st: Record<string, number | undefined>) =>
     .filter(([, n]) => n)
     .map(([m, n]) => `+${n} ${(MATERIAL_NAMES[m as Material] ?? m).toLowerCase()}`)
     .join(', ');
-
-/** While the town is caught up after time away, a choice event stops it: the town pauses and waits for the player.
- *  Returns true when it has. */
-export function holdForEvent(s: GameState): boolean {
-  if (!s.event || !s.prompts.some((p) => p.id === s.event!.prompt)) return false;
-  s.event.held = true;
-  s.paused = true;
-  holdEventClock(s);
-  return true;
-}
-
-/** While the town is caught up after time away, open questions wait for the player (their clock is held). */
-export function holdEventClock(s: GameState): void {
-  for (const p of s.prompts) if (p.kind === 'event') p.expiresTick = Math.max(p.expiresTick, s.tick + hours(EVENT_HOURS));
-}
 
 function fill(s: GameState, text: string, who: Person | undefined): string {
   const founder = s.people.find((p) => p.id === s.mainId);

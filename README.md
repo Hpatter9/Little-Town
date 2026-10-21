@@ -28,9 +28,8 @@ it's designed for). After the first visit it works offline. To install it on And
 Chrome and choose ⋮ → Add to Home screen.
 
 Saves: the phone keeps its town in the browser's storage (keys `littletown.*`); the desktop in
-`%APPDATA%\Little Town`. Both catch up on time away: the first half hour away passes as in play, the rest at a
-quarter pace, and at most one game day passes however long you're gone. Raiders who arrive while you're away wait
-at the gate for you (up to twelve real hours), and one choice event can hold the town for your answer.
+`%APPDATA%\Little Town`. The game only runs while it is open: a saved town
+resumes exactly where it was left, and the phone page stands still while it is in the background.
 
 ## The screen
 

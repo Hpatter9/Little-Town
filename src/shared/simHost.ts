@@ -1,10 +1,9 @@
-// The phone's game, run apart from the page (the owner's ask: the phone smoother): the sim, the catch-up after time
-// away, the autosave's writing out and the alerts' look ahead live here, in a Web Worker (renderer/mobile/simWorker.ts),
+// The phone's game, run apart from the page (the owner's ask: the phone smoother): the sim, the autosave's
+// writing out and the alerts live here, in a Web Worker (renderer/mobile/simWorker.ts),
 // so none of it ever holds up drawing or a tap. The page (renderer/mobile/mobileBridge.ts) keeps what only it can:
 // localStorage, the legends and the buzz. Commands come in, snapshots go out as what changed (snapDelta.ts). No DOM:
 // where a browser has no workers the page runs this itself, and the tests run it under node.
 
-import { AHEAD_TICKS, cleanAlerts, scheduleAlerts, startForecast, type Ahead, type ForecastJob } from './alerts';
 import type { AlertSettings } from './ipc';
 import { GameLoop } from './gameLoop';
 import { SnapDiffer, type SnapDelta } from './snapDelta';
@@ -34,12 +33,6 @@ import { RAID_KIND_BY_ID } from './data/raids';
 import { startSkirmish } from './sim/roamers';
 import { Rng } from './rng';
 
-/** The look ahead for phone alerts runs a copy of the town forward a little at a time: at most `LOOK_SLICE_MS` of
- *  work, then `LOOK_PAUSE_MS` of rest, made again every `LOOK_AGAIN_MS`. The last finished look stands meanwhile.
- *  (Off the page's thread now, so it no longer has to be so sparing; it still leaves the sim its time.) */
-const LOOK_SLICE_MS = 12;
-const LOOK_PAUSE_MS = 40;
-const LOOK_AGAIN_MS = 5 * 60_000;
 const AUTOSAVE_MS = 30_000;
 /** The clock is let go after this long held, whatever the page says (a page that failed to load can't hold it). */
 const MOST_HELD_MS = 60_000;
@@ -61,8 +54,8 @@ export type ToHost =
   /** Hold the clock, or let it run (the phone's loading screen: renderer/mobile/loading.ts). */
   | { t: 'hold'; on: boolean }
   | { t: 'command'; c: Command }
-  /** Out of sight. On the phone that means the player has gone, so the game saves and books the alerts; the desktop
-   *  strip hidden behind a fullscreen app saves only (`book: false`), and books them on quitting. */
+  /** Out of sight. On the phone that means the player has gone, so the game saves (and stands still till it is back);
+   *  the desktop strip hidden behind a fullscreen app saves only (`book: false`). */
   | { t: 'hidden'; on: boolean; book?: boolean }
   /** The desktop app's debug speed (1 = real time). */
   | { t: 'speed'; n: number }
@@ -95,42 +88,20 @@ export function startSimHost(post: (m: FromHost) => void): (m: ToHost) => void {
   let game: GameLoop | null = null;
   let hidden = false;
   let leaving = false;
-  let alerts: AlertSettings | null = null;
   const differ = new SnapDiffer();
-  let ahead: Ahead | null = null;
-  let looking: ForecastJob | null = null;
 
   const send = (snap: Parameters<SnapDiffer['diff']>[0]) => {
     // (nothing is drawn while the page is hidden: what changed meanwhile goes with the first snapshot back)
     if (hidden) return;
     post({ t: 'snap', d: differ.diff(snap) });
   };
-  const saveText = (): string | null => (game && !game.catchingUp && !leaving ? serialize(game.state, Date.now()) : null);
+  const saveText = (): string | null => (game && !leaving ? serialize(game.state, Date.now()) : null);
   const saveNow = () => {
     const text = saveText();
     if (text) post({ t: 'save', text });
   };
-  const lookAhead = () => {
-    if (game && alerts?.enabled && !hidden && !game.catchingUp && !leaving) {
-      looking ??= startForecast(game.state, AHEAD_TICKS);
-      const until = performance.now() + LOOK_SLICE_MS;
-      let finished = false;
-      while (!finished && performance.now() < until) finished = looking.run(2);
-      if (finished) {
-        ahead = looking;
-        looking = null;
-        return void setTimeout(lookAhead, LOOK_AGAIN_MS);
-      }
-    }
-    setTimeout(lookAhead, LOOK_PAUSE_MS);
-  };
-  const book = () => {
-    // (nothing to book still says so: the desktop app waits on it before quitting)
-    if (!game || !alerts?.enabled || game.catchingUp) return post({ t: 'booked', ids: [] });
-    void scheduleAlerts(alerts, game.state, ahead ?? looking ?? undefined)
-      .catch(() => [] as string[])
-      .then((ids) => post({ t: 'booked', ids }));
-  };
+  // (the game only runs while it is open, so nothing is booked for a time away: the desktop app still waits on this reply)
+  const book = () => post({ t: 'booked', ids: [] });
   const stateOf = (): GameState => game!.state;
   /** For poking at it from a desktop browser's console (previews): `__saga(id)` begins a saga, and so on. */
   const DEBUG: Record<string, (...a: never[]) => unknown> = {
@@ -173,15 +144,12 @@ export function startSimHost(post: (m: FromHost) => void): (m: ToHost) => void {
     switch (m.t) {
       case 'init': {
         hidden = m.hidden;
-        alerts = cleanAlerts(m.alerts); // (boot.js sends them as stored)
         let unreadable = false;
         let state: GameState | null = null;
-        let savedAt = m.now;
         if (m.save) {
           const r = parseSave(m.save);
           if (r.ok) {
             state = r.save.state;
-            savedAt = r.save.savedAt;
           } else unreadable = true;
         }
         const fresh = !state;
@@ -193,11 +161,9 @@ export function startSimHost(post: (m: FromHost) => void): (m: ToHost) => void {
           setTimeout(() => game && (game.held = false), MOST_HELD_MS);
         }
         post({ t: 'started', fresh, unreadable });
-        if (!fresh) game.catchUp(m.now - savedAt, saveNow);
-        else saveNow();
+        if (fresh) saveNow(); // (a saved town resumes exactly where it was left: no time passes for the time it was closed)
         game.start();
         setInterval(saveNow, AUTOSAVE_MS);
-        setTimeout(lookAhead, 60_000); // (the first look a minute in, once the page has settled)
         send(game.snapshot());
         return;
       }
@@ -207,16 +173,13 @@ export function startSimHost(post: (m: FromHost) => void): (m: ToHost) => void {
         hidden = m.on;
         if (game) game.hidden = m.on;
         if (m.on) {
-          // (the page may be frozen in moments: the save first, then the alerts)
+          // (the page may be frozen in moments: save first)
           saveNow();
           if (m.book !== false) book();
         } else if (game) send(game.snapshot()); // (what changed while hidden, at once)
         return;
       case 'hold':
         if (game) game.held = m.on;
-        return;
-      case 'alerts':
-        alerts = m.a;
         return;
       case 'speed':
         if (game && m.n > 0) game.speed = m.n;
@@ -233,7 +196,7 @@ export function startSimHost(post: (m: FromHost) => void): (m: ToHost) => void {
         const opts = cleanNewGameOptions(m.opts);
         if (!opts || !game) return post({ t: 'reply', id: m.id, value: null });
         const old = game.state;
-        const legend: (Legend & { enemy?: EnemyLegend }) | null = game.catchingUp ? null : legendOf(old, m.now);
+        const legend: (Legend & { enemy?: EnemyLegend }) | null = legendOf(old, m.now);
         // (the Great Enemy goes on the legend: a descendant whose forebears it broke meets it again)
         const foe = legend ? enemyLegend(old) : undefined;
         if (legend && foe) legend.enemy = foe;
