@@ -150,6 +150,7 @@ import { canTrade, stalls } from './trade';
 import { JOBS, JOB_NAMES, RECRUIT_TYPES, TRAIT_BY_ID, type Job, type Look, type Priority } from '../data/people';
 import { canBeHeir, founderOf } from './founder';
 import { waitingOnFounder } from './founderQuests';
+import { dealingsView, type DealingsView } from './founderDealings';
 import { storyView, type StoryBookView } from './story';
 import { buyableShops, isFounderShop, managerCandidates, managerWage, seasonOfShop, shopPrice, stockLineOf, stockLinesOf } from './founderShops';
 import { heirOf } from './health';
@@ -190,6 +191,8 @@ import { guildsView, type GuildView } from './guilds';
 import { beastHome, ranchView, type RanchView } from './ranch';
 import { arenaTrip, arenaView, type ArenaView } from './arena';
 import { ARENA_AWAY } from '../data/arena';
+import { DUEL_AWAY } from '../data/duels';
+import { duelBlock, duelChoices, duelTrip, type DuelChoice } from './duel';
 import { EMPIRE_AWAY } from '../data/tradeEmpire';
 import { portalDestinations, portalSummaries, portalView, type PortalSummary, type PortalView } from './portals';
 import { arcanaView, magicView, type MagicView } from './magic';
@@ -242,6 +245,14 @@ export interface FounderView {
   shops: FounderShopView[];
   buyable: { id: number; name: string; price: number }[];
   hires: { id: number; name: string; social: number; wage: number }[];
+  /** Who the founder may challenge, with the power levels (sim/duel.ts), why they may not just now (null: they may), and the duel under way. */
+  duels: DuelChoice[];
+  duelBlock: string | null;
+  duel: { foe: string; to: 'yield' | 'death'; over: boolean; text: string | null } | null;
+  /** The names the founder gave their uniques (sim/naming.ts): the page lays them over the items' names. */
+  uniqueNames: Record<string, string>;
+  /** The visitor's terms, apprentices, matches and feasts (sim/founderDealings.ts). */
+  dealings: DealingsView;
 }
 export interface FounderShopView {
   id: number;
@@ -596,6 +607,8 @@ export interface PromptView {
   fateful?: boolean;
   /** Waits as long as it takes: a road question for the founder holds the game (sim/founderQuests.ts). */
   waits?: boolean;
+  /** A naming question (sim/naming.ts): what is to be named; the box also takes a typed name. */
+  naming?: { kind: 'building' | 'person' | 'unique'; id: number | string };
   /** A commanded party's result: who came home and who did not, then the haul (sim/muster.ts `debrief`). */
   debrief?: Debrief;
   /** For the card's scene (renderer/panel/eventScenes.ts): the choice event's id, and what a question of politics or of a
@@ -1389,7 +1402,7 @@ function founderView(s: GameState): FounderView | null {
     .filter((p) => canBeHeir(s, p))
     .map((p) => ({ id: p.id, name: p.name, role: roleOf(p) }))
     .sort((a, b) => rank[a.role] - rank[b.role]);
-  return { id: f.id, order, heir: next ? { id: next.id, name: next.name, named: next.id === s.heirId } : null, heirs, jobs: JOBS.filter((j) => j !== 'defend'), ...founderShopsView(s) };
+  return { id: f.id, order, heir: next ? { id: next.id, name: next.name, named: next.id === s.heirId } : null, heirs, jobs: JOBS.filter((j) => j !== 'defend'), ...founderShopsView(s), duels: duelChoices(s), duelBlock: duelBlock(s), duel: s.duel ? { foe: s.duel.foe.name, to: s.duel.to, over: s.duel.ended !== undefined, text: s.duel.text ?? null } : null, uniqueNames: { ...(s.uniqueNames ?? {}) }, dealings: dealingsView(s) };
 }
 
 
@@ -1565,7 +1578,7 @@ export function snapshot(s: GameState): Snapshot {
     })),
     // (a party that has just come home through the gate: the camera meets them, once; main.ts)
     homecoming: s.homecoming && s.tick - s.homecoming.tick < 3000 ? { tick: s.homecoming.tick, x: s.homecoming.x, y: s.homecoming.y } : null,
-    watch: ((e) => (e ? expeditionView(s, e) : null))(s.expeditions.find((e) => e.id === s.watching) ?? skirmishTrip(s, s.watching) ?? arenaTrip(s, s.watching)),
+    watch: ((e) => (e ? expeditionView(s, e) : null))(s.expeditions.find((e) => e.id === s.watching) ?? skirmishTrip(s, s.watching) ?? arenaTrip(s, s.watching) ?? duelTrip(s, s.watching)),
     mine: mineView(s),
     deep: deepSummary(s),
     deepView: deepView(s),
@@ -1603,6 +1616,7 @@ export function snapshot(s: GameState): Snapshot {
       who: p.who ?? null,
       ...(p.fateful ? { fateful: true } : {}),
       ...(p.waits ? { waits: true } : {}),
+      ...(p.naming ? { naming: p.naming } : {}),
       ...(p.debrief ? { debrief: p.debrief } : {}),
       ...(p.kind === 'event' && s.event?.prompt === p.id ? { eventId: s.event.def } : {}),
       ...(p.politics || p.village ? { about: p.politics ?? p.village?.about } : {}),
@@ -2127,7 +2141,7 @@ function personFast(s: GameState, p: Person): Pick<PersonView, FastPart> {
     rally: rallyState(s, p),
     bucket: p.task?.type === 'wander' && p.task.pastime === 'carry',
     indoors: (p.activity === 'mine' && p.task?.type === 'mine' && p.task.depth !== undefined) || (p.activity === 'sleep' && ((p.task?.type === 'sleep' && p.task.building !== null) || (p.task?.type === 'shelter' && p.bed !== null))) || (p.activity === 'drink' && p.task?.type === 'drink') || (p.activity === 'watch' && p.task?.type === 'relax'),
-    away: p.away === null ? null : p.away === ARENA_AWAY ? 'the arena' : p.away === EMPIRE_AWAY ? 'on the trade roads' : p.away < 0 ? awayWithArmy(s, p) : (destinationOf(s, s.expeditions.find((e) => e.id === p.away)?.dest ?? '')?.name ?? 'expedition'),
+    away: p.away === null ? null : p.away === ARENA_AWAY ? 'the arena' : p.away === DUEL_AWAY ? 'in a duel' : p.away === EMPIRE_AWAY ? 'on the trade roads' : p.away < 0 ? awayWithArmy(s, p) : (destinationOf(s, s.expeditions.find((e) => e.id === p.away)?.dest ?? '')?.name ?? 'expedition'),
     hp: p.hp,
     mana: hasMana(p) ? [Math.floor(manaNow(p)), manaMax(p)] : null,
     downed: !p.downed ? null : p.downed.bleedUntil === null ? 'recovering' : 'bleeding',

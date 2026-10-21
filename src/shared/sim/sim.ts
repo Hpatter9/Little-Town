@@ -92,6 +92,9 @@ import { giftVillage, villagesHourly } from './villages';
 import { issueEdict, politicsHourly } from './politics';
 import { guildsHourly } from './guilds';
 import { ranchCommand, ranchHourly } from './ranch';
+import { challenge, duelHourly, duelTick, duelTrip } from './duel';
+import { disputesHourly } from './disputes';
+import { nameCommand } from './naming';
 import { arenaBet, arenaHourly, arenaTick, arenaTrip } from './arena';
 import { endScene, queueScene, scenesHourly, watchScene } from './cutscenes';
 import { turnPerson, turnTown } from './turning';
@@ -141,6 +144,7 @@ import { oddsHourly } from './raidOdds';
 import { voteSettlementName } from './settlementName';
 import { setFavourite } from './favourites';
 import { founderBuyShop, founderShopManager, founderShopPrice, founderShopStock } from './founderShops';
+import { founderApprentice, founderFeast, founderHaggle, founderMatch, founderVisitor } from './founderDealings';
 import { founderGive, founderGo, founderHeir, founderRest, founderTick, founderWork } from './founder';
 
 /** How the town trades at its shop: the planner decides what's spare and what to buy. */
@@ -308,6 +312,9 @@ export class Sim {
     ranchHourly(s); // (the monster ranch's day: sim/ranch.ts)
     arenaHourly(s); // (the arena's season, its card and its bout: sim/arena.ts)
     arenaTick(s);
+    duelHourly(s); // (a rival's challenge: sim/duel.ts)
+    duelTick(s); // (the founder's duel under way)
+    disputesHourly(s); // (a quarrel or theft for the founder to judge: sim/disputes.ts)
     scenesHourly(s); // (cutscenes left unwatched lapse: sim/cutscenes.ts)
     // (a town just founded: its founding, to watch)
     if (s.tick === TICKS_PER_HOUR && s.autopilot !== false && !s.scenesSeen?.length && !s.scenes?.length) queueScene(s, 'founding');
@@ -549,7 +556,7 @@ export class Sim {
         setFavourite(s, c.id, c.on);
         break;
       case 'watch':
-        s.watching = c.expedition !== null && (s.expeditions.some((e) => e.id === c.expedition) || !!skirmishTrip(s, c.expedition) || !!arenaTrip(s, c.expedition)) ? c.expedition : undefined;
+        s.watching = c.expedition !== null && (s.expeditions.some((e) => e.id === c.expedition) || !!skirmishTrip(s, c.expedition) || !!arenaTrip(s, c.expedition) || !!duelTrip(s, c.expedition)) ? c.expedition : undefined;
         break;
       case 'giftVillage':
         giftVillage(s, c.id);
@@ -613,11 +620,34 @@ export class Sim {
       case 'founderHeir':
         founderHeir(s, c.person);
         break;
+      case 'founderVisitor':
+        founderVisitor(s, c.terms);
+        break;
+      case 'founderApprentice':
+        founderApprentice(s, c.child, c.master);
+        break;
+      case 'founderMatch':
+        founderMatch(s, c.person);
+        break;
+      case 'founderFeast':
+        founderFeast(s, c.grade);
+        break;
+      case 'founderHaggle':
+        founderHaggle(s, c.offer);
+        break;
       case 'holdPower':
         holdPower(s, c.power);
         break;
       case 'castHeld':
         if (!castHeld(s, this.rng)) notify(s, "Can't cast it yet.");
+        break;
+      case 'duel': {
+        const r = challenge(s, c.foe, c.to);
+        if (!r.ok) notify(s, `${r.reason}.`);
+        break;
+      }
+      case 'name':
+        nameCommand(s, c.kind, c.id, c.name);
         break;
       case 'answerPrompt':
         answerPrompt(s, c.prompt, c.option, this.rng);

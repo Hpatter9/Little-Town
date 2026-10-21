@@ -57,6 +57,7 @@ export function renderTrade(s: Snapshot, bridge: Bridge | undefined): HTMLElemen
       c.append(top, el('div', 'purpose', `For ${list(o.wants)}`));
       if (!o.done) {
         c.append(button('Trade', () => bridge?.command({ type: 'trade', offer: o.id }), { disabled: !o.ok, title: o.reason }));
+        c.append(button('Haggle', () => bridge?.command({ type: 'founderHaggle', offer: o.id }), { disabled: !o.ok, title: 'Go to the caravan and haggle over this deal' }));
         if (!o.ok && o.reason) c.append(el('div', 'lock short', o.reason));
       }
       grid.append(expandable(c, `deal:${o.id}`, () => dealDetails(o, s)));

@@ -139,6 +139,8 @@ export interface Building {
   /** A home's name (data/homeNames.ts), given once its first owner or resident is known and kept after
    *  (sim/memorials.ts `nameHomes`). */
   homeName?: string;
+  /** The founder named it (sim/naming.ts): the name is in `homeName`, and shows on any kind of building. */
+  named?: boolean;
   /** A statue: the one of the town's famous dead it stands for (a person's id, in `s.honoured`: sim/memorials.ts). */
   statue?: number;
   /** A pen widened for its herd: this many columns more than its def's width (sim/livestock.ts `growPen`). */
@@ -812,9 +814,14 @@ export interface Debrief {
 
 export interface Prompt {
   id: number;
-  kind: 'strangers' | 'raid' | 'rite' | 'lich' | 'gate' | 'event' | 'thirst' | 'visitor' | 'secret' | 'saga' | 'road' | 'debrief' | 'envoy' | 'watch' | 'dragon' | 'evolve' | 'refugees' | 'village' | 'council' | 'trial' | 'revolt' | 'ways' | 'enemy';
+  kind: 'strangers' | 'raid' | 'rite' | 'lich' | 'gate' | 'event' | 'thirst' | 'visitor' | 'secret' | 'saga' | 'road' | 'debrief' | 'envoy' | 'watch' | 'dragon' | 'evolve' | 'refugees' | 'village' | 'council' | 'trial' | 'revolt' | 'ways' | 'enemy' | 'dispute' | 'duel' | 'name' | 'deal';
   /** A people's own question (the origins made deeper: sim/heritage.ts `answerWays`): whose, and about what. */
   ways?: { system: string; about: string; id?: number };
+  /** A naming (sim/naming.ts): what is to be named. The options are suggestions; the box also takes a name typed in. */
+  naming?: { kind: 'building' | 'person' | 'unique'; id: number | string };
+  /** A dispute the founder judges (sim/disputes.ts) or a duel put to them (sim/duel.ts): the people it is about. */
+  dispute?: { kind: 'quarrel' | 'theft'; a: number; b: number; guilty?: boolean };
+  duel?: { foe: number; to: 'yield' | 'death' };
   /** A question of the town's politics (sim/politics.ts): a council vote, a trial or a revolt. */
   politics?: 'vote' | 'trial' | 'revolt';
   /** A daughter village's question (sim/villages.ts): some would go and found one, or one is beset. */
@@ -830,6 +837,8 @@ export interface Prompt {
   /** A road question on a trip the founder is on: no timer, no default, and the game is held until it is answered
    *  (sim/founderQuests.ts). */
   waits?: boolean;
+  /** A question the founder put (sim/founderDealings.ts): a match for someone, or a haggle over a caravan's deal. */
+  deal?: { kind: 'match'; person: number; picks: number[] } | { kind: 'haggle'; offer: number };
   /** The expedition it's about (strangers), or null. */
   expedition: number | null;
   title: string;
@@ -1205,6 +1214,13 @@ export interface GameState {
   /** Each unique's story: who made or won it, who has borne it, its deeds, its end (sim/provenance.ts). Missing on
    *  older saves, and for a unique found before there was one. */
   uniqueLog?: Record<string, import('./provenance').UniqueRecord>;
+  /** The names the founder gave their uniques, by item id (sim/naming.ts). */
+  uniqueNames?: Record<string, string>;
+  /** The founder's duel under way, or the last one (sim/duel.ts), and when disputes were last put to them (sim/disputes.ts). */
+  duel?: import('./duel').DuelState;
+  disputes?: { last: number };
+  /** When a rival last challenged the founder to a duel (sim/duel.ts). */
+  duelChallenged?: number;
   itemQ?: Record<string, number[]>;
   /** The craft queue, worked front to back. */
   crafting: CraftOrder[];
@@ -1308,6 +1324,8 @@ export interface GameState {
   /** The evening at the tavern under way (sim/nightOut.ts). */
   nightOut?: NightOut;
   lastFeast?: number;
+  /** The founder's dealings (sim/founderDealings.ts): when they last hosted, the caravans' goodwill, and who refused a match until when. */
+  dealings?: { feastAt?: number; goodwill?: number; cool?: Record<number, number> };
   /** An event to put to the player next, once the one open now is answered (`follow`). */
   eventNext?: string;
   busy?: { until: number; ids: number[]; text: string; x: number; y: number; anim: 'chop' | 'build' | 'mine' };

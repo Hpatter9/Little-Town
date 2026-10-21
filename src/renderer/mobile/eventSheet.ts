@@ -40,7 +40,7 @@ export interface EventSheet {
   update(snap: Snapshot): void;
 }
 
-export function createEventSheet(onAnswer: (prompt: number, option: number) => void, strip: HTMLIFrameElement): EventSheet {
+export function createEventSheet(onAnswer: (prompt: number, option: number) => void, strip: HTMLIFrameElement, onName?: (naming: NonNullable<PromptView['naming']>, name: string) => void): EventSheet {
   const el = document.createElement('div');
   el.id = 'event-sheet';
   el.hidden = true;
@@ -215,6 +215,34 @@ export function createEventSheet(onAnswer: (prompt: number, option: number) => v
       });
       options.append(b);
     });
+    // a naming: the suggestions above, and a box to type a name of your own (sim/naming.ts)
+    let nameForm: HTMLElement | null = null;
+    if (p.kind === 'name' && p.naming && onName) {
+      const naming = p.naming;
+      const form = document.createElement('form');
+      form.className = 'event-name';
+      const input = document.createElement('input');
+      input.type = 'text';
+      input.maxLength = 24;
+      input.placeholder = 'Or type a name';
+      input.autocomplete = 'off';
+      const go = document.createElement('button');
+      go.type = 'submit';
+      go.className = 'event-option';
+      go.textContent = 'Name it';
+      form.append(input, go);
+      form.addEventListener('submit', (ev) => {
+        ev.preventDefault();
+        const name = input.value.replace(/\s+/g, ' ').trim();
+        if (answered || name.length < 2) return void input.focus();
+        flourish();
+        onName(naming, name);
+        read.add(p.id);
+        options.replaceWith(answerBox(p, name));
+        form.remove();
+      });
+      nameForm = form;
+    }
     if (fateful && !reducedMotion()) {
       const STEP = 300;
       let at = 0;
@@ -235,7 +263,7 @@ export function createEventSheet(onAnswer: (prompt: number, option: number) => v
     const advice = document.createElement('div');
     advice.className = 'event-advice';
     if (p.recommended != null && p.why && !evolve) advice.textContent = `The town recommends "${p.options[p.recommended]}": ${p.why}.`;
-    body.append(title, text, options, advice, count);
+    body.append(title, text, options, ...(nameForm ? [nameForm] : []), advice, count);
     el.replaceChildren(art, body);
     el.scrollTop = 0;
   };
@@ -364,7 +392,7 @@ export function createEventSheet(onAnswer: (prompt: number, option: number) => v
         tell(snap);
         return;
       }
-      const p = snap.prompts.find((q) => !read.has(q.id) && (q.kind === 'event' || q.kind === 'secret' || q.kind === 'saga' || q.kind === 'road' || q.kind === 'debrief' || q.kind === 'envoy' || q.kind === 'watch' || q.kind === 'dragon' || q.kind === 'evolve' || q.kind === 'refugees' || q.kind === 'village' || q.kind === 'council' || q.kind === 'trial' || q.kind === 'revolt' || q.kind === 'ways' || q.kind === 'enemy'));
+      const p = snap.prompts.find((q) => !read.has(q.id) && (q.kind === 'event' || q.kind === 'secret' || q.kind === 'saga' || q.kind === 'road' || q.kind === 'debrief' || q.kind === 'envoy' || q.kind === 'watch' || q.kind === 'dragon' || q.kind === 'evolve' || q.kind === 'refugees' || q.kind === 'village' || q.kind === 'council' || q.kind === 'trial' || q.kind === 'revolt' || q.kind === 'ways' || q.kind === 'enemy' || q.kind === 'dispute' || q.kind === 'duel' || q.kind === 'name' || q.kind === 'deal'));
       const on = !!p && !away;
       el.hidden = !on;
       document.body.classList.toggle('event-open', on);

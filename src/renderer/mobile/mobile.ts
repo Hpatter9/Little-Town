@@ -2,6 +2,7 @@
 // in two frames: the town strip along the bottom, scaled up for fingers, and the menus in a sheet above it.
 // Everything the desktop tray does (new town, music, zoom) lives in the ☰ menu.
 
+import { applyGivenNames } from '../art/givenNames';
 import { readLevel, saveLevel, type VolumeKind } from '../volume';
 import { readVibrate, saveVibrate } from '../vibration';
 import { startNotices } from './notices';
@@ -287,8 +288,8 @@ const tabButtons = PANELS.map((p) => {
 });
 // a choice event takes the whole screen (eventSheet.ts)
 {
-  const sheet = createEventSheet((prompt, option) => bridge.command?.({ type: 'answerPrompt', prompt, option }), strip);
-  bridge.onSnapshot((snap) => sheet.update(snap));
+  const sheet = createEventSheet((prompt, option) => bridge.command?.({ type: 'answerPrompt', prompt, option }), strip, (n, name) => bridge.command?.({ type: 'name', kind: n.kind, id: n.id, name }));
+  bridge.onSnapshot((snap) => (applyGivenNames(snap), sheet.update(snap)));
 }
 // the rare things, and a party's haul, revealed card by card (revealCard.ts)
 startReveals(bridge, strip);
@@ -425,7 +426,7 @@ const drawCard = () => {
   const key = buildingCardKey(lastSnap, cardFor);
   if (key === cardKey) return;
   cardKey = key;
-  const card = buildingCard(lastSnap, cardFor, cardArt);
+  const card = buildingCard(lastSnap, cardFor, cardArt, (name) => bridge.command?.({ type: 'name', kind: 'building', id: cardFor!, name }));
   cardSlot.replaceChildren(...(card ? [card] : []));
   if (cardLines) cardLines.hidden = !!card;
 };

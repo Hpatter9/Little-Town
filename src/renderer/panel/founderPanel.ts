@@ -15,8 +15,13 @@ import { face } from './townsfolkPanel';
 export function founderKey(s: Snapshot): string {
   const f = s.people.find((p) => p.id === s.mainId);
   if (!f || !s.founder) return 'none';
-  return [f.name, f.clsName, f.level, Math.round(f.hp), f.maxHp, Math.round(f.morale), f.coins, f.doing, s.founder.order, s.founder.heir?.id, s.founder.heir?.named, s.founder.heirs.map((h) => h.id).join(','), s.founder.shops.map((x) => [x.id, x.manager?.id, x.stock, x.price, x.today, x.last, x.seasonNet].join(':')).join(';'), s.founder.buyable.map((x) => `${x.id}:${x.price}`).join(','), s.founder.hires.map((h) => h.id).join(','), Object.values(f.gear).join(','), s.coins].join('|');
+  return [f.name, f.clsName, f.level, Math.round(f.hp), f.maxHp, Math.round(f.morale), f.coins, f.doing, s.founder.order, s.founder.heir?.id, s.founder.heir?.named, s.founder.heirs.map((h) => h.id).join(','), s.founder.shops.map((x) => [x.id, x.manager?.id, x.stock, x.price, x.today, x.last, x.seasonNet].join(':')).join(';'), s.founder.buyable.map((x) => `${x.id}:${x.price}`).join(','), s.founder.hires.map((h) => h.id).join(','), Object.values(f.gear).join(','), s.coins, dealingsKey(s)].join('|');
 }
+
+const dealingsKey = (s: Snapshot): string => {
+  const d = s.founder?.dealings;
+  return d ? [d.visitor?.name, d.children.map((c) => `${c.id}:${c.master}`).join(','), d.masters.map((m) => m.id).join(','), d.matches.map((m) => m.id).join(','), d.feasts.map((x) => `${x.grade}:${x.wait}:${x.cost}`).join(',')].join('/') : '';
+};
 
 export function renderFounder(s: Snapshot, bridge: Bridge): HTMLElement[] {
   const f = s.people.find((p) => p.id === s.mainId);
@@ -101,6 +106,40 @@ export function renderFounder(s: Snapshot, bridge: Bridge): HTMLElement[] {
   buy.style.cssText = 'display:flex;flex-wrap:wrap;gap:6px';
   for (const b of v.buyable) buy.append(button(`${b.name}: ${b.price} coins`, () => bridge.command({ type: 'founderBuyShop', building: b.id }), { disabled: (f.coins ?? 0) < b.price }));
   out.push(buy);
+
+  const d = v.dealings;
+  const row = () => {
+    const r = el('div');
+    r.style.cssText = 'display:flex;flex-wrap:wrap;gap:6px';
+    return r;
+  };
+  out.push(el('h2', '', 'Host a feast'));
+  out.push(el('div', 'hint', 'The town gathers to eat and dance. It lifts spirits and your renown, eats from the stores, and trouble may follow. Paid from your purse, then the treasury.'));
+  const feasts = row();
+  for (const x of d.feasts) feasts.append(button(`${x.grade === 'feast' ? 'A feast' : 'A festival'}: ${x.cost} coins${x.wait ? ` (in ${x.wait}h)` : ''}`, () => bridge.command({ type: 'founderFeast', grade: x.grade }), { disabled: x.wait > 0 }));
+  out.push(feasts);
+
+  out.push(el('h2', '', 'Visitors and apprentices'));
+  if (d.visitor) {
+    out.push(el('div', 'hint', `${d.visitor.name} waits at the gate. Ask a price, or a favour; a price may give offence.`));
+    const terms = row();
+    terms.append(button(`Ask ${d.visitor.fee} coins`, () => bridge.command({ type: 'founderVisitor', terms: 'fee' })), button('Ask a favour', () => bridge.command({ type: 'founderVisitor', terms: 'favour' })));
+    out.push(terms);
+  } else out.push(el('div', 'hint', 'Nobody waits at the gate.'));
+  if (!d.children.length) out.push(el('div', 'hint', 'No children to take on as apprentices.'));
+  for (const c of d.children) {
+    out.push(el('div', 'hint', `${c.name}: ${c.master ? `apprenticed to ${c.master} (${c.trade ?? 'a trade'})` : 'no master yet'}`));
+    const picks = row();
+    for (const m of d.masters) if (m.name !== c.master) picks.append(button(`${m.id === v.id ? 'Yourself' : m.name} (${m.trade} ${m.level})`, () => bridge.command({ type: 'founderApprentice', child: c.id, master: m.id })));
+    out.push(picks);
+  }
+
+  out.push(el('h2', '', 'Matches and courting'));
+  out.push(el('div', 'hint', 'Put candidates to you or a grown child. They may refuse.'));
+  const matches = row();
+  for (const m of d.matches) matches.append(button(m.self ? 'Court someone' : `Find a match for ${m.name}`, () => bridge.command({ type: 'founderMatch', person: m.id })));
+  if (!d.matches.length) matches.append(el('div', 'hint', 'Nobody unwed has a candidate right now.'));
+  out.push(matches);
 
   out.push(el('h2', '', 'Name an heir'));
   out.push(el('div', 'hint', v.heir ? `${v.heir.name} would lead after you${v.heir.named ? ' (named)' : ''}. With no grown child, partner or named heir, the game ends when you die.` : 'You have no heir. With no grown child, partner or named heir, the game ends when you die.'));

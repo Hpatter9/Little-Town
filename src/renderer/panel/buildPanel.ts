@@ -13,19 +13,18 @@ import { TAX, TAX_RATES } from '../../shared/data/economy';
 import { BUILDING_BY_ID, BUILDINGS, type BuildingDef } from '../../shared/data/buildings';
 import { CROPS } from '../../shared/data/crops';
 import { eraReached } from '../../shared/data/eras';
-import { MATERIAL_NAMES, type Material } from '../../shared/data/materials';
+import { MATERIAL_NAMES, type Material, type Stock } from '../../shared/data/materials';
 import { eraOfResearch, TOPIC_BY_ID } from '../../shared/data/research';
 import { PINS_MOST } from '../../shared/sim/pins';
-import { isRingPiece } from '../../shared/sim/ringWall';
-import { BUILD_KINDS, kindOf, shortPurpose, whyOf } from './buildKinds';
+import { isRingPiece, WALL_KINDS } from '../../shared/sim/ringWall';
+import { BUILD_TABS, tabOf, whyOf, type BuildTab } from './buildKinds';
 import type { Bridge } from '../../shared/ipc';
+import type { Command } from '../../shared/sim/commands';
 import { DIRECTION_DEFS, DIRECTIONS } from '../../shared/sim/planner';
-import { blueprintCount, isUnlocked } from '../../shared/sim/buildings';
+import { isUnlocked } from '../../shared/sim/buildings';
 import type { Snapshot } from '../../shared/sim/snapshot';
 import { button, el } from './dom';
 import { thumb } from './structure';
-import { materialIcon } from '../art/materialIcons';
-import { hiddenNote, HidePrefs } from './hide';
 import { foodDays, glance, inTown } from './townOverview';
 import { dashboard, dashboardKey } from './dashboard';
 import { storesKey } from './craftingPanel';
@@ -65,7 +64,7 @@ export const buildKey = (s: Snapshot, tab: string | null = null) => {
   const on = (names: readonly string[], part: () => unknown): unknown => (tab === null || names.includes(tab) ? part() : 0);
   const heritageTiles = () => [s.heritage?.blood && [s.heritage.blood.store, s.heritage.blood.farms, s.heritage.blood.prisoners, s.heritage.blood.cells, s.heritage.blood.nightly], s.heritage?.horde && [s.heritage.horde.fury, s.heritage.horde.waaagh, s.heritage.horde.out?.target, s.heritage.horde.name]];
   return JSON.stringify([
-    hide.key,
+    tab,
     s.theme,
     on(['Overview'], () => [s.powers.map((p) => [p.id, Math.ceil(p.readyHours), Math.ceil(p.activeHours), p.held, p.affordable]), s.powerLog[0], s.nomad && [s.nomad.site, s.nomad.settled, Math.ceil((s.nomad.nextMoveDays ?? 0) * 24)], s.lichOffer, heritageTiles()]),
     on(['Overview'], () => [dashboardKey(s), s.why?.research, s.why?.craft]),
@@ -87,7 +86,6 @@ export const buildKey = (s: Snapshot, tab: string | null = null) => {
 };
 
 export function renderBuild(s: Snapshot, bridge: Bridge | undefined, rerender: () => void = () => {}): HTMLElement[] {
-  const used = blueprintCount(s);
   // the town at a glance first (townOverview.ts): every tile a way in
   const out: HTMLElement[] = [...dashboard(s, bridge, rerender), ...glance(s, bridge, rerender)];
 
@@ -242,90 +240,111 @@ export function renderBuild(s: Snapshot, bridge: Bridge | undefined, rerender: (
     }
   }
 
-  // what's ordered and under way (the player's orders first, then the town's own), each with a cancel
-  out.push(...ordersBlock(s, bridge, used));
-
   out.push(...faithSection(s));
   out.push(...villagesSection(s, bridge));
   out.push(...politicsSection(s, bridge));
   out.push(...heritageSection(s));
   out.push(...magicSection(s));
 
-  // everything it can build now: tap Build and the town picks the spot (sim/pins.ts, the planner's own placement)
-  out.push(
-    el('h2', '', 'Build: your orders'),
-    el('div', 'hint', 'Tap Build: the town picks the spot and its builders put it up.'),
-    hide.row([['built', 'Built', 'Hide the buildings the town already has'], ['locked', "Can't build yet", 'Hide the buildings still waiting on research']], rerender),
-  );
-  out.push(...recommendedBlock(s, bridge), ...wallsAndStreets(s, bridge));
-  let hidden = 0;
-  const known = BUILDINGS.filter((b) => !b.never && !isRingPiece(b.id) && !b.seat && !(b.hp && b.width === 1 && !b.defense) && (s.unlockAll || !b.research || (eraReached(s.era, TOPIC_BY_ID[b.research]?.era) && topicKnown(s, b.research))));
-  for (const kind of BUILD_KINDS) {
-    const all = known.filter((b) => kindOf(b) === kind);
-    const shown = all.filter(
-      (b) =>
-        !(hide.has('built') && s.buildings.some((q) => q.def === b.id && q.status === 'done')) &&
-        !(hide.has('locked') && !isUnlocked({ unlockAll: s.unlockAll, done: s.research.done, era: s.era, origin: s.origin.id }, b)),
-    );
-    hidden += all.length - shown.length;
-    if (!shown.length) continue;
-    out.push(el('h2', '', `Build: ${kind}`));
-    const grid = el('div', 'cards');
-    for (const def of shown) grid.append(card(def, s, bridge));
-    out.push(grid);
-  }
-  out.push(...hiddenNote(hidden));
+  out.push(...buildMenu(s, bridge, rerender));
   // what stands in town, each tappable (townOverview.ts)
   out.push(...inTown(s, bridge));
   return out;
 }
 
-/** What to hide in the list of buildings (kept across visits, per phone). */
-const hide = new HidePrefs('littletown.buildHide', ['built', 'locked'] as const);
+/** The category tab open in the build menu (kept for the session; part of the panel's redraw key). */
+let tab: BuildTab = BUILD_TABS[0];
 
-/** The town's recommended building at the top: tap to order it. */
-function recommendedBlock(s: Snapshot, bridge: Bridge | undefined): HTMLElement[] {
-  const r = s.recommend;
-  if (!r) return [];
-  const c = el('div', 'card');
-  const top = el('div', 'card-top');
-  if (r.def) top.append(thumb(r.def, 36, s));
-  top.append(el('span', 'card-name', r.name));
-  c.append(el('div', 'panel-head', 'The town recommends'), top, el('div', 'hint', `Why: ${r.why}.`));
-  const def = r.def ? BUILDING_BY_ID[r.def] : undefined;
-  if (def) c.append(el('div', 'purpose', shortPurpose(def)));
-  const ordered = r.def ? s.pins.some((p) => p.def === r.def) : s.ringOrdered;
-  c.append(button(ordered ? 'Ordered' : 'Build', () => bridge?.command(r.def ? { type: 'pinBuilding', def: r.def, on: true } : { type: 'orderRing' }), { cls: 'place build-btn', disabled: ordered || (!!r.def && s.pins.length >= PINS_MOST) }));
-  return [c];
+/** One row of the build menu: what to show and what Build does. */
+interface Row {
+  key: string;
+  icon: string | null;
+  name: string;
+  cost: Stock;
+  ordered: boolean;
+  /** Orders already at their most: the row can't take another. */
+  full?: boolean;
+  order: Command;
+  more: () => More[];
 }
 
-/** The ring wall and the streets: ordered like a building, the town picks the line. */
-function wallsAndStreets(s: Snapshot, bridge: Bridge | undefined): HTMLElement[] {
-  const out: HTMLElement[] = [el('h2', '', 'Build: Walls and streets')];
-  const grid = el('div', 'cards');
-  const card2 = (name: string, text: string, label: string, done: boolean, order: { type: 'orderRing' } | { type: 'orderStreets' }) => {
-    const c = el('div', 'card');
-    c.append(el('div', 'card-top', name), el('div', 'purpose', text), button(done ? 'Ordered' : label, () => bridge?.command(order), { cls: 'place build-btn', disabled: done }));
-    return c;
-  };
-  const wall = s.ringState === 'none' ? 'Raise the palisade' : s.ringState === 'building' ? 'Finish the ring wall' : 'Widen or upgrade the wall';
-  grid.append(
-    card2(wall, 'A wall round the town with gates where the roads cross: raiders have to break it. The town picks the line and works it until it stands. Worth widening once the space inside is mostly built on.', 'Build', s.ringOrdered, { type: 'orderRing' }),
-    card2('Lay the streets', 'Paves the paths folk have worn, and a road to each gate of the wall.', 'Build', s.streetsOrdered, { type: 'orderStreets' }),
-  );
-  out.push(grid);
+/** The build menu (the Buildings tab): what's under way, what the town recommends, then the buildings by category. */
+function buildMenu(s: Snapshot, bridge: Bridge | undefined, rerender: () => void): HTMLElement[] {
+  const out: HTMLElement[] = [el('h2', '', 'Build')];
+  out.push(...underway(s, bridge));
+  const r = s.recommend;
+  if (r) {
+    const def = r.def ? BUILDING_BY_ID[r.def] : undefined;
+    const ordered = r.def ? s.pins.some((p) => p.def === r.def) : s.ringOrdered;
+    const c = el('div', 'card recommend');
+    const top = el('div', 'card-top');
+    if (r.def) top.append(thumb(r.def, 36, s));
+    top.append(el('span', 'card-name', r.name));
+    c.append(el('div', 'panel-head', 'Recommended'), top, el('div', 'hint', `${r.why}.`));
+    const cost = def ?? BUILDING_BY_ID[WALL_KINDS[0]];
+    c.append(costLine(s, cost.cost));
+    c.append(button(ordered ? 'Ordered' : 'Build', () => bridge?.command(r.def ? { type: 'pinBuilding', def: r.def, on: true } : { type: 'orderRing' }), { cls: 'place build-btn', disabled: ordered || (!!r.def && s.pins.length >= PINS_MOST) }));
+    out.push(c);
+  }
+  const rows = buildRows(s);
+  const tabs = BUILD_TABS.filter((t) => rows.some((r) => r.tab === t));
+  if (!tabs.includes(tab) && tabs.length) tab = tabs[0];
+  const bar = el('div', 'row directions');
+  for (const t of tabs) bar.append(button(t, () => { tab = t; rerender(); }, { cls: `place small${t === tab ? ' on' : ' quiet'}` }));
+  out.push(bar);
+  const list = el('div', 'brows');
+  for (const row of rows.filter((r) => r.tab === tab)) list.append(buildRow(row, s, bridge));
+  out.push(list);
   return out;
 }
 
-/** What's ordered and under way: the player's orders (waiting, or going up), then the town's own sites. Cancel takes an
- *  order back and clears its site. */
-function ordersBlock(s: Snapshot, bridge: Bridge | undefined, used: number): HTMLElement[] {
-  const out: HTMLElement[] = [el('h2', '', 'Being built'), el('div', 'hint', `${used} of ${s.buildSlots} building slots in use.`)];
+/** Every row the menu can show, each in its category: what the town has learned to build, then the wall and the streets. */
+function buildRows(s: Snapshot): (Row & { tab: BuildTab })[] {
+  const have = { unlockAll: s.unlockAll, done: s.research.done, era: s.era, origin: s.origin.id };
+  const rows: (Row & { tab: BuildTab })[] = [];
+  for (const b of BUILDINGS) {
+    if (b.never || isRingPiece(b.id) || b.seat || (b.hp && b.width === 1 && !b.defense)) continue;
+    if (!isUnlocked(have, b) || (!s.unlockAll && b.research && !(eraReached(s.era, TOPIC_BY_ID[b.research]?.era) && topicKnown(s, b.research)))) continue;
+    rows.push({ tab: tabOf(b), key: `bld:${b.id}`, icon: b.id, name: b.name, cost: b.cost, ordered: s.pins.some((p) => p.def === b.id), full: s.pins.length >= PINS_MOST, order: { type: 'pinBuilding', def: b.id, on: true }, more: () => [el('div', 'more-line', b.purpose), el('div', 'more-line', `Why: ${whyOf(b)}`), ...buildingDetails(b, s)] });
+  }
+  const wall = s.ringState === 'none' ? 'Raise the palisade' : s.ringState === 'building' ? 'Finish the ring wall' : 'Widen or upgrade the wall';
+  rows.push(
+    { tab: 'Defence', key: 'bld:ring', icon: WALL_KINDS[0], name: wall, cost: BUILDING_BY_ID[WALL_KINDS[0]].cost, ordered: s.ringOrdered, order: { type: 'orderRing' }, more: () => ['A wall round the town with gates where the roads cross: raiders have to break it. The town picks the line and works it until it stands. Worth widening once the space inside is mostly built on.'] },
+    { tab: 'Town', key: 'bld:streets', icon: null, name: 'Lay the streets', cost: {}, ordered: s.streetsOrdered, order: { type: 'orderStreets' }, more: () => ['Paves the paths folk have worn, and a road to each gate of the wall.'] },
+  );
+  return rows;
+}
+
+/** What a cost needs, in words: nothing short gives the cost itself ("Wood 20 · Stone 5"). */
+function costLine(s: Snapshot, cost: Stock): HTMLElement {
+  const entries = (Object.entries(cost) as [Material, number][]).filter(([, n]) => n);
+  const short = entries.filter(([m, n]) => (s.stock[m] ?? 0) < n);
+  if (!entries.length) return el('div', 'brow-cost', 'No materials');
+  if (short.length) return el('div', 'brow-cost short', `needs ${short.map(([m, n]) => `${n - (s.stock[m] ?? 0)} ${MATERIAL_NAMES[m].toLowerCase()}`).join(', ')}`);
+  return el('div', 'brow-cost', entries.map(([m, n]) => `${MATERIAL_NAMES[m]} ${n}`).join(' · '));
+}
+
+/** A compact row: icon, name, cost, Build. Tap it for the details. */
+function buildRow(row: Row, s: Snapshot, bridge: Bridge | undefined): HTMLElement {
+  const afford = (Object.entries(row.cost) as [Material, number][]).every(([m, n]) => (s.stock[m] ?? 0) >= n);
+  const c = el('div', `brow${afford ? '' : ' short'}`);
+  const main = el('div', 'brow-main');
+  main.append(row.icon ? thumb(row.icon, 28, s) : el('span', 'thumb-gap'));
+  const text = el('div', 'brow-text');
+  text.append(el('div', 'card-name', row.name), costLine(s, row.cost));
+  main.append(text, button(row.ordered ? 'Ordered' : 'Build', () => bridge?.command(row.order), { cls: 'place small', disabled: row.ordered || !!row.full }));
+  c.append(main);
+  return expandable(c, row.key, row.more);
+}
+
+/** What's under way: one small strip for the orders and sites, each with its progress and a cancel. */
+function underway(s: Snapshot, bridge: Bridge | undefined): HTMLElement[] {
   const sites = s.buildings.filter((b) => b.status === 'blueprint');
   const taken = new Set<number>();
+  const out: HTMLElement[] = [];
   const row = (def: string, status: string, progress: number, cancel: () => void) => {
-    const r = el('div', 'queue-row');
-    r.append(thumb(def, 28, s), el('span', 'queue-name', BUILDING_BY_ID[def]?.name ?? def), el('span', 'queue-time', status), button('Cancel', cancel, { cls: 'place small' }));
+    const r = el('div', 'queue-row strip');
+    r.append(thumb(def, 22, s), el('span', 'queue-name', BUILDING_BY_ID[def]?.name ?? def), el('span', 'queue-time', status), button('Cancel', cancel, { cls: 'place small' }));
     const bar = el('div', 'bar');
     const fill = el('div', 'bar-fill');
     fill.style.width = `${Math.floor(progress * 100)}%`;
@@ -336,13 +355,12 @@ function ordersBlock(s: Snapshot, bridge: Bridge | undefined, used: number): HTM
   for (const p of s.pins) {
     const site = p.building ? sites.find((b) => b.def === p.def && !taken.has(b.id)) : undefined;
     if (site) taken.add(site.id);
-    out.push(row(p.def, site ? siteStatus(site) : p.why ? `waiting: ${p.why}` : 'ordered: next up', site?.progress ?? 0, () => {
+    out.push(row(p.def, site ? siteStatus(site) : p.why ? `waiting: ${p.why}` : 'next up', site?.progress ?? 0, () => {
       bridge?.command({ type: 'pinBuilding', def: p.def, on: false });
       if (site) bridge?.command({ type: 'demolish', building: site.id });
     }));
   }
   for (const b of sites) if (!taken.has(b.id)) out.push(row(b.def, siteStatus(b), b.progress, () => bridge?.command({ type: 'demolish', building: b.id })));
-  if (!out.some((e) => e.classList.contains('queue-row'))) out.push(el('p', 'empty', 'Nothing ordered or under way.'));
   return out;
 }
 
@@ -350,32 +368,6 @@ function siteStatus(b: Snapshot['buildings'][number]): string {
   const def = BUILDING_BY_ID[b.def];
   const need = (Object.entries(def.cost) as [Material, number][]).filter(([m, n]) => (b.delivered[m] ?? 0) < n);
   return b.progress > 0 ? `${Math.floor(b.progress * 100)}% built` : need.length ? `waiting on ${need.map(([m, n]) => `${MATERIAL_NAMES[m].toLowerCase()} ${b.delivered[m] ?? 0}/${n}`).join(', ')}` : 'ready to build';
-}
-
-function card(def: BuildingDef, s: Snapshot, bridge: Bridge | undefined): HTMLElement {
-  const unlocked = isUnlocked({ unlockAll: s.unlockAll, done: s.research.done, era: s.era, origin: s.origin.id }, def);
-  const c = el('div', unlocked ? 'card' : 'card locked');
-  const top = el('div', 'card-top');
-  top.append(thumb(def.id, 36, s), el('span', 'card-name', def.name));
-  const cost = el('div', 'cost');
-  let canPay = true;
-  for (const [m, n] of Object.entries(def.cost) as [Material, number][]) {
-    const have = (s.stock[m] ?? 0) >= n;
-    canPay = canPay && have;
-    const chip = el('span', have ? 'chip' : 'chip short', `${MATERIAL_NAMES[m]} ${n}`);
-    const icon = materialIcon(m);
-    if (icon) chip.prepend(icon);
-    cost.append(chip);
-  }
-  c.append(top, cost, el('div', 'purpose', `${shortPurpose(def)}`), el('div', 'hint', `Why: ${whyOf(def)}`));
-  if (!unlocked) c.append(el('div', 'lock', `Needs research: ${topicName(def.research!, s.origin.id)}`));
-  else {
-    const n = s.buildings.filter((b) => b.def === def.id && b.status === 'done').length;
-    c.append(el('div', 'lock', `${canPay ? 'In the stores now' : 'Not all in the stores yet: the town gathers it'}${n ? ` · ${n} in town` : ''}`));
-    const ordered = s.pins.some((p) => p.def === def.id);
-    c.append(button(ordered ? 'Ordered' : 'Build', () => bridge?.command({ type: 'pinBuilding', def: def.id, on: true }), { cls: 'place build-btn', disabled: ordered || s.pins.length >= PINS_MOST }));
-  }
-  return expandable(c, `bld:${def.id}`, () => buildingDetails(def, s));
 }
 
 /** A building's details (tap its card): its size and age, what it gives the town, what it fights with, the job it

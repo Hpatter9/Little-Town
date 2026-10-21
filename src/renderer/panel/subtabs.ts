@@ -17,8 +17,8 @@ const GROUPS: Record<string, MenuTabs> = {
   // the Town: how it stands and the levers, what stands in it, what's in store, the money
   build: {
     groups: [
-      ['Overview', /^(At a glance|Direction|Town size|Raid battles|Lichcraft|The seasonal round|The days ahead|.*: powers)/],
-      ['Buildings', /^(Being built|In town|Build: )/],
+      ['Overview', /^(At a glance|In town|Direction|Town size|Raid battles|Lichcraft|The seasonal round|The days ahead|.*: powers)/],
+      ['Buildings', /^Build/],
       ['Stores', /^Stores/],
       ['Faith', /^(The gods|The faithful|Miracles|Signs from the gods)/],
       ['Villages', /^Daughter villages/],
@@ -30,7 +30,7 @@ const GROUPS: Record<string, MenuTabs> = {
     intro: 'Overview',
   },
   // the founder's card: their orders and purse, and their story (chapters, one book a founder)
-  founder: { groups: [['Founder', /^(Gear|Go to|Work at|Give to the town|Rest|Your shops|Buy a shop|Name an heir)/], ['Story', /^(The founder's story|.*'s story)/]], intro: 'Founder' },
+  founder: { groups: [['Founder', /^(Gear|Go to|Work at|Give to the town|Rest|Your shops|Buy a shop|Host a feast|Visitors and apprentices|Matches and courting|Name an heir)/], ['Story', /^(The founder's story|.*'s story)/]], intro: 'Founder' },
   research: { groups: [['Studying', /^(Studying|Choose|Stations)/], ['All topics', /^All topics/]], intro: 'Studying' },
   // the Quests tab (the panel's id is still 'expeditions'): what's out now, the quests, the places, the companies
   expeditions: {

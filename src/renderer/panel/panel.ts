@@ -1,5 +1,6 @@
 // Pop-up panel window. One window serves every tab; the main process shows it and tells it which tab is open.
 
+import { applyGivenNames } from '../art/givenNames';
 import { withDeltas } from '../deltaBridge';
 import { PANELS, type Bridge, type PanelId, type StripState } from '../../shared/ipc';
 import type { Snapshot } from '../../shared/sim/snapshot';
@@ -219,6 +220,7 @@ function onState(s: StripState): void {
 if (bridge) {
   bridge.onState(onState);
   bridge.onSnapshot((next) => {
+    applyGivenNames(next);
     snap = next;
     refreshCard(next);
     noteFood(next);
