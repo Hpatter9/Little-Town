@@ -24,9 +24,9 @@ test('the return card names the dead, the newcomers, the raids, a new age and a 
   s.prompts.push({ id: 1, kind: 'event', title: 'A stranger', text: '' } as never);
   const lines = awaySummary(s, b).map((l) => `${l.tone}: ${l.text}`);
   assert.ok(lines.some((l) => l.startsWith('bad: Wren died at the hands of the wolves')), lines.join('\n'));
-  assert.ok(lines.some((l) => l === 'good: Wolves raided: they were beaten off (3 felled).'), lines.join('\n'));
-  assert.ok(lines.some((l) => l === 'good: Joined the town: Tamsin.'), lines.join('\n'));
-  assert.ok(lines.some((l) => l.startsWith('good: The town reached the')), lines.join('\n'));
-  assert.ok(lines.some((l) => l === 'ask: A question waits: A stranger.'), lines.join('\n'));
+  assert.ok(lines.some((l) => l === 'good: Wolves attacked. They were beaten. 3 of them died.'), lines.join('\n'));
+  assert.ok(lines.some((l) => l === 'good: New arrivals: Tamsin.'), lines.join('\n'));
+  assert.ok(lines.some((l) => l.startsWith('good: The town has entered the')), lines.join('\n'));
+  assert.ok(lines.some((l) => l === 'ask: A question needs you: A stranger.'), lines.join('\n'));
   assert.ok(lines[0].startsWith('bad:'), 'the worst first');
 });
