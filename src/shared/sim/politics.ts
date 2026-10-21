@@ -36,6 +36,7 @@ import { seaTown } from './sea';
 import { weatherAt } from './weather';
 import { seatOf } from '../data/seats';
 import { campXY } from './state';
+import { tally } from './deeds';
 
 export interface PoliticsState {
   sat: Record<BlocId, number>;
@@ -403,6 +404,7 @@ export function crime(s: GameState, rng: Rng): void {
 
 export function trial(s: GameState, culprit: Person, crime: CrimeKind, what: string, victim?: Person): void {
   const pol = politicsOf(s);
+  tally(culprit, `crime:${crime}`); // (caught: it counts toward their titles, data/titles.ts)
   blackSheep(s, culprit, what); // (the family's black sheep: sim/lineage.ts)
   const options: Sentence[] = crime === 'murder' || crime === 'heresy' ? ['pardon', 'stocks', 'exile', 'hang'] : ['pardon', 'fine', 'stocks', 'exile'];
   const harsh = lawOn(s, 'harsh_law');
@@ -440,6 +442,7 @@ function sentence(s: GameState, option: number, rng: Rng): void {
   const bloc = blocOf(s, p);
   if (bloc && (sen === 'exile' || sen === 'hang')) pol.sat[bloc] = clamp(pol.sat[bloc] - 6);
   let out = '';
+  if (sen === 'pardon') tally(p, 'pardoned');
   if (sen === 'pardon') out = `${p.name} is pardoned, and walks free.`;
   else if (sen === 'fine') {
     const n = Math.min(FINE, p.coins ?? 0);

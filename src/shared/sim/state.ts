@@ -160,6 +160,9 @@ export interface Building {
     decor?: { style: DecorId; level: number };
     /** What it took today and yesterday (sim/ambition.ts: a business's price). */
     takings?: { day: number; today: number; yesterday: number };
+    /** The founder's own shop (sim/founderShops.ts): its stock line, price level, the takings not yet settled, and the
+     *  season's books. */
+    run?: { stock: string; price: import('../data/founderShops').ShopPrice; till: number; season?: { n: number; gross: number; net: number }; last?: number };
   };
   /** Loads quarried from it (a quarry: sim/farming.ts `quarryLoad`). */
   dug?: number;
@@ -630,6 +633,10 @@ export interface Person {
   lvXp?: number;
   /** Raiders this person has struck the last blow on (sim/raidRecap.ts), for the hall of heroes. */
   felled?: number;
+  /** Things counted for the titles that say how someone is (`tally` in sim/deeds.ts, data/titles.ts): "slain:wolf", "wounds", "wed" ... */
+  tally?: Record<string, number>;
+  /** How each of their titles was earned (sim/titles.ts): title -> a line for their card. */
+  titleWhy?: Record<string, string>;
   /** Deeds counted toward titles (sim/deeds.ts, data/deeds.ts). */
   deeds?: Partial<Record<import('../data/deeds').DeedKind, number>>;
   /** Their last close calls (sim/closeCalls.ts): for their diary, and "Shaken" on their card for a while. */

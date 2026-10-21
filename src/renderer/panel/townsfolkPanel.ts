@@ -50,7 +50,7 @@ export const townsfolkKey = (s: Snapshot) => {
       who.id, who.job, who.order, who.sick, who.gear, who.gearQ, who.pouch, who.owns, who.debt, who.bedroll, who.carryCapacity, who.partner, who.married, who.friends, who.rivals, who.enemies, who.devoted,
       who.body, who.growsUpIn !== null && Math.ceil(who.growsUpIn / 24), Math.round(who.hp / 5), who.downed, who.bleedMinutes !== null, Math.round(who.morale / 5), Math.round(who.moodTarget / 5),
       Math.round(who.needs.food * 10), Math.round(who.needs.rest * 10), who.bed, SKILLS.map((k) => [who.skills[k].level, Math.floor(who.skills[k].progress * 4)]),
-      who.cls, who.monster, who.clsName, who.stage, who.level, Math.floor(who.levelProgress * 4), who.away, who.battle, who.kit.length, who.carrying, who.recent, who.freePts, who.autoStats, who.road, who.coins, who.income, who.traits.length, who.titles, who.deeds.map((d) => d.n),
+      who.cls, who.monster, who.clsName, who.stage, who.level, Math.floor(who.levelProgress * 4), who.away, who.battle, who.kit.length, who.carrying, who.recent, who.freePts, who.autoStats, who.road, who.coins, who.income, who.traits.length, who.titles, Object.keys(who.titleWhy).length, who.deeds.map((d) => d.n),
       who.arcana,
       who.mana,
     ],
@@ -277,7 +277,7 @@ function fillRow(row: HTMLElement, p: PersonView, s: Snapshot): void {
   const q = (sel: string) => row.querySelector<HTMLElement>(sel)!;
   const face = row.querySelector<HTMLCanvasElement>('canvas.folk-face');
   if (face) refreshFace(face, p, s);
-  setText(q('.folk-class'), `${p.job ? `${p.job.title} · ` : ''}${p.natureName} · ${p.cls ? `${p.clsName} · Lv ${p.level}` : p.growsUpIn !== null ? 'Child' : `${p.typeName} · Lv ${p.level}`} · ${p.ageYears}y${p.elder ? ' · Elder' : ''}${p.coins !== null ? ` · ● ${p.coins}` : ''}${p.owns.length ? ' · 🏠' : ''}`);
+  setText(q('.folk-class'), `${p.job ? `${p.job.title} · ` : ''}${p.natureName} · ${p.cls ? `${p.clsName} · Lv ${p.level}` : p.growsUpIn !== null ? 'Child' : `${p.typeName} · Lv ${p.level}`} · Power ${p.battle.power} · ${p.ageYears}y${p.elder ? ' · Elder' : ''}${p.coins !== null ? ` · ● ${p.coins}` : ''}${p.owns.length ? ' · 🏠' : ''}`);
   setText(q('.folk-doing'), p.away !== null ? `Away: ${p.away}` : p.doing);
   fillBar(q('.mini-bar.hp'), p.hp / p.maxHp);
   fillBar(q('.mini-bar.mood'), p.morale / 100);
@@ -459,7 +459,11 @@ function backgroundTab(p: PersonView, s: Snapshot, out: HTMLElement): void {
   const who = el('div', 'card person');
   // their own story first (data/backstories.ts)
   if (p.story) who.append(el('div', 'story', p.story));
-  if (p.titles.length) who.append(el('div', 'story titles', `Known as ${p.titles.join(', ')}.`));
+  if (p.titles.length) {
+    who.append(el('div', 'story titles', `Known as ${p.titles.join(', ')}.`));
+    // and how each was earned (sim/titles.ts)
+    for (const t of p.titles) if (p.titleWhy[t]) who.append(el('div', 'lock', `${t}: ${p.titleWhy[t]}`));
+  }
   // their deeds, and the title each leads to next (sim/deeds.ts)
   if (p.deeds.length) {
     const deeds = el('div', 'deeds');
@@ -578,7 +582,7 @@ function paperDoll(p: PersonView, s: Snapshot, rerender: () => void): HTMLElemen
   const doll = el('div', 'doll');
   const fig = el('div', 'doll-figure');
   fig.append(figure(p, s, 3));
-  fig.append(el('div', 'doll-level', `${p.cls ? `${p.clsName} · Lv ${p.level}` : `Level ${p.level}`} · Aged ${p.ageYears}${p.elder ? ' · Elder' : ''}`));
+  fig.append(el('div', 'doll-level', `${p.cls ? `${p.clsName} · Lv ${p.level}` : `Level ${p.level}`} · Power ${p.battle.power} · Aged ${p.ageYears}${p.elder ? ' · Elder' : ''}`));
   fig.append(el('div', 'hint doll-age', p.ageText));
   if (p.job) fig.append(el('div', 'hint doll-age', `${p.job.title} at the ${p.job.at}`));
   fig.append(el('div', 'hint doll-age', `${p.natureName}: ${p.natureLine}`));
@@ -685,6 +689,7 @@ function fightCard(p: PersonView, bridge?: Bridge): HTMLElement {
     grid.append(c);
   };
   const pc = (v: number) => `${Math.round(v * 100)}%`;
+  stat('Power', String(b.power));
   stat('Health', `${Math.round(Math.min(p.hp, p.maxHp))}/${p.maxHp}`);
   stat(b.ranged ? 'Damage (range)' : 'Damage', b.damage[0] === b.damage[1] ? String(b.damage[0]) : `${b.damage[0]}–${b.damage[1]}`);
   stat('Aim', pc(Math.min(1, b.accuracy)));

@@ -82,6 +82,7 @@ import {
   type ShopWantKind,
 } from '../data/shop';
 import { WORTH } from '../data/trade';
+import { PRICE_LEVELS } from '../data/founderShops';
 import { LINES, SHOP_LINES, type ShopLine } from '../data/stores';
 import { DECOR_APPEAL, DECOR_COST, DECOR_LEVELS, DECOR_MAX, DECOR_OF_NATURE, DECOR_STYLES, STARTERS } from '../data/decor';
 import { natureOf } from '../data/natures';
@@ -296,7 +297,7 @@ export function addRenown(b: Building, n: number): void {
 }
 
 /** How attractive a venue is, all told: its floor and its renown. This decides who comes, and how often. */
-export const attractiveness = (s: GameState, b: Building) => appeal(b) + Math.floor(renownOf(b)) + trophyRenown(s) + Math.floor(s.arena?.renown ?? 0);
+export const attractiveness = (s: GameState, b: Building) => appeal(b) + (b.owner !== undefined && b.owner === s.mainId && b.shop?.run ? PRICE_LEVELS[b.shop.run.price].attract : 0) + Math.floor(renownOf(b)) + trophyRenown(s) + Math.floor(s.arena?.renown ?? 0);
 
 /** Renown each treasure on show in a Trophy Hall adds to every venue (a boss's trophy, a unique weapon). */
 export const TROPHY_RENOWN = 3;

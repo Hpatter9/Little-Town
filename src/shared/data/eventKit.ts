@@ -84,7 +84,13 @@ export type EventEffect =
   /** A stranger of this type joins and is named the founder's heir (`s.heirId`: sim/health.ts `heirOf`). */
   | { adopt: string }
   /** A god's favour moved (or every god's): a shrine that changes the faith (sim/faith.ts). */
-  | { favour: 'harvest' | 'hearth' | 'war' | 'sky' | 'all'; by: number };
+  | { favour: 'harvest' | 'hearth' | 'war' | 'sky' | 'all'; by: number }
+  /* ---- the peoples' own answers (data/originOptions.ts): a people's own measure moved, only in a town of that people */
+  /** The grove's or the Court's favour, the Order's honour, the horde's fury, the pack's renown, the foundry's power,
+   *  the Great Work's progress, or wagons of settlers on the road. */
+  | { ways: 'grove' | 'court' | 'honour' | 'fury' | 'renown' | 'power' | 'work' | 'wagons'; by: number }
+  /** Raiders-and-the-like taken alive into the cells (as many as there are cells free). */
+  | { captives: number };
 
 export interface EventOption {
   label: string;

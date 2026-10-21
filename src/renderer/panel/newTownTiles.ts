@@ -1,14 +1,13 @@
 // The New Town screen's choices as tiles (the owner's ask): each choice is a symbol with its name beneath, in a grid;
-// tapping one opens a description sheet (from the bottom on the phone, at the side when it's held sideways) with a scene
-// that stands for the choice, the text, and Choose / Close. The scenes are slices of the parallax backdrops in
-// art/backdrops (their layers stacked far to near, as the fights use them) with the people's own figures in them (the sheets' scenes move: scenePlayer.ts).
+// tapping one picks it, and the wizard's footer (newGamePanel.ts) shows its details above the Accept button. The scenes are slices of the parallax backdrops in
+// art/backdrops (their layers stacked far to near, as the fights use them) with the people's own figures in them (the scenes move: scenePlayer.ts).
 
 import type { IconSheet } from '../../shared/data/items';
 import type { OriginId } from '../../shared/data/origins';
 import type { Biome, Difficulty } from '../../shared/data/biomes';
 import manifest from '../art/backdrops.json';
 import { iconSheet } from '../art/icons';
-import { button, el } from './dom';
+import { el } from './dom';
 import { addNewTownStyles } from './newTownStyles';
 
 /* ------------------------------------------------------------ which scene and symbol stand for what */
@@ -109,42 +108,14 @@ export interface Tile {
   lines: () => string[];
 }
 
-let open: HTMLElement | null = null;
-export const closeSheet = (): void => {
-  open?.remove();
-  open = null;
-};
-
-function openSheet(t: Tile, chosen: boolean, choose: () => void): void {
-  closeSheet();
-  addNewTownStyles();
-  const back = el('div', 'nt-back');
-  const sheet = el('div', 'nt-sheet');
-  const body = el('div', 'nt-sheet-body');
-  body.append(t.scene(), el('h3', 'nt-sheet-name', t.name), ...t.lines().map((l) => el('p', 'nt-sheet-text', l)));
-  const nav = el('div', 'row nt-sheet-nav');
-  nav.append(
-    button('Close', closeSheet, { cls: 'place quiet' }),
-    button(chosen ? 'Chosen ✓' : 'Choose', () => (choose(), closeSheet()), { cls: 'place next nt-choose' }),
-  );
-  sheet.append(body, nav);
-  back.append(sheet);
-  back.addEventListener('click', (e) => {
-    if (e.target === back) closeSheet();
-  });
-  open = back;
-  document.body.append(back);
-}
-
-/** A grid of tiles, the chosen one framed; a tap opens its sheet, and Choose there calls `onChoose`. */
+/** A grid of tiles, the chosen one framed; a tap picks it (`onChoose`), and the wizard's footer shows its details. */
 export function tileGrid(tiles: Tile[], chosen: string, onChoose: (id: string) => void): HTMLElement {
   addNewTownStyles();
   const grid = el('div', 'nt-grid');
   for (const t of tiles) {
-    const on = t.id === chosen;
-    const b = el('button', `nt-tile${on ? ' on' : ''}`);
+    const b = el('button', `nt-tile${t.id === chosen ? ' on' : ''}`);
     b.append(t.symbol(), el('span', 'nt-name', t.name));
-    b.addEventListener('click', () => openSheet(t, on, () => onChoose(t.id)));
+    b.addEventListener('click', () => onChoose(t.id));
     grid.append(b);
   }
   return grid;

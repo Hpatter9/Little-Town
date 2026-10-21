@@ -22,6 +22,9 @@ import { DIRECTIONS, type Direction } from './planner';
 export type MusterOp = 'raise' | 'add' | 'drop' | 'lead' | 'persuade' | 'order' | 'set' | 'send' | 'cancel';
 const MUSTER_OPS: readonly MusterOp[] = ['raise', 'add', 'drop', 'lead', 'persuade', 'order', 'set', 'send', 'cancel'];
 
+/** The most cells one `markClear` (a drag across the map) may mark or unmark. */
+export const MARK_CLEAR_CAP = 150;
+
 export type Command =
   | { type: 'setPaused'; paused: boolean }
   /** Where the self-running town puts its effort. */
@@ -37,6 +40,7 @@ export type Command =
   | { type: 'bounty'; dest: string; post: boolean }
   /** Mark a wild cell of the land for gathering (clearing it), or unmark it. */
   | { type: 'toggleGather'; cell: number }
+  | { type: 'markClear'; cells: number[]; on: boolean }
   /** Place a blueprint with its top-left cell at (x, y). */
   | { type: 'placeBuilding'; def: string; x: number; y: number }
   /** Cancel a blueprint or demolish a finished building. */
@@ -93,6 +97,12 @@ export type Command =
   | { type: 'founderRest' }
   | { type: 'founderGive'; amount: number }
   | { type: 'founderHeir'; person: number | null }
+  /** The founder's shops (sim/founderShops.ts): buy one, set its stock line and price, hire its manager (the founder's own
+   *  id: they work the counter; null: shut it). */
+  | { type: 'founderBuyShop'; building: number }
+  | { type: 'founderShopStock'; building: number; stock: string }
+  | { type: 'founderShopPrice'; building: number; price: 'low' | 'fair' | 'high' }
+  | { type: 'founderShopManager'; building: number; person: number | null }
   /** Follow a townsperson, or stop (sim/favourites.ts): a view preference only. */
   | { type: 'favourite'; id: number; on: boolean }
   /** Go into a mine on the land and watch the digging (null: back to the town). */
@@ -179,6 +189,8 @@ export function parseCommand(raw: unknown): Command | null {
       return c.size === null || (Number.isInteger(c.size) && (c.size as number) >= 1 && (c.size as number) <= 200) ? { type: 'setTownSize', size: c.size as number | null } : null;
     case 'toggleGather':
       return Number.isInteger(c.cell) ? { type: 'toggleGather', cell: c.cell as number } : null;
+    case 'markClear':
+      return Array.isArray(c.cells) && typeof c.on === 'boolean' && c.cells.length <= MARK_CLEAR_CAP && c.cells.every((q) => Number.isInteger(q)) ? { type: 'markClear', cells: c.cells as number[], on: c.on } : null;
     case 'placeBuilding':
       return typeof c.def === 'string' && BUILDING_BY_ID[c.def] && Number.isInteger(c.x) && Number.isInteger(c.y) ? { type: 'placeBuilding', def: c.def, x: c.x as number, y: c.y as number } : null;
     case 'demolish':
@@ -282,6 +294,14 @@ export function parseCommand(raw: unknown): Command | null {
       return { type: 'founderRest' };
     case 'founderGive':
       return Number.isInteger(c.amount) && (c.amount as number) > 0 && (c.amount as number) <= 100000 ? { type: 'founderGive', amount: c.amount as number } : null;
+    case 'founderBuyShop':
+      return Number.isInteger(c.building) ? { type: 'founderBuyShop', building: c.building as number } : null;
+    case 'founderShopStock':
+      return Number.isInteger(c.building) && typeof c.stock === 'string' && (c.stock as string).length < 24 ? { type: 'founderShopStock', building: c.building as number, stock: c.stock as string } : null;
+    case 'founderShopPrice':
+      return Number.isInteger(c.building) && (c.price === 'low' || c.price === 'fair' || c.price === 'high') ? { type: 'founderShopPrice', building: c.building as number, price: c.price } : null;
+    case 'founderShopManager':
+      return Number.isInteger(c.building) && (c.person === null || Number.isInteger(c.person)) ? { type: 'founderShopManager', building: c.building as number, person: c.person as number | null } : null;
     case 'founderHeir':
       return c.person === null || Number.isInteger(c.person) ? { type: 'founderHeir', person: c.person as number | null } : null;
     case 'rally':

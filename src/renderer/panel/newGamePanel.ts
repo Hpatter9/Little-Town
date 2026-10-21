@@ -1,7 +1,7 @@
 // New town panel, one question at a time (the owner's ask: a step-by-step prompt, not one long page): who founds the
 // town (the origin), the founder (one of the origin's three ready-made: data/founders.ts), how it begins (scenario),
-// where, how dangerous the world is, and last the rules and the Found button. Back and Next move between the steps,
-// and the dots show how far along. Opened from the tray's "New game…", the game-over card, and on a first run.
+// where, how dangerous the world is, and last the rules and the Found button. Tapping a choice picks it and shows its details; Accept confirms and moves on, and Back
+// returns with the earlier choice still picked. The dots show how far along. Opened from the tray's "New game…", the game-over card, and on a first run.
 
 import { CONQUEST } from '../../shared/data/conquest';
 import { readLegends } from '../legends';
@@ -21,7 +21,7 @@ import { TICKS_PER_HOUR } from '../../shared/sim/time';
 import { loadLpc, lpcCanvas } from '../art/lpc/lpcCompose';
 import { FOUNDER_ID } from '../art/heroForms';
 import { button, el } from './dom';
-import { BIOME_SCENE, closeSheet, DANGER_GLYPH, figureSymbol, glyphSymbol, ORIGIN_GLYPH, SCENARIO_GLYPH, sceneSymbol, tileGrid, type Tile } from './newTownTiles';
+import { BIOME_SCENE, DANGER_GLYPH, figureSymbol, glyphSymbol, ORIGIN_GLYPH, SCENARIO_GLYPH, sceneSymbol, tileGrid, type Tile } from './newTownTiles';
 import { animScene } from './scenePlayer';
 import { BIOME_SCRIPTS, DANGER_SCRIPTS, founderScript, ORIGIN_SCRIPTS, SCENARIO_SCRIPTS } from './sceneScripts';
 
@@ -45,6 +45,9 @@ export const restartNewGame = (): void => {
 };
 // (the realms page only while the conquest is on: data/conquest.ts)
 const STEPS: readonly string[] = ['Who founds the town?', 'Your founder', 'How does it begin?', 'Where will you found your town?', 'How dangerous is the world?', ...(CONQUEST.on ? ['How many realms share the world?'] : []), 'Ready to found it?'];
+
+/** The tiles of each step's grid, so the footer can show the picked one's details. */
+const stepTiles: Tile[][] = [];
 
 let lpcReady: Promise<void> | null = null;
 
@@ -94,14 +97,13 @@ export function renderNewGame(snap: Snapshot, bridge: Bridge): HTMLElement[] {
   const dangers = el('div', 'nt-group');
   const found = button('', () => {
     step = 0;
-    closeSheet();
     bridge.newGame(choices());
   }, { cls: 'place found next' });
 
   const drawOrigins = () =>
     origins.replaceChildren(
       tileGrid(
-        ORIGINS.map((id): Tile => {
+        (stepTiles[0] = ORIGINS.map((id): Tile => {
           const o = ORIGIN_DEFS[id];
           return {
             id,
@@ -110,7 +112,7 @@ export function renderNewGame(snap: Snapshot, bridge: Bridge): HTMLElement[] {
             scene: () => animScene(ORIGIN_SCRIPTS[id], FOUNDERS[id].map(dollKeys)),
             lines: () => [o.description, ...o.features.map((f) => `• ${f}`)],
           };
-        }),
+        })),
         origin,
         (id) => ((origin = id as OriginId), drawOrigins(), drawPlaces(), drawFounders(), refreshChosen()),
       ),
@@ -118,13 +120,13 @@ export function renderNewGame(snap: Snapshot, bridge: Bridge): HTMLElement[] {
   const drawScenarios = () =>
     scenarios.replaceChildren(
       tileGrid(
-        SCENARIOS.map((sc): Tile => ({
+        (stepTiles[2] = SCENARIOS.map((sc): Tile => ({
           id: sc.id,
           name: sc.name,
           symbol: () => glyphSymbol(SCENARIO_GLYPH[sc.id] ?? ['Food', 7, 2]),
           scene: () => animScene(SCENARIO_SCRIPTS[sc.id] ?? SCENARIO_SCRIPTS.lone, FOUNDERS[origin].map(dollKeys)),
           lines: () => [sc.description],
-        })),
+        }))),
         scenario,
         (id) => ((scenario = id), drawScenarios(), refreshChosen()),
       ),
@@ -138,13 +140,13 @@ export function renderNewGame(snap: Snapshot, bridge: Bridge): HTMLElement[] {
         ? [el('div', 'hint', `${ORIGIN_DEFS[origin].name} settle the coast: half their land is the sea.`)]
         : [
             tileGrid(
-              BIOMES.map((b): Tile => ({
+              (stepTiles[3] = BIOMES.map((b): Tile => ({
                 id: b,
                 name: BIOME_DEFS[b].name,
                 symbol: () => sceneSymbol(BIOME_SCENE[b]),
                 scene: () => animScene(BIOME_SCRIPTS[b], FOUNDERS[origin].map(dollKeys)),
                 lines: () => [BIOME_DEFS[b].description],
-              })),
+              }))),
               biome,
               (id) => ((biome = id as Biome), drawPlaces(), refreshChosen()),
             ),
@@ -152,18 +154,18 @@ export function renderNewGame(snap: Snapshot, bridge: Bridge): HTMLElement[] {
     );
     dangers.replaceChildren(
       tileGrid(
-        DIFFICULTIES.map((d): Tile => ({
+        (stepTiles[4] = DIFFICULTIES.map((d): Tile => ({
           id: d,
           name: DIFFICULTY_DEFS[d].name,
           symbol: () => glyphSymbol(DANGER_GLYPH[d]),
           scene: () => animScene(DANGER_SCRIPTS[d], FOUNDERS[origin].map(dollKeys)),
           lines: () => [DIFFICULTY_DEFS[d].description],
-        })),
+        }))),
         difficulty,
         (id) => ((difficulty = id as Difficulty), drawPlaces(), refreshChosen()),
       ),
     );
-    found.textContent = origin === 'settlers' ? `Found a ${BIOME_DEFS[biome].name.toLowerCase()} town` : `Found ${ORIGIN_DEFS[origin].town} (${BIOME_DEFS[biome].name.toLowerCase()})`;
+    found.textContent = origin === 'settlers' ? `Accept: found a ${BIOME_DEFS[biome].name.toLowerCase()} town` : `Accept: found ${ORIGIN_DEFS[origin].town} (${BIOME_DEFS[biome].name.toLowerCase()})`;
   };
 
   /* ---------------------------------------------------- the founder: one of the origin's three, and perhaps a new name */
@@ -180,7 +182,7 @@ export function renderNewGame(snap: Snapshot, bridge: Bridge): HTMLElement[] {
     nameInput.placeholder = `Rename (or keep ${FOUNDER_BY_ID[pick].name})`;
     cards.replaceChildren(
       tileGrid(
-        list.map((f): Tile => ({
+        (stepTiles[1] = list.map((f): Tile => ({
           id: f.id,
           name: f.name,
           symbol: () => figureSymbol(doll(f)),
@@ -203,7 +205,7 @@ export function renderNewGame(snap: Snapshot, bridge: Bridge): HTMLElement[] {
               ...(f.brings?.length ? [`Comes with ${f.brings.map((b) => `${/^[aeiou]/.test(b) ? 'an' : 'a'} ${b}`).join(' and ')}`] : []),
             ];
           },
-        })),
+        }))),
         pick,
         (id) => ((pick = id), drawFounders(), refreshChosen()),
       ),
@@ -231,17 +233,18 @@ export function renderNewGame(snap: Snapshot, bridge: Bridge): HTMLElement[] {
 
   // one step at a time: the question, its choices, and Back / Next
   const wrap = el('div', 'wizard');
-  /** The step's current pick, named under its question. */
-  const chosenName = (): string =>
-    [ORIGIN_DEFS[origin].name, FOUNDER_BY_ID[pick].name, SCENARIOS.find((x) => x.id === scenario)?.name ?? '', BIOME_DEFS[biome].name, DIFFICULTY_DEFS[difficulty].name][step] ?? '';
-  const chosen = el('div', 'nt-chosen');
+  const chosenId = (): string => [origin, pick, scenario, biome, difficulty][step] ?? '';
+  /** The details box: what the picked option is and how it plays (the sticky footer, above Accept). */
+  const details = el('div', 'nt-details');
   const refreshChosen = () => {
-    chosen.textContent = chosenName() ? `Chosen: ${chosenName()}` : '';
+    const t = stepTiles[step]?.find((x) => x.id === chosenId());
+    details.hidden = !t;
+    if (!t) return details.replaceChildren();
+    details.replaceChildren(el('div', 'nt-details-name', t.name), ...t.lines().map((l) => el('p', 'nt-details-text', l)));
   };
   const draw = () => {
-    closeSheet();
     const page: HTMLElement[] = [];
-    if (step === 0) page.push(origins, el('div', 'hint', 'Each changes how the whole game plays and looks. Settlers are the classic game.'));
+    if (step === 0) page.push(el('div', 'hint', 'You play the founder: you steer them, and you order every building yourself. Your people live and work on their own. Tap a people to read about it, then Accept.'), origins);
     else if (step === 1) page.push(founder);
     else if (step === 2) page.push(scenarios);
     else if (step === 3) page.push(biomes);
@@ -258,9 +261,11 @@ export function renderNewGame(snap: Snapshot, bridge: Bridge): HTMLElement[] {
     const nav = el('div', 'row wizard-nav');
     nav.append(
       button('‹ Back', () => go(step - 1), { cls: 'place quiet', disabled: step === 0 }),
-      step < STEPS.length - 1 ? button('Next ›', () => go(step + 1), { cls: 'place next' }) : found,
+      step < STEPS.length - 1 ? button('Accept', () => go(step + 1), { cls: 'place next accept' }) : found,
     );
-    wrap.replaceChildren(el('div', 'wizard-step', `Step ${step + 1} of ${STEPS.length}`), el('h3', 'newgame-head', STEPS[step]), ...(step <= 4 ? [chosen] : []), ...page, nav, dots);
+    const foot = el('div', 'wizard-foot');
+    foot.append(...(step <= 4 ? [details] : []), nav);
+    wrap.replaceChildren(el('div', 'wizard-step', `Step ${step + 1} of ${STEPS.length}`), el('h3', 'newgame-head', STEPS[step]), ...page, dots, foot);
     refreshChosen();
   };
   const go = (i: number) => {
@@ -291,7 +296,7 @@ export function renderNewGame(snap: Snapshot, bridge: Bridge): HTMLElement[] {
     const lines = [
       `${ORIGIN_DEFS[origin].name}, led by ${name.trim() || f.name}, ${f.title}`,
       `${sc?.name ?? scenario} · ${BIOME_DEFS[biome].name} · ${DIFFICULTY_DEFS[difficulty].name}`,
-      `A world of ${realms} realms and ${PROVINCES_PER_REALM * realms} provinces`,
+      ...(CONQUEST.on ? [`A world of ${realms} realms and ${PROVINCES_PER_REALM * realms} provinces`] : []),
     ];
     const box = el('div', 'card wizard-summary');
     // (the game's mark over it, the home-screen icon: loading/logo.ts; gone where the page has none, as on the desktop)

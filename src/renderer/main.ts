@@ -103,7 +103,7 @@ import { buildingTint } from './theme';
 function travellerPerson(t: TravellerView): PersonView {
   return {
     id: t.id, name: t.name, typeName: 'Traveller', look: t.look, x: t.x, y: t.y, dir: t.dir,
-    activity: 'walk', taskDone: null, story: '', titles: [], deeds: [], secret: null, sinceHit: 999, hitFrom: 1, sinceBlow: 999, sinceBlock: 999, defending: false, beast: null, cls: null, clsName: null, clsPast: [], income: null, owns: [], debt: 0, ambition: null, trips: 0, clsText: '', founderCalling: false, shaken: false, stage: 0, ascended: false, level: 1, levelProgress: 0, mounted: null, doing: travellerDoing(t), carrying: {},
+    activity: 'walk', taskDone: null, story: '', titles: [], titleWhy: {}, deeds: [], secret: null, sinceHit: 999, hitFrom: 1, sinceBlow: 999, sinceBlock: 999, defending: false, beast: null, cls: null, clsName: null, clsPast: [], income: null, owns: [], debt: 0, ambition: null, trips: 0, clsText: '', founderCalling: false, shaken: false, stage: 0, ascended: false, level: 1, levelProgress: 0, mounted: null, doing: travellerDoing(t), carrying: {},
     skills: {} as PersonView['skills'], traits: [], needs: { food: 1, rest: 1 }, morale: 60, moodTarget: 60, moodReasons: [], grieving: false,
     priorities: {} as PersonView['priorities'], autoPriorities: false, bed: null, bedId: null, floor: null,
     indoors: t.phase === 'shopping', // (inside the shop: see its window)
@@ -113,7 +113,7 @@ function travellerPerson(t: TravellerView): PersonView {
     partner: null, married: false, friends: [], rivals: [], enemies: [], devoted: [], body: { wounds: [], lasting: [], fitted: [], sight: 1, handling: 1, moving: 1, pain: 0, marks: [] }, growsUpIn: null, breakdown: null, ageDays: 0,
   ageYears: 0, lifeStage: 'prime', ageText: '', elder: false, swimming: false, mer: false, nature: 'cheerful', natureName: 'Cheerful', natureLine: '', creed: null, job: null,
   monster: null, tireless: false, order: null, sick: false, rounds: false,
-    battle: { damage: [0, 0], accuracy: 0, dodge: 0, armor: 0, block: 0, crit: 0, ranged: false, attrs: { str: 8, dex: 8, vit: 8, int: 8, wis: 8, cha: 8 }, mp: 0, sp: 0, interval: 12, range: 1 }, kit: [], passives: [], road: null, roadId: null, freePts: 0, autoStats: false,
+    battle: { damage: [0, 0], accuracy: 0, dodge: 0, armor: 0, block: 0, crit: 0, ranged: false, attrs: { str: 8, dex: 8, vit: 8, int: 8, wis: 8, cha: 8 }, mp: 0, sp: 0, interval: 12, range: 1, power: 0 }, kit: [], passives: [], road: null, roadId: null, freePts: 0, autoStats: false,
   favours: [],
   diary: [],
   pastime: null,
@@ -173,6 +173,7 @@ const travellerDoing = (t: TravellerView) => {
 import { bleedLeft } from '../shared/format';
 import { poolSize } from '../shared/sim/state';
 import { hashSeed } from '../shared/rng';
+import { MARK_CLEAR_CAP } from '../shared/sim/commands';
 import { CELL, cellAt, groundAt, idx, isMarked, isRoad, wet, WILD } from '../shared/sim/land';
 import { loadCreatures } from './art/creatures';
 import { loadEffects } from './art/effects';
@@ -644,6 +645,34 @@ async function start(): Promise<void> {
     camera.centreOn(snap?.camp ?? first.camp, app.screen.width, app.screen.height);
   });
   document.body.append(homeButton);
+  // (the Clear button: while it's on, a tap or a drag over trees, scrub and rock marks them for the townsfolk to clear,
+  //  and a tap on a marked cell lifts the mark. The sweep is sent as one `markClear` when the finger lifts.)
+  let clearing = false;
+  let sweep: { id: number; on: boolean; cells: Set<number>; last: { x: number; y: number } } | null = null;
+  const CLEAR_TIP_KEY = 'littletown.clearTip';
+  const clearButton = document.createElement('button');
+  clearButton.id = 'clear-land';
+  clearButton.setAttribute('data-hit', '');
+  clearButton.title = 'Clear land';
+  clearButton.setAttribute('aria-label', 'Clear land');
+  clearButton.textContent = '⛏';
+  clearButton.addEventListener('click', (e) => {
+    e.stopPropagation();
+    clearing = !clearing;
+    sweep = null;
+    clearButton.classList.toggle('on', clearing);
+    if (!clearing) return banner.hide();
+    banner.show('Clearing land', 'Drag over trees and rock · tap a mark to lift it');
+    try {
+      if (!localStorage.getItem(CLEAR_TIP_KEY)) {
+        localStorage.setItem(CLEAR_TIP_KEY, '1');
+        toasts.push('The townsfolk clear marked land first.');
+      }
+    } catch {
+      /* (no storage: no tip) */
+    }
+  });
+  document.body.append(clearButton);
   camera.centreOn(first.camp, app.screen.width, app.screen.height); // (a nomad tribe's camp may be away on its pasture)
 
   /** The expedition shown in the split view: the most recently sent one. */
@@ -733,7 +762,10 @@ async function start(): Promise<void> {
   let selectedPerson: number | null = null;
   let placing: { def: BuildingDef; x: number; y: number; check: PlaceCheck } | null = null;
 
-  const banner = createBanner(() => stopPlacing());
+  const banner = createBanner(() => {
+    if (clearing) clearButton.click();
+    else stopPlacing();
+  });
 
   const setInteractive = (on: boolean) => {
     if (on === interactive) return;
@@ -816,14 +848,14 @@ async function start(): Promise<void> {
         const r = snap.raid?.raiders.find((q) => q.id === h.id);
         if (!r) return null;
         const doing = r.captive ? `Carrying off ${r.captive}! Stop them!` : r.fleeing ? (r.carrying ? 'Running off with your goods!' : 'Fleeing') : 'Raiding';
-        return { title: r.name, lines: [`${doing} · health ${r.hp}/${r.maxHp}`], y: overheadY(raiders.posOf(r.id), 54) };
+        return { title: r.name, lines: [`${doing} · health ${r.hp}/${r.maxHp}${r.power ? ` · power ${r.power}` : ''}`], y: overheadY(raiders.posOf(r.id), 54) };
       }
       case 'roamer': {
         const r = snap.roamers.find((q) => q.id === h.id);
         if (!r) return null;
         const doing = r.fighting ? 'Fighting townsfolk out on the land!' : r.chasing ? `After ${r.chasing}!` : 'Roaming the land: anyone out alone is in danger';
         const foes = Object.entries(r.foes.reduce<Record<string, number>>((n, f) => ((n[f.name] = (n[f.name] ?? 0) + 1), n), {})).map(([name, n]) => (n > 1 ? `${n} × ${name}` : name));
-        return { title: r.name ? `${r.name[0].toUpperCase()}${r.name.slice(1)} from a nest` : ROAMER_TITLE[r.kind], lines: [doing, foes.join(', ')], y: overheadY(roamers.posOf(r.id * ROAMER_IDS), 54) };
+        return { title: r.name ? `${r.name[0].toUpperCase()}${r.name.slice(1)} from a nest` : ROAMER_TITLE[r.kind], lines: [doing, `${foes.join(', ')}${r.power ? ` · power ${r.power}` : ''}`], y: overheadY(roamers.posOf(r.id * ROAMER_IDS), 54) };
       }
       case 'sign':
         return { title: 'Signpost', lines: Signposts.lines(h.sign), y: map.screenOf((h.sign.postX + 0.5) * CELL, (h.sign.postY + 0.5) * CELL).y - 40 };
@@ -1493,6 +1525,20 @@ async function start(): Promise<void> {
     battleHud.update(b, snap.raid?.name ?? 'Raiders');
     return true;
   };
+  /** A finger sweeping in Clear mode: the cells along its path that can take the sweep's mark (or lift it). */
+  const sweepOver = (sx: number, sy: number) => {
+    if (!sweep) return;
+    const steps = Math.max(1, Math.ceil(Math.hypot(sx - sweep.last.x, sy - sweep.last.y) / (CELL / 2)));
+    for (let k = 1; k <= steps; k++) {
+      const w = map.worldOf(sweep.last.x + ((sx - sweep.last.x) * k) / steps, sweep.last.y + ((sy - sweep.last.y) * k) / steps);
+      const cell = map.cellAt(w.x, w.y);
+      if (cell === null || sweep.cells.size >= MARK_CLEAR_CAP) continue;
+      if (sweep.on ? wildCell(cell) && !isMarked(snap.land, cell) : isMarked(snap.land, cell)) sweep.cells.add(cell);
+    }
+    sweep.last = { x: sx, y: sy };
+    const w = map.worldOf(sx, sy);
+    map.setHighlight(map.cellAt(w.x, w.y));
+  };
   // (a tactics battle has the screen: a tap is its, a drag looks about the board)
   let boardPress: { x: number; y: number; lx: number; ly: number; moved: boolean; id: number } | null = null;
   canvas.addEventListener('pointerdown', (e) => {
@@ -1515,11 +1561,19 @@ async function start(): Promise<void> {
         // a second finger: this is a pinch, not a drag or a tap
         if (camera.dragging) camera.endDrag(e.timeStamp);
         press = null;
+        sweep = null;
         pinchFrom = Math.max(20, spread());
         bridge.pinch('start', pinchFrom, ...between());
         return;
       }
       if (pinchFrom !== null || afterPinch) return;
+    }
+    if (clearing && !placing && e.button === 0 && !sweep) {
+      const cell = map.cellAt(map.worldOf(e.clientX, e.clientY).x, map.worldOf(e.clientX, e.clientY).y);
+      sweep = { id: e.pointerId, on: cell === null || !isMarked(snap.land, cell), cells: new Set(), last: { x: e.clientX, y: e.clientY } };
+      sweepOver(e.clientX, e.clientY);
+      canvas.setPointerCapture(e.pointerId);
+      return;
     }
     if (e.pointerType !== 'mouse') {
       // a touch has no hover beforehand: hit-test where the finger lands
@@ -1549,6 +1603,7 @@ async function start(): Promise<void> {
       boardPress.ly = e.clientY;
       return;
     }
+    if (sweep && e.pointerId === sweep.id) return sweepOver(e.clientX, e.clientY);
     if (battle.aiming) battle.lastAim = battle.toMap(e.clientX, e.clientY);
     if (touches.has(e.pointerId)) {
       touches.set(e.pointerId, { x: e.clientX, y: e.clientY });
@@ -1579,6 +1634,14 @@ async function start(): Promise<void> {
       afterPinch = true;
     }
     if (touches.size === 0) afterPinch = false;
+    if (sweep && e.pointerId === sweep.id) {
+      const done = sweep;
+      sweep = null;
+      if (canvas.hasPointerCapture(e.pointerId)) canvas.releasePointerCapture(e.pointerId);
+      map.setHighlight(null);
+      if (e.type === 'pointerup' && done.cells.size) bridge.command({ type: 'markClear', cells: [...done.cells].slice(0, MARK_CLEAR_CAP), on: done.on });
+      return;
+    }
     if (!press || e.pointerId !== press.id) return;
     const wasDrag = camera.dragging;
     camera.endDrag(e.timeStamp);

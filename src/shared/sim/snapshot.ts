@@ -78,6 +78,7 @@ import type { ClassId } from '../data/classes';
 import { beastForm, levelOf, stageOf, type BeastForm } from '../data/levels';
 import { callingName, callingText } from '../data/founderClasses';
 import { personFighter, weaponRange } from './combat';
+import { foesToExpect, matchupOf, powerOfEnemy, powerOfGroup, powerOfParty, powerOfPerson, type Matchup } from './power';
 import { kitOf } from './actions';
 import { kitCap } from './kit';
 import { levelProgress } from './classes';
@@ -135,6 +136,7 @@ import { ENEMY } from '../data/social';
 import { canTrade, stalls } from './trade';
 import { JOBS, JOB_NAMES, RECRUIT_TYPES, TRAIT_BY_ID, type Job, type Look, type Priority } from '../data/people';
 import { canBeHeir, founderOf } from './founder';
+import { buyableShops, isFounderShop, managerCandidates, managerWage, seasonOfShop, shopPrice, stockLineOf, stockLinesOf } from './founderShops';
 import { heirOf } from './health';
 import { RESEARCH_STATIONS, TOPIC_BY_ID } from '../data/research';
 import { SKILLS, skillSpeed, xpToNext, type Skill } from '../data/skills';
@@ -220,6 +222,24 @@ export interface FounderView {
   heirs: { id: number; name: string; role: 'partner' | 'child' | 'other' }[];
   /** Jobs the founder could take up for the day. */
   jobs: Job[];
+  /** The founder's shops, the town's shops they could buy, and grown-ups free to manage one (sim/founderShops.ts). */
+  shops: FounderShopView[];
+  buyable: { id: number; name: string; price: number }[];
+  hires: { id: number; name: string; social: number; wage: number }[];
+}
+export interface FounderShopView {
+  id: number;
+  name: string;
+  /** The manager (null: none, so the shop is shut; `self`: the founder works the counter). */
+  manager: { id: number; name: string; self: boolean; wage: number } | null;
+  stock: string;
+  stocks: { id: string; name: string; text: string }[];
+  price: 'low' | 'fair' | 'high';
+  /** Takings so far today, the last day's profit and this season's takings and profit. */
+  today: number;
+  last: number;
+  seasonGross: number;
+  seasonNet: number;
 }
 
 export interface PersonView {
@@ -365,6 +385,8 @@ export interface PersonView {
   story: string;
   /** Titles earned by deeds, the sagas and the rest (sim/deeds.ts, sim/annals.ts), the latest last. */
   titles: string[];
+  /** How each title was earned (sim/titles.ts). */
+  titleWhy: Record<string, string>;
   /** Their deeds counted toward titles, and the next title each leads to (sim/deeds.ts). */
   deeds: { label: string; n: number; next: string | null; at: number | null }[];
   /** A special newcomer's secret, once the town knows it (sim/specials.ts). */
@@ -396,7 +418,7 @@ export interface PersonView {
   rounds: boolean;
   /** How they'd fight now (as a fighter in the front rank), for the inspect page: a blow's damage, shares of hit
    *  chance, dodge, armour and block, and the chance to strike true. */
-  battle: { damage: [number, number]; accuracy: number; dodge: number; armor: number; block: number; crit: number; ranged: boolean; attrs: Attrs; mp: number; sp: number; interval: number; range: number };
+  battle: { damage: [number, number]; accuracy: number; dodge: number; armor: number; block: number; crit: number; ranged: boolean; attrs: Attrs; mp: number; sp: number; interval: number; range: number; power: number };
   /** The spells they keep ready and the skills they've learned (actives first), with what each costs. */
   kit: { name: string; spell: boolean; level: number; cost: number; pool: 'mp' | 'sp' | 'limit'; text: string }[];
   /** The passive skills they've learned (always on), with what each gives. */
@@ -487,6 +509,8 @@ export interface RaiderView {
   hitFx: RaiderHitFx | null;
   kind: string;
   name: string;
+  /** Power level (sim/power.ts); absent for the beasts of a ranch. */
+  power?: number;
   /** How high up a castle's keep it has climbed, in floors; null on the ground. */
   floor: number | null;
   x: number;
@@ -531,6 +555,10 @@ export interface RaidView {
   alarm: boolean;
   /** A rival lord's hexes and blessings on the fight ("Entangle 6s"). */
   hexes: string[];
+  /** Power levels (sim/power.ts): the raiders', the town's able fighters', and how they match ("Even", "Risky"...). */
+  power: number;
+  townPower: number;
+  matchup: Matchup;
   raiders: RaiderView[];
 }
 
@@ -772,6 +800,10 @@ export interface DestinationView {
   /** Only an airship reaches it; and which airship a trip would take (sim/skies.ts airshipLine). */
   bySky?: boolean;
   airship?: string;
+  /** Power levels (sim/power.ts): the party the town would send, the foes to expect, and how they match. */
+  partyPower: number;
+  foesPower: number;
+  matchup: Matchup | null;
 }
 
 export interface VisitorView extends PersonView {
@@ -891,6 +923,8 @@ export interface RoamerView {
   dir: 1 | -1;
   /** Each foe in the band (enemy kind and name). */
   foes: { kind: string; name: string }[];
+  /** The band's power level (sim/power.ts). */
+  power?: number;
   fighting: boolean;
   /** The fight it's in (a skirmish id, to watch), and who it's after. */
   skirmish: number | null;
@@ -1287,6 +1321,28 @@ export interface ResearchView {
   seat: { stage: number; name: string; next: string | null; nextEra: string | null; building: boolean } | null;
 }
 
+function founderShopsView(s: GameState): Pick<FounderView, 'shops' | 'buyable' | 'hires'> {
+  const shops = s.buildings.filter((b) => isFounderShop(s, b)).map((b): FounderShopView => {
+    const m = b.operator != null ? s.people.find((p) => p.id === b.operator) : undefined;
+    const books = seasonOfShop(s, b);
+    return {
+      id: b.id,
+      name: BUILDING_BY_ID[b.def]?.name ?? b.def,
+      manager: m ? { id: m.id, name: m.name, self: m.id === s.mainId, wage: m.id === s.mainId ? 0 : managerWage(s, m) } : null,
+      stock: stockLineOf(b)?.id ?? '',
+      stocks: stockLinesOf(b).map((l) => ({ id: l.id, name: l.name, text: l.text })),
+      price: b.shop!.run!.price,
+      today: Math.round(b.shop!.run!.till),
+      last: Math.round(b.shop!.run!.last ?? 0),
+      seasonGross: Math.round(books.gross),
+      seasonNet: Math.round(books.net),
+    };
+  });
+  const buyable = buyableShops(s).map((b) => ({ id: b.id, name: BUILDING_BY_ID[b.def]?.name ?? b.def, price: shopPrice(s, b) }));
+  const hires = managerCandidates(s).slice(0, 8).map((p) => ({ id: p.id, name: p.name, social: p.skills.social.level, wage: managerWage(s, p) }));
+  return { shops, buyable, hires };
+}
+
 function founderView(s: GameState): FounderView | null {
   const f = founderOf(s);
   if (!f) return null;
@@ -1300,7 +1356,7 @@ function founderView(s: GameState): FounderView | null {
     .filter((p) => canBeHeir(s, p))
     .map((p) => ({ id: p.id, name: p.name, role: roleOf(p) }))
     .sort((a, b) => rank[a.role] - rank[b.role]);
-  return { id: f.id, order, heir: next ? { id: next.id, name: next.name, named: next.id === s.heirId } : null, heirs, jobs: JOBS.filter((j) => j !== 'defend') };
+  return { id: f.id, order, heir: next ? { id: next.id, name: next.name, named: next.id === s.heirId } : null, heirs, jobs: JOBS.filter((j) => j !== 'defend'), ...founderShopsView(s) };
 }
 
 
@@ -1377,6 +1433,7 @@ export function snapshot(s: GameState): Snapshot {
       tripSeconds: ((d.outSeconds * 2 + d.workSeconds) * ERA_MULTIPLIER[s.era]),
       foodPerMember: foodNeeded(s, d, 1),
       ...partyView(s, d.id),
+      ...destPower(s, d),
       vetoed: vetoed(s, d.id),
       bounty: bountyOn(s, d.id),
       ...(d.byBoat ? { byBoat: true } : {}),
@@ -1457,6 +1514,7 @@ export function snapshot(s: GameState): Snapshot {
       y: r.y,
       dir: r.dir,
       foes: Object.entries(r.group).flatMap(([k, n]) => Array.from({ length: n }, () => ({ kind: k, name: ENEMIES[k]?.name ?? k }))),
+      power: Math.round(powerOfGroup(r.group)),
       fighting: r.fighting !== undefined,
       skirmish: r.fighting ?? null,
       chasing: r.chasing !== null ? (s.people.find((p) => p.id === r.chasing)?.name ?? null) : null,
@@ -1525,10 +1583,12 @@ export function snapshot(s: GameState): Snapshot {
           side: s.raid.side,
           alarm: alarmRaised(s),
           hexes: hexesNow(s).map((h) => `${h.name} ${h.seconds}s`),
+          ...raidPowers(s),
           raiders: s.raid.raiders.map((r) => ({
             id: r.id,
             kind: r.kind,
             name: ENEMIES[r.kind].name,
+            power: powerOfEnemy(r.kind, r.might ?? 1),
             floor: null,
             x: r.x,
             y: r.y,
@@ -1958,6 +2018,13 @@ function tripsView(s: GameState): TripsView {
   return { forming, fit, room, bountyStep: bountyStep(s), adventurers };
 }
 
+function destPower(s: GameState, d: Destination): { partyPower: number; foesPower: number; matchup: Matchup | null } {
+  const plan = slow(s, `party:${d.id}`, () => planParty(s, d.id));
+  const mine = powerOfParty(plan.members.flatMap((id) => s.people.find((q) => q.id === id) ?? []));
+  const foes = foesToExpect(d);
+  return { partyPower: mine, foesPower: foes, matchup: foes > 0 ? matchupOf(mine, foes) : null };
+}
+
 function partyView(s: GameState, dest: string): { party: string[]; partyHorses: number; partyTruck: boolean } {
   const plan = slow(s, `party:${dest}`, () => planParty(s, dest));
   // (the plan is kept a while: someone in it may have died since)
@@ -2098,6 +2165,7 @@ function personSlow(s: GameState, p: Person): Omit<PersonView, FastPart> {
     creed: s.autopilot !== false && p.bornTick == null ? creedLine(s, p) : null,
     story: storyOf(s, p),
     titles: p.titles ?? [],
+    titleWhy: p.titleWhy ?? {},
     deeds: deedLines(p),
     secret: secretView(p),
     ambition: p.bornTick == null ? { name: AMBITIONS[ambitionOf(p)].name, line: AMBITIONS[ambitionOf(p)].line } : null,
@@ -2253,6 +2321,16 @@ function roadView(s: GameState, p: Person): PersonView['road'] {
   return { name: node.name, text: node.text, next, at: node.stage >= 4 ? null : STAGE_LEVELS[node.stage + 1], promptId: prompt?.id ?? null };
 }
 
+/** The raid's power against the town's able fighters (children, the downed and those away don't count; nor the raid's
+ *  own allies on the raid's side). */
+function raidPowers(s: GameState): { power: number; townPower: number; matchup: Matchup } {
+  const raid = s.raid!;
+  const power = raid.raiders.filter((r) => !r.ally && !r.down && !r.gone).reduce((t, r) => t + powerOfEnemy(r.kind, r.might ?? 1), 0);
+  const allies = raid.raiders.filter((r) => r.ally && !r.down && !r.gone).reduce((t, r) => t + powerOfEnemy(r.kind, r.might ?? 1), 0);
+  const town = s.people.filter((p) => p.type !== 'child' && !p.downed && p.away === null && p.hp > 0).reduce((t, p) => t + powerOfPerson(p), 0) + allies;
+  return { power, townPower: town, matchup: matchupOf(town, power) };
+}
+
 /** Someone's fighting stats and kit, worked out again only when what they depend on changes. */
 const fightCache = new Map<number, { key: string; view: Pick<PersonView, 'battle' | 'kit' | 'passives' | 'arcana'> }>();
 function fightView(p: Person): Pick<PersonView, 'battle' | 'kit' | 'passives' | 'arcana'> {
@@ -2264,7 +2342,7 @@ function fightView(p: Person): Pick<PersonView, 'battle' | 'kit' | 'passives' | 
   const f = personFighter(p, 'fighter', 'front');
   const kit = kitOf(p);
   const view = {
-    battle: { damage: f.damage, accuracy: f.accuracy, dodge: f.dodge, armor: f.armor, block: f.block, crit: f.quirks?.crit ?? 0, ranged: f.ranged, attrs: f.attrs!, mp: f.maxMp ?? 0, sp: f.maxSp ?? 0, interval: f.interval, range: weaponRange(p, ranged(p)) },
+    battle: { damage: f.damage, accuracy: f.accuracy, dodge: f.dodge, armor: f.armor, block: f.block, crit: f.quirks?.crit ?? 0, ranged: f.ranged, attrs: f.attrs!, mp: f.maxMp ?? 0, sp: f.maxSp ?? 0, interval: f.interval, range: weaponRange(p, ranged(p)), power: powerOfPerson(p) },
     kit: (kit?.actions ?? []).map((a) => ({ name: a.name, spell: a.spell, level: a.level, cost: a.cost, pool: a.pool, text: describeAct(a.effects, a.cooldown / TICK_HZ, a.pool === 'limit') })),
     passives: p.cls ? abilitiesKnown(p.cls, levelOf(p), p.road).filter((a) => a.passive).map((a) => ({ name: a.name, level: a.level, text: describePassive(a.passive!) })) : [],
     arcana: arcanaView(p),

@@ -3,6 +3,7 @@
 // the log), Places (the world map, the land's places, the pack's lairs, the destinations; each card one button, the
 // rest in its details), Companies (the bonded parties, sim/companies.ts), Realm and Treasures.
 
+import { powerLine } from '../../shared/sim/power';
 import { AIRSHIP_BY_KIND } from '../../shared/data/skies';
 import { renderRealm } from './realmPanel';
 import { renderMuster } from './musterPanel';
@@ -247,6 +248,7 @@ function destinationCard(d: Destination, v: DestinationView, s: Snapshot, bridge
   const chips = el('div', 'dest-chips');
   const chip = (text: string, cls = '') => chips.append(el('span', `dest-chip ${cls}`, text));
   chip(d.threats ? `⚔ ${d.threats}` : 'Peaceful', d.threats ? 'threat' : '');
+  if (v.matchup && !going) chip(`Party ${v.partyPower} vs ~${v.foesPower}: ${v.matchup}`, v.matchup === 'Deadly' ? 'bad' : v.matchup === 'Risky' ? 'threat' : 'ok');
   if (going) chip(`Party there${going.leader ? `: ${going.leader}` : ''}`, 'ok');
   if (v.bounty) chip(`Bounty ${v.bounty}`, 'gold');
   if (s.quests.some((q) => q.dungeon === d.id)) chip('Quest', 'gold');
@@ -296,6 +298,7 @@ function destDetails(d: Destination, v: DestinationView, s: Snapshot): More[] {
       ['By boat', d.byBoat ? 'only a boat (or an airship) reaches it' : null],
       ['By air', d.bySky ? 'only an airship reaches it' : null],
       ['Party', `${d.recommendedParty} suggested`],
+      ['Power', v.matchup ? powerLine(v.partyPower, v.foesPower) : null],
       ['A fight there', d.encounters ? pct(d.encounters.arrival) : null],
       ['Ambush going home', d.encounters ? pct(d.encounters.ambush) : null],
       ['Bounty', v.bounty ? `${v.bounty} coins` : null],

@@ -39,6 +39,7 @@ export function arenaSection(s: Snapshot, bridge: Bridge | undefined): HTMLEleme
     c.append(
       top,
       el('div', 'purpose', `${k.kind === 'beasts' ? 'A beast bout. ' : ''}${k.visitor.name} comes from ${k.visitor.from}. The book: ${k.pays.town}:1 on the town, ${k.pays.visitor}:1 on the visitor (it gives the town ${Math.round(k.odds * 100)}%).`),
+      el('div', 'hint', `Power ${k.power.town} (${k.town.name}) against ${k.power.visitor} (${k.visitor.name}): ${k.matchup} for the town.`),
       el('div', 'hint', `${k.bets} bet${k.bets === 1 ? '' : 's'}, ${k.pot} coins on it: ${k.backers.town} back the town, ${k.backers.visitor} the visitor.`),
     );
     const t = k.treasury;

@@ -43,7 +43,7 @@ import { castAt } from './powers';
 import { Rng } from '../rng';
 import { demolish, discardStock, placeBlueprint, townRadius, upgrade } from './buildings';
 import { cellAt, groundAt, isMarked, setGround, setMarked, type Pt, decayWear } from './land';
-import type { Command } from './commands';
+import { MARK_CLEAR_CAP, type Command } from './commands';
 import { restockKits } from './kit';
 import { equip, hourlyItems, queueCraft, reduceCraft } from './crafting';
 import { growCrops, tendFields } from './farming';
@@ -135,6 +135,7 @@ import { seafaringHourly } from './seafaring';
 import { oddsHourly } from './raidOdds';
 import { voteSettlementName } from './settlementName';
 import { setFavourite } from './favourites';
+import { founderBuyShop, founderShopManager, founderShopPrice, founderShopStock } from './founderShops';
 import { founderGive, founderGo, founderHeir, founderRest, founderTick, founderWork } from './founder';
 
 /** How the town trades at its shop: the planner decides what's spare and what to buy. */
@@ -577,6 +578,18 @@ export class Sim {
       case 'founderGive':
         founderGive(s, c.amount);
         break;
+      case 'founderBuyShop':
+        founderBuyShop(s, c.building);
+        break;
+      case 'founderShopStock':
+        founderShopStock(s, c.building, c.stock);
+        break;
+      case 'founderShopPrice':
+        founderShopPrice(s, c.building, c.price);
+        break;
+      case 'founderShopManager':
+        founderShopManager(s, c.building, c.person);
+        break;
       case 'founderHeir':
         founderHeir(s, c.person);
         break;
@@ -653,6 +666,14 @@ export class Sim {
       case 'toggleGather': {
         if (!s.land.pools[c.cell]) return;
         setMarked(s.land, c.cell, !isMarked(s.land, c.cell));
+        break;
+      }
+      case 'markClear': {
+        // (a drag's worth: only wild cells with something to gather can be marked; any can be unmarked)
+        for (const i of c.cells.slice(0, MARK_CLEAR_CAP)) {
+          if (i < 0 || i >= s.land.w * s.land.h || isMarked(s.land, i) === c.on) continue;
+          if (!c.on || s.land.pools[i]) setMarked(s.land, i, c.on);
+        }
         break;
       }
     }

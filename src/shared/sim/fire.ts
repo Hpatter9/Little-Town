@@ -39,6 +39,7 @@ export function updateFires(s: GameState, rng: Rng): void {
       if (next) setFire(s, next);
     }
     if (b.fire! >= 1) {
+      if (b.owner === s.mainId && b.shop?.run) notify(s, `The fire took the ${defOf(b).name.toLowerCase()}'s takings: ${Math.max(0, Math.round(b.shop.run.till))} coins lost.`, true); // (a shop of the founder's: sim/founderShops.ts)
       s.buildings = s.buildings.filter((q) => q !== b);
       leaveRuin(s, b, footprint(b), 'burnt'); // (a blackened shell, a few days: sim/ruins.ts)
       notify(s, `The ${defOf(b).name.toLowerCase()} burned down.`, true);

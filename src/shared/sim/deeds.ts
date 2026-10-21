@@ -14,6 +14,13 @@ export function addDeed(p: Person | undefined, kind: DeedKind, n = 1): void {
   d[kind] = (d[kind] ?? 0) + n;
 }
 
+/** Count a thing for someone toward the titles that say how they are (data/titles.ts). */
+export function tally(p: Person | undefined, key: string, n = 1): void {
+  if (!p || n <= 0) return;
+  const t = (p.tally ??= {});
+  t[key] = (t[key] ?? 0) + n;
+}
+
 /** The titles their deeds have earned so far, lowest step first. */
 export function deedTitles(p: Person): string[] {
   const out: string[] = [];
@@ -31,10 +38,17 @@ export function awardDeedTitles(s: GameState): void {
     for (const title of deedTitles(p)) {
       if ((p.titles ??= []).includes(title)) continue;
       p.titles.push(title);
+      (p.titleWhy ??= {})[title] = deedWhy(p, title);
       if (TOP_DEED_TITLES.has(title)) noteSeen(s, 'deeds', title);
       notify(s, `${p.name} is now called ${p.name} ${title}.`, true);
     }
   }
+}
+
+/** How a ladder title was earned ("Buildings raised: 12"). */
+function deedWhy(p: Person, title: string): string {
+  const k = DEED_KINDS.find((q) => DEED_TITLES[q].steps.some(([, t]) => t === title));
+  return k ? `${DEED_TITLES[k].label}: ${p.deeds?.[k] ?? 0}.` : '';
 }
 
 /** Their deeds as lines for the People page ("Buildings raised: 6"). */

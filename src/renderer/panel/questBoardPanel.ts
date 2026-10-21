@@ -5,6 +5,7 @@
 // for it (where they are, a bar of the trip, who went, Watch) or Form a party, and below, the quest log). The sim's
 // side is sim/questBoard.ts.
 
+import { powerLine } from '../../shared/sim/power';
 import { DUNGEON_BY_ID } from '../../shared/data/dungeons';
 import { MAX_EXPEDITIONS } from '../../shared/data/expeditions';
 import { HUNT_DAYS, QUARRY_BY_ID } from '../../shared/data/hunts';
@@ -115,7 +116,8 @@ export function questBoard(s: Snapshot, bridge: Bridge | undefined): HTMLElement
       button('Accept', () => bridge?.command({ type: 'quest', op: 'accept', sort: e.sort, id: e.id }), { cls: 'go', title: 'Take it on: the time limit starts' }),
       button('Decline', () => bridge?.command({ type: 'quest', op: 'decline', sort: e.sort, id: e.id }), { title: 'Turn it down' }),
     );
-    c.append(top, el('div', 'purpose', e.text), el('div', 'lock short', `Reward: ${e.reward}`), el('div', 'lock short', `Offer open ${timeLeft(e.hoursLeft)} more · then ${QUEST_DAYS_OF[e.sort]} days to do it`), row);
+    const dv = s.destinations.find((d) => d.id === e.dest);
+    c.append(top, el('div', 'purpose', e.text), ...(dv?.matchup ? [el('div', 'lock short', powerLine(dv.partyPower, dv.foesPower))] : []), el('div', 'lock short', `Reward: ${e.reward}`), el('div', 'lock short', `Offer open ${timeLeft(e.hoursLeft)} more · then ${QUEST_DAYS_OF[e.sort]} days to do it`), row);
     grid.append(expandable(c, `offer:${e.key}`, e.details));
   }
   if (offers.length) out.push(grid);
