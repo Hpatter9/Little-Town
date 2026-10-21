@@ -21,6 +21,9 @@ export class MapCamera {
   private screen: Pt = { x: 1, y: 1 };
   /** When the player last moved the view themselves (ms, performance.now()): following waits a while after. */
   touchedAt = -Infinity;
+  /** Where a point of the land (world px) shows in the camera's own px, when that isn't the same (the isometric
+   *  view: iso/isoView.ts `isoOf`): the points to follow or centre on are turned with it. */
+  project?: (p: Pt) => Pt;
 
   constructor(
     private readonly worldW: number,
@@ -34,11 +37,13 @@ export class MapCamera {
   /** Ease toward keeping a point in the middle of the view (following someone), unless the player is looking round. */
   follow(p: Pt, screenW: number, screenH: number, now: number, waitMs: number): void {
     if (this.drag || this.velocity.x !== 0 || this.velocity.y !== 0 || now - this.touchedAt < waitMs) return;
+    if (this.project) p = this.project(p);
     this.screen = { x: screenW, y: screenH };
     this.target = this.clamp({ x: p.x - screenW / 2, y: p.y - screenH / 2 });
   }
 
   centreOn(p: Pt, screenW: number, screenH: number): void {
+    if (this.project) p = this.project(p);
     this.screen = { x: screenW, y: screenH };
     const at = this.clamp({ x: p.x - screenW / 2, y: p.y - screenH / 2 });
     this.x = this.target.x = at.x;
