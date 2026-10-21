@@ -156,3 +156,30 @@ test('a founder from before the choices stands on the line\'s own node of their 
   assert.equal(callingName(p, 2), 'Warboss');
   assert.ok(PATH_BY_ID[p.road!].founder === 'grakk');
 });
+
+test('a promotion answered is done: the choice sticks, a stale answer is the town\'s own choice, and the question is not put again', () => {
+  for (const option of [0, 3, 9, -1, 1.5]) {
+    const s = plainGame('promotion-once');
+    s.autopilot = true;
+    const p = s.people[0];
+    p.cls = 'warrior';
+    p.road = Object.values(PATH_BY_ID).find((n) => n.stage === 0 && n.cls === 'warrior')!.id;
+    p.level = STAGE_LEVELS[1];
+    const from = p.road;
+    s.tick = TICKS_PER_HOUR;
+    classesHourly(s);
+    const q = s.prompts.find((x) => x.kind === 'evolve' && x.who === p.id)!;
+    assert.ok(q, 'the question is put');
+    answerPrompt(s, q.id, option, new Rng(2));
+    assert.ok(!s.prompts.some((x) => x.kind === 'evolve'), `option ${option}: the question is gone`);
+    assert.notEqual(p.road, from, `option ${option}: they took a road`);
+    if (option === 0) assert.equal(p.road, q.roads![0], 'the road picked is the road taken');
+    const taken = p.road;
+    for (let h = 2; h < 8; h++) {
+      s.tick = h * TICKS_PER_HOUR;
+      classesHourly(s);
+    }
+    assert.ok(!s.prompts.some((x) => x.kind === 'evolve'), `option ${option}: not put again`);
+    assert.equal(p.road, taken, `option ${option}: the road stays`);
+  }
+});

@@ -164,7 +164,7 @@ export function renderBuild(s: Snapshot, bridge: Bridge | undefined, rerender: (
   // evolutions and stat points: put to the player, or the town's own call (sim/classes.ts, sim/attributes.ts)
   out.push(el('h2', '', 'Callings and stats'));
   const asks = el('div', 'row directions');
-  for (const [what, on, name] of [['evolve', s.evolveAsk, 'Evolutions: ask me'], ['evolve', !s.evolveAsk, 'Evolutions: they choose'], ['stats', s.statsAsk, 'Stat points: I assign'], ['stats', !s.statsAsk, 'Stat points: auto']] as const)
+  for (const [what, on, name] of [['evolve', s.evolveAsk, 'Promotions: ask me'], ['evolve', !s.evolveAsk, 'Promotions: they choose'], ['stats', s.statsAsk, 'Stat points: I assign'], ['stats', !s.statsAsk, 'Stat points: auto']] as const)
     asks.append(button(name, () => bridge?.command(what === 'evolve' ? { type: 'setAsk', evolve: name.includes('ask') } : { type: 'setAsk', stats: name.includes('assign') }), { cls: `place small${on ? ' on' : ' quiet'}` }));
   out.push(asks, el('div', 'hint', `${s.evolveAsk ? 'At each stage (levels 12, 30 and 55) a townsperson\'s two roads are put to you; unanswered a day, they choose for themselves.' : 'Townsfolk take whichever road suits their skills, and you hear of it.'} ${s.statsAsk ? 'Each level brings two stat points to place on their Character tab; left two days, they place them their own way.' : 'Stat points are placed as their calling grows.'}`));
 
