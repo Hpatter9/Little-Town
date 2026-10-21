@@ -54,16 +54,24 @@ read that part before changing anything.
 - **Art:** use sprites from the packs (see below), copied one at a time into `src/`, and credit them in
   `CREDITS.md`. Never change `../chronos-assets`.
 - **Never run** Electron (`npm start`) or `npm run dist`.
-- **When unsure what the owner wants, ask.** Don't guess at design decisions or add manual controls the owner didn't
-  ask for (the town is hands-off).
+- **When unsure what the owner wants, ask.** Don't guess at design decisions or add controls the owner didn't ask for.
 
 ## Priorities (from the owner)
 
 - **Phone first.** Design every change for the phone version. Before calling anything done, check it at phone
   sizes both upright (393x852) and sideways (852x393) in a browser preview.
-- **Hands-off.** The town decides for itself what to research, gather, build and craft
-  (`src/shared/sim/planner.ts`). The player only sets the town's **direction** (Growth, Defence, Trade or
-  Knowledge, in the Plan tab) and sends **expeditions**. Don't add chores or manual controls.
+- **The founder is the player's character (changed October 2026; the game used to be hands-off).** The player
+  steers the founder (where they go, their work, their purse, gear and shop, the quests they lead), and the story
+  follows them. The townsfolk still live and work on their own. The plan: the owner's doc "Chronos: playing the
+  founder".
+  - **Building is the founder's call.** The town never places a blueprint of its own: every building, home, wall,
+    field, pen and street is ordered by the player from the build menu. The town picks the spot, and recommends what
+    to build next (the planner's old choices become recommendations).
+  - **Research:** three topics are offered at a time; the player picks one (the town picks if they don't).
+  - **The founder's heir:** a grown child, the partner, or a named or adopted heir. If the founder dies with no heir,
+    the game is over.
+  - **The game only runs while it's open.** No catching up on time away.
+  - A choice on a quest the founder leads pauses the game until the player answers.
 - **Deaths should be common.** Raids, disasters and hunger are meant to bite.
 - **Use the assets, not code-drawn art.** The owner doesn't like the look of the textures and sprites the code paints.
   From here on, wherever an uploaded asset (the packs in `../chronos-assets`) can stand in for something code-drawn,
