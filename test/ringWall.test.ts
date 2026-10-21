@@ -12,7 +12,9 @@ import { CELL, cellAt, isMarked, setMarked } from '../src/shared/sim/land';
 import { bestGatherTile, clearCell, haulOrder } from '../src/shared/sim/people';
 import { RING_SHAPE_OF } from '../src/shared/data/ringShapes';
 import { ringShapeOf } from '../src/shared/sim/ringWall';
-import { clearAround, makeWild } from './helpers';
+import { RING_FULL, ringFull } from '../src/shared/sim/ringWall';
+import { TICKS_PER_HOUR } from '../src/shared/sim/time';
+import { clearAround, makeWild, put } from './helpers';
 
 /** A town ready to wall itself: palisades learned, the land about it clear, wood to spare, enough grown-ups. */
 function walledTown(seed: string): GameState {
@@ -102,6 +104,9 @@ test('when the town grows past its wall a wider ring goes up outside, and the ol
   const first = s.ring!;
   // a home beyond the east wall
   const c = campCell(s);
+  // (the ground inside used up first: the wall is not widened before)
+  for (let y = first.rect.y + 1; y + 3 < first.rect.y + first.rect.h && !ringFull(s); y += 3) for (let x = first.rect.x + 1; x + 4 < first.rect.x + first.rect.w && !ringFull(s); x += 4) put(s, 'longhouse', x, y);
+  assert.ok(ringFull(s), 'the inner ground is used up');
   s.buildings.push({ id: s.nextId++, def: 'lean_to', tile: first.rect.x + first.rect.w + 1, row: c.y - 1, status: 'done', delivered: {}, progress: 1, store: {} } as Building);
   raise(s, first.gen + 1);
   assert.equal(s.ring!.gen, first.gen + 1);
@@ -314,4 +319,28 @@ test('a star fort is raised all round like any ring', () => {
   raise(s);
   assert.ok(s.ring?.done, 'the ring stands');
   assert.ok(lineOf(s.ring!).length > ringCells(s.ring!.rect).length, 'the bastions reach past the box');
+});
+
+test('the wall is neither widened nor upgraded until the ground inside it is mostly built on', () => {
+  const s = walledTown('ring-full');
+  raise(s);
+  assert.ok(s.ring?.done);
+  const gen = s.ring!.gen;
+  assert.equal(ringFull(s), false, 'a young town fills little of its ring');
+  // (a building well outside the ring: the town wants a wider wall, but the inner ground is far from used up)
+  const r = s.ring!.rect;
+  put(s, 'stockpile', r.x + r.w + 3, campCell(s).y);
+  s.tick += 200 * TICKS_PER_HOUR;
+  for (let i = 0; i < 5; i++) {
+    s.tick += PLAN_TICKS;
+    runPlanner(s);
+  }
+  assert.equal(s.ring!.gen, gen, 'no wider ring');
+  // (the inner ground used up: a small ring crowded with buildings counts as full, and the wider ring follows)
+  const c = campCell(s);
+  s.ring!.rect = { x: c.x - 3, y: c.y - 3, w: 7, h: 7 };
+  assert.equal(ringFull(s), false);
+  for (let y = c.y - 2; y <= c.y + 2; y += 2) for (let x = c.x - 2; x <= c.x + 2; x += 2) if (!s.buildings.some((b) => b.tile === x && b.row === y)) put(s, 'stockpile', x, y);
+  assert.ok(RING_FULL < 1);
+  assert.equal(ringFull(s), true);
 });

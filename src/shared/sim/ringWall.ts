@@ -10,7 +10,7 @@
 // Castles and the hold have walls of their own, and a wandering tribe its wagons: no ring for them.
 import { BUILDING_BY_ID, type BuildingDef } from '../data/buildings';
 import { RING_SHAPE_OF, type RingShape } from '../data/ringShapes';
-import { builtOn, builtOnIndex, canPlace, demolish, isUnlocked, overgrownCells, placeBlueprint, refreshOvergrown, unlockInfo } from './buildings';
+import { builtOn, builtOnIndex, canPlace, demolish, footprint, isUnlocked, overgrownCells, placeBlueprint, refreshOvergrown, unlockInfo } from './buildings';
 import { holdOf } from './castle';
 import { CELL, groundAt, idx, inMap, isPlannedRoad, isRoad, planRoad, unsetRoad, wet, WILD, wildToClear, type LandMap, type Pt, type Rect } from './land';
 import { nomadic } from './nomads';
@@ -31,6 +31,9 @@ export const RING_PEOPLE = 6;
 /** Hours after a ring stands all round before a wider one is begun (a town that has grown past it waits; a raid
  *  brings the new ring on at once). */
 export const RING_REGROW_HOURS = 72;
+/** How much of the ground inside the wall must be built on before the town widens or upgrades its wall (the owner's
+ *  ask: no need to enlarge or improve the palisade until the inner area is used up). */
+export const RING_FULL = 0.6;
 /** Wild cells cleared for the ring at a time: every tree and rock on the line, up to this many at once (the owner's
  *  ask: a wall laid through a wood or a rockfall has them cut and mined out once it is planned; they used to wait on
  *  the planner's marking cap, four at a time, and were often never marked at all). */
@@ -123,6 +126,24 @@ export function widened(s: GameState, want: Rect, old: Rect): Rect {
   const x1 = Math.min(m.w - 1, Math.max(want.x + want.w - 1 + RING_WIDEN, old.x + old.w - 1 + RING_STEP));
   const y1 = Math.min(m.h - 1, Math.max(want.y + want.h - 1 + RING_WIDEN, old.y + old.h - 1 + RING_STEP));
   return { x: x0, y: y0, w: x1 - x0 + 1, h: y1 - y0 + 1 };
+}
+/** Whether the ground inside the standing ring is mostly built on (`RING_FULL`): the share of its inner cells under a
+ *  building (fields and the wall itself aside). True with no ring, so nothing waits on a wall that isn't there. */
+export function ringFull(s: GameState): boolean {
+  const r = s.ring?.rect;
+  if (!r) return true;
+  const inner = { x: r.x + 1, y: r.y + 1, w: r.w - 2, h: r.h - 2 };
+  if (inner.w < 1 || inner.h < 1) return true;
+  let used = 0;
+  for (const b of s.buildings) {
+    const def = BUILDING_BY_ID[b.def];
+    if (!def || def.layer === 'back' || isRingPiece(b.def)) continue;
+    const f = footprint(b);
+    const w = Math.min(f.x + f.w, inner.x + inner.w) - Math.max(f.x, inner.x);
+    const h = Math.min(f.y + f.h, inner.y + inner.h) - Math.max(f.y, inner.y);
+    if (w > 0 && h > 0) used += w * h;
+  }
+  return used >= RING_FULL * inner.w * inner.h;
 }
 const contains = (a: Rect, b: Rect) => b.x >= a.x && b.y >= a.y && b.x + b.w <= a.x + a.w && b.y + b.h <= a.y + a.h;
 
@@ -479,7 +500,7 @@ export function planRing(s: GameState, wanted: boolean, raided = false): number[
     if (!wanted) return clear;
     const line = shapeRing(s, want);
     s.ring = { gen: 1, rect: want, line, wall, gate: GATE_OF[wall], gates: gateCells(s, line) };
-  } else if (!contains(cur.rect, want) && mayRegrow) {
+  } else if (!contains(cur.rect, want) && mayRegrow && ringFull(s)) {
     // (the town has grown past its wall: a wider ring well outside it, `RING_WIDEN` more each side, and never inside
     // the old one; the gates where the roads cross now)
     const rect = widened(s, want, cur.rect);

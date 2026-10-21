@@ -28,7 +28,7 @@ import { ensureLayout, layoutSpot } from './layout';
 import { LEISURE, LEISURE_PEOPLE, LOW_SPIRITS } from '../data/recreation';
 import { TRAINING_BUILDINGS } from '../data/training';
 const TRAINING_IDS = new Set(TRAINING_BUILDINGS.map((d) => d.id));
-import { isGrate, isRingPiece, planRing, ringSite, ringWants, RING_PEOPLE } from './ringWall';
+import { isGrate, isRingPiece, planRing, ringFull, ringSite, ringWants, RING_PEOPLE } from './ringWall';
 import { inSea, seaBuild, seaTown } from './sea';
 import { castleCells, castleOn, coreRect, hallCells, HALLWAY, holdOf, isHallway, joinsCastle, nearCastle, roomKind, sharedEdges, solidCells } from './castle';
 import { BUILDINGS, BUILDING_BY_ID, UPGRADES, type BuildingDef } from '../data/buildings';
@@ -112,6 +112,8 @@ const SHELF_HOURS = 24;
 
 interface Needs {
   people: number;
+  /** No home of any kind is known yet (a people who start without Basic Shelter): the first topic that gives one comes first. */
+  noHome: boolean;
   /** A shore town (the sea its doorstep): boats come first there. */
   shore: boolean;
   /** Someone is missing a part (a prosthetic wanted), or someone is wounded. */
@@ -165,6 +167,7 @@ function needs(s: GameState): Needs {
     wareGaps: drawn.filter((t) => t > 1 && !WARES.some((w) => w.ware!.tier === t && itemUnlocked(s, w))),
     unsourced: [...wanted].filter((m) => m !== 'totem' && !sourceable(s, m, 0, false)),
     people: s.people.length,
+    noHome: !BUILDINGS.some((d) => d.housing && unlocked(s, d.id)),
     freeBeds: housingCapacity(s) + coming - s.people.length,
     eaters: eatersOf(s),
     foodDays: foodDaysFor(s, food),
@@ -264,7 +267,7 @@ function topicScore(t: Topic, n: Needs): number {
   // would shift every town's studies)
   for (const b of BUILDINGS.filter((d) => d.research === t.id && !isGrate(d.id) && !SELF_BUILT.has(d.id))) {
     score += 4;
-    if (b.housing && n.freeBeds <= 1 && canMake(b, n)) score += 30;
+    if (b.housing && n.freeBeds <= 1 && canMake(b, n)) score += n.noHome && !t.prereqs.length ? 80 : 30; // (no home known yet: the one that needs nothing before it, not a longer road)
     if (CROPS[b.id] && CROPS[b.id].material !== 'fiber' && n.foodDays < 5) score += 25;
     // (a new kind of crop is worth having anyway: a mix of fields shrugs off blight)
     if (CROPS[b.id] && FOOD_VALUE[CROPS[b.id].material]) score += 12;
@@ -1248,6 +1251,7 @@ function planBuilding(s: GameState, n: Needs, plan: TownPlan): number[] {
   // nothing new to build: improve what's there (fields only through consolidateFields: when fallow, and wanted)
   for (const b of s.buildings) {
     if (b.status !== 'done' || !UPGRADES[b.def] || CROPS[b.def]) continue;
+    if (isRingPiece(b.def) && !ringFull(s)) continue; // (the wall is improved once the ground inside it is used up)
     const to = BUILDING_BY_ID[UPGRADES[b.def]];
     if (!to || !affordable(s, to, n.stock) || displaces(s, b) || !canUpgrade(s, b.id).ok) continue;
     const was = BUILDING_BY_ID[b.def].name;
