@@ -49,12 +49,16 @@ test('a topic not on offer cannot be chosen', () => {
 
 test('an unchosen offer is chosen by a hands-off town after the wait, and not before', () => {
   const { s, sim } = fresh('offer-d', true);
-  const offer = [...s.research.offer!];
   for (let i = 0; i < 200; i++) sim.step();
   assert.deepEqual(s.research.queue, [], 'still waiting for the player');
-  for (let i = 0; i < OFFER_WAIT_TICKS + 100; i++) sim.step();
+  // (the town may swap its own suggestion into the offer while it stands: the pick is from the offer standing then)
+  let offer = [...s.research.offer!];
+  for (let i = 0; i < OFFER_WAIT_TICKS + 100 && !s.research.queue.length; i++) {
+    offer = [...(s.research.offer ?? [])];
+    sim.step();
+  }
   assert.equal(s.research.queue.length, 1);
-  assert.ok(offer.includes(s.research.queue[0]) || s.research.done.some((d) => offer.includes(d)), 'one of the three');
+  assert.ok(offer.includes(s.research.queue[0]), 'one of the three standing when it chose');
 });
 
 test('a town with the autopilot off never chooses for itself', () => {
