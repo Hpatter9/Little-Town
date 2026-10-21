@@ -6,7 +6,7 @@
 
 import { noteFelled } from './provenance';
 import { ENEMIES } from '../data/enemies';
-import { addDeed } from './deeds';
+import { addDeed, tally } from './deeds';
 import { levelOf, xpToLevel } from '../data/levels';
 import { legWound } from './raiderWounds';
 import { watchWon } from './nightWatch';
@@ -100,6 +100,7 @@ export function credit(s: GameState, who: number, was: [Raider, number, boolean]
   if (kills && who !== TOWERS) {
     const p = s.people.find((q) => q.id === who);
     if (p) p.felled = (p.felled ?? 0) + kills;
+    for (const [rd, , down] of was) if (rd.down && !down) tally(p, `slain:${rd.kind}`);
     for (const [rd, , down] of was) if (rd.down && !down && ENEMIES[rd.kind]?.boss) addDeed(p, 'bosses');
     const boss = was.find(([rd, , down]) => rd.down && !down && ENEMIES[rd.kind]?.boss)?.[0];
     noteFelled(s, p, kills, boss ? ENEMIES[boss.kind].name : undefined); // (the unique in hand: sim/provenance.ts)

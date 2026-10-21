@@ -19,6 +19,7 @@ import { revealOccult, tryRevive } from './occult';
 import { tireless, notify, maxHp, markBlood, personFx, type GameState, type Person } from './state';
 import { TICKS_PER_HOUR } from './time';
 import { closeCall } from './closeCalls';
+import { tally } from './deeds';
 
 /** How long someone downed has before they bleed out, unless a medic (or the camp) tends them. */
 export const BLEED_TICKS = 2 * TICKS_PER_HOUR;
@@ -70,6 +71,7 @@ export function knockDown(s: GameState, p: Person): void {
     return;
   }
   p.hp = 0;
+  tally(p, 'downed');
   // (in town the founder is always carried to safety: losing them ends everything; an infirmary's healers slow
   // everyone else's bleeding, the better the infirmary the more)
   const slower = p.away === null ? bestHealing(s) : 1;

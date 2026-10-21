@@ -632,6 +632,10 @@ export interface Person {
   lvXp?: number;
   /** Raiders this person has struck the last blow on (sim/raidRecap.ts), for the hall of heroes. */
   felled?: number;
+  /** Things counted for the titles that say how someone is (`tally` in sim/deeds.ts, data/titles.ts): "slain:wolf", "wounds", "wed" ... */
+  tally?: Record<string, number>;
+  /** How each of their titles was earned (sim/titles.ts): title -> a line for their card. */
+  titleWhy?: Record<string, string>;
   /** Deeds counted toward titles (sim/deeds.ts, data/deeds.ts). */
   deeds?: Partial<Record<import('../data/deeds').DeedKind, number>>;
   /** Their last close calls (sim/closeCalls.ts): for their diary, and "Shaken" on their card for a while. */

@@ -126,6 +126,9 @@ function head(p: PersonView, s: Snapshot, hooks: SheetHooks): HTMLElement {
   if (p.breakdown) chips.append(chip(p.breakdown, 'warn'));
   if (p.freePts > 0) chips.append(chip(`${p.freePts} stat ${p.freePts === 1 ? 'point' : 'points'} to spend`, 'title'));
   who.append(chips);
+  // how the latest title was earned (sim/titles.ts)
+  const lastTitle = p.titles[p.titles.length - 1];
+  if (lastTitle && p.titleWhy[lastTitle]) who.append(el('div', 'pc-text', `${lastTitle}: ${p.titleWhy[lastTitle]}`));
   top.append(col, who);
   return top;
 }

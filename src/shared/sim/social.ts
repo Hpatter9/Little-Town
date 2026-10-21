@@ -41,6 +41,7 @@ import { hashSeed, mixSeed, type Rng } from '../rng';
 import { townFull, tireless, maxHp, notify, type GameState, type Person } from './state';
 import { TICKS_PER_HOUR } from './time';
 import { housingCapacity } from './townsfolk';
+import { tally } from './deeds';
 
 const key = (a: number, b: number) => (a < b ? `${a}-${b}` : `${b}-${a}`);
 
@@ -161,6 +162,8 @@ function families(s: GameState, rng: Rng): void {
     if (!b || a.id > b.id || b.away !== null) continue; // each couple once
     if (!a.married && opinion(s, a.id, b.id) >= MARRY && rng.chance(MARRY_CHANCE)) {
       a.married = b.married = true;
+      tally(a, 'wed');
+      tally(b, 'wed');
       s.celebrationUntil = s.tick + WEDDING_MORALE[1] * TICKS_PER_HOUR;
       notify(s, `${a.name} and ${b.name} were married! The whole town celebrates.`, true);
       weddingFeast(s, a, b); // (feasted that evening: sim/ceremonies.ts)
@@ -241,6 +244,7 @@ export function grieve(s: GameState, dead: Person): void {
     if (p === dead) continue;
     if (p.partner === dead.id) {
       p.grief = { until: s.tick + GRIEF_PARTNER[1] * eased * TICKS_PER_HOUR, value: GRIEF_PARTNER[0], text: `Lost ${dead.name}` };
+      if (p.married) tally(p, 'widowed');
       p.partner = null;
       p.married = false;
     } else if (opinion(s, p.id, dead.id) >= FRIEND || p.parents?.includes(dead.id) || dead.parents?.includes(p.id)) {

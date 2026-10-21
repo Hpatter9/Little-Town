@@ -10,6 +10,7 @@ import { relationsChanged, rivalsOf } from './social';
 import { addStock, dist, edgeXY, notify, sideOf, type GameState, type Person } from './state';
 import type { Pt } from './land';
 import { TICKS_PER_HOUR } from './time';
+import { tally } from './deeds';
 
 /** Morale at or below which a break can come, after this many hours there, with this chance an hour. */
 export const BREAK_MORALE = 10;
@@ -51,6 +52,7 @@ function startBreak(s: GameState, p: Person, rng: Rng): void {
   const kind = rng.weighted(odds as Record<Kind, number>);
   const hours = rng.int(3, 6);
   p.breakdown = { kind, until: s.tick + hours * TICKS_PER_HOUR };
+  tally(p, `break:${kind}`);
   p.lowMoraleHours = 0;
   p.task = null;
   switch (kind) {

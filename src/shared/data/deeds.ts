@@ -23,19 +23,38 @@ export interface DeedLadder {
   steps: readonly (readonly [number, string])[];
 }
 
+/** How many of a deed each title takes (raised in 0.162: a first title now takes a real run of deeds, about two and a
+ *  half times what it did, and the top rung is rare). Titles already won are kept. */
+export const DEED_STEPS: Record<DeedKind, readonly number[]> = {
+  defended: [5, 15, 40],
+  built: [12, 40, 100],
+  crafted: [25, 80, 200],
+  healed: [8, 25, 60],
+  studied: [8, 20, 45],
+  bosses: [2, 5, 10],
+  delves: [2, 5, 10],
+  sagas: [2, 5],
+  beasts: [8, 25, 60],
+  bouts: [3, 10, 25],
+  watched: [5, 15, 35],
+  campaigns: [2, 5, 10],
+};
+
+const ladder = (kind: DeedKind, label: string, titles: string[]): DeedLadder => ({ label, steps: titles.map((t, i) => [DEED_STEPS[kind][i], t] as const) });
+
 export const DEED_TITLES: Record<DeedKind, DeedLadder> = {
-  defended: { label: 'Raids defended', steps: [[2, 'the Steadfast'], [6, 'Wall of the Town'], [15, 'Shield of the People']] },
-  built: { label: 'Buildings raised', steps: [[5, 'the Builder'], [15, 'Master Builder'], [40, 'Raiser of Halls']] },
-  crafted: { label: 'Pieces made', steps: [[10, 'the Handy'], [30, 'Master Crafter'], [80, 'the Artificer']] },
-  healed: { label: 'Lives tended', steps: [[3, 'the Mender'], [10, 'Bonesetter'], [25, 'Hand of Mercy']] },
-  studied: { label: 'Topics learned', steps: [[3, 'the Learned'], [8, 'Sage'], [20, 'Keeper of Lore']] },
-  bosses: { label: 'Bosses felled', steps: [[1, 'Giantsbane'], [3, 'Bane of Monsters'], [6, 'the Legend']] },
-  delves: { label: 'Dungeons cleared', steps: [[1, 'Delver'], [3, 'Deepwalker'], [6, 'Lord of the Depths']] },
-  sagas: { label: 'Sagas ended', steps: [[1, 'the Storied'], [3, 'Hero of Tales']] },
-  beasts: { label: 'Beasts raised', steps: [[3, 'Friend of Beasts'], [10, 'Beastmaster'], [25, 'Lord of the Menagerie']] },
-  bouts: { label: 'Arena bouts won', steps: [[1, 'the Brawler'], [4, 'Gladiator'], [10, 'Champion of the Sand']] },
-  watched: { label: 'Sneaks caught on the watch', steps: [[2, 'the Watchful'], [6, 'Nightwarden'], [15, 'Warden of the Dark']] },
-  campaigns: { label: 'Campaigns won', steps: [[1, 'the Veteran'], [3, 'Warhorse'], [6, 'Marshal of the Realm']] },
+  defended: ladder('defended', 'Raids defended', ['the Steadfast', 'Wall of the Town', 'Shield of the People']),
+  built: ladder('built', 'Buildings raised', ['the Builder', 'Master Builder', 'Raiser of Halls']),
+  crafted: ladder('crafted', 'Pieces made', ['the Handy', 'Master Crafter', 'the Artificer']),
+  healed: ladder('healed', 'Lives tended', ['the Mender', 'Bonesetter', 'Hand of Mercy']),
+  studied: ladder('studied', 'Topics learned', ['the Learned', 'Sage', 'Keeper of Lore']),
+  bosses: ladder('bosses', 'Bosses felled', ['Giantsbane', 'Bane of Monsters', 'the Legend']),
+  delves: ladder('delves', 'Dungeons cleared', ['Delver', 'Deepwalker', 'Lord of the Depths']),
+  sagas: ladder('sagas', 'Sagas ended', ['the Storied', 'Hero of Tales']),
+  beasts: ladder('beasts', 'Beasts raised', ['Friend of Beasts', 'Beastmaster', 'Lord of the Menagerie']),
+  bouts: ladder('bouts', 'Arena bouts won', ['the Brawler', 'Gladiator', 'Champion of the Sand']),
+  watched: ladder('watched', 'Sneaks caught on the watch', ['the Watchful', 'Nightwarden', 'Warden of the Dark']),
+  campaigns: ladder('campaigns', 'Campaigns won', ['the Veteran', 'Warhorse', 'Marshal of the Realm']),
 };
 
 export const DEED_KINDS = Object.keys(DEED_TITLES) as DeedKind[];

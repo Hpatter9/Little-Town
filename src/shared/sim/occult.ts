@@ -9,6 +9,7 @@ import { makeUndying, maxHp, notify, campX, personFx, type GameState, type Perso
 import { fullMoon } from './monsters';
 import { buildingCentreX } from './buildings';
 import { TICKS_PER_DAY } from './time';
+import { tally } from './deeds';
 
 /** Research done: offer the founder the Blood Rite (a question; declining is the default). */
 export function offerBloodRite(s: GameState): void {
@@ -170,6 +171,7 @@ export function tryRevive(s: GameState, p: Person): boolean {
   if (!phylactery) p.x = campX(s);
   if (!s.people.includes(p)) s.people.push(p);
   s.revivedAt = { tick: s.tick, id: p.id };
+  tally(p, 'risen');
   notify(s, `${how}, and ${p.name} draws breath again.`, true);
   return true;
 }
