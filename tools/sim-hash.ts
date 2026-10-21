@@ -6,7 +6,6 @@ import { createHash } from 'node:crypto';
 import { parseSave, serialize } from '../src/shared/sim/save';
 import { Sim } from '../src/shared/sim/sim';
 import { newGame } from '../src/shared/sim/state';
-import { startCatchUp } from '../src/shared/sim/offline';
 import { TICKS_PER_DAY } from '../src/shared/sim/time';
 
 // (STRIP=a,b leaves those top-level fields out of the hash: a branch that only records more compares with main so)
@@ -29,8 +28,8 @@ if (!only || only === 'fixture') {
   s.nextRaidTick = Number.MAX_SAFE_INTEGER;
   s.nextEventTick = Number.MAX_SAFE_INTEGER;
   const t = performance.now();
-  const job = startCatchUp(new Sim(s), 7 * 24 * 3_600_000);
-  while (!job.run(500));
+  const fixtureSim = new Sim(s);
+  for (let i = 0; i < 28_800; i++) fixtureSim.step(); // (two game days)
   console.log(`fixture ${hash(s)} ${((performance.now() - t) / 1000).toFixed(1)} s`);
 }
 // (the first four were founded before the land had hills and mountains, so they keep a level land; hash-e has relief)

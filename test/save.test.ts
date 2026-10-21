@@ -1,13 +1,11 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { catchUp, MAX_OFFLINE_MS, startCatchUp } from '../src/shared/sim/offline';
 import { parseSave, serialize } from '../src/shared/sim/save';
 import { Sim } from '../src/shared/sim/sim';
 import { addStock, MAX_JOURNAL, newGame, notify, type GameState } from '../src/shared/sim/state';
-import { TICK_MS, TICKS_PER_DAY, TICKS_PER_HOUR } from '../src/shared/sim/time';
-import { plainGame, row, nearestWild } from './helpers';
+import { TICKS_PER_HOUR } from '../src/shared/sim/time';
+import { row, nearestWild } from './helpers';
 
-const HOUR_MS = 3_600_000;
 const run = (sim: Sim, ticks: number) => {
   for (let i = 0; i < ticks; i++) sim.step();
 };
@@ -53,49 +51,6 @@ test('corrupt saves and saves from another version are refused', () => {
   assert.ok(r.ok && r.save.savedAt === 5);
 });
 
-test('offline: the town catches up through its work without making a recap', () => {
-  const sim = new Sim(plainGame('offline'));
-  const s = sim.state;
-  s.people[0].priorities.research = 1;
-  sim.command({ type: 'queueResearch', topic: 'basic_shelter' });
-  sim.step();
-  const r = catchUp(sim, 2 * HOUR_MS);
-  // (two hours away: capped at a game day)
-  assert.equal(r.ticks, MAX_OFFLINE_MS / TICK_MS);
-  assert.ok(s.research.done.includes('basic_shelter'));
-  assert.ok(s.journal.every((e) => !e.text.startsWith('While you were away')));
-});
-
-test('offline: short gaps catch up; paused games stay put; long ones are capped', () => {
-  const sim = new Sim(plainGame('gaps'));
-  const s = sim.state;
-  assert.ok(catchUp(sim, 60_000).ticks > 0);
-  assert.ok(s.journal.every((e) => !e.text.startsWith('While you were away')));
-
-  s.paused = true;
-  const tick = s.tick;
-  assert.equal(catchUp(sim, HOUR_MS).ticks, 0);
-  assert.equal(s.tick, tick);
-  s.paused = false;
-
-  const capped = new Sim(plainGame('cap'));
-  capped.state.people[0].needs = { food: 1, rest: 1 };
-  // a night away is two days in the town at most, not weeks
-  const r = catchUp(capped, 9 * HOUR_MS);
-  assert.ok(r.ticks <= MAX_OFFLINE_MS / TICK_MS);
-  assert.ok(r.ticks / TICKS_PER_DAY <= 2, `${r.ticks / TICKS_PER_DAY} game days`);
-  assert.ok(capped.state.journal.every((e) => !e.text.startsWith('While you were away')), 'no away report any more');
-});
-
-test('offline: a busy town simulates a real hour quickly', () => {
-  const sim = busyTown('perf');
-  const t0 = performance.now();
-  catchUp(sim, HOUR_MS);
-  const ms = performance.now() - t0;
-  console.log(`one real hour (${HOUR_MS / TICK_MS} ticks) in ${Math.round(ms)}ms`);
-  assert.ok(ms < 5000);
-});
-
 test('the journal keeps the most recent entries', () => {
   const s = newGame('journal');
   for (let i = 0; i < MAX_JOURNAL + 50; i++) notify(s, `event ${i}`);
@@ -104,18 +59,6 @@ test('the journal keeps the most recent entries', () => {
   assert.equal(s.notices.length, 20);
 });
 
-test('catching up a slice at a time ends exactly where catching up in one go does', () => {
-  const whole = new Sim(newGame('slices'));
-  const sliced = new Sim(newGame('slices'));
-  catchUp(whole, 30 * 60_000);
-  const job = startCatchUp(sliced, 30 * 60_000);
-  let slices = 0;
-  while (!job.run(777)) slices++;
-  job.finish();
-  assert.ok(slices > 5);
-  assert.equal(job.progress, 1);
-  assert.equal(JSON.stringify(sliced.state), JSON.stringify(whole.state));
-});
 test('the land\'s pools are packed in the save, and come back as they were', async () => {
   const { newGame: ng } = await import('../src/shared/sim/state');
   const { parseSave: ps, serialize: ser, packPools, unpackPools } = await import('../src/shared/sim/save');

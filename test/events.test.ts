@@ -4,7 +4,6 @@ import { EVENTS, EVENT_BY_ID } from '../src/shared/data/events';
 import { Rng } from '../src/shared/rng';
 import { EVENT_HOURS, answerEvent, maybeEvent, startEvent } from '../src/shared/sim/events';
 import { FATE_LATER_DAYS } from '../src/shared/data/fatefulEvents';
-import { catchUp } from '../src/shared/sim/offline';
 import { markMult } from '../src/shared/sim/origin';
 import { Sim } from '../src/shared/sim/sim';
 import { newGame, type GameState } from '../src/shared/sim/state';
@@ -87,47 +86,6 @@ test('an answer can leave a lasting mark: a lever pushed, or everyone\'s spirits
   startEvent(t, EVENT_BY_ID.bard, new Rng(1));
   answerEvent(t, 0, new Rng(1));
   assert.ok(mood(t, t.people[0]).reasons.some((r) => r.text === 'A bard by the fire'));
-});
-
-test('while you are away, a question waits for you (its clock is held)', () => {
-  const sim = new Sim(town());
-  const s = sim.state;
-  s.nextEventTick = Number.MAX_SAFE_INTEGER;
-  startEvent(s, EVENT_BY_ID.comet, new Rng(2));
-  catchUp(sim, 3600_000);
-  assert.ok(s.event, 'still waiting');
-  assert.ok(s.prompts.some((p) => p.kind === 'event'));
-});
-
-test('away, a choice event pauses the town: at most one comes, and answering it sets the town going', () => {
-  const sim = new Sim(town());
-  const s = sim.state;
-  s.nextEventTick = s.tick + 2 * TICKS_PER_HOUR;
-  s.nextRaidTick = Number.MAX_SAFE_INTEGER; // (no raid to reach the gate first)
-  const start = s.tick;
-  const { ticks } = catchUp(sim, 3 * 3600_000);
-  assert.ok(s.event?.held, 'an event came and holds the town');
-  assert.ok(s.paused, 'paused');
-  assert.ok(ticks < 3 * TICKS_PER_HOUR && s.tick > start, 'it stopped where the event came');
-  assert.equal(s.prompts.filter((p) => p.kind === 'event').length, 1, 'just the one');
-  const at = s.tick;
-  catchUp(sim, 3600_000);
-  assert.equal(s.tick, at, 'still waiting next time');
-  const p = s.prompts.find((q) => q.kind === 'event')!;
-  sim.command({ type: 'answerPrompt', prompt: p.id, option: p.defaultOption });
-  sim.step();
-  assert.ok(!s.event && !s.paused, 'answered: the town runs on');
-});
-
-test('the phone alert for a choice event is sent, and nothing past it', async () => {
-  const { plan } = await import('../src/shared/alerts');
-  const { DEFAULT_ALERTS } = await import('../src/shared/ipc');
-  const s = town();
-  s.nextEventTick = s.tick + 2 * TICKS_PER_HOUR;
-  s.nextRaidTick = s.tick + 6 * TICKS_PER_HOUR;
-  const p = plan({ ...DEFAULT_ALERTS, enabled: true, topic: 't' }, s, 1_000_000);
-  assert.equal(p.at(-1)?.event.kind, 'event', 'the event is the last alert');
-  assert.ok(!p.some((x) => x.event.kind === 'raid'), 'the raid after it never comes while away');
 });
 
 test('the fateful events: rare, no sooner than their gap, and their effects bite (fire, ruin, exodus, learning, healing)', async () => {

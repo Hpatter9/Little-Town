@@ -61,7 +61,6 @@ import { BloodPools } from './map/bloodPools';
 import { MapDisaster } from './map/mapDisaster';
 import { createBattleHud } from './battle/battleHud';
 import { createRaidRecap } from './battle/raidRecap';
-import { createAwayCard, createCatchingUp } from './awayCard';
 import { BattleJuice } from './battle/juice';
 import { startCinema } from './cinema/cinema';
 import { momentOf } from './cinema/moments';
@@ -498,7 +497,7 @@ async function start(): Promise<void> {
   map.onFelled = (tex, x, y, kind, cell) => {
     felling.fall(tex, x, y, kind, cell, map.calm);
     // (a tree comes down with a creak and a crash, a rock breaks with a rattle: heard when the sound is on, one at a
-    //  time, so the map catching up after time away isn't a forest crashing down)
+    //  time)
     const mv = map.view;
     const now = performance.now();
     if (now - lastFelled < FELL_HEARD_MS) return;
@@ -581,16 +580,6 @@ async function start(): Promise<void> {
     speed: (n) => bridge.command({ type: 'battleSpeed', speed: n }),
   });
   const raidRecap = createRaidRecap();
-  const catchingScreen = createCatchingUp();
-  // (closed, the news bubble on the phone's page counts nothing from the absence: mobile/notices.ts `readAbsence`)
-  let journalHeadNow = 0;
-  const awayCard = createAwayCard(() => {
-    try {
-      window.parent?.dispatchEvent(new CustomEvent('littletown:away-seen', { detail: journalHeadNow }));
-    } catch {
-      /* (no page around the strip: the desktop app) */
-    }
-  });
   const cinema = startCinema(document.body); // (a big moment as a title card, the screen letterboxed)
   let lastNewsId = -2; // (-2: no snapshot yet; the news already there when the page opens is not shown again)
   const battleHud = createBattleHud({
@@ -661,7 +650,7 @@ async function start(): Promise<void> {
   const shownExpedition = () => snap.expeditions.at(-1) ?? null;
   const expHeader = createExpeditionHeader(() => bridge.openPanel('expeditions'));
   const promptCard = createPromptCard((prompt, option) => bridge.command({ type: 'answerPrompt', prompt, option }));
-  const gameOver = createGameOver(() => bridge.openPanel('newgame'));
+  const gameOver = createGameOver(() => (bridge.endTown ? void bridge.endTown() : bridge.openPanel('newgame')));
 
   // (an origin's look reaches its buildings too)
   const hud = createHud(bridge); // (the buildings' style follows the snapshot: see applySnapshot)
@@ -717,7 +706,7 @@ async function start(): Promise<void> {
   Object.assign(window, { __zones: () => ambZones }); // (previews)
   /** The phone buzzes softly at the big moments (vibration.ts): the page does it, by its own setting. */
   const buzz = (k: Buzz) => {
-    if (!snap?.catchingUp) bridge.vibrate?.(BUZZ[k]);
+    bridge.vibrate?.(BUZZ[k]);
   };
   let wasRaid = false;
   const tip = createTooltip();
@@ -1169,6 +1158,8 @@ async function start(): Promise<void> {
         const actions = list.map((a, i) => act(`b${i}`, a.label, a.onClick, { danger: a.danger }));
         const venue = venuePanel(b.def);
         if (venue && inspectMenu === 'main') actions.unshift(act('venue', 'Look inside…', () => bridge.openPanel(venue), { primary: true }));
+        // (the founder's walk: tap a building, then send them: sim/founder.ts)
+        if (snap.founder && b.status === 'done' && inspectMenu === 'main') actions.push(act('founderGo', 'Send the founder here', () => (bridge.command({ type: 'founderGo', building: b.id }), inspectTarget(null))));
         return { title: d.title, lines: d.lines, actions, building: b.id };
       }
       case 'person': {
@@ -1204,7 +1195,8 @@ async function start(): Promise<void> {
         const fight = snap.skirmishes.find((k) => !k.over && k.who.includes(p.name));
         const watchAct = fight ? [act('watch', 'Watch the fight', () => bridge.command({ type: 'watch', expedition: fight.id }), { primary: true })] : [];
         if (fight) lines.unshift(`Fighting ${fight.foe} out on the land!`);
-        return { title: d.title, lines, actions: [...watchAct, ...rallyAct, followAct, act('more', 'Townsfolk…', () => bridge.openPanel('townsfolk'))] };
+        const founderAct = p.id === snap.mainId ? [act('founder', 'The founder…', () => bridge.openPanel('founder'), { primary: true })] : [];
+        return { title: d.title, lines, actions: [...founderAct, ...watchAct, ...rallyAct, followAct, act('more', 'Townsfolk…', () => bridge.openPanel('townsfolk'))] };
       }
       case 'place': {
         const p = snap.places.find((q) => q.id === h.id);
@@ -1636,7 +1628,7 @@ async function start(): Promise<void> {
     const feedShown = document.body.classList.contains('feed-shown');
     // (a raid's battle or a watched fight is never interrupted: what comes meanwhile waits, the last few of it shown
     // once it's over; the rest is in the news bubble)
-    const fresh = next.catchingUp == null ? next.notices.filter((n) => n.id > lastNotice && (!feedShown || CHATTER.test(n.text) || next.fightOn || !!next.tactics)).map((n) => n.text) : [];
+    const fresh = next.notices.filter((n) => n.id > lastNotice && (!feedShown || CHATTER.test(n.text) || next.fightOn || !!next.tactics)).map((n) => n.text);
     if (next.fightOn || next.tactics) heldToasts.push(...fresh);
     else {
       for (const t of heldToasts.slice(-HELD_TOASTS)) toasts.push(t);
@@ -1732,7 +1724,7 @@ async function start(): Promise<void> {
     interior.update(within, next.people);
     tactics.update(next);
     // (a scene is offered only while nothing else has the screen: a battle, a watched fight, a question)
-    cutscene.update(next.scene, next.era, awayCard.open || !!(next.battle || next.raid || watched || inMine || below || caves || beyond || within || next.tactics || next.prompts.length));
+    cutscene.update(next.scene, next.era, !!(next.battle || next.raid || watched || inMine || below || caves || beyond || within || next.tactics || next.prompts.length));
     map.root.visible = !watched && !inMine && !below && !caves && !beyond && !within && !next.tactics && !cutscene.shown;
     showNotices(next);
     // (the town's sounds: blows, spells, coins, bells... when the sound is on and the town is on screen)
@@ -1747,17 +1739,15 @@ async function start(): Promise<void> {
       for (const c of heard) ambience.cue(c.cue, c.pan, c.delay);
     }
     // (the big moments buzz the phone: the horn, a quake, a building coming down, which is heard too where it's seen)
-    if (next.catchingUp == null) {
-      for (const k of buzzesBetween(snap, next)) buzz(k);
-      const mv = map.view;
-      const fell = view.music && !view.hidden && map.root.visible ? collapsesBetween(snap, next).map((b) => buildingCentre(b)).find((c) => c.x >= mv.x && c.x <= mv.x + mv.w && c.y >= mv.y && c.y <= mv.y + mv.h) : undefined;
-      if (fell) ambience.cue('collapse', ((fell.x - mv.x) / Math.max(1, mv.w)) * 1.6 - 0.8);
-    }
+    for (const k of buzzesBetween(snap, next)) buzz(k);
+    const mv = map.view;
+    const fell = view.music && !view.hidden && map.root.visible ? collapsesBetween(snap, next).map((b) => buildingCentre(b)).find((c) => c.x >= mv.x && c.x <= mv.x + mv.w && c.y >= mv.y && c.y <= mv.y + mv.h) : undefined;
+    if (fell) ambience.cue('collapse', ((fell.x - mv.x) / Math.max(1, mv.w)) * 1.6 - 0.8);
     // (what rose and what was finished since the last snapshot: map/workSeen.ts)
     const gained = map.root.visible && !view.hidden ? gainsBetween(snap, next) : [];
     const finished = map.root.visible && !view.hidden ? finishedBetween(snap, next) : [];
     // (a party the player sent, or watched, has come home through the gate: the camera goes to meet them, once)
-    if (next.homecoming && next.homecoming.tick !== homecomingSeen && next.catchingUp == null && !next.watch) {
+    if (next.homecoming && next.homecoming.tick !== homecomingSeen && !next.watch) {
       homecomingSeen = next.homecoming.tick;
       camera.centreOn({ x: next.homecoming.x, y: next.homecoming.y }, app.screen.width, app.screen.height);
     }
@@ -1917,7 +1907,7 @@ async function start(): Promise<void> {
     // (on the phone, a choice event has the whole screen: mobile/eventSheet.ts)
     if (q && view.mode === 'full' && !next.fightOn && !next.tactics && !((q.kind === 'event' || q.kind === 'secret' || q.kind === 'saga' || q.kind === 'road' || q.kind === 'debrief' || q.kind === 'envoy' || q.kind === 'watch' || q.kind === 'dragon' || q.kind === 'evolve' || q.kind === 'refugees' || q.kind === 'village' || q.kind === 'council' || q.kind === 'trial' || q.kind === 'revolt' || q.kind === 'ways' || q.kind === 'enemy') && (window as unknown as { __eventSheet?: boolean }).__eventSheet)) promptCard.show(q);
     else promptCard.hide();
-    if (next.gameOver) gameOver.show(next.gameOver.text, next.gameOver.won);
+    if (next.gameOver) gameOver.show(next.gameOver.text, next.gameOver.won, next.gameOver);
     // a boss roars or sweeps: the strip shakes (only for fresh moments, not ones from before a reload)
     if (next.bossShake !== lastShake) {
       if (lastShake !== null && next.tick - next.bossShake < 20) shakeUntil = performance.now() + SHAKE_MS;
@@ -1939,6 +1929,7 @@ async function start(): Promise<void> {
     if (iso) {
       iso.syncLand(next.land);
       iso.setKit(kitNameFor(next.origin.id, next.theme));
+      iso.setBiome(next.biome);
       iso.syncBuildings(next.buildings);
     }
     minimap.setLand(next.land, next.calendar.season);
@@ -2098,39 +2089,11 @@ async function start(): Promise<void> {
     if (selected) showActions();
     if (selectedPerson !== null) showPersonCard();
   };
-  // While the time away is caught up the town isn't drawn (the ticker stopped, the snapshots only move a bar): drawing
-  // each slice once took two thirds of the catch-up. Done, the town is drawn from where it now stands (nothing since
-  // it was last drawn pops up: no toasts, buzzes, sounds or the raids' recaps), and one card says what mattered.
-  let catching = false;
-  const catchUpSnap = (next: Snapshot): boolean => {
-    if (next.catchingUp != null) {
-      catchingScreen.show(next.catchingUp);
-      if (!catching) {
-        catching = true;
-        app.ticker.stop();
-      }
-      return true;
-    }
-    if (!catching) return false;
-    catching = false;
-    catchingScreen.hide();
-    resumedAt = performance.now();
-    app.ticker.start();
-    snap = next;
-    lastNotice = Math.max(lastNotice, next.notices.at(-1)?.id ?? 0);
-    raidRecap.seenNow(next);
-    applySnapshot(next);
-    journalHeadNow = next.journalHead;
-    if (next.away?.length) awayCard.show(next.away);
-    return true;
-  };
   bridge.onSnapshot((next) => {
-    if (catchUpSnap(next)) return;
     if (pinching) heldSnap = next;
     else applySnapshot(next);
   });
   applySnapshot(first);
-  if (first.catchingUp != null) catchUpSnap(first);
   requestAnimationFrame(() => requestAnimationFrame(() => void stripLoad.then((l) => l.drawn()))); // (the map has drawn)
 
   /* -------------------------------------------------------- frame loop */
@@ -2161,6 +2124,8 @@ async function start(): Promise<void> {
       if (held) applySnapshot(held);
     },
   });
+  /** How long the camera leaves the view alone after the player pans it, before easing back to the founder. */
+  const FOLLOW_WAIT_MS = 4000;
   app.ticker.add((ticker) => {
     const w = layoutSplit(); // the town's share of the width
     // zoomed (the strip got wider or narrower): keep the middle of the view where it was
@@ -2170,8 +2135,13 @@ async function start(): Promise<void> {
       viewW = w;
       viewH = h;
     }
-    // (the camera follows nobody, the hero and the raid's lead raider included: the owner found it jumping about;
-    // it moves only when the player moves it, or once to the gate as a battle begins)
+    // (the camera follows the person you follow, else the founder, and waits while you pan about: it eases to them,
+    // and a battle's own move to the gate is left alone)
+    const lead = snap.people.find((q) => q.id === (snap.hero ?? snap.mainId));
+    if (lead && !snap.raid && !snap.gameOver) {
+      const at = people.posOf(lead.id) ?? { x: lead.x, y: lead.y };
+      camera.follow(at, w, h, performance.now(), FOLLOW_WAIT_MS);
+    }
     const moving = camera.update(ticker.deltaMS / 1000, w, h);
     if (iso) {
       iso.setCamera(camera.x, camera.y, w, h);

@@ -144,7 +144,7 @@ async function newSeed(raw: unknown): Promise<void> {
   rebuildTray();
 }
 
-/** Save now (the game thread sends the text; while time away is still being simulated it sends none). */
+/** Save now (the game thread sends the text). */
 const save = () => void game.saveText().then((text) => text && writeSaveText(text));
 
 /* ------------------------------------------------------------ placement */
@@ -463,7 +463,7 @@ function rebuildTray(): void {
 
 app.whenReady().then(() => {
   settings = loadSettings();
-  // back again: alerts scheduled for the time away are no longer needed
+  // alerts booked by an older version for a time away are no longer needed
   if (settings.scheduledAlerts.length) {
     void cancelAlerts(settings.alerts, settings.scheduledAlerts);
     settings.scheduledAlerts = [];
@@ -491,7 +491,6 @@ app.whenReady().then(() => {
   // Nobody can see the strip while the PC is locked, so stop drawing it.
   powerMonitor.on('lock-screen', () => { hiddenByLock = true; applyVisibility(); save(); });
   powerMonitor.on('unlock-screen', () => { hiddenByLock = false; applyVisibility(); });
-  // (on resume the loop notices the gap in the clock and catches up)
   powerMonitor.on('suspend', save);
   powerMonitor.on('shutdown', save);
 });
@@ -529,11 +528,10 @@ let quitReady = false;
 app.on('before-quit', (e) => {
   quitting = true;
   if (!game || quitReady) return;
-  // the last save, and phone alerts for the time away: hold the quit until the game thread has done both (or give up
-  // after a while)
+  // the last save: hold the quit until the game thread has done it (or give up after a while)
   e.preventDefault();
   quitReady = true;
-  void game.hide(settings.alerts.enabled).then(({ text, ids }) => {
+  void game.hide(false).then(({ text, ids }) => {
     if (text) writeSaveText(text);
     settings.scheduledAlerts = ids;
     saveSettings(settings);

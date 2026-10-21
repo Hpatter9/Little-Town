@@ -1174,6 +1174,27 @@ function sleepTask(p: Person): Task {
   return p.task?.type === 'sleep' && !p.task.sick && p.task.building === p.bed ? p.task : { type: 'sleep', building: p.bed };
 }
 
+/** What the founder was told to do, as a task (null: nothing now, carry on as usual). A walk ends on arrival. */
+function founderTask(s: GameState, p: Person): Task | null {
+  const o = s.founderOrder;
+  if (!o) return null;
+  if (o.kind === 'go') {
+    const b = byId(s, o.building);
+    if (!b) {
+      s.founderOrder = undefined;
+      return null;
+    }
+    const d = buildingDoor(b);
+    if (Math.hypot(p.x - d.x, p.y - d.y) < CELL) {
+      s.founderOrder = undefined;
+      return null;
+    }
+    return { type: 'wander', targetX: d.x, targetY: d.y };
+  }
+  if (o.kind === 'rest') return p.bed != null ? sleepTask(p) : null;
+  return findJob(s, p, o.job);
+}
+
 function chooseTask(s: GameState, p: Person): Task | null {
   p.blocked = false;
   // The badly hurt stay in bed until they're back on their feet: a sickbed if one's free (sim/sickbeds.ts), else home.
@@ -1241,6 +1262,11 @@ function chooseTask(s: GameState, p: Person): Task | null {
       const wild = wildFood(s, p);
       if (wild !== null) return { type: 'gather', tile: wild, progress: 0, scrounge: true };
     }
+  }
+  // The player's word for the founder: a walk, a rest or a job for the day (sim/founder.ts).
+  if (p.id === s.mainId && s.founderOrder) {
+    const o = founderTask(s, p);
+    if (o) return o;
   }
   // Put away what you're carrying (unless it belongs to what you're doing: a gather with room left, a
   // delivery, or materials on the way to a craft station).
@@ -1326,7 +1352,7 @@ const BUILDER_JOBS = ['construct', ...JOBS.filter((j) => j !== 'construct')] as 
 /** Reachable cells around a construction footprint; each can hold one builder at a time. */
 /** The first free spot beside a site's footprint (its rows above and below, then its sides) that isn't water (unless
  *  they swim), under another building, or taken by another builder, as a point in px. Checked one at a time, the
- *  cheapest test first (the catch-up after time away spent a tenth of its time listing them all). */
+ *  cheapest test first (listing them all once took a tenth of the time). */
 /** Which buildings stand on each cell (`y * 65536 + x`), for `buildSpot` (each spot looked over every building's
  *  footprint, for every site, for everyone idle): made again only when a building is put up, pulled down or changed. */
 type Cover = Map<number, number[]>;

@@ -80,10 +80,6 @@ export class SimClient {
     return this.assembler.current;
   }
 
-  get catchingUp(): boolean {
-    return !!this.assembler.current?.catchingUp;
-  }
-
   send(m: ToHost): void {
     this.port.post(m);
   }
@@ -103,13 +99,13 @@ export class SimClient {
     });
   }
 
-  /** The save text now (null while catching up, or if the thread doesn't answer). */
+  /** The save text now (null if the thread doesn't answer). */
   saveText = (): Promise<string | null> => this.ask<string | null>({ t: 'save' }, 5_000).then((v) => v ?? null);
   journal = (): Promise<JournalEntryView[]> => this.ask<JournalEntryView[]>({ t: 'journal' }).then((v) => v ?? []);
   /** A new town: the old one's legend and the new save, to write before the thread is started again on it. */
   newTown = (opts: unknown, heir: Legend | undefined): Promise<NewTown | null> => this.ask<NewTown | null>({ t: 'newGame', opts, heir, now: Date.now() });
 
-  /** Out of sight: the game saves (`book`: and books the phone alerts for the time away), and both are waited on. */
+  /** Out of sight: the game saves (`book`: and answers for the alerts), and both are waited on. */
   hide(book: boolean, timeoutMs = 10_000): Promise<{ text: string | null; ids: string[] }> {
     const saved = new Promise<string | null>((res) => {
       this.saveWait.push(res);

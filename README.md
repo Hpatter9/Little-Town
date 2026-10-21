@@ -28,9 +28,8 @@ it's designed for). After the first visit it works offline. To install it on And
 Chrome and choose ⋮ → Add to Home screen.
 
 Saves: the phone keeps its town in the browser's storage (keys `littletown.*`); the desktop in
-`%APPDATA%\Little Town`. Both catch up on time away: the first half hour away passes as in play, the rest at a
-quarter pace, and at most one game day passes however long you're gone. Raiders who arrive while you're away wait
-at the gate for you (up to twelve real hours), and one choice event can hold the town for your answer.
+`%APPDATA%\Little Town`. The game only runs while it is open: a saved town
+resumes exactly where it was left, and the phone page stands still while it is in the background.
 
 ## The screen
 
@@ -49,7 +48,7 @@ at the gate for you (up to twelve real hours), and one choice event can hold the
   delves, war), and the version.
 - Big moments take the whole screen: a **choice event** (a picture, the story, two or three answers, and what came
   of it), a **raid battle** on its board, a watched party's **fight** in the old Final Fantasy style, a **mine** being
-  dug, an **envoy**, a hero's **evolution** with illuminated cards for the two roads.
+  dug, an **envoy**, a hero's **promotion** with illuminated cards for the two roads.
 
 ## Founding a town
 
@@ -83,7 +82,7 @@ passes the town to an heir while a grown-up is left.
 ## What you do
 
 - **Set the direction** (Town tab): Growth, Defence, Trade or Knowledge; the tax lever; the town's size (5, 10, 20,
-  40 or no limit); whether evolutions and stat points are put to you or left to the town; how raids are fought.
+  40 or no limit); whether promotions and stat points are put to you or left to the town; how raids are fought.
 - **Answer** the questions: strangers at the gate (take them in or send them on), choice events (about 525, some of
   them fateful), envoys, the dragon's demands, secrets found out, sagas, a party asking to be watched.
 - **Trips** (Trips tab): parties form themselves and an adventurer leads them, but you hold a **veto** on any place

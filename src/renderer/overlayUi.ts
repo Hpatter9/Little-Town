@@ -304,8 +304,10 @@ export function createPromptCard(onAnswer: (prompt: number, option: number) => v
   };
 }
 
-/** Shown when the game ends: the main character dies, the town is abandoned, or the ship lifts off (a win). */
-export function createGameOver(onNewGame: () => void): { show(text: string, won?: boolean): void } {
+/** Shown when the game ends: the founder dies with no heir, the town is abandoned, or the ship lifts off (a win). The
+ *  founder's fall names them, the days the town lasted and how they died; the button goes back to the main menu, where
+ *  the town is kept as a legend (the phone: Bridge `endTown`). */
+export function createGameOver(onDone: () => void): { show(text: string, won?: boolean, fall?: { founder?: string; days?: number; cause?: string }): void } {
   const el = document.createElement('div');
   el.id = 'gameover';
   el.setAttribute('data-hit', '');
@@ -316,15 +318,18 @@ export function createGameOver(onNewGame: () => void): { show(text: string, won?
   text.className = 'gameover-text';
   const b = document.createElement('button');
   b.className = 'tab';
-  b.textContent = 'Start a new game';
-  b.addEventListener('click', onNewGame);
+  b.textContent = 'Back to the main menu';
+  b.addEventListener('click', () => {
+    b.disabled = true;
+    onDone();
+  });
   el.append(title, text, b);
   document.body.append(el);
   return {
-    show(t, won = false) {
-      title.textContent = won ? 'Victory' : 'Game over';
+    show(t, won = false, fall) {
+      title.textContent = won ? 'Victory' : fall?.founder ? `${fall.founder} has died` : 'Game over';
       el.classList.toggle('won', won);
-      text.textContent = t;
+      text.textContent = fall?.founder ? `${fall.founder} lasted ${fall.days ?? 0} day${fall.days === 1 ? '' : 's'}. They died ${fall.cause ?? ''}, with no heir to take up the town. Their story will be remembered as a legend.` : t;
       el.hidden = false;
     },
   };

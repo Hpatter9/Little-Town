@@ -14,7 +14,6 @@ import { answerCrossroads } from './muster';
 import { answerVisitor } from './townsfolk';
 import { answerRefugees } from './bands';
 import { answerThirst } from './monsters';
-import { openGate } from './raidWait';
 import { answerEvent } from './events';
 import { answerLich } from './doom';
 import { the, The } from '../data/expeditions';
@@ -89,13 +88,16 @@ export function rollRoadEvent(s: GameState, e: Expedition, members: Person[], rn
 /** Answer a question (by the player, or by default when the timer runs out). */
 export function answerPrompt(s: GameState, id: number, option: number, rng: Rng): void {
   const prompt = s.prompts.find((q) => q.id === id);
-  if (!prompt || option < 0 || option >= prompt.options.length) return;
+  if (!prompt) return;
+  // (a promotion's answer that names no road, from a card that was out of date, is the town's own choice: the question is
+  // never left standing to be put again)
+  if (prompt.kind === 'evolve' && (!Number.isInteger(option) || option < 0 || option >= prompt.options.length)) option = prompt.defaultOption;
+  if (option < 0 || option >= prompt.options.length) return;
   s.prompts = s.prompts.filter((q) => q !== prompt);
   if (answerAlignPrompt(s, prompt, option)) return; // (the alignment's own questions: sim/alignment.ts)
   if (prompt.kind === 'raid') return answerRaidPrompt(s, prompt.options[option], rng);
   if (prompt.kind === 'rite') return answerRite(s, prompt.options[option]);
   if (prompt.kind === 'lich') return answerLich(s, prompt.options[option]);
-  if (prompt.kind === 'gate') return openGate(s);
   if (prompt.kind === 'event') return answerEvent(s, option, rng);
   if (prompt.kind === 'thirst') return answerThirst(s, prompt.options[option]);
   if (prompt.kind === 'visitor') return answerVisitor(s, prompt.options[option]);

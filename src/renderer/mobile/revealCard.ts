@@ -5,7 +5,7 @@
 // home opens its haul like a chest: the commonest first, the best last, after a pause, with a glow.
 //
 // The sim keeps the record (`snapshot.rare`, sim/rare.ts); the words are in mobile/reveals.ts. The cards wait in a queue
-// and never come over a raid, a fight, a cutscene, an event or the "While you were away" card: they show after. The keys
+// and never come over a raid, a fight, a cutscene or an event: they show after. The keys
 // shown are kept per town (`littletown.reveals`), so a card comes once; a town first seen here starts with all it
 // already has, unshown. The ☰ menu can turn them off (`littletown.revealsOff`). Other pages' moments use `showReveal`.
 
@@ -246,10 +246,9 @@ export function startReveals(bridge: { onSnapshot(cb: (s: Snapshot) => void): vo
   held = () => {
     const s = last;
     if (!s) return true;
-    if (s.catchingUp != null || s.raid || s.tactics || s.battle || s.watch || s.mine || s.scene?.playing) return true;
+    if (s.raid || s.tactics || s.battle || s.watch || s.mine || s.scene?.playing) return true;
     if (document.body.classList.contains('battle') || document.body.classList.contains('event-open')) return true;
-    const aw = strip.contentDocument?.getElementById('away-card');
-    return !!aw && !aw.hidden;
+    return false;
   };
   chime = () => {
     const amb = (strip.contentWindow as (Window & { __ambience?: { cue(c: string, pan?: number, delay?: number): void } }) | null)?.__ambience;
@@ -281,8 +280,7 @@ export function startReveals(bridge: { onSnapshot(cb: (s: Snapshot) => void): vo
         for (const h of hoard) for (const [m, n] of Object.entries(h)) loot[m] = (loot[m] ?? 0) + (n ?? 0);
         const haul = haulOrder(loot, uniques);
         for (const u of uniques) inChest.add(`unique:${u}`);
-        // (a party home while the town caught up is told on the away card: no chest for each)
-        if (!haul.length || snap.catchingUp != null) continue;
+        if (!haul.length) continue;
         const best = haul[haul.length - 1];
         showReveal({
           kind: a.delve ? 'The delvers are home' : 'The party is home',

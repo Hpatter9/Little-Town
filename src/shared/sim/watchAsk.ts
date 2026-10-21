@@ -3,8 +3,7 @@
 // quarry, a stronghold stormed) and the player isn't already watching it, the fight holds (the trip waits on
 // `Expedition.prompt`, as for any question about a party) and the player is asked: watch it (`s.watching`, the fight
 // screen) or let it play out. Unanswered, it plays out after `WATCH_ASK_HOURS`. Asked once at the site and once for its
-// boss a trip (`Expedition.watchAsked`); never while the town is caught up after time away or looked ahead for the
-// phone's alerts (`runtime.quiet`), nor in a town whose autopilot is off (the tests' single mechanics).
+// boss a trip (`Expedition.watchAsked`); never while the sim runs without the player looking (`runtime.quiet`), nor in a town whose autopilot is off (the tests' single mechanics).
 
 import { ENEMIES } from '../data/enemies';
 import { the, type Destination } from '../data/expeditions';
@@ -20,7 +19,7 @@ export const WATCH_ASK_HOURS = 2;
 const SITE = 1;
 const BOSS = 2;
 
-/** Set while the sim runs without the player looking (the catch-up after time away, the alerts' look ahead). */
+/** Set while the sim runs without the player looking (a run on the side, with nobody to ask). */
 export const runtime = { quiet: false };
 
 /** Whether a fight is a big one: a boss, or the fight at the place the party set out for. */

@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { journalNotices, readAbsence, situationNotices, toneOf, worst } from '../src/renderer/mobile/notices';
+import { journalNotices, situationNotices, toneOf, worst } from '../src/renderer/mobile/notices';
 import { snapshot } from '../src/shared/sim/snapshot';
 import { plainGame } from './helpers';
 import { notify } from '../src/shared/sim/state';
@@ -56,20 +56,6 @@ test('the first hour: each tip is met once, the earliest first, a couple at a ti
     assert.equal(n.tone, 'gold');
     if (t.panel) assert.equal(n.action?.panel, t.panel);
   }
-});
-
-test('closing the away card reads everything from the absence, and nothing after', () => {
-  const entries = Array.from({ length: 44 }, (_, i) => ({ id: i + 1, when: 'Day 3 · Spring · 14:05', day: 3, text: `Ada found something ${i}`, key: false }));
-  const read = new Set<string>();
-  readAbsence(journalNotices(entries, null, 60), read, 44);
-  assert.equal(journalNotices(entries, null, 60).filter((n) => !read.has(n.key)).length, 0);
-  // (the next line, after the player came back, is new)
-  const later = [...entries, { id: 45, when: 'Day 3 · Spring · 15:00', day: 3, text: 'Ada built a hut', key: false }];
-  const unread = journalNotices(later, null, 60).filter((n) => !read.has(n.key));
-  assert.deepEqual(unread.map((n) => n.key), ['j:45']);
-  // (a tip still waits to be read)
-  readAbsence([{ key: 'tip:welcome', tone: 'gold', mark: '💡', title: 't', text: '' }], read, 44);
-  assert.ok(!read.has('tip:welcome'));
 });
 
 test('the first days: tips for the food counter, sending a party and the beds come when the town needs them', async () => {

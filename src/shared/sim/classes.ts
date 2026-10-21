@@ -166,7 +166,7 @@ export function askEvolve(s: GameState, p: Person, roads: PathNode[]): void {
     defaultOption: roads.length,
     expiresTick: s.tick + EVOLVE_ASK_HOURS * TICKS_PER_HOUR,
   });
-  notify(s, `${p.name} is ready to evolve: ${roads.map((r) => r.name).join(' or ')}?`, true);
+  notify(s, `${p.name} is ready for promotion: ${roads.map((r) => r.name).join(' or ')}?`, true);
 }
 
 /** The player's answer (or the default: their own choice). */

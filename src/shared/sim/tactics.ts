@@ -614,7 +614,7 @@ export function startTactics(s: GameState, r: Raid): void {
   const foes = r.raiders.filter((rd) => !rd.ally && !rd.down && !rd.gone);
   const folk = fighters(s);
   const board = makeBoard(s, r.side, foes.length + folk.length >= BIG_AT || !!r.host, s.tick);
-  const auto = s.tacticsAuto !== false || !!s.raidSkip || !!r.alone || runtime.quiet || s.autopilot === false;
+  const auto = s.tacticsAuto !== false || !!s.raidSkip || runtime.quiet || s.autopilot === false;
   const t: Tactics = { ...board, units: [], waiting: [], auto, phase: 'fighting', turns: 0, killed: 0, through: 0, lost: 0, started: s.tick, hits: [], fx: [], chests: [] };
   r.tactics = t;
   r.leavesTick = Math.max(r.leavesTick, s.tick + 3 * TICKS_PER_HOUR);
@@ -885,7 +885,7 @@ export function stepTactics(s: GameState, r: Raid, rng: Rng): boolean {
   }
   // the player's orders: the turn waits on them, and the town takes it if none come
   if (t.await) {
-    if (t.auto || s.tick >= t.await.until || runtime.quiet || r.alone) {
+    if (t.auto || s.tick >= t.await.until || runtime.quiet) {
       const me = t.units.find((u) => u.key === t.await!.key);
       const left = t.await;
       t.await = undefined;
@@ -1021,7 +1021,7 @@ function beginTurn(s: GameState, r: Raid, t: Tactics, me: TacUnit, st: TacStats,
     t.act = { key: me.key, path: [[me.u, me.v]], step: 0, kind: 'wait', stage: 'beat', next: s.tick + WAIT_TICKS };
     return;
   }
-  if (!me.foe && me.key[0] === 'p' && !t.auto && !runtime.quiet && !r.alone) {
+  if (!me.foe && me.key[0] === 'p' && !t.auto && !runtime.quiet) {
     t.await = { key: me.key, moved: false, acted: false, from: [me.u, me.v], until: s.tick + AWAIT_TICKS };
     return;
   }

@@ -26,7 +26,7 @@ const boost = (list: string): string => each(list, BOOST);
 export function uiCss(): string {
   const P = parts(U);
   const cards = `${P.frame}, ${P.card}, ${U} .ui-frame, ${U} .glance-tile, ${U} #notice-sheet .notice-item, ${U} .event-body, ${U} #top`;
-  const big = `${U} .ui-frame-big, ${U} .event-body, ${U} #fight-result, ${U} #raid-recap, ${U} #away-card`;
+  const big = `${U} .ui-frame-big, ${U} .event-body, ${U} #fight-result, ${U} #raid-recap`;
   const btns = `${P.btn}, ${U} .ui-btn, ${U} .event-option, ${U} .notice-act, ${U} .notice-btn, ${U} #top .top-btn`;
   const tabs = `${U} .menu-tabs .inv-tab, ${U} .ui-tab, ${U} #tabs button`;
   return `

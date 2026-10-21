@@ -1,59 +1,14 @@
-// Raids wait for the player (CLAUDE.md, "More to watch"). While the town is caught up after time away, raiders who
-// reach the gate hold there: the town pauses, a "Raiders at the gate" question asks the player to watch the fight, and
-// the raid begins when they answer (or when the town is unpaused). If the player stays away more than RAID_WAIT_MS
-// after the raiders arrived, it plays out without them. The phone page books an alert for when they'll arrive
-// (renderer/mobile/alerts.ts, from `raidDueTick`).
+// What holds still for the open game: a raid's battle or a watched fight on the screen stops the questions' clocks and
+// keeps anything else from popping up over it. (The raids' waiting at the gate for a player who was away went with the
+// catch-up: the game no longer runs while it is closed.)
 
-import { RAID_KIND_BY_ID } from '../data/raids';
 import type { GameState } from './state';
-
-/** The longest raiders wait at the gate for the player (real ms). */
-export const RAID_WAIT_MS = 12 * 3600_000;
-
-/** Raiders are about to come through (their warning is up with the next tick), and haven't been held or left alone. */
-export const raidAtGate = (s: GameState) => !!s.raid && s.raid.phase === 'warning' && s.tick + 1 >= s.raid.arrivesTick && s.raid.waiting === undefined && !s.raid.alone;
-
-/** Hold the raid at the gate: the town pauses and asks. `waited` is how long (real ms) it has waited already. */
-export function holdAtGate(s: GameState, waited: number): void {
-  const r = s.raid!;
-  const kind = RAID_KIND_BY_ID[r.kind];
-  r.waiting = waited;
-  s.paused = true;
-  s.prompts.push({
-    id: s.nextId++,
-    kind: 'gate',
-    expedition: null,
-    title: `${kind.name} at the gate!`,
-    text: `${r.raiders.length} ${r.raiders.length === 1 ? 'raider has' : 'raiders have'} reached the town, and the town waits for you. The fight starts when you're watching.`,
-    options: ['Watch the fight'],
-    defaultOption: 0,
-    // (the town is paused while this waits, so it never runs out in play: RAID_WAIT_MS decides, in offline.ts)
-    expiresTick: Number.MAX_SAFE_INTEGER,
-  });
-}
-
-/** Let a held raid in (the player is watching, or it waited long enough). */
-export function openGate(s: GameState): void {
-  s.prompts = s.prompts.filter((p) => p.kind !== 'gate');
-  if (s.raid?.waiting === undefined) return;
-  delete s.raid.waiting;
-  s.raid.alone = false;
-  s.raid.arrivesTick = Math.min(s.raid.arrivesTick, s.tick + 1);
-  s.paused = false;
-}
-
-/** The tick raiders will next reach the town, if it's known: a raid on its way, else the next one due (plus its
- *  warning, roughly). */
-export function raidDueTick(s: GameState): number | null {
-  if (s.raid) return s.raid.phase === 'warning' ? s.raid.arrivesTick : null;
-  return s.nextRaidTick ?? null;
-}
 
 /** A raid's battle or a watched fight is on the screen (the owner's ask: the game pauses in the background then,
  *  and nothing else may pop up over it). */
 export function fightOnScreen(s: GameState): boolean {
   const r = s.raid;
-  if (r && r.phase === 'active' && !r.alone && (r.battle || r.tactics) && !s.raidSkip) return true;
+  if (r && r.phase === 'active' && (r.battle || r.tactics) && !s.raidSkip) return true;
   if (s.watching === undefined) return false;
   const e = s.expeditions.find((x) => x.id === s.watching) ?? s.skirmishes?.find((k) => k.e.id === s.watching)?.e ?? (s.arena?.bout?.id === s.watching ? s.arena.bout.e : undefined);
   return !!e?.battle;
@@ -63,5 +18,5 @@ export function fightOnScreen(s: GameState): boolean {
  *  they watch the fight), but the raid's own. */
 export function holdForFight(s: GameState): void {
   if (!fightOnScreen(s)) return;
-  for (const p of s.prompts) if (p.kind !== 'raid' && p.kind !== 'gate') p.expiresTick += 1;
+  for (const p of s.prompts) if (p.kind !== 'raid') p.expiresTick += 1;
 }
