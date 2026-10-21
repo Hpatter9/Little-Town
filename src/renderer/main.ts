@@ -41,6 +41,9 @@ import { MapFelling } from './map/mapFelling';
 import { MapStockpile } from './map/mapStockpile';
 import { MapGains } from './map/mapGains';
 import { MapChores } from './map/mapChores';
+import { IsoView } from './iso/isoView';
+import { kitNameFor } from './iso/isoKits';
+import { isoViewOn } from './iso/isoSetting';
 import { finishedBetween, gainsBetween } from './map/workSeen';
 import { HomeDecor } from './map/homeDecor';
 import { Signposts } from './map/signposts';
@@ -405,6 +408,18 @@ async function start(): Promise<void> {
 
   // the town, top-down (map/mapView.ts): the land, the buildings on their footprints, and everyone on it
   const map = new MapView();
+  // the isometric view, being built (iso/isoView.ts): Settings turns it on, and it then stands in for the top-down
+  // map's world (hidden, though it still keeps its state: the hit tests and the layers not yet drawn in iso use it)
+  const iso = isoViewOn() ? new IsoView() : null;
+  if (iso) {
+    iso.syncLand(first.land);
+    map.world.visible = false;
+    map.lights.visible = false;
+    map.root.addChildAt(iso.root, map.root.getChildIndex(map.world) + 1);
+    map.worldOf = (sx, sy) => iso.worldOf(sx, sy);
+    map.screenOf = (wx, wy) => iso.screenOf(wx, wy);
+  }
+  (window as unknown as { __iso?: IsoView | null }).__iso = iso; // (for previews)
   // (real light: the dark of night, and every torch's pool and shadows: map/lightMap.ts)
   const lightMap = new LightMap(app.renderer);
   let lightDaylight = 1;
@@ -416,7 +431,7 @@ async function start(): Promise<void> {
   const debris = new BattleDebris(map.under); // (and what the fallen dropped)
   const disaster = new MapDisaster(map.under, map.over); // (floods, wildfires and their ash: sim/disasters.ts)
   (window as unknown as { __pools?: BloodPools }).__pools = pools; // (for previews)
-  const people = new MapPeople(map.things);
+  const people = new MapPeople(iso ? iso.things : map.things);
   (window as unknown as { __people?: MapPeople }).__people = people; // (for previews and probes)
   people.lights = map.lights;
   (window as unknown as { __people?: MapPeople }).__people = people; // (for previews)
@@ -613,7 +628,8 @@ async function start(): Promise<void> {
     return x0;
   };
 
-  const camera = new MapCamera(first.land.w * CELL, first.land.h * CELL);
+  const camera = iso ? new MapCamera(iso.width, iso.height) : new MapCamera(first.land.w * CELL, first.land.h * CELL);
+  if (iso) camera.project = (p) => iso.isoOf(p.x, p.y);
   // the minimap of the wide land (map/minimap.ts), and the caption naming the region the view is over
   const minimap = new Minimap();
   minimap.mount(document.body);
@@ -736,6 +752,17 @@ async function start(): Promise<void> {
     bridge.setInteractive(on);
   };
 
+  /** Who stands under a screen point in the isometric view: the ground under a figure is below the point tapped
+   *  (on their body), so the ground a little lower down is tried too. */
+  const isoPersonAt = (x: number, y: number) => {
+    for (let dy = 0; dy <= 36; dy += 6) {
+      const g = map.worldOf(x, y + dy);
+      const p = people.personAt(g.x, g.y);
+      if (p) return p;
+    }
+    return null;
+  };
+
   /** What in the town (or the expedition pane) is under a screen point. */
   const hitTest = (x: number, y: number): Hover => {
     if (x >= paneX) return x < paneX + paneW && y >= app.screen.height - STRIP_HEIGHT + PANE_HIT_TOP ? { kind: 'pane' } : null;
@@ -744,7 +771,7 @@ async function start(): Promise<void> {
     if (raider) return { kind: 'raider', id: raider.id };
     const roamer = roamers.raiderAt(w.x, w.y);
     if (roamer) return { kind: 'roamer', id: Math.floor(roamer.id / ROAMER_IDS) };
-    const person = people.personAt(w.x, w.y);
+    const person = iso ? isoPersonAt(x, y) : people.personAt(w.x, w.y);
     // (one of a daughter village's folk: the village's card)
     const vil = person && snap.villages.find((v) => v.folk.some((f) => f.id === person.id));
     if (vil) return { kind: 'village', id: vil.id };
@@ -755,7 +782,7 @@ async function start(): Promise<void> {
     if (grave) return { kind: 'grave', id: grave.id };
     const sign = signs.signAt(w.x, w.y);
     if (sign) return { kind: 'sign', sign };
-    const building = map.buildingAt(w.x, w.y);
+    const building = iso ? iso.buildingAt(x, y) : map.buildingAt(w.x, w.y);
     // (a daughter village's houses and fields are drawn as buildings with ids below zero: sim/villages.ts)
     if (building !== null) return building < 0 ? { kind: 'village', id: Math.floor((-building - 1) / 100) } : { kind: 'building', id: building };
     const ruin = ruins.ruinAt(w.x, w.y);
@@ -1909,6 +1936,11 @@ async function start(): Promise<void> {
       map.setBuildingStyle(buildingTint(next.theme), style);
     }
     map.syncLand(next.land, next.calendar.season, next.biome, next.era); // (paints again only what changed)
+    if (iso) {
+      iso.syncLand(next.land);
+      iso.setKit(kitNameFor(next.origin.id, next.theme));
+      iso.syncBuildings(next.buildings);
+    }
     minimap.setLand(next.land, next.calendar.season);
     map.tick = next.tick;
     stockpile.sync(next.buildings); // (before the buildings, so a stockpile's own picture is hidden at once)
@@ -2141,7 +2173,11 @@ async function start(): Promise<void> {
     // (the camera follows nobody, the hero and the raid's lead raider included: the owner found it jumping about;
     // it moves only when the player moves it, or once to the gate as a battle begins)
     const moving = camera.update(ticker.deltaMS / 1000, w, h);
-    map.setCamera(camera.x, camera.y, w, h);
+    if (iso) {
+      iso.setCamera(camera.x, camera.y, w, h);
+      const v = iso.worldView(); // (the top-down layers still culled by it: the light map, the minimap's frame)
+      map.setCamera(v.x, v.y, v.w, v.h);
+    } else map.setCamera(camera.x, camera.y, w, h);
     // screen shake (a boss's roar or sweeping attack)
     const shaking = performance.now() < shakeUntil;
     // (and the trail battle's: heavy blows and kills, battle/juice.ts)
@@ -2149,6 +2185,7 @@ async function start(): Promise<void> {
     const [jx, jy] = mapJuice.shake();
     app.stage.position.set((shaking ? Math.round((Math.random() - 0.5) * 6) : 0) + jx, (shaking ? Math.round((Math.random() - 0.5) * 4) : 0) + jy);
     people.render(performance.now());
+    iso?.placeLoose(); // (the townsfolk moved onto the diamonds)
     townLife.render(performance.now());
     raiders.render(performance.now());
     roamers.render(performance.now()); // (the bands on the land: drawn only once this was added)
