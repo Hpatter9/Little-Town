@@ -252,6 +252,32 @@
         cursor: pointer;
         zoom: var(--ui-zoom, 1);
       }
+      /* Clear land (main.ts): above the home button; lit while the mode is on */
+      #clear-land {
+        position: absolute;
+        right: 8px;
+        bottom: 48px;
+        z-index: 30;
+        width: 34px;
+        height: 34px;
+        padding: 0;
+        font-size: 18px;
+        line-height: 30px;
+        color: var(--text);
+        background: var(--wood);
+        border: 2px solid var(--wood-edge);
+        border-radius: 6px;
+        cursor: pointer;
+        zoom: var(--ui-zoom, 1);
+      }
+      #clear-land.on {
+        background: #8a6a20;
+        border-color: #ffe080;
+      }
+      body.in-battle #clear-land,
+      body.in-fight #clear-land,
+      body.board-on #clear-land,
+      body.scene-on #clear-land,
       body.in-battle #centre-town,
       body.in-fight #centre-town,
       body.board-on #centre-town,
