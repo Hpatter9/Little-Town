@@ -14,18 +14,14 @@ interface MenuTabs {
 }
 
 const GROUPS: Record<string, MenuTabs> = {
-  // the Town: how it stands and the levers, what stands in it, what's in store, the money
+  // the Town: how it stands, what's built and going up, the stores and the money, and the rest (the levers, faith,
+  // villages, council, the people's ways, magic: each shown only once the town has it)
   build: {
     groups: [
-      ['Overview', /^(At a glance|In town|Direction|Town size|Raid battles|Lichcraft|The seasonal round|The days ahead|.*: powers)/],
-      ['Buildings', /^Build/],
-      ['Stores', /^Stores/],
-      ['Faith', /^(The gods|The faithful|Miracles|Signs from the gods)/],
-      ['Villages', /^Daughter villages/],
-      ['Council', /^(The council|Laws|Crime and trials)/],
-      ['Our ways', /^Our ways/],
-      ['Magic', /^(Magic|Schools of magic|Casters|Rites)$/],
-      ['Treasury', /^(Treasury|Tax|Guards)/],
+      ['Overview', /^(At a glance|Lichcraft|The seasonal round|The days ahead|.*: powers)/],
+      ['Buildings', /^(Build|In town)/],
+      ['Stores', /^(Stores|Treasury|Tax|Guards)/],
+      ['More', /^(Direction|Town size|Raid battles|Promotions|The gods|The faithful|Miracles|Signs from the gods|Daughter villages|The council|Laws|Crime and trials|Our ways|Magic|Schools of magic|Casters|Rites)/],
     ],
     intro: 'Overview',
   },
@@ -55,20 +51,16 @@ const GROUPS: Record<string, MenuTabs> = {
     ],
     intro: 'Map',
   },
-  // the Market: the town's shops and inns, the caravan, the workshops' orders, the animals
+  // the Market: the shops and inns, the caravan and the trade (prices, the trade house, the harbour), the workshops'
+  // orders, the animals
   trade: {
     groups: [
       ['Shops', /^Shops/],
-      ['Caravan', /^(Caravan|Deals)/],
-      ['Prices', /^Prices/],
-      ['Trade house', /^(Trade house|Trade routes|Ledger of runs)/],
-      ['Trade empire', /^Trade empire/],
-      ['Harbour', /^Harbour/],
+      ['Trade', /^(Caravan|Deals|Prices|Trade house|Trade routes|Ledger of runs|Trade empire|Harbour)/],
       ['Workshops', /^(Orders|Recipes)/],
-      ['Animals', /^(Herds|Horses)/],
-      ['Ranch', /^The ranch/],
+      ['Animals', /^(Herds|Horses|The ranch)/],
     ],
-    intro: 'Caravan',
+    intro: 'Trade',
   },
   // the shop, the inn and the stores (each venue keeps its own open tab)
   venue: {

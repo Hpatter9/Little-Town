@@ -1,6 +1,7 @@
-// The Town menu (the old Build tab, the panel id 'build'): the town at a glance and the player's levers (direction, size,
-// powers), what's being built and what stands, the stores (craftingPanel.ts renderStores), the treasury, and a book of
-// every building it knows. The town builds for itself.
+// The Town menu (the old Build tab, the panel id 'build'), in four tabs (subtabs.ts): Overview (the town at a glance, the
+// powers, the days ahead), Buildings (what's going up, what stands, a book of every building), Stores (the stores
+// themselves, craftingPanel.ts renderStores, and the treasury) and More (the levers, then faith, villages, council, the
+// people's ways and magic, each once the town has it).
 
 import { calendarKey, renderCalendar } from './calendarStrip';
 import { faithKey, faithSection } from './faithPanel';
@@ -69,15 +70,15 @@ export const buildKey = (s: Snapshot, tab: string | null = null) => {
     on(['Overview'], () => [s.powers.map((p) => [p.id, Math.ceil(p.readyHours), Math.ceil(p.activeHours), p.held, p.affordable]), s.powerLog[0], s.nomad && [s.nomad.site, s.nomad.settled, Math.ceil((s.nomad.nextMoveDays ?? 0) * 24)], s.lichOffer, heritageTiles()]),
     on(['Overview'], () => [dashboardKey(s), s.why?.research, s.why?.craft]),
     on(['Overview'], () => calendarKey(s)),
-    on(['Overview', 'Treasury'], () => s.coins),
-    on(['Treasury'], () => ledgerKey(s)),
+    on(['Overview', 'Stores'], () => s.coins),
+    on(['Stores'], () => ledgerKey(s)),
     s.guards.n, s.guards.watch, !!s.shop, !!s.tavern, s.era, s.research.revealed, s.buildSlots, s.unlockAll, s.research.done, s.storageCapacity, s.housing, s.direction, s.plan,
     Math.round(s.align.score / 2), Math.round(s.align.order / 2), s.align.title, s.align.pact, s.align.swings[0],
-    on(['Villages'], () => s.villages.map((v) => [v.pop, v.loyalty, v.rebel, v.beset, v.helpers, v.cartOut, v.road, v.goods, v.news[0], v.canGift])),
-    s.politics && [s.politics.tax, on(['Council'], () => [s.politics!.blocs.map((b) => [b.sat, b.members.length, b.wants, b.striking]), s.politics!.laws.map((l) => l.on), s.politics!.log[0], s.politics!.crimes, s.politics!.strike, s.politics!.edictWait])],
+    on(['More'], () => s.villages.map((v) => [v.pop, v.loyalty, v.rebel, v.beset, v.helpers, v.cartOut, v.road, v.goods, v.news[0], v.canGift])),
+    s.politics && [s.politics.tax, on(['More'], () => [s.politics!.blocs.map((b) => [b.sat, b.members.length, b.wants, b.striking]), s.politics!.laws.map((l) => l.on), s.politics!.log[0], s.politics!.crimes, s.politics!.strike, s.politics!.edictWait])],
     s.buildings.map((b) => [b.def, b.status, on(['Buildings'], () => Math.floor(b.progress * 20))]),
-    on(['Our ways', 'Magic'], () => heritageKey(s)),
-    on(['Overview', 'Faith'], () => faithKey(s)),
+    on(['More'], () => heritageKey(s)),
+    on(['Overview', 'More'], () => faithKey(s)),
     s.skipRaids,
     s.pins.map((p) => [p.def, p.building, Math.floor(p.progress * 20), p.why]),
     s.recommend && [s.recommend.def ?? s.recommend.kind, s.recommend.why],
@@ -134,7 +135,7 @@ export function renderBuild(s: Snapshot, bridge: Bridge | undefined, rerender: (
   // the coming days the town knows of (panel/calendarStrip.ts)
   out.push(...renderCalendar(s));
 
-  // the one thing the player decides: where the town puts its effort
+  // where the town puts its effort
   out.push(el('h2', '', 'Direction'));
   const dirs = el('div', 'row directions');
   for (const d of DIRECTIONS) {
@@ -146,8 +147,7 @@ export function renderBuild(s: Snapshot, bridge: Bridge | undefined, rerender: (
     );
   }
   out.push(dirs, el('div', 'hint', DIRECTION_DEFS[s.direction].description));
-  // what the town chose to do, and why (sim/whyLines.ts)
-  for (const w of [s.why?.build, s.why?.research, s.why?.craft]) if (w) out.push(el('div', 'why-line', w));
+  // (what it's building, studying and making, and why, is on the overview's cards: dashboard.ts)
 
   // how raids are fought: down the trail (tower defence) or on a tactics board (sim/tactics.ts; a trial)
   out.push(el('h2', '', 'Raid battles'));
@@ -160,8 +160,8 @@ export function renderBuild(s: Snapshot, bridge: Bridge | undefined, rerender: (
     skips.append(button(name, () => bridge?.command({ type: 'skipRaids', on }), { cls: `place small${s.skipRaids === on ? ' on' : ' quiet'}` }));
   out.push(skips, el('div', 'hint', s.skipRaids ? 'Every raid is fought out by the town at once, and you see the recap when it is over.' : 'Raids are fought on screen; a battle\'s Skip button fights it out at once.'));
 
-  // evolutions and stat points: put to the player, or the town's own call (sim/classes.ts, sim/attributes.ts)
-  out.push(el('h2', '', 'Callings and stats'));
+  // promotions and stat points: put to the player, or the townsfolk's own call (sim/classes.ts, sim/attributes.ts)
+  out.push(el('h2', '', 'Promotions and stats'));
   const asks = el('div', 'row directions');
   for (const [what, on, name] of [['evolve', s.evolveAsk, 'Promotions: ask me'], ['evolve', !s.evolveAsk, 'Promotions: they choose'], ['stats', s.statsAsk, 'Stat points: I assign'], ['stats', !s.statsAsk, 'Stat points: auto']] as const)
     asks.append(button(name, () => bridge?.command(what === 'evolve' ? { type: 'setAsk', evolve: name.includes('ask') } : { type: 'setAsk', stats: name.includes('assign') }), { cls: `place small${on ? ' on' : ' quiet'}` }));
@@ -193,7 +193,7 @@ export function renderBuild(s: Snapshot, bridge: Bridge | undefined, rerender: (
   // the town's money: travellers bring it in at the shop and the tavern, and it goes on wages, crafters and the venues
   {
     out.push(el('h2', '', `Treasury: ${s.coins} coins`));
-    out.push(el('div', 'hint', 'The founder\'s purse. The townsfolk keep their own: they earn by their work, buy land and build, and pay rent and tax. The treasury pays for the public works, the study, and the guards.'));
+    out.push(el('div', 'hint', 'The town\'s purse. The townsfolk keep their own. The treasury pays for public works, study and the guards.'));
     // the tax lever
     const taxes = el('div', 'row directions');
     for (const r of TAX_RATES)

@@ -49,7 +49,7 @@ export const TIPS: readonly Tip[] = [
   { id: 'caravan', when: (s) => !!s.caravan, title: 'A caravan', text: 'Caravans bring goods and horses. The town trades with them on its own after a while; take a deal yourself first if you like.', panel: 'trade', tab: 'Caravan', label: 'Caravan' },
   { id: 'death', when: (s) => s.annals.fallen.length > 0, title: 'The fallen', text: 'Raids, hunger, sickness and old age take people. Every one is remembered in the Chronicle\'s hall of heroes.', panel: 'journal', label: 'Chronicle' },
   { id: 'age', when: (s) => s.era !== 'neolithic', title: 'A new age', text: 'New studies, buildings, weapons and dangers. The tech tree shows what comes next.', panel: 'research', tab: 'Tech tree', label: 'Tech tree' },
-  { id: 'treasury', when: (s) => (s.coins ?? 0) >= 60 && s.people.length >= 4, title: 'The treasury', text: 'The townsfolk earn their own coins; the treasury is the town\'s, from tax and trade. The tax rate and the guards it pays are in the Town menu.', panel: 'build', tab: 'Treasury', label: 'Treasury' },
+  { id: 'treasury', when: (s) => (s.coins ?? 0) >= 60 && s.people.length >= 4, title: 'The treasury', text: 'The townsfolk earn their own coins; the treasury is the town\'s, from tax and trade. The tax rate and the guards it pays are in the Town menu.', panel: 'build', tab: 'Stores', label: 'Treasury' },
 ];
 
 /** At most this many tips show at once. */

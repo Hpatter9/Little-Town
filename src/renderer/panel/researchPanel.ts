@@ -1,4 +1,4 @@
-// Research panel: what's being researched, the queue, and every topic by branch.
+// Research panel (the Studies menu), in two tabs: what's being studied (the topics lined up, and the stations), and the tech tree.
 
 import { BUILDINGS } from '../../shared/data/buildings';
 import { ERA_NAMES, nextEra } from '../../shared/data/eras';
