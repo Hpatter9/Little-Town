@@ -99,6 +99,12 @@ function entries(s: Snapshot): Entry[] {
 
 const timeLeft = (h: number) => (h >= 48 ? `${Math.round(h / 24)} days` : h >= 1 ? `${h} hours` : 'under an hour');
 
+/** Is the founder at home and well enough to lead a party? */
+const founderHome = (s: Snapshot) => {
+  const f = s.people.find((p) => p.id === s.mainId);
+  return !!f && !f.away && !f.downed;
+};
+
 /** The offers, with Accept and Decline. */
 export function questBoard(s: Snapshot, bridge: Bridge | undefined): HTMLElement[] {
   const offers = entries(s).filter((e) => !e.accepted);
@@ -115,6 +121,7 @@ export function questBoard(s: Snapshot, bridge: Bridge | undefined): HTMLElement
     row.append(
       button('Accept', () => bridge?.command({ type: 'quest', op: 'accept', sort: e.sort, id: e.id }), { cls: 'go', title: 'Take it on: the time limit starts' }),
       button('Decline', () => bridge?.command({ type: 'quest', op: 'decline', sort: e.sort, id: e.id }), { title: 'Turn it down' }),
+      button('Lead it yourself', () => bridge?.command({ type: 'quest', op: 'lead', sort: e.sort, id: e.id }), { cls: 'place go', disabled: !!s.muster || s.expeditions.length >= MAX_EXPEDITIONS || !founderHome(s), title: founderHome(s) ? 'Take it on and go at the head of a party yourself. Road questions then wait for you.' : 'The founder is not free to go' }),
     );
     const dv = s.destinations.find((d) => d.id === e.dest);
     c.append(top, el('div', 'purpose', e.text), ...(dv?.matchup ? [el('div', 'lock short', powerLine(dv.partyPower, dv.foesPower))] : []), el('div', 'lock short', `Reward: ${e.reward}`), el('div', 'lock short', `Offer open ${timeLeft(e.hoursLeft)} more · then ${QUEST_DAYS_OF[e.sort]} days to do it`), row);
@@ -177,7 +184,9 @@ function acceptedCard(e: Entry, s: Snapshot, bridge: Bridge | undefined): HTMLEl
   else {
     const row = el('div', 'row stakes');
     const blocked = !!s.muster || s.expeditions.length >= MAX_EXPEDITIONS || (v ? !v.unlocked : false);
-    row.append(button('Send a party…', () => bridge?.command({ type: 'muster', op: 'raise', dest: e.dest }), { cls: 'place go', disabled: blocked, title: 'Choose who goes, how boldly, and what they take' }));
+    row.append(button('Send a party…', () => bridge?.command({ type: 'muster', op: 'raise', dest: e.dest }), { cls: 'place go', disabled: blocked, title: 'Choose who goes, how boldly, and what they take' }),
+      button('Lead it yourself', () => bridge?.command({ type: 'quest', op: 'lead', sort: e.sort, id: e.id }), { cls: 'place go', disabled: blocked || !founderHome(s), title: 'Go at the head of a party yourself. Road questions then wait for you.' }),
+    );
     c.append(el('div', 'lock short', v?.vetoed ? "Forbidden on the Places tab: no party of the town's own will go." : 'No party out yet.'), row);
   }
   return expandable(c, `taken:${e.key}`, () => [

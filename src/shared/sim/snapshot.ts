@@ -1,5 +1,6 @@
 // What the renderers see of the sim: a read-only copy sent over IPC each tick.
 
+import { recommendBuilding, type Recommendation } from './planner';
 import { foreshadow } from './foreshadow';
 import { upcoming } from './calendar';
 import { ancestryView, type AncestryView } from './ancestors';
@@ -39,6 +40,7 @@ import type { Chronicle, Fallen } from './annals';
 import { fatesView, type Fate } from './fates';
 import { honouredView, type HonouredView } from './memorials';
 import { ruinsView, type RuinView } from './ruins';
+import { canChase } from './chase';
 import { RECAP_HOURS, type RaidRecap } from './raidRecap';
 import { gatheringRadius, processing, processionHead } from './ceremonies';
 import { festivalsView, type FestivalsView } from './festivals';
@@ -103,6 +105,17 @@ import { battleView, ranged, type BattleView } from './battle';
 const wholeIncome = (i: { today: number; yesterday: number }, last: string | null) => ({ today: Math.floor(i.today), yesterday: Math.floor(i.yesterday), last });
 
 /** How the game looks: the classic town, or an origin's own (a lich founder makes any town a necropolis). */
+/** The recommendation, worked out again about every game hour (it walks the whole building list). */
+const recCache = new WeakMap<GameState, { at: number; key: string; rec: Recommendation | null }>();
+function recommendationOf(s: GameState): Recommendation | null {
+  const c = recCache.get(s);
+  const key = `${(s.pins ?? []).length}|${s.buildings.length}|${!!s.ringOrder}`;
+  if (c && c.key === key && s.tick - c.at < TICKS_PER_HOUR && s.tick >= c.at) return c.rec;
+  const rec = recommendBuilding(s);
+  recCache.set(s, { at: s.tick, key, rec });
+  return rec;
+}
+
 export type ThemeId = 'town' | Exclude<OriginId, 'settlers'>;
 const themeOf = (s: GameState): ThemeId => (s.lich ? 'lich' : !s.origin || s.origin === 'settlers' ? 'town' : s.origin);
 import { itemUnlocked, qualitiesOf } from './crafting';
@@ -136,6 +149,8 @@ import { ENEMY } from '../data/social';
 import { canTrade, stalls } from './trade';
 import { JOBS, JOB_NAMES, RECRUIT_TYPES, TRAIT_BY_ID, type Job, type Look, type Priority } from '../data/people';
 import { canBeHeir, founderOf } from './founder';
+import { waitingOnFounder } from './founderQuests';
+import { storyView, type StoryBookView } from './story';
 import { buyableShops, isFounderShop, managerCandidates, managerWage, seasonOfShop, shopPrice, stockLineOf, stockLinesOf } from './founderShops';
 import { heirOf } from './health';
 import { RESEARCH_STATIONS, TOPIC_BY_ID } from '../data/research';
@@ -143,6 +158,7 @@ import { SKILLS, skillSpeed, xpToNext, type Skill } from '../data/skills';
 import { TERRAIN } from '../data/terrain';
 import { buildingCentre, buildingCentreX, buildSlots, defOf, enclosure, footprint, totalCapacity, totalStock } from './buildings';
 import { destinationHidden, destinationOf, destinationUnlocked, foodNeeded, partyCarry, planParty } from './expeditions';
+import { OFFER_WAIT_TICKS } from './researchOffer';
 import { modifiers, researchStation, researchStations, seatStageNow } from './research';
 import { tireless, carryCapacity, MAX_JOURNAL, ERA_MULTIPLIER, FX_TICKS, maxHp, RESEARCH_MULTIPLIER, poolSize, type PersonFx, type RaiderHitFx, type SpellTarget, SPELL_FX_TICKS, type Activity, type Building, type CraftOrder, type Debrief, type Expedition, type ExpeditionPhase, type GameState, type JournalEntry, type Ledger, type Needs, type Notice, type Person, type TileState, campCell, campX, campXY, BLOOD_LASTS, DEBRIS_LASTS, type DebrisKind, type ShopTalk } from './state';
 import { cellAt, groundAt, inMap, type LandMap, wet, CELL } from './land';
@@ -578,6 +594,8 @@ export interface PromptView {
   who: number | null;
   /** A fateful event: the box wears its heavier frame and reveals slowly (renderer/mobile/eventSheet.ts). */
   fateful?: boolean;
+  /** Waits as long as it takes: a road question for the founder holds the game (sim/founderQuests.ts). */
+  waits?: boolean;
   /** A commanded party's result: who came home and who did not, then the haul (sim/muster.ts `debrief`). */
   debrief?: Debrief;
   /** For the card's scene (renderer/panel/eventScenes.ts): the choice event's id, and what a question of politics or of a
@@ -976,6 +994,8 @@ export interface Snapshot {
   eventOutcome: { title: string; choice: string | null; text: string; tick: number } | null;
   /** The last raid's recap while it's fresh (sim/raidRecap.ts), and how long ago it ended (game hours). */
   raidRecap: (RaidRecap & { hoursAgo: number }) | null;
+  /** Raiders who got away and can be chased (sim/chase.ts), while the trail is warm. */
+  chase: { name: string; count: number; hoursLeft: number } | null;
   calendar: Calendar;
   /** Everything in storage, summed. */
   stock: Stock;
@@ -1226,10 +1246,20 @@ export interface Snapshot {
   mainId: number;
   /** The founder's orders and heir (sim/founder.ts): what they were told to do, who would lead after them, and who could be named. */
   founder: FounderView | null;
+  /** The founder's story, one book a founder, the open one first (sim/story.ts). */
+  story: StoryBookView[];
+  /** The game is held for the founder's answer to a road question (sim/founderQuests.ts). */
+  waitingOnFounder: boolean;
   unlockAll: boolean;
   research: ResearchView;
   /** The player's building wishes (sim/pins.ts): what, whether it's going up and how far, or what it waits on. */
   pins: { def: string; name: string; building: boolean; progress: number; why: string | null }[];
+  /** What the town would build next if asked (planner.ts recommendBuilding), the founder's orders for the wall and the
+   *  streets, and what the wall stands at. Refreshed about every game hour. */
+  recommend: Recommendation | null;
+  ringOrdered: boolean;
+  streetsOrdered: boolean;
+  ringState: 'none' | 'building' | 'standing';
   notices: Notice[];
   /** Spare items (not worn), and the craft queue. */
   items: Record<string, number>;
@@ -1317,6 +1347,9 @@ export interface ResearchView {
   /** Topics the player picked by hand (first in the queue), and those they took out. */
   picked: string[];
   shelved: string[];
+  /** The three topics on offer, and the ticks left before the town chooses one itself. */
+  offer: string[];
+  offerLeft: number;
   /** The seat's stage (1..5) the research gate reads (null: no gate), its name, and the next stage's name and era. */
   seat: { stage: number; name: string; next: string | null; nextEra: string | null; building: boolean } | null;
 }
@@ -1398,6 +1431,7 @@ export function snapshot(s: GameState): Snapshot {
     speed: s.gameSpeed ?? 1,
     fightSpeed: s.battleSpeed ?? 1,
     raidRecap: s.raidRecap && s.tick - s.raidRecap.tick < RECAP_HOURS * TICKS_PER_HOUR ? { ...s.raidRecap, hoursAgo: (s.tick - s.raidRecap.tick) / TICKS_PER_HOUR } : null,
+    chase: canChase(s) ? { name: s.chaseOffer!.name, count: s.chaseOffer!.runners.length, hoursLeft: (s.chaseOffer!.until - s.tick) / TICKS_PER_HOUR } : null,
     eventOutcome: s.eventOutcome && s.tick - s.eventOutcome.tick < OUTCOME_HOURS * TICKS_PER_HOUR ? { title: s.eventOutcome.title, choice: s.eventOutcome.choice, text: s.eventOutcome.text, tick: s.eventOutcome.tick } : null,
     calendar: calendar(s.tick),
     stock,
@@ -1568,6 +1602,7 @@ export function snapshot(s: GameState): Snapshot {
       picture: p.picture ?? null,
       who: p.who ?? null,
       ...(p.fateful ? { fateful: true } : {}),
+      ...(p.waits ? { waits: true } : {}),
       ...(p.debrief ? { debrief: p.debrief } : {}),
       ...(p.kind === 'event' && s.event?.prompt === p.id ? { eventId: s.event.def } : {}),
       ...(p.politics || p.village ? { about: p.politics ?? p.village?.about } : {}),
@@ -1656,8 +1691,14 @@ export function snapshot(s: GameState): Snapshot {
     upcoming: upcoming(s),
     mainId: s.mainId,
     founder: founderView(s),
+    story: storyView(s),
+    waitingOnFounder: waitingOnFounder(s),
     unlockAll: s.cheats.unlockAll,
     research: researchView(s),
+    recommend: recommendationOf(s),
+    ringOrdered: !!s.ringOrder,
+    streetsOrdered: !!s.streetsOrder,
+    ringState: !s.ring ? 'none' : s.ring.done ? 'standing' : 'building',
     pins: (s.pins ?? []).map((p) => {
       const b = p.building !== undefined ? s.buildings.find((q) => q.id === p.building) : undefined;
       return { def: p.def, name: BUILDING_BY_ID[p.def]?.name ?? p.def, building: !!b, progress: b?.progress ?? 0, why: p.why ?? null };
@@ -2521,6 +2562,8 @@ function researchView(s: GameState): ResearchView {
     origin: s.origin,
     picked: [...(r.picked ?? [])],
     shelved: [...(r.shelved ?? [])],
+    offer: [...(r.offer ?? [])],
+    offerLeft: Math.max(0, OFFER_WAIT_TICKS - (s.tick - (r.offerAt ?? s.tick))),
     seat: seatView(s),
   };
 }

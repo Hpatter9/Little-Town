@@ -483,6 +483,8 @@ export interface Raid {
   skipIt?: boolean;
   /** Fled on arrival, at the sight of the town (and spared, or not). */
   turned?: boolean;
+  /** A chase after the fugitives of an earlier raid (sim/chase.ts): fought on the tactics board, close and the town first. */
+  chase?: boolean;
 }
 
 export interface Needs {
@@ -825,6 +827,9 @@ export interface Prompt {
   road?: string;
   /** A saga's question: the run it belongs to (sim/sagas.ts). */
   saga?: number;
+  /** A road question on a trip the founder is on: no timer, no default, and the game is held until it is answered
+   *  (sim/founderQuests.ts). */
+  waits?: boolean;
   /** The expedition it's about (strangers), or null. */
   expedition: number | null;
   title: string;
@@ -1271,6 +1276,13 @@ export interface GameState {
   pins?: Pin[];
   /** False turns the town's own planner off (tests of single mechanics). On when left out. */
   autopilot?: boolean;
+  /** Old behaviour switched back on (tests): the town lays its own blueprints. Missing or false: the founder orders every
+   *  building, wall, field, pen and street from the build menu, and the town only picks the spot (CLAUDE.md, Priorities). */
+  townBuilds?: boolean;
+  /** The founder has ordered the ring wall raised, widened or upgraded: the planner works it until it stands. */
+  ringOrder?: boolean;
+  /** The founder has ordered the streets laid: done at the next hour. */
+  streetsOrder?: boolean;
   /** The player's veto on destinations, the treasury's bounties on them (coins set aside), and when the last party
    *  formed itself (sim/parties.ts). */
   vetoed?: string[];
@@ -1335,6 +1347,8 @@ export interface GameState {
   eventOutcome?: { title: string; choice: string | null; text: string; tick: number };
   /** The last raid's recap (sim/raidRecap.ts). */
   raidRecap?: RaidRecap;
+  /** The fugitives of the last raid, while they can still be chased (sim/chase.ts). */
+  chaseOffer?: import('./chase').ChaseOffer;
   /** The annals (sim/annals.ts): the fallen, the year's chronicles, and the year being reckoned. */
   fallen?: Fallen[];
   /** The famous dead the town means to raise statues to, in the order they fell (sim/memorials.ts). */
@@ -1481,6 +1495,10 @@ export interface GameState {
   heirId?: number;
   /** What the player has told the founder to do (sim/founder.ts). */
   founderOrder?: import('./founder').FounderOrder;
+  /** The founder's story, chapter by chapter (sim/story.ts). */
+  story?: import('./story').Story;
+  /** The founder is away: who minds the town, and what stood when they left (sim/steward.ts). */
+  gone?: import('./steward').Gone;
   /** The town's alignment, good to evil (sim/alignment.ts). */
   align?: import('./alignment').AlignState;
   /** When a wanderer last came to the gate (arrivals are a question to the player, and come no oftener than

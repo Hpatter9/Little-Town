@@ -14,6 +14,7 @@ import { clearAround } from './helpers';
 /** A town ready to wall itself, with its people at work (the autopilot on). */
 function wallTown(seed: string): GameState {
   const s = newGame(seed);
+  s.townBuilds = true;
   s.research.done.push('palisades', 'basic_shelter');
   clearAround(s, 50);
   s.buildings[0].store = { wood: 3000, stone: 500, fiber: 300, berries: 400 };

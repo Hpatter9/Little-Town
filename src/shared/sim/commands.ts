@@ -36,7 +36,7 @@ export type Command =
   /** Forbid a destination to the town's parties, or allow it again; post (raise) or withdraw a bounty on one. */
   | { type: 'veto'; dest: string; on: boolean }
   /** The quest board (sim/questBoard.ts): take an offer up, or turn it down. */
-  | { type: 'quest'; op: 'accept' | 'decline'; sort: 'quest' | 'hunt'; id: number }
+  | { type: 'quest'; op: 'accept' | 'decline' | 'lead'; sort: 'quest' | 'hunt'; id: number }
   | { type: 'bounty'; dest: string; post: boolean }
   /** Mark a wild cell of the land for gathering (clearing it), or unmark it. */
   | { type: 'toggleGather'; cell: number }
@@ -49,11 +49,17 @@ export type Command =
   | { type: 'discardStock'; building: number; material: Material }
   /** Pick a topic by hand: queued ahead of the town's own choices (sim/research.ts pickResearch). */
   | { type: 'queueResearch'; topic: string }
+  /** Study one of the three offered topics (sim/researchOffer.ts). */
+  | { type: 'studyOffer'; topic: string }
   /** Remove a topic (and anything queued that depends on it) from the queue. Progress is kept; the town leaves it be
    *  while it has anything else to study. */
   | { type: 'cancelResearch'; topic: string }
   /** Pin (on) or unpin a building from the Building book: the town builds it next (sim/pins.ts). */
   | { type: 'pinBuilding'; def: string; on: boolean }
+  /** Order the ring wall raised, widened or upgraded (the town picks the line and works it until it stands). */
+  | { type: 'orderRing' }
+  /** Order the streets laid where folk walk and to the gates (done at the next hour). */
+  | { type: 'orderStreets' }
   /** Move a hand-picked topic a place earlier (-1) or later (1) among the picks. */
   | { type: 'moveResearch'; topic: string; dir: -1 | 1 }
   /** Move a topic to the front of the queue. */
@@ -129,6 +135,8 @@ export type Command =
   | { type: 'battleSpeed'; speed: number }
   /** Skip the raid under way to its recap; or skip every raid (sim/raidSkip.ts). */
   | { type: 'raidSkip' }
+  /** Ride out after the raiders who got away (sim/chase.ts). */
+  | { type: 'giveChase' }
   | { type: 'skipRaids'; on: boolean }
   | { type: 'battleStyle'; style: 'trail' | 'tactics' }
   /** Spend one of a townsperson's stat points (data/attributes.ts), or all of them their class's way (`attr` null). */
@@ -180,7 +188,7 @@ export function parseCommand(raw: unknown): Command | null {
     case 'setTax':
       return TAX_RATES.includes(c.rate as TaxRate) ? { type: 'setTax', rate: c.rate as TaxRate } : null;
     case 'quest':
-      return (c.op === 'accept' || c.op === 'decline') && (c.sort === 'quest' || c.sort === 'hunt') && Number.isInteger(c.id) ? { type: 'quest', op: c.op, sort: c.sort, id: c.id as number } : null;
+      return (c.op === 'accept' || c.op === 'decline' || c.op === 'lead') && (c.sort === 'quest' || c.sort === 'hunt') && Number.isInteger(c.id) ? { type: 'quest', op: c.op, sort: c.sort, id: c.id as number } : null;
     case 'veto':
       return typeof c.dest === 'string' && typeof c.on === 'boolean' ? { type: 'veto', dest: c.dest, on: c.on } : null;
     case 'bounty':
@@ -214,9 +222,13 @@ export function parseCommand(raw: unknown): Command | null {
         ? { type: 'equip', person: c.person as number, slot: c.slot as Slot, item: c.item as string | null }
         : null;
     case 'queueResearch':
+    case 'studyOffer':
     case 'cancelResearch':
     case 'researchNext':
       return typeof c.topic === 'string' && TOPIC_BY_ID[c.topic] ? { type: c.type, topic: c.topic } : null;
+    case 'orderRing':
+    case 'orderStreets':
+      return { type: c.type };
     case 'pinBuilding':
       return typeof c.def === 'string' && BUILDING_BY_ID[c.def] && typeof c.on === 'boolean' ? { type: 'pinBuilding', def: c.def, on: c.on } : null;
     case 'moveResearch':
@@ -316,6 +328,8 @@ export function parseCommand(raw: unknown): Command | null {
       return typeof c.speed === 'number' && (GAME_SPEEDS as readonly number[]).includes(c.speed) ? { type: 'gameSpeed', speed: c.speed } : null;
     case 'raidSkip':
       return { type: 'raidSkip' };
+    case 'giveChase':
+      return { type: 'giveChase' };
     case 'skipRaids':
       return typeof c.on === 'boolean' ? { type: 'skipRaids', on: c.on } : null;
     case 'battleSpeed':

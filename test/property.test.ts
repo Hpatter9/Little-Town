@@ -17,6 +17,7 @@ function addBuilding(s: GameState, def: string, tile: number, extra: Partial<Bui
 
 test('building needs skill: anyone lends a hand, the unskilled slower; the founder works any site at full pace', () => {
   const s = plainGame('skill');
+  s.townBuilds = true;
   assert.equal(buildSkill(BUILDING_BY_ID.lean_to), BUILD_SKILL_BY_ERA.neolithic);
   assert.ok(buildSkill(BUILDING_BY_ID.cottage) >= BUILD_SKILL_BY_ERA.medieval);
   const founder = s.people[0];
@@ -36,6 +37,7 @@ test('building needs skill: anyone lends a hand, the unskilled slower; the found
 
 test('a person with coins enough buys a plot and the makings of a home from the town, and owns the site', () => {
   const s = plainGame('plot');
+  s.townBuilds = true;
   clearAround(s, 14);
   s.research.done.push('basic_shelter');
   addBuilding(s, 'stockpile', camp(s).x - 6, { store: { wood: 60, fiber: 30, stone: 20 } });
@@ -64,6 +66,7 @@ test('a person with coins enough buys a plot and the makings of a home from the 
 
 test('rent at dawn: a bed in the town\'s home costs a coin a day; short of it, arrears and a grudge', () => {
   const s = plainGame('rent');
+  s.townBuilds = true;
   const home = addBuilding(s, 'lean_to', camp(s).x + 3);
   const p = s.people[0];
   p.bed = home.id;
@@ -87,6 +90,7 @@ test('rent at dawn: a bed in the town\'s home costs a coin a day; short of it, a
 
 test('an owner pays the builders they hire by the hour, and works on their own site for nothing', () => {
   const s = plainGame('hire');
+  s.townBuilds = true;
   clearAround(s, 14);
   const owner = s.people[0];
   const worker = { ...JSON.parse(JSON.stringify(owner)), id: s.nextId++, name: 'Hal', coins: 0, partner: null };

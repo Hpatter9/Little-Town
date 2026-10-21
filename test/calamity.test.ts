@@ -51,6 +51,7 @@ test('every nest and every Calamity has its foes, raids, avatar and trophy', () 
 
 test('a nest comes up on the land, grows, goes on the board once found, and raids the town', () => {
   const s = plainGame('nests');
+  s.townBuilds = true;
   const p = spawnNest(s, 'warren')!;
   assert.ok(p && p.nest?.level === 1);
   assert.equal(nestsOf(s).length, 1);
@@ -72,6 +73,7 @@ test('a nest comes up on the land, grows, goes on the board once found, and raid
 
 test('the land round a nest is blighted (crops wither, nothing regrows) unless a ward stone stands near', () => {
   const s = plainGame('blight');
+  s.townBuilds = true;
   const c = camp(s);
   const p = spawnNest(s, 'den', { x: c.x + 4, y: c.y + 4 })!;
   assert.ok(blighted(s, p.x + 1, p.y));
@@ -79,6 +81,7 @@ test('the land round a nest is blighted (crops wither, nothing regrows) unless a
   // (a field in it grows at half pace)
   const field = put(s, 'garden_plot', p.x - 1, p.y + 1, { status: 'done', crop: { stage: 'growing', growth: 0, work: 0 } } as never);
   const clean = plainGame('blight');
+  clean.townBuilds = true;
   const field2 = put(clean, 'garden_plot', p.x - 1, p.y + 1, { status: 'done', crop: { stage: 'growing', growth: 0, work: 0 } } as never);
   for (let i = 0; i < 600; i++) {
     growCrops(s);
@@ -92,6 +95,7 @@ test('the land round a nest is blighted (crops wither, nothing regrows) unless a
 /** A town with its Enemy chosen (of `kind`), the autopilot on, at the morning of `day`. */
 function withEnemy(seed: string, kind: (typeof ENEMY_KINDS)[number] = 'tower'): GameState {
   const s = plainGame(seed);
+  s.townBuilds = true;
   s.autopilot = true;
   chooseEnemy(s, kind);
   return s;
@@ -174,6 +178,7 @@ test('no second Calamity scheduler runs: it never wakes, sieges or raids on a cl
   const mod = await import('../src/shared/sim/calamity');
   assert.ok(!('calamityHourly' in mod) && !('calamityRaidOver' in mod));
   const s = plainGame('no-clock');
+  s.townBuilds = true;
   s.autopilot = true;
   const sim = new Sim(s);
   for (let i = 0; i < TICKS_PER_DAY * 14; i++) sim.step();
@@ -210,6 +215,7 @@ test('the Enemy\'s siege is the finale: lost once it regroups, and the Calamity 
 test('an old save mid-Calamity loads and continues on the Enemy\'s plan', () => {
   // (a save from before the Calamity was the Enemy\'s stage: no `driven`, its own dread, stage, siege and lost count)
   const s = plainGame('old-save');
+  s.townBuilds = true;
   s.autopilot = true;
   const e = chooseEnemy(s, 'plague');
   s.tick = at(40, ENEMY_HOUR);
@@ -229,6 +235,7 @@ test('an old save mid-Calamity loads and continues on the Enemy\'s plan', () => 
   assert.ok(s.greatEnemy!.plan > 0);
   // (a siege already on the land is the Enemy's)
   const t = plainGame('old-siege');
+  t.townBuilds = true;
   t.autopilot = true;
   const f = chooseEnemy(t, 'tower');
   t.calamity = { kind: 'tyrant', dread: 100, stage: 5, woke: 1, heart: null, scar: 0, lost: 0, siegeAt: t.tick + 5 } as never;
@@ -238,6 +245,7 @@ test('an old save mid-Calamity loads and continues on the Enemy\'s plan', () => 
   assert.equal((t.calamity as NonNullable<GameState['calamity']>).siegeAt, undefined);
   // (an old save already won stays won)
   const w = plainGame('old-won');
+  w.townBuilds = true;
   const g = chooseEnemy(w, 'tower');
   w.calamity = { kind: 'tyrant', dread: 0, stage: 5, woke: 1, heart: null, scar: 0, lost: 0, beaten: 5 } as never;
   bindCalamity(w, g);
@@ -246,6 +254,7 @@ test('an old save mid-Calamity loads and continues on the Enemy\'s plan', () => 
 
 test('an old save\'s siege already under way is the Enemy\'s: its avatar falling wins it', () => {
   const s = plainGame('old-raid');
+  s.townBuilds = true;
   s.autopilot = true;
   const e = chooseEnemy(s, 'tower');
   s.calamity = { kind: 'tyrant', dread: 100, stage: 5, woke: 1, heart: null, scar: 0, lost: 0 } as never;

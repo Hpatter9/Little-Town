@@ -62,3 +62,40 @@ export function ghostStep(ghost: number, value: number, held: number, dt: number
   if (held < GHOST_HOLD) return ghost;
   return Math.max(value, ghost - GHOST_DRAIN * dt);
 }
+
+/* ------------------------------------------------------------ hit-stop, zoom, slow-motion, sparks (the second flashier pass) */
+
+/** How hard a blow landed: a crit is half the target's health or more, or a kill that took a third of it. */
+export type BlowTier = 'normal' | 'heavy' | 'crit';
+export const CRIT_SHARE = 0.5;
+export function blowTier(share: number, kill = false, ult = false): BlowTier {
+  if (ult || share >= CRIT_SHARE || (kill && share >= HEAVY_SHARE)) return 'crit';
+  return share >= HEAVY_SHARE || kill ? 'heavy' : 'normal';
+}
+/** The number's size (px) and colour for a tier (the town's own hurt are red, mending green: juice.ts). */
+export const NUMBER_SIZE: Record<BlowTier, number> = { normal: 22, heavy: 32, crit: 44 };
+export const NUMBER_COLOUR: Record<BlowTier, number> = { normal: 0xffffff, heavy: 0xffd040, crit: 0xff7a28 };
+/** The screen holds still this many seconds on a blow (the hit-stop), and the camera punches in by this share. */
+export const HIT_STOP: Record<BlowTier, number> = { normal: 0, heavy: 0.045, crit: 0.085 };
+export const ZOOM_PUNCH: Record<BlowTier, number> = { normal: 0, heavy: 0.03, crit: 0.07 };
+/** A kill adds to both. */
+export const KILL_STOP = 0.035;
+export const KILL_PUNCH = 0.04;
+/** The zoom punch eases back at this much of itself a second. */
+export const PUNCH_FADE = 5;
+export const fadePunch = (punch: number, dt: number) => (punch < 0.002 ? 0 : punch * Math.exp(-PUNCH_FADE * dt));
+/** The final blow: the board runs at this rate for this long (seconds). */
+export const SLOWMO_RATE = 0.3;
+export const SLOWMO_SECS = 0.9;
+/** The most the view's clock may be held behind the real one (ms), so a long fight never lags the sim. */
+export const LAG_MAX_MS = 450;
+/** Sparks thrown by a blow, and the most alive at once (a phone must stay smooth). */
+export const SPARKS: Record<BlowTier, number> = { normal: 3, heavy: 7, crit: 12 };
+export const SPARK_CAP = 48;
+/** The most hit sprites alive at once. */
+export const IMPACT_CAP = 14;
+/** A word slammed onto the screen: huge at first, overshooting down to rest. */
+export const slamScale = (t: number) => (t < 0.1 ? 2.8 - (t / 0.1) * 1.6 : t < 0.22 ? 1.2 - ((t - 0.1) / 0.12) * 0.25 : t < 0.32 ? 0.95 + ((t - 0.22) / 0.1) * 0.05 : 1);
+/** The word for the first of the town's felling blows, and for a broken band. */
+export const FIRST_BLOOD = 'FIRST BLOOD!';
+export const ROUTED = 'ROUTED!';

@@ -135,6 +135,101 @@
         gap: 6px;
         margin-top: 8px;
       }
+      /* (the Studies menu: the topic now being studied, the queue and what can be added: big taps for the phone) */
+      .rs-now {
+        padding: 10px;
+        background: #2c2018;
+        border: 1px solid #c79a55;
+        border-radius: 4px;
+      }
+      .rs-top {
+        display: flex;
+        flex-wrap: wrap;
+        justify-content: space-between;
+        gap: 4px 8px;
+        margin-bottom: 6px;
+      }
+      .rs-name {
+        font-weight: 700;
+        flex: 1 1 140px;
+        min-height: 24px;
+      }
+      .rs-name.tappable {
+        cursor: pointer;
+      }
+      .rs-now .bar {
+        height: 10px;
+      }
+      .rs-offer {
+        padding: 10px;
+        margin-bottom: 8px;
+        background: #2c2018;
+        border: 1px solid #6a4f30;
+        border-radius: 4px;
+      }
+      .rs-info.wrap {
+        white-space: normal;
+        margin: 4px 0 8px;
+      }
+      .rs-btn.study {
+        width: 100%;
+      }
+      .rs-row {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 4px 8px;
+        padding: 6px 8px;
+        background: #2c2018;
+        border: 1px solid #4a3522;
+        border-radius: 4px;
+        margin-bottom: 4px;
+      }
+      .rs-row.picked {
+        border-color: #c79a55;
+      }
+      .rs-row .rs-name {
+        padding: 10px 0;
+      }
+      .rs-info {
+        flex: 1 1 100%;
+        order: 3;
+        min-width: 0;
+        color: var(--text-dim);
+        font-size: 12px;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+      .rs-btns {
+        display: flex;
+        gap: 6px;
+      }
+      .rs-btn {
+        min-width: 44px;
+        min-height: 44px;
+        margin: 0;
+        padding: 0 10px;
+        font-size: 16px;
+        cursor: pointer;
+        color: inherit;
+        background: #3a2a1c;
+        border: 1px solid #6a4f30;
+        border-radius: 4px;
+      }
+      .rs-btn.wide {
+        font-size: 14px;
+        padding: 0 14px;
+      }
+      .rs-btn:disabled {
+        opacity: 0.35;
+      }
+      .rs-line {
+        margin: 8px 0 4px;
+        color: var(--accent, #e0b864);
+        font-weight: 700;
+        font-size: 13px;
+      }
       .queue-row {
         display: flex;
         flex-wrap: wrap;
@@ -1205,6 +1300,17 @@
       .fact-val {
         min-width: 0;
         overflow-wrap: anywhere;
+      }
+      .place.build-btn {
+        width: 100%;
+        min-height: 44px;
+        margin: 4px 0 0;
+        font-size: 15px;
+      }
+      @media (max-width: 560px) {
+        .cards {
+          grid-template-columns: 1fr;
+        }
       }
       .card-top {
         display: flex;

@@ -189,6 +189,7 @@ function smite(s: GameState, f: FaithState, d: Domain): void {
 /** The town raises a shrine once it's settled (three grown-ups, food in store) or a god turns ugly, and rebuilds it
  *  grander (a temple, then a cathedral) as it learns how and has the makings twice over. */
 function buildForGods(s: GameState, f: FaithState, people: number): void {
+  if (!s.townBuilds) return; // (the founder builds: the town lays no blueprint of its own)
   const mine = s.buildings.filter((b) => WORSHIP[b.def]);
   if (mine.some((b) => b.status !== 'done')) return;
   const grown = s.people.filter((p) => p.bornTick == null).length;

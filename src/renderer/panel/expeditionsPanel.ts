@@ -55,6 +55,7 @@ const pick = (id: string) => {
 export const expeditionsKey = (s: Snapshot) =>
   JSON.stringify([
     mapPick,
+    s.people.find((p) => p.id === s.mainId)?.away ?? null, // (Lead it yourself: the founder is free to go)
     s.trips,
     s.coins,
     s.expeditions.map((e) => [e.id, e.phase, Math.floor(e.phaseProgress * 50), e.lootSize, e.recalled, e.waiting, e.battle?.map((f) => [f.hp, f.down])]),

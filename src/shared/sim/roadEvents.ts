@@ -22,6 +22,7 @@ import type { Material } from '../data/materials';
 import type { Rng } from '../rng';
 import { startBattle } from './combat';
 import { destinationOf, partyCarry } from './expeditions';
+import { holdForFounder } from './founderQuests';
 import { answerRaidPrompt } from './raids';
 import { answerRite } from './occult';
 import { answerVillagePrompt } from './villages';
@@ -77,6 +78,7 @@ export function rollRoadEvent(s: GameState, e: Expedition, members: Person[], rn
         defaultOption,
         expiresTick: s.tick + PROMPT_TICKS,
       };
+      holdForFounder(s, e, prompt); // (a trip the founder is on waits for them: sim/founderQuests.ts)
       s.prompts.push(prompt);
       e.prompt = prompt.id;
       notify(s, `${prompt.title}: ${the(d.name)} party needs a decision.`);

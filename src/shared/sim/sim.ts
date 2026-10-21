@@ -16,6 +16,7 @@ import { worldHourly } from './worldLife';
 import { marketsHourly, setRoute } from './markets';
 import { empireHourly, empireTick } from './tradeEmpire';
 import { groveHourly } from './grove';
+import { giveChase } from './chase';
 import { skipRaid, skipRaidsTick } from './raidSkip';
 import { courtHourly } from './bargains';
 import { workHourly } from './greatWork';
@@ -35,6 +36,9 @@ import { sagasHourly } from './sagas';
 import { huntsHourly } from './hunts';
 import { dragonTick } from './dragon';
 import { holdForFight } from './raidWait';
+import { leadQuest, waitingOnFounder } from './founderQuests';
+import { stewardTick } from './steward';
+import { storyHourly } from './story';
 import { maybeEvent } from './events';
 import { alignmentHourly } from './alignment';
 import { rally } from './rally';
@@ -102,6 +106,7 @@ import { cancelResearch, moveResearch, pickResearch, researchNext, seatStageNow 
 import { autoPriorities, campCell, notify, type GameState } from './state';
 import { TICK_MS, TICKS_PER_HOUR } from './time';
 import { acceptVisitor, assignBeds, drillGuards, driftMorale, keepKin, maybeArrive, rejectVisitor, updateVisitor } from './townsfolk';
+import { chooseOffer, keepOffer } from './researchOffer';
 import { forSale, runPlanner, shoppingList } from './planner';
 import { syncRing } from './ringWall';
 import { chooseLich, watchLich } from './occult';
@@ -188,11 +193,12 @@ export class Sim {
     for (const c of this.pending) this.apply(c);
     skipRaidsTick(s); // (a town set to skip its raids: sim/raidSkip.ts)
     this.pending = [];
-    if (s.paused) return;
+    if (s.paused || waitingOnFounder(s)) return; // (a road question for the founder holds the game until it is answered)
 
     s.tick++;
     voteSettlementName(s);
     founderTick(s); // (the founder's orders end, and a rest mends: sim/founder.ts)
+    stewardTick(s); // (a steward minds the town while the founder is away: sim/steward.ts)
     const ctx = newTickContext();
     for (const p of s.people) {
       if (p.away !== null) continue;
@@ -279,6 +285,7 @@ export class Sim {
     foundryHourly(s); // (a machine town's factory mind: sim/foundry.ts)
     frontierHourly(s); // (a settlers' town's frontier: sim/frontier.ts)
     lightingHourly(s); // (the town's torches and lamps placed and burned: sim/lighting.ts)
+    storyHourly(s); // (the founder's story: sim/story.ts)
     questBoardHourly(s); // (offers taken up or lapsing, accepted quests failing: sim/questBoard.ts)
     questsHourly(s);
     delvesHourly(s);
@@ -334,6 +341,7 @@ export class Sim {
     holdForFight(s); // (questions wait while a fight is on screen: sim/raidWait.ts)
     updateVisitor(s, (p: Person, to: Pt) => walkTo(s, p, to));
     // the town decides for itself what to research, make, build and gather
+    keepOffer(s); // (the three topics on offer: sim/researchOffer.ts)
     runPlanner(s);
 
     s.rngState = this.rng.state;
@@ -407,8 +415,17 @@ export class Sim {
       case 'queueResearch':
         pickResearch(s.research, c.topic, s.cheats.unlockAll ? 'space' : s.era, s.origin, seatStageNow(s));
         break;
+      case 'studyOffer':
+        chooseOffer(s, c.topic);
+        break;
       case 'cancelResearch':
         cancelResearch(s.research, c.topic, true);
+        break;
+      case 'orderRing':
+        s.ringOrder = true;
+        break;
+      case 'orderStreets':
+        s.streetsOrder = true;
         break;
       case 'pinBuilding': {
         const no = setPin(s, c.def, c.on);
@@ -483,6 +500,9 @@ export class Sim {
         break;
       case 'raidSkip':
         skipRaid(s);
+        break;
+      case 'giveChase':
+        giveChase(s);
         break;
       case 'skipRaids':
         s.skipRaids = c.on;
@@ -643,7 +663,10 @@ export class Sim {
         break;
       case 'quest':
         if (c.op === 'accept') acceptQuest(s, c.sort, c.id);
-        else declineQuest(s, c.sort, c.id);
+        else if (c.op === 'lead') {
+          const r = leadQuest(s, c.sort, c.id); // (the founder leads it themselves: sim/founderQuests.ts)
+          if (!r.ok) notify(s, `${r.reason}.`);
+        } else declineQuest(s, c.sort, c.id);
         break;
       case 'bounty':
         if (c.post) {
