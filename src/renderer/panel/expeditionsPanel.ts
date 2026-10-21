@@ -415,7 +415,7 @@ function packSection(s: Snapshot, bridge: Bridge | undefined): HTMLElement[] {
 /** The bonded parties (sim/companies.ts): each with its members, trips and deeds; and who would set out next. */
 function companiesSection(s: Snapshot): HTMLElement[] {
   const out: HTMLElement[] = [el('h2', '', 'Companies')];
-  out.push(el('div', 'hint', `${s.trips.adventurers} adventurer${s.trips.adventurers === 1 ? '' : 's'} in town · ${s.trips.fit} fit to go · ${s.trips.room} more may be away. Friends go out together; when the same few go out and come home together twice, they name themselves and go out together again.`));
+  out.push(el('div', 'hint', `${s.trips.adventurers} adventurer${s.trips.adventurers === 1 ? '' : 's'} in town · ${s.trips.fit} fit to go · ${s.trips.room} more may be away. Friends who go out and come home together twice become a company.`));
   if (!s.companies.length) {
     out.push(el('div', 'empty', 'No company yet.'));
     return out;
@@ -489,7 +489,7 @@ function sagaList(s: Snapshot, bridge: Bridge | undefined): HTMLElement[] {
   const { open, done } = s.sagas;
   const out: HTMLElement[] = [el('h2', '', 'Sagas')];
   if (!open.length && !done.length) {
-    out.push(el('div', 'hint', 'Now and then a story finds the town: a burnt cart on the road, a bell under the sea, a crown in the dirt. The town takes it up itself, two at a time; the parties go where the story needs them.'));
+    out.push(el('div', 'hint', 'Now and then a story finds the town: a burnt cart on the road, a bell under the sea, a crown in the dirt. Each shows here as it unfolds.'));
     return out;
   }
   const grid = el('div', 'cards wide');

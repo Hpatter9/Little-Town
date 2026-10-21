@@ -80,25 +80,25 @@ export function glance(s: Snapshot, bridge: Bridge | undefined, rerender: () => 
   tile('People', `${s.housing.people}`, `${s.housing.beds} beds${away ? ` · ${away} away` : ''}${s.visitor ? ' · one at the gate' : ''}`, ['townsfolk', 'People']);
   tile('Food', days === Infinity ? 'No need' : `${days < 10 ? days.toFixed(1) : Math.round(days)} days`, 'in store for those who eat', ['build', 'Stores'], days < 2);
   tile('Spirits', `${morale}`, morale >= 60 ? 'content' : morale >= 35 ? 'getting by' : 'unhappy', ['townsfolk', 'People'], morale < 35);
-  tile('Treasury', `${s.coins ?? 0}`, 'coins', ['build', 'Treasury']);
+  tile('Treasury', `${s.coins ?? 0}`, 'coins', ['build', 'Stores']);
   // (the Court's blood: sim/vampires.ts)
   const blood = s.heritage?.blood;
-  if (blood) tile('Blood', `${blood.store}`, blood.farms ? `${blood.prisoners}/${blood.cells} in the farm's cells` : `about +${blood.nightly} each dusk`, ['build', 'Our ways'], blood.store < 5);
+  if (blood) tile('Blood', `${blood.store}`, blood.farms ? `${blood.prisoners}/${blood.cells} in the farm's cells` : `about +${blood.nightly} each dusk`, ['build', 'More'], blood.store < 5);
   // (the horde's fury: sim/warpath.ts)
   const horde = s.heritage?.horde;
-  if (horde) tile('Fury', `${horde.fury}`, horde.waaagh !== null ? 'WAAAGH!' : horde.out ? `raiding ${horde.out.target}` : horde.name, ['build', 'Our ways'], horde.fury >= 70);
+  if (horde) tile('Fury', `${horde.fury}`, horde.waaagh !== null ? 'WAAAGH!' : horde.out ? `raiding ${horde.out.target}` : horde.name, ['build', 'More'], horde.fury >= 70);
   tile('Stores', `${s.storageUsed}/${s.storageCapacity}`, 'stored', ['build', 'Stores'], s.storageUsed >= s.storageCapacity * 0.9);
   const site = s.buildings.filter((b) => b.status === 'blueprint');
   tile('Building', site.length ? `${site.length}` : 'Nothing', site.length ? site.slice(0, 2).map((b) => BUILDING_BY_ID[b.def]?.name ?? b.def).join(', ') : 'right now', ['build', 'Buildings']);
   const r = s.research;
   const topic = r.queue[0] ? TOPIC_BY_ID[r.queue[0]] : undefined;
-  tile('Studying', topic ? topicName(topic.id, s.research.origin) : 'Nothing', topic ? `${Math.floor((r.progress[topic.id] ?? 0) * 100)}% · ${r.queue.length} queued` : 'for now', ['research', 'Studying']);
+  tile('Studying', topic ? topicName(topic.id, s.research.origin) : 'Nothing', topic ? `${Math.floor((r.progress[topic.id] ?? 0) * 100)}% done` : 'for now', ['research', 'Studying']);
   tile('Workshops', `${s.crafting.length}`, `of ${s.craftSlots} orders`, ['trade', 'Workshops']);
   tile('Quests', `${s.expeditions.length}`, s.expeditions.length ? 'parties out' : 'nobody away', ['expeditions', s.expeditions.length ? 'Out now' : 'Quests']);
   if (s.shop || s.tavern || s.stores.length) tile('Shops', `${[s.shop, s.tavern, ...s.stores].filter(Boolean).length}`, 'open for trade', ['trade', 'Shops']);
   if (s.faith.on) {
     const worst = [...s.faith.gods].sort((a, b) => a.favour - b.favour)[0];
-    if (worst) tile('Gods', worst.mood === 'wrathful' ? 'Wrathful' : worst.favour < 0 ? 'Uneasy' : 'At peace', worst.favour < 0 ? `${worst.name} is ${worst.mood}` : 'all four content', ['build', 'Faith'], worst.mood === 'wrathful');
+    if (worst) tile('Gods', worst.mood === 'wrathful' ? 'Wrathful' : worst.favour < 0 ? 'Uneasy' : 'At peace', worst.favour < 0 ? `${worst.name} is ${worst.mood}` : 'all four content', ['build', 'More'], worst.mood === 'wrathful');
   }
   if (s.greatEnemy && s.greatEnemy.stage !== 'dormant') tile('The Enemy', s.greatEnemy.stageName, s.greatEnemy.stage === 'peace' ? `${s.greatEnemy.short} is dead` : s.calamity && !s.calamity.beaten && s.calamity.stage >= 2 ? `${s.greatEnemy.name} · ${s.calamity.name.toLowerCase()}, dread ${Math.round(s.calamity.dread)}` : s.greatEnemy.name, ['expeditions', 'Out now'], s.greatEnemy.stage === 'march' || s.greatEnemy.stage === 'siege');
   // (the Deep under the town: a tap goes down into its deepest level, sim/deep.ts)

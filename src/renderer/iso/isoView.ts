@@ -7,8 +7,9 @@
 // Walls, streets as streets, props, lights, the weather and the other map layers are left for later: in this view
 // the walls are fitted pieces of the kit, the roads its path tile, and the rest isn't drawn.
 
-import { Container, Rectangle, Sprite, Texture } from 'pixi.js';
-import { CELL, WEAR_FULL, WEAR_SHOW, groundAt, inMap, wet as wetCell, type LandMap } from '../../shared/sim/land';
+import { Container, Graphics, Matrix, Rectangle, Sprite, Texture } from 'pixi.js';
+import { CELL, WEAR_FULL, WEAR_SHOW, cellAt, groundAt, inMap, wet as wetCell, type LandMap } from '../../shared/sim/land';
+import { glowTexture } from '../town/layer';
 import type { Biome } from '../../shared/data/biomes';
 import { footprint } from '../../shared/sim/buildings';
 import type { Building } from '../../shared/sim/state';
@@ -17,6 +18,7 @@ import { BUILDING_BY_ID } from '../../shared/data/buildings';
 import { cellHash, gateFlip, propFor, sceneryFor, wallMaskAt, wallPieceFor, wallShape } from './isoTown';
 import { fitted, groundTile, kitOf, kitUrl, pieceFor, roleOf, ISO_ART, type Kit } from './isoKits';
 import { IsoCastleView, type CastleIn } from './isoCastleView';
+import { anyoneNear, doorSpot, gateSpan, hasWindows, lightBox, swing, windowSpots, worldMatrix } from './isoLight';
 import { cellsInView, footBase, footDepth, footWidth, isoBounds, isoOrigin, isoToWorld, ISO_TH, ISO_TW, standingDepth, tileToIso, worldToIso, type Rect } from './isoMath';
 
 /** A building's picture may stand this much wider than its footprint before it is shrunk to fit (a big piece on a
@@ -31,6 +33,10 @@ interface DrawnBuilding {
   foot: Rect;
   /** The props beside it (a barrel, a crate: iso/isoTown.ts `propFor`). */
   props: Sprite[];
+  /** Its door or gate, drawn open while someone walks through (0 shut to 1 open; `held` seconds until it closes). */
+  door?: { g: Graphics; gate: boolean; open: number; held: number };
+  /** Its windows' glow after dark. */
+  windows: Sprite[];
 }
 
 export class IsoView {
@@ -58,6 +64,20 @@ export class IsoView {
   private readonly cellTiles: Sprite[] = [];
   private readonly scenery: Sprite[] = [];
   private readonly overlay = new Container();
+  /** Layers laid in world px through the affine map of the diamonds (`worldMatrix`): `flat` on the ground, under the
+   *  things (blood, puddles: the top-down map's `under`), `lightLayer` over them all (the light map). */
+  readonly flat = new Container();
+  readonly lightLayer = new Container();
+  /** After dark: the windows' and lamps' glow (added), the marked cells for clearing, the doors and gates. */
+  private readonly glow = new Container();
+  /** (over the light map, so the marks show plainly at night too) */
+  private readonly marks = new Graphics();
+  /** Fog and the like that drifts over the land in screen px (the sky's banks: map/mapSky.ts). */
+  readonly air = new Container();
+  private lamps: { x: number; y: number }[] = [];
+  private lampSprites: Sprite[] = [];
+  private markedKey = '';
+  private highlight: number | null = null;
   private biome: Biome = 'forest';
   /** The cells walls, gates and grates stand on (y * land width + x), for joining them. */
   private wallCells = new Set<number>();
@@ -74,8 +94,12 @@ export class IsoView {
 
   constructor() {
     this.things.sortableChildren = true;
-    this.world.addChild(this.ground, this.overlay, this.things);
-    this.root.addChild(this.world);
+    this.glow.blendMode = 'add';
+    this.glow.eventMode = 'none';
+    this.lightLayer.eventMode = 'none';
+    this.flat.eventMode = 'none';
+    this.world.addChild(this.ground, this.overlay, this.flat, this.things, this.lightLayer, this.glow, this.marks);
+    this.root.addChild(this.world, this.air);
   }
 
   /** The kit the town is drawn with (iso/isoKits.ts `kitNameFor`). */
@@ -97,12 +121,75 @@ export class IsoView {
   syncLand(land: LandMap): void {
     if (!this.land || this.land.w !== land.w || this.land.h !== land.h) {
       this.ox = isoOrigin(land.h);
+      const m = worldMatrix(this.ox);
+      for (const c of [this.flat, this.lightLayer]) c.setFromMatrix(new Matrix(m.a, m.b, m.c, m.d, m.tx, m.ty));
       const b = isoBounds(land.w, land.h);
       this.width = b.w;
       this.height = b.h;
     }
     if (this.land?.version !== land.version) this.groundKey = '';
     this.land = land;
+    this.drawMarks();
+  }
+
+  /** The cells marked for clearing (a pale outline and a faint X on each diamond), and the one under the finger. */
+  setHighlight(cell: number | null): void {
+    if (cell === this.highlight) return;
+    this.highlight = cell;
+    this.markedKey = '';
+    this.drawMarks();
+  }
+  private drawMarks(): void {
+    const land = this.land;
+    if (!land) return;
+    const key = `${land.w}|${land.marked.join(',')}|${this.highlight}`;
+    if (key === this.markedKey) return;
+    this.markedKey = key;
+    const g = this.marks.clear();
+    const diamond = (cx: number, cy: number, inset: number) => {
+      const p = [tileToIso(cx + inset, cy + inset, this.ox), tileToIso(cx + 1 - inset, cy + inset, this.ox), tileToIso(cx + 1 - inset, cy + 1 - inset, this.ox), tileToIso(cx + inset, cy + 1 - inset, this.ox)];
+      return p;
+    };
+    for (const i of land.marked) {
+      const c = cellAt(land, i);
+      const p = diamond(c.x, c.y, 0.04);
+      g.poly(p.flatMap((q) => [q.x, q.y])).fill({ color: 0xffe080, alpha: 0.22 }).stroke({ color: 0xffe080, width: 3, alpha: 0.95 });
+      const q = diamond(c.x, c.y, 0.25);
+      g.moveTo(q[0].x, q[0].y).lineTo(q[2].x, q[2].y).moveTo(q[1].x, q[1].y).lineTo(q[3].x, q[3].y).stroke({ color: 0xfff0b0, width: 3, alpha: 0.8 });
+    }
+    if (this.highlight !== null && !land.marked.includes(this.highlight)) {
+      const c = cellAt(land, this.highlight);
+      g.poly(diamond(c.x, c.y, 0.04).flatMap((q) => [q.x, q.y])).fill({ color: 0xffffff, alpha: 0.16 }).stroke({ color: 0xffffff, width: 3, alpha: 0.95 });
+    }
+  }
+
+  /** How dark it is, 0 (day) to 1: the windows' and lamps' glow shows by it (the same the top-down lights layer uses). */
+  setNight(alpha: number): void {
+    this.glow.alpha = alpha;
+    this.glow.visible = alpha > 0.02;
+  }
+
+  /** The street lamps and torches lit now (cells): a small flame glow on each, over the light map's pool. */
+  setLamps(lit: readonly { x: number; y: number }[]): void {
+    const same = lit.length === this.lamps.length && lit.every((l, i) => l.x === this.lamps[i].x && l.y === this.lamps[i].y);
+    if (same) return;
+    this.lamps = lit.map((l) => ({ x: l.x, y: l.y }));
+    for (const s of this.lampSprites) s.destroy();
+    this.lampSprites = this.lamps.map((l) => {
+      const s = new Sprite(glowTexture());
+      s.anchor.set(0.5);
+      s.tint = 0xffb060;
+      s.width = s.height = 22;
+      const p = tileToIso(l.x + 0.5, l.y + 0.5, this.ox);
+      s.position.set(Math.round(p.x), Math.round(p.y - 12));
+      this.glow.addChild(s);
+      return s;
+    });
+  }
+
+  /** A square of world px covering the whole screen, for the layers worked out in world px (the light map). */
+  lightView(): { x: number; y: number; w: number; h: number } {
+    return lightBox(this.view, this.ox);
   }
 
   /** A kit piece's picture, asked for the first time it's wanted (null until it has loaded). */
@@ -192,7 +279,7 @@ export class IsoView {
         sprite.anchor.set(0.5, 1);
         this.things.addChild(sprite);
         this.own.add(sprite);
-        d = { sprite, key: '', foot, props: [] };
+        d = { sprite, key: '', foot, props: [], windows: [] };
         this.buildings.set(b.id, d);
       }
       d.foot = foot;
@@ -211,12 +298,14 @@ export class IsoView {
       // (a blueprint or a building going up: a ghost of what it will be)
       s.alpha = b.status === 'done' ? 1 : 0.45;
       this.setProps(d, b, role);
+      this.setDoor(d, b, role, foot);
     }
     for (const [id, d] of this.buildings) {
       if (seen.has(id)) continue;
       d.sprite.destroy();
       this.own.delete(d.sprite);
       this.clearProps(d);
+      this.clearDoor(d);
       this.buildings.delete(id);
     }
     if (fields.size !== this.fieldCells.size || [...fields].some((c) => !this.fieldCells.has(c))) {
@@ -224,6 +313,90 @@ export class IsoView {
       for (const c of fields) this.fieldCells.add(c);
       this.groundKey = '';
     }
+  }
+
+  private clearDoor(d: DrawnBuilding): void {
+    d.door?.g.destroy();
+    d.door = undefined;
+    for (const w of d.windows) w.destroy();
+    d.windows = [];
+  }
+
+  /** A finished building's door (a gate's opening) and its windows' glow after dark. The door is a dark opening drawn
+   *  over the picture while someone walks through (`animate`); no art is changed. */
+  private setDoor(d: DrawnBuilding, b: Building, role: ReturnType<typeof roleOf>, foot: Rect): void {
+    this.clearDoor(d);
+    if (!('role' in role) || b.status !== 'done') return;
+    const gate = role.role === 'gate';
+    if (!gate && !hasWindows(role.role)) return;
+    const g = new Graphics();
+    g.zIndex = footDepth(foot) + 0.001;
+    g.visible = false;
+    this.things.addChild(g);
+    this.own.add(g);
+    d.door = { g, gate, open: 0, held: 0 };
+    if (gate) return;
+    for (const at of windowSpots(foot)) {
+      const w = new Sprite(glowTexture());
+      w.anchor.set(0.5);
+      w.tint = 0xffc870;
+      w.width = 20;
+      w.height = 14;
+      w.alpha = 0.8;
+      const p = tileToIso(at.x, at.y, this.ox);
+      w.position.set(Math.round(p.x), Math.round(p.y - 15));
+      this.glow.addChild(w);
+      d.windows.push(w);
+    }
+  }
+
+  /** Where townsfolk and raiders walk now (world px, every snapshot): a door or gate with any near is to open. */
+  private near = new Set<number>();
+  setWalkers(who: readonly { x: number; y: number }[]): void {
+    this.near.clear();
+    for (const [id, d] of this.buildings) {
+      if (!d.door) continue;
+      const at = d.door.gate ? gateSpan(d.foot).mid : doorSpot(d.foot);
+      if (anyoneNear(who, at, d.door.gate ? 1.8 : 1.1)) this.near.add(id);
+    }
+  }
+
+  /** Each frame: doors and gates swing open as someone comes, and close behind them. */
+  animate(dt: number): void {
+    for (const [id, d] of this.buildings) {
+      const door = d.door;
+      if (!door) continue;
+      const was = door.open;
+      const n = swing(door.open, door.held, this.near.has(id), dt);
+      door.open = n.open;
+      door.held = n.held;
+      if (Math.abs(door.open - was) < 0.01 && !(door.open === 0 && was !== 0)) continue;
+      this.drawDoor(d, door);
+    }
+  }
+
+  private drawDoor(d: DrawnBuilding, door: NonNullable<DrawnBuilding['door']>): void {
+    const g = door.g.clear();
+    g.visible = door.open > 0.01;
+    if (!g.visible) return;
+    const f = d.foot;
+    const o = this.ox;
+    if (door.gate) {
+      // (the gate's leaves swung: a dark opening across the middle of the run, on its front plane)
+      const { alongX, mid } = gateSpan(f);
+      const half = (alongX ? f.w : f.h) * 0.2 * door.open + 0.05;
+      const a = alongX ? tileToIso(mid.x - half, f.y + f.h * 0.75, o) : tileToIso(f.x + f.w * 0.75, mid.y - half, o);
+      const b = alongX ? tileToIso(mid.x + half, f.y + f.h * 0.75, o) : tileToIso(f.x + f.w * 0.75, mid.y + half, o);
+      const h = 26 * Math.min(1, door.open + 0.2);
+      g.poly([a.x, a.y, b.x, b.y, b.x, b.y - h, a.x, a.y - h]).fill({ color: 0x140d08, alpha: 0.88 * door.open });
+      return;
+    }
+    const at = doorSpot(f);
+    const a = tileToIso(at.x - 0.28, at.y, o);
+    const b = tileToIso(at.x + 0.28, at.y, o);
+    const h = 17 * door.open;
+    g.poly([a.x, a.y, b.x, b.y, b.x, b.y - h, a.x, a.y - h]).fill({ color: 0x1c120a, alpha: 0.92 });
+    g.poly([a.x + 1, a.y - 1, b.x - 1, b.y - 1, b.x - 1, b.y - h * 0.6, a.x + 1, a.y - h * 0.6]).fill({ color: 0xffc070, alpha: 0.35 * door.open });
   }
 
   private clearProps(d: DrawnBuilding): void {

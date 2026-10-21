@@ -149,7 +149,7 @@ export function renderShop(s: Snapshot, id: VenueId = 'shop', redraw: () => void
         ? `${v.keeperName} keeps the ${place}${v.ownerName && v.ownerName !== v.keeperName ? ` for ${v.ownerName}` : ''}.`
         : `Closed: nobody free to keep it.`;
   info.push(el('div', 'hint shop-status', status));
-  info.push(el('div', 'hint', `${v.ownerName ? `Owned by ${v.ownerName}` : 'The town\'s own'}: worth about ${v.worth} coins${v.takings ? ` (it took ${v.takings} yesterday)` : ''}. Its takings go to ${v.ownerName ?? 'the treasury'}${v.ownerName ? ', who pays for its upkeep' : ''}.`));
+  info.push(el('div', 'hint', `${v.ownerName ? `Owned by ${v.ownerName}` : 'The town\'s own'}: worth about ${v.worth} coins${v.takings ? ` (it took ${Math.round(v.takings)} yesterday)` : ''}. Its takings go to ${v.ownerName ?? 'the treasury'}${v.ownerName ? ', who pays for its upkeep' : ''}.`));
   const every = ((TRAVELLER_EVERY[0] + TRAVELLER_EVERY[1]) / 2 / (1 + v.attractiveness / APPEAL_HALVES_WAIT)).toFixed(1);
   info.push(
     el(

@@ -266,6 +266,8 @@ export class MapView {
   private readonly shade = new Container();
   private readonly shades = new Map<string, { sprite: Sprite; key: string }>();
   private readonly marks = new Graphics();
+  /** The cells marked for clearing and the one under the finger: over the light map, so they show at night too. */
+  private readonly clearMarks = new Graphics();
   /** Everything that stands on the ground, sorted by its foot's y. */
   readonly things = new Container();
   /** The blight round the monster nests and the Calamity's heart (map/mapBlight.ts). */
@@ -378,7 +380,7 @@ export class MapView {
     this.ghost.visible = false;
     this.ghost.anchor.set(0.5, 1);
     this.ghost.zIndex = 1e9;
-    this.world.addChild(this.ground, this.shade, this.marks, this.under, this.things, this.cloudLayer, this.over, this.ghost);
+    this.world.addChild(this.ground, this.shade, this.marks, this.under, this.things, this.cloudLayer, this.over, this.ghost, this.clearMarks);
     this.over.addChild(this.smoke.root);
     this.festival = new MapFestival(this.things, this.over, this.lights);
     this.blight = new MapBlight(this.under, this.things);
@@ -932,6 +934,7 @@ export class MapView {
   private drawMarks(): void {
     const m = this.land;
     const g = this.marks.clear();
+    const mk = this.clearMarks.clear();
     if (!m) return;
     this.plannedSeen = m.plannedRoads;
     this.markedSeen = m.marked.length;
@@ -954,14 +957,14 @@ export class MapView {
       }
     for (const i of m.marked) {
       const c = cellAt(m, i);
-      g.rect(c.x * CELL + 1, c.y * CELL + 1, CELL - 2, CELL - 2).stroke({ color: 0xffe080, width: 2, alpha: 0.8 });
-      // (and a faint X, so a marked cell reads plainly even among trees)
-      const x0 = c.x * CELL + 5, y0 = c.y * CELL + 5, x1 = (c.x + 1) * CELL - 5, y1 = (c.y + 1) * CELL - 5;
-      g.moveTo(x0, y0).lineTo(x1, y1).moveTo(x1, y0).lineTo(x0, y1).stroke({ color: 0xffe080, width: 2, alpha: 0.55 });
+      // (a pale fill and a thick outline, so a marked cell reads plainly by day and by night, even among trees)
+      mk.rect(c.x * CELL + 1, c.y * CELL + 1, CELL - 2, CELL - 2).fill({ color: 0xffe080, alpha: 0.22 }).stroke({ color: 0xffe080, width: 3, alpha: 0.95 });
+      const x0 = c.x * CELL + 6, y0 = c.y * CELL + 6, x1 = (c.x + 1) * CELL - 6, y1 = (c.y + 1) * CELL - 6;
+      mk.moveTo(x0, y0).lineTo(x1, y1).moveTo(x1, y0).lineTo(x0, y1).stroke({ color: 0xfff0b0, width: 3, alpha: 0.8 });
     }
     if (this.highlight !== null && !isMarked(m, this.highlight)) {
       const c = cellAt(m, this.highlight);
-      g.rect(c.x * CELL + 1, c.y * CELL + 1, CELL - 2, CELL - 2).stroke({ color: 0xffffff, width: 2, alpha: 0.9 });
+      mk.rect(c.x * CELL + 1, c.y * CELL + 1, CELL - 2, CELL - 2).fill({ color: 0xffffff, alpha: 0.16 }).stroke({ color: 0xffffff, width: 3, alpha: 0.95 });
     }
   }
 

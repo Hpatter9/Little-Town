@@ -419,13 +419,21 @@ async function start(): Promise<void> {
     map.root.addChildAt(iso.root, map.root.getChildIndex(map.world) + 1);
     map.worldOf = (sx, sy) => iso.worldOf(sx, sy);
     map.screenOf = (wx, wy) => iso.screenOf(wx, wy);
+    // (the ground's own layer, blood and puddles, lies on the diamonds)
+    iso.flat.addChild(map.under);
   }
+  /** The cell under the finger in Clear mode, or the one inspected: the outline is drawn by both views. */
+  const setHighlight = (cell: number | null) => {
+    map.setHighlight(cell);
+    iso?.setHighlight(cell);
+  };
   (window as unknown as { __iso?: IsoView | null }).__iso = iso; // (for previews)
   // (real light: the dark of night, and every torch's pool and shadows: map/lightMap.ts)
   const lightMap = new LightMap(app.renderer);
   let lightDaylight = 1;
   (window as unknown as { __lightMap: LightMap }).__lightMap = lightMap;
-  map.world.addChildAt(lightMap.sprite, map.world.getChildIndex(map.over));
+  if (iso) iso.lightLayer.addChild(lightMap.sprite);
+  else map.world.addChildAt(lightMap.sprite, map.world.getChildIndex(map.over));
   (window as unknown as { __map?: MapView }).__map = map; // (for previews and profiling)
   (window as unknown as { __topDownArt?: typeof topDownArt }).__topDownArt = topDownArt; // (for previews: a gallery of the painted buildings)
   const pools = new BloodPools(map.under); // (blood on the ground where someone fell)
@@ -536,6 +544,7 @@ async function start(): Promise<void> {
   app.stage.addChild(map.root);
   // fog banks, sandstorms, blizzards and heat haze (map/mapSky.ts)
   const sky = new MapSky(map);
+  if (iso) iso.air.addChild(sky.fogLayer); // (fog banks drift over the screen in iso: moved with the view each frame)
   app.stage.addChild(sky.root);
   (window as unknown as { __sky?: MapSky }).__sky = sky; // (for previews)
   if (weather) app.stage.addChild(weather.root);
@@ -833,7 +842,7 @@ async function start(): Promise<void> {
     canvas.style.cursor = clickable ? 'pointer' : hover ? 'grab' : 'default';
     if (phone) {
       // no tooltips on the phone: the top card says it all (and the selected patch of land stays lit)
-      map.setHighlight(inspected?.kind === 'cell' ? inspected.cell : null);
+      setHighlight(inspected?.kind === 'cell' ? inspected.cell : null);
       return tip.hide();
     }
     showHover();
@@ -1038,7 +1047,7 @@ async function start(): Promise<void> {
   };
 
   const showHover = () => {
-    map.setHighlight(hover?.kind === 'cell' ? hover.cell : null);
+    setHighlight(hover?.kind === 'cell' ? hover.cell : null);
     if (!hover || hover.kind === 'scenery' || !mouse) return tip.hide();
     // (a selected building shows its action bar instead, and a selected person their card)
     if ((hover.kind === 'building' && selected?.id === hover.id) || (hover.kind === 'person' && selectedPerson === hover.person.id && snap.visitor?.id !== hover.person.id)) return tip.hide();
@@ -1368,10 +1377,10 @@ async function start(): Promise<void> {
     return true;
   };
 
-  /** The Town menu's Villages tab (panel/villagesPanel.ts), asked for through the storage the frames share. */
+  /** The Town menu's More tab, where the villages are (panel/villagesPanel.ts), asked for through the storage the frames share. */
   const openVillages = () => {
     try {
-      localStorage.setItem('littletown.subtab.build', 'Villages');
+      localStorage.setItem('littletown.subtab.build', 'More');
     } catch {}
     bridge.openPanel('build');
   };
@@ -1549,19 +1558,30 @@ async function start(): Promise<void> {
     battleHud.update(b, snap.raid?.name ?? 'Raiders');
     return true;
   };
+  /** The cell a finger means in Clear mode: the one under it if `want` takes it, else one a little lower down the screen
+   *  (a tree's canopy stands above its own cell, so a tap on the leaves lands north of the trunk). */
+  const clearCellAt = (sx: number, sy: number, want: (cell: number) => boolean): number | null => {
+    for (const dy of [0, 12, 24]) {
+      const w = map.worldOf(sx, sy + dy);
+      const cell = map.cellAt(w.x, w.y);
+      if (cell !== null && want(cell)) return cell;
+    }
+    return null;
+  };
   /** A finger sweeping in Clear mode: the cells along its path that can take the sweep's mark (or lift it). */
   const sweepOver = (sx: number, sy: number) => {
     if (!sweep) return;
+    const on = sweep.on;
+    const want = (c: number) => (on ? wildCell(c) && !isMarked(snap.land, c) : isMarked(snap.land, c));
     const steps = Math.max(1, Math.ceil(Math.hypot(sx - sweep.last.x, sy - sweep.last.y) / (CELL / 2)));
     for (let k = 1; k <= steps; k++) {
-      const w = map.worldOf(sweep.last.x + ((sx - sweep.last.x) * k) / steps, sweep.last.y + ((sy - sweep.last.y) * k) / steps);
-      const cell = map.cellAt(w.x, w.y);
-      if (cell === null || sweep.cells.size >= MARK_CLEAR_CAP) continue;
-      if (sweep.on ? wildCell(cell) && !isMarked(snap.land, cell) : isMarked(snap.land, cell)) sweep.cells.add(cell);
+      if (sweep.cells.size >= MARK_CLEAR_CAP) break;
+      const cell = clearCellAt(sweep.last.x + ((sx - sweep.last.x) * k) / steps, sweep.last.y + ((sy - sweep.last.y) * k) / steps, want);
+      if (cell !== null) sweep.cells.add(cell);
     }
     sweep.last = { x: sx, y: sy };
     const w = map.worldOf(sx, sy);
-    map.setHighlight(map.cellAt(w.x, w.y));
+    setHighlight(clearCellAt(sx, sy, (c) => wildCell(c) || isMarked(snap.land, c)) ?? map.cellAt(w.x, w.y));
   };
   // (a tactics battle has the screen: a tap is its, a drag looks about the board)
   let boardPress: { x: number; y: number; lx: number; ly: number; moved: boolean; id: number } | null = null;
@@ -1593,7 +1613,7 @@ async function start(): Promise<void> {
       if (pinchFrom !== null || afterPinch) return;
     }
     if (clearing && !placing && e.button === 0 && !sweep) {
-      const cell = map.cellAt(map.worldOf(e.clientX, e.clientY).x, map.worldOf(e.clientX, e.clientY).y);
+      const cell = clearCellAt(e.clientX, e.clientY, (c) => wildCell(c) || isMarked(snap.land, c));
       sweep = { id: e.pointerId, on: cell === null || !isMarked(snap.land, cell), cells: new Set(), last: { x: e.clientX, y: e.clientY } };
       sweepOver(e.clientX, e.clientY);
       canvas.setPointerCapture(e.pointerId);
@@ -1662,8 +1682,10 @@ async function start(): Promise<void> {
       const done = sweep;
       sweep = null;
       if (canvas.hasPointerCapture(e.pointerId)) canvas.releasePointerCapture(e.pointerId);
-      map.setHighlight(null);
-      if (e.type === 'pointerup' && done.cells.size) bridge.command({ type: 'markClear', cells: [...done.cells].slice(0, MARK_CLEAR_CAP), on: done.on });
+      setHighlight(null);
+      // (a touch the page cancels, as its own scroll or pinch might, still sends what it swept)
+      if (done.cells.size) bridge.command({ type: 'markClear', cells: [...done.cells].slice(0, MARK_CLEAR_CAP), on: done.on });
+      else if (e.type === 'pointerup') toasts.push('Nothing to clear here');
       return;
     }
     if (!press || e.pointerId !== press.id) return;
@@ -2022,6 +2044,10 @@ async function start(): Promise<void> {
     }
     minimap.setLand(next.land, next.calendar.season);
     map.tick = next.tick;
+    if (iso) {
+      iso.setWalkers([...next.people.filter((p) => p.away === null && !p.indoors), ...(next.raid?.phase === 'active' ? next.raid.raiders : [])]);
+      iso.setLamps(next.lights ? next.lights.lights.filter((l) => l.lit && l.room === null) : []);
+    }
     stockpile.sync(next.buildings); // (before the buildings, so a stockpile's own picture is hidden at once)
     // (the gates shut at night and when raiders come: the palisade's are drawn closed)
     map.gatesShut = next.calendar.hour >= GATES_SHUT_FROM || next.calendar.hour < GATES_OPEN_AT || !!next.raid;
@@ -2234,8 +2260,11 @@ async function start(): Promise<void> {
     const moving = camera.update(ticker.deltaMS / 1000, w, h);
     if (iso) {
       iso.setCamera(camera.x, camera.y, w, h);
-      const v = iso.worldView(); // (the top-down layers still culled by it: the light map, the minimap's frame)
-      map.setCamera(v.x, v.y, v.w, v.h);
+      const lv = iso.lightView(); // (a square of world px that covers the whole screen, whatever the slant)
+      map.setCamera(lv.x, lv.y, lv.w, lv.h);
+      iso.air.position.set(w / 2 - (lv.x + lv.w / 2), h / 2 - (lv.y + lv.h / 2)); // (the fog banks fill the screen)
+      iso.setNight(map.lights.alpha);
+      iso.animate(ticker.deltaMS / 1000);
     } else map.setCamera(camera.x, camera.y, w, h);
     // screen shake (a boss's roar or sweeping attack)
     const shaking = performance.now() < shakeUntil;
@@ -2273,7 +2302,7 @@ async function start(): Promise<void> {
           const r = footprintOf(b);
           return { x: r.x * CELL, y: r.y * CELL, w: r.w * CELL, h: r.h * CELL };
         }),
-        view: map.view,
+        view: iso ? iso.worldView() : map.view,
       });
     // the region under the middle of the view: its name shown a few seconds when it changes
     if (snap) {

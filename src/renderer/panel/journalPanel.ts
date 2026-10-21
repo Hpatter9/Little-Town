@@ -1,5 +1,5 @@
-// Town Journal: the running history of the town, newest first, grouped by day. Report entries from older saves
-// stand out as cards. A filter at the top narrows it to the key events, or to the dead.
+// The Chronicle: the running history of the town, newest first, grouped by day, under four tabs (Events, People, Town,
+// Library) each with a few filters. Entries from older saves with lines stand out as cards.
 
 import type { AncestryView } from '../../shared/sim/ancestors';
 import type { JournalEntryView } from '../../shared/sim/snapshot';
@@ -33,6 +33,14 @@ const FILTERS: [Filter, string][] = [
   ['bestiary', 'Bestiary'],
   ['scenes', 'Scenes'],
 ];
+/** Four tabs along the top, each with its own few filters in a smaller row beneath (the menus' redo: four at most). */
+const GROUPS: [string, Filter[]][] = [
+  ['Events', ['all', 'key', 'deaths']],
+  ['People', ['heroes', 'milestones', 'legends']],
+  ['Town', ['festivals', 'culture', 'shelf']],
+  ['Library', ['bestiary', 'scenes']],
+];
+const FILTER_NAME = new Map<Filter, string>(FILTERS);
 /** (kept while the panel re-renders) */
 let filter: Filter = 'all';
 
@@ -41,13 +49,24 @@ const isDeath = (e: JournalEntryView) => / has died /.test(e.text);
 export function renderJournal(entries: JournalEntryView[], met: readonly string[] = [], annals?: AnnalsView, scenes: { key: number; title: string; tick: number }[] = [], watch?: (key: number) => void, ancestry?: AncestryView | null, festivals?: FestivalsView, culture?: CultureView, guildMark?: (personId: number) => HTMLElement | null, nowDay = 1, rare?: RareView): HTMLElement[] {
   const list = el('div');
   const row = el('div', 'row inv-tabs menu-tabs');
+  const sub = el('div', 'row inv-tabs sub-filters');
   const draw = () => {
+    const open = GROUPS.find(([, fs]) => fs.includes(filter)) ?? GROUPS[0];
     row.replaceChildren(
-      ...FILTERS.map(([f, label]) => {
-        const b = el('button', `inv-tab${filter === f ? ' on' : ''}`, label);
-        b.addEventListener('click', () => ((filter = f), draw()));
+      ...GROUPS.map(([label, fs]) => {
+        const b = el('button', `inv-tab${open[0] === label ? ' on' : ''}`, label);
+        b.addEventListener('click', () => ((filter = fs[0]), draw()));
         return b;
       }),
+    );
+    sub.replaceChildren(
+      ...(open[1].length > 1
+        ? open[1].map((f) => {
+            const b = el('button', `inv-tab small${filter === f ? ' on' : ''}`, FILTER_NAME.get(f) ?? f);
+            b.addEventListener('click', () => ((filter = f), draw()));
+            return b;
+          })
+        : []),
     );
     if (filter === 'heroes') {
       list.replaceChildren(...renderHeroes(annals ?? { fallen: [], chronicles: [], famous: [] }, guildMark));
@@ -78,7 +97,7 @@ export function renderJournal(entries: JournalEntryView[], met: readonly string[
     // (the cutscenes seen or passed by, to watch again: sim/cutscenes.ts)
     if (filter === 'scenes') {
       if (!scenes.length) {
-        list.replaceChildren(el('p', 'empty', 'No scenes yet. The big moments of the town\'s story are played out as they happen, and kept here to watch again.'));
+        list.replaceChildren(el('p', 'empty', 'No scenes yet. The big moments are played out as they happen, and kept here to watch again.'));
         return;
       }
       list.replaceChildren(
@@ -100,12 +119,12 @@ export function renderJournal(entries: JournalEntryView[], met: readonly string[
     }
     const shown = filter === 'all' ? entries : filter === 'key' ? entries.filter((e) => e.key || e.lines) : entries.filter(isDeath);
     // (the tabs show even before anything has happened: the Heroes and the Bestiary are there from the start)
-    const none = !entries.length ? 'Nothing has happened yet. Events, discoveries and news from the road will be written here.' : filter === 'deaths' ? 'Nobody has died. Yet.' : 'Nothing like that yet.';
+    const none = !entries.length ? 'Nothing has happened yet. What happens in the town will be written here.' : filter === 'deaths' ? 'Nobody has died. Yet.' : 'Nothing like that yet.';
     list.replaceChildren(...(shown.length ? entryRows(shown) : [el('p', 'empty', none)]));
     if (filter === 'all' && entries.length >= 200) list.append(platino()); // for those who read all the way back
   };
   draw();
-  return [row, list, timelineStrip(entries, annals, nowDay)];
+  return [row, sub, list, timelineStrip(entries, annals, nowDay)];
 }
 
 function entryRows(entries: JournalEntryView[]): HTMLElement[] {

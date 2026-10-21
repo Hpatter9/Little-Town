@@ -109,6 +109,18 @@ export function createEventSheet(onAnswer: (prompt: number, option: number) => v
     }
     // a commanded party's result leads with who came home and who did not, then the haul (sim/muster.ts `debrief`)
     if (p.debrief) text.replaceChildren(...debriefBlock(p.debrief));
+    // the telling is long: the first few lines show, the rest a tap away
+    let more: HTMLElement | null = null;
+    if (!p.debrief && text.children.length > 1) {
+      text.classList.add('short');
+      more = document.createElement('button');
+      more.className = 'event-more';
+      more.textContent = 'Read on';
+      more.addEventListener('click', () => {
+        text.classList.remove('short');
+        more!.remove();
+      });
+    }
     const options = document.createElement('div');
     options.className = evolve ? 'event-options evolve-options' : 'event-options';
     // the answer taken: a gold flash and a burst of sparks over the scene
@@ -138,7 +150,7 @@ export function createEventSheet(onAnswer: (prompt: number, option: number) => v
         }
         options.replaceWith(answerBox(p, label));
     };
-    // an evolution: each road a card with its emblem, its role, its telling and its signature skill
+    // a promotion: each road a card with its emblem, its role, its telling and its signature skill
     if (evolve) {
       for (const [i, r] of p.roads!.entries()) {
         const card = document.createElement('div');
@@ -263,7 +275,7 @@ export function createEventSheet(onAnswer: (prompt: number, option: number) => v
     const advice = document.createElement('div');
     advice.className = 'event-advice';
     if (p.recommended != null && p.why && !evolve) advice.textContent = `The town recommends "${p.options[p.recommended]}": ${p.why}.`;
-    body.append(title, text, options, ...(nameForm ? [nameForm] : []), advice, count);
+    body.append(title, text, ...(more ? [more] : []), options, ...(nameForm ? [nameForm] : []), advice, count);
     el.replaceChildren(art, body);
     el.scrollTop = 0;
   };
