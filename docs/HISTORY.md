@@ -8408,3 +8408,675 @@ glowing, founding fire behind), with a save (Continue "Pine Keep · 37 people ·
 dimly behind), Load game with two slots (In play marked, Delete on each), Credits, Settings over the menu, the New town
 panel from New game. Flows run in the browser: Continue to the loading screen to the game with the tick moving; ☰ Main
 menu back with the tick held; picking another slot reloads straight to loading.
+
+## The isometric art, first drop
+
+The first art for the planned isometric view, added without any code using it yet (the town still draws
+top-down).
+
+- **Building kits** for all twelve peoples in `src/renderer/art/iso/kits/<people>/`, about 36 to 42 pieces each:
+  buildings, walls and gates, ground tiles, roofs and props, named in each `index.json`. The sheets were drawn with
+  ChatGPT, then cut, cleaned (a thin outline, the painted colours kept) and reduced to 256 colours: 6.7 MB in all.
+- **One size for every people:** kits are kept at their drawn size; `kits.json` gives the `scale` that brings each
+  people's cottage to 240 pixels wide, to match the townsfolk (about 88 pixels tall), which come next.
+- `src/renderer/art/iso/README.md` describes the layout. Credited in `CREDITS.md`.
+- The web build inlines imported PNGs as data URLs, so the isometric renderer should load these by URL.
+
+## Isometric townsfolk (new, not yet wired in)
+
+The townsfolk side of the isometric view, as self-contained files in `src/renderer/iso/` (nothing existing is
+changed). Tests: `test/isoFolk.test.ts`.
+
+- `folkRules.ts` (pure): `facingFromVector(dx, dy)` / `facingToward(...)` give one of the 8 screen facings
+  (`FOLK_DIRS`, the art's order) from a map step: map east is screen south-east, map south is screen south-west.
+  `wantedAnim(state, speed, weaponFamily)` picks the animation from the snapshot (death if downed, hurt for
+  `HURT_TICKS` after a blow, attack/cast by weapon family while fighting, chop/hammer for work, run from
+  `RUN_SPEED` or while rallied, walk, idle); `play(wanted, has)` walks a fallback chain for a look that lacks it (no
+  `run`: walk at `rate` 1.5; no `chop`: hammer; nothing: `stand`, the rotation frame). `armedSuffix` names the armed
+  look (`axe`, `hammer`, `sword`, `bow`, `greatsword`, `staff`). `pickLook` picks people, sex and outfit, then a stable
+  pick by `idHash(id)` from the `FOLK_LOOKS` table (add each look there as its art arrives; a people with none uses
+  settlers). `lookPath` builds `settlers/woman_leather+axe`. `frameAt(count, fps, seconds, loop)` gives the frame.
+- `folkLoader.ts`: `loadFolkSet(path, variant)` fetches `<FOLK_ROOT.url>/<path>/index.json` and the frames by URL
+  through `art/loadImage.ts`, on first ask only, cached per (look, variant); null if the look isn't drawn.
+  `FOLK_ROOT.url` is `iso/folk`, relative to the page: **the web build must copy `src/renderer/art/iso/folk` there**
+  (as it does `himeko`), and the service worker should skip or lazily cache it.
+- `folkSprite.ts`: `class FolkSprite extends Container`, feet-anchored.
+- `folkTint.ts`: colour variety by baking: `VARIANTS` (8) recolours per look, made once on a canvas (no filter at run
+  time, so dozens of people cost plain sprites). `variantOf(id)` is the person's stable variant; `recolour(rgba, v)`
+  turns the hue of non-skin pixels, lightens or darkens skin a little, and leaves outlines, near-greys and clear
+  pixels alone. It can't separate hair from clothes (hue ranges only, no masks) and doesn't match the sim's exact skin
+  or hair colour; it gives variety, not fidelity.
+
+### How the iso map calls it
+
+```ts
+const folk = new FolkSprite();            // one per PersonView.id, added to the people layer
+layer.addChild(folk);
+// every frame, for each visible person v (a PersonView), screen spot from the iso projection of (v.x, v.y):
+folk.position.set(screenX, screenY);      // the feet
+folk.zIndex = screenY;                    // depth order
+folk.update(v, v.x, v.y, nowSeconds, dtSeconds /*, targetMapSpot? */);
+```
+
+Pass the **map** position (not the screen one) to `update`: facing is worked out from map movement. Pass an optional
+`{x, y}` target to face it while standing (felling, fighting). Hide `v.indoors` people as the top-down map does.
+`FolkSprite` needs only `id, activity, sinceHit, sinceBlow, defending, downed, hp, look, gear` (and `work`, `origin`,
+`rally` if sent) from the view. Weapon families come from `ITEM_BY_ID[gear.weapon].family`. Until the armed looks
+exist, the bare look stands in.
+
+## The isometric view, begun
+
+The town can be drawn isometrically, behind a switch: the ☰ menu's (and the main menu Settings') "Isometric view (in
+progress)", off unless turned on, kept in `localStorage` under `littletown.iso` (`iso/isoSetting.ts`: `ISO_KEY`,
+`isoViewOn`, `setIsoView`). The strip reads it as it starts, so turning it saves the town (`bridge.suspend`) and loads
+the page again, back into the town (`switchIso` in `mobile/mobile.ts`). Off, nothing about the game changes. Only the
+drawing differs: the simulation is untouched.
+
+- **The geometry** (`src/renderer/iso/isoMath.ts`, pure, tested in `test/isoView.test.ts`): a 2:1 diamond grid,
+  `ISO_TW` 48 by `ISO_TH` 24 a cell. `tileToIso`/`isoToTile` (cells, fractions kept, to the view's px and back),
+  `worldToIso`/`isoToWorld` (the sim's world px, `CELL` 32 a cell), `isoOrigin` (the land's top corner, so the land
+  sits at x >= 0), `isoBounds` (the camera's bounds), `cellsInView` (the cells a view can touch). Draw order:
+  `pointDepth` (x + y), `footDepth` (a building by its front corner), and `standingDepth`, which lifts someone just
+  over a building they stand in front of (past its far x or y edge). `footBase` is where a building's picture stands
+  (across its footprint's middle, down at its front corner), `footWidth` its diamond's width.
+- **The kits** (`src/renderer/iso/isoKits.ts`, pure): the people's kits in `art/iso/kits/` (see its README).
+  `kitNameFor(origin, theme)` picks the kit (the alchemists borrow the settlers'; a lich town is the liches').
+  `kitOf` reads the kit's `index.json` (imported: small) and its `scale` from `kits.json`; its four ground tiles are
+  the pieces ending `_tile` after `scale_tile`, in order (open ground, bare ground, path, field), and `tileCells`
+  how many cells one covers (`kitTileCells`: the `scale_tile` at the kit's scale times `ISO_ART`, in cells).
+  `roleOf(def)` sorts the game's buildings into parts (`cottage`, `longhouse`, `stockpile`, `workshop`, `tavern`,
+  `well`, `chapel`, `granary`, `watchtower`, `wall_run`, `gate`, `market`; a crop's or a herd's footprint is a
+  field, drawn as field tiles in the ground), by the `ROLES` table and then rules on the id and the def;
+  `pieceFor(kit, def)` finds the part's piece in the kit (`ROLE_PIECES`: the kits name some their own way, the
+  dwarves' `ale_hall`), a piece named as the building itself first (the knights' `barracks`), else `cottage`.
+  `groundTile` gives a cell's tile and a tint for grounds the kits have no tile of (water is the bare tile in blue).
+  Every piece is drawn at the kit's `scale` times `ISO_ART` (0.5: the cells are half the kits' size, so a 3x2
+  cottage is 120 px, the townsfolk keep their top-down size), shrunk only to fit a footprint much smaller than it
+  (`OVERHANG` 1.25); walls and gates (`fitted`) are fitted to their footprint.
+- **The view** (`src/renderer/iso/isoView.ts`, `IsoView`): `syncLand`, `setKit`, `syncBuildings` each snapshot;
+  `setCamera` draws only the ground in view (a pool of tile sprites, one per block of `tileCells` cells, back to
+  front, painted again only when the view crosses a cell or the land or a picture changes). The buildings are
+  sprites in `things` (sortable), anchored at their base, a blueprint at 0.45 alpha. The townsfolk are the top-down
+  view's own: `main.ts` makes `MapPeople` draw into `iso.things`, and `placeLoose` (each frame, after
+  `people.render`) moves whatever it set in world px onto the diamonds and gives it a depth, keeping its order among
+  its own (a bubble over everyone, a horse under its rider). `buildingAt` picks the front-most picture under a
+  screen point; `worldOf`/`screenOf` stand in for the map's.
+- **Wiring** (`main.ts`): with the switch on, `iso.root` goes into `map.root` beside the hidden `map.world` and
+  `map.lights` (the top-down map still keeps its state: its hit tests, and the layers not drawn in iso yet);
+  `map.worldOf`/`map.screenOf` are the iso view's, so the tap card, the hover and the overheads follow; the camera is
+  made over the iso bounds and `MapCamera.project` (new, optional) turns the points it centres on or follows from
+  world px; `isoPersonAt` tries the ground a little below a tap, since the tap lands on a body above its feet. The
+  pan, the phone's pinch zoom (the page scales the strip) and the tap card work unchanged.
+- **The art by URL**: the PNGs are never imported (the web build would inline megabytes). `build.mjs` copies
+  `art/iso/kits` to `out/renderer/iso/kits` (the PNGs only), `tools/build-web.mjs` on into `out/web/iso`, and the
+  view loads each piece with `loadImage(kitUrl(kit, piece))` the first time it draws it. The offline service worker
+  keeps each piece as it is first fetched (like the townsfolk's layers: `iso` is left out of the install list, so a
+  phone doesn't download a dozen peoples' kits, 6.7 MB, to play one).
+
+Left for later: walls joined into runs and corners, streets as streets, props, trees and rocks, the lights and the
+night, the weather, raiders and the other map layers (not drawn in iso), biome tints, and the iso townsfolk sprites
+(8 ways, 96 px frames). The depth sort is per point and per footprint, not a full topological sort, so a long
+building can still overlap wrongly at its ends.
+
+## The iso town, filled in
+
+Builds on "The isometric view, begun" (`docs/notes/iso-view.md`). Still behind the Settings switch; the simulation is untouched.
+
+- **Pure rules** (`src/renderer/iso/isoTown.ts`, tested in `test/isoView.test.ts`): `wallMaskAt`/`wallShape` (a one-cell wall
+  is a run along x, a run along y (the sprite flipped) or a corner, by which of its four neighbours are wall; a tee or
+  cross takes the corner), `gateFlip` (a gate taller than wide is flipped), `wallPieceFor` (the kit's run, corner or
+  gate made of what the wall is: `stone_wall` takes `stone_wall_run`, else the first), `sceneryFor` (trees on woods,
+  rocks on stone, bushes on marsh and hills, from whatever the kit has; dead or pine trees in dry or cold biomes),
+  `propFor` (a barrel, crate, cart, lamp, woodpile or hay bales beside a working building, picked from its id),
+  `cellHash` (the deterministic 0..1 hash these use), `BIOME_GROUND`/`mulTint` (the biome's tile and tint).
+- **The view** (`isoView.ts`): walls and gates draw the joined piece (`syncBuildings` collects the wall cells first);
+  `paintCells` lays a tile on every cell of a street (path tile), a worn footpath (bare tile, faded by wear) and a field
+  (field tile), over the block tiles, and puts trees, bushes and rocks on wild cells in view (a pooled sprite each in
+  `things`, depth `x + y` of the jittered spot; felled or rubbled cells (`regrow`, `rubble`) are bare); `setProps`
+  puts a prop beside each finished working building. `setBiome(next.biome)` (one line in `main.ts`) tints the open
+  ground (`groundTile(..., biome)`): desert and ashlands the bare tile, tundra pale, jungle and swamp deeper green.
+- **Assumptions**: the kits' runs lie along the land's x (down-right on the screen) and their corners point their
+  front at the viewer, joining -x and -y; a corner for other joins is approximate. Streets still planned (`plannedRoads`)
+  are not drawn.
+- **Continuous ground**: ground tiles (blocks and per-cell) are cut to their top face (`surfaceOf`: the slab under the
+  diamond dropped), drawn `OVERLAP` 1.06 over their cell so neighbours cover each other's rim, and mirrored by a
+  hash of their cell (`cellHash`) so the same ground doesn't repeat; no shade jitter, so a ground stays one shade.
+
+## Sagas told plainly, and plainer recaps
+
+Sagas now announce themselves and tell their whole story when they end. Changes the "Sagas" section of HISTORY.md.
+
+- **Beginning** (`beginSaga`, `sim/sagas.ts`): the key notice reads "A saga begins: <title>. <blurb> Follow it under Trips, in Quests." The news bubble (`situationNotices`, `mobile/notices.ts`) also shows each saga under way (`saga:<run>:<turns>`, new again each turn) and any saga ended in the last 8 days (`sagaend:...`), both opening Trips > Quests.
+- **Progress**: `SagaRun.turns` (optional) counts chapters. The Quests tab (`panel/expeditionsPanel.ts`) shows "Under way, turn N", and the card's details give day began, turns so far and where it stands.
+- **Ending** (`finish`, `tellSaga`): a few short lines in order: how it began (day and blurb), how many days and turns it ran, who took part, the last two lines of the story, the ending, what it brought, and "It ended well / with mixed fortune / badly." Kept on `sagasDone[].story` (and `began`, both optional) and shown in the news bubble, the event box (`setOutcome`), the Journal and the finished saga's card ("What happened"). A saga that ends on a choice no longer has its outcome overwritten by the choice's short line.
+- **While you were away** (`awayBefore`/`awaySummary`): sagas begun and ended in that time get a line each.
+- **Wording**: `tellRaid` (`sim/raidRecap.ts`) and `awaySummary.ts` rewritten in short plain sentences ("harm" is now "damage", "felled" is "killed", "came out of the west" is "came from the west"). Tests that checked the old words were updated to match.
+
+## The build menu: the founder builds, the town picks the spot
+
+Changes "The menus redone", pins and the planner's building (HISTORY.md "Phase 1", "Mood drives what the town builds").
+The owner's ask: building is the founder's call (CLAUDE.md, Priorities).
+
+- **The switch:** `GameState.townBuilds?` (`sim/state.ts`). Missing or false: the town lays no blueprint of its own. Tests of the
+  old planner set `s.townBuilds = true`. Gated: the planner's building choices, upgrades and consolidation (`planBuilding`),
+  `planHomes` (plots bought), the arena, boatyard, shrine, ranch, harbour, airship mast, Mage Tower, ward stones and statues.
+  Left automatic: the seat of the town (the new age's studies wait on it), events' own blueprints, the monument.
+- **Orders:** tapping Build sends `pinBuilding` (`sim/pins.ts`): `planPins` runs straight after the seat, finds the spot with
+  `findSpot` and the builders put it up. Two new commands: `orderRing` (`s.ringOrder`: `planRing` and the ring's upgrades run
+  until the wall stands) and `orderStreets` (`s.streetsOrder`: `streetsHourly` plans the streets and gate paths once).
+- **The recommendation:** `recommendBuilding(s)` in `sim/planner.ts` (the old `wishes`, as advice): homes first when beds are
+  short, for every people, then the ring wall (`ringAdvice` in `sim/ringWall.ts`: a first palisade once the town is four strong
+  and raided or six; a widened or better wall only when `ringFill` of the space inside is `RING_FILL` = 0.4), then the first
+  wish. In the snapshot as `recommend`, refreshed about hourly.
+- **The menu** (`panel/buildPanel.ts`, `panel/buildKinds.ts`): "Being built" (orders and sites, Cancel), "The town
+  recommends", "Build: Walls and streets", then cards by kind. A card: name, cost (short ones marked), what it does
+  (`shortPurpose`), why (`whyOf`), Build. Headings `Build: ...` are matched in `GROUPS`. `LAYER_NAMES` is gone.
+- A newly founded town knows no home until `basic_shelter` is learned, whatever its people; the recommendation waits on it.
+
+## Research offered three at a time (the Studies menu)
+
+Changes "Research picked by hand" and "Every menu in sub-tabs": the player no longer queues research. The town is offered
+three topics it can study now, and one is chosen.
+
+- **The offer** (`sim/researchOffer.ts`, new): `OFFER_SIZE` 3 topics, drawn from what can be studied now (prerequisites
+  done, era and seat reached, not forgone, refinements only from 4 people), on a side stream
+  `new Rng(hashSeed(`${seed}:research-offer:${n}`))` (n = `research.offers`, offers drawn so far). `keepOffer(s)` runs
+  every tick (called in `sim.ts` before the planner): draws when there is a free study slot and no offer, and again when
+  any offered topic stops being studyable; with every slot busy there is no offer, and a finished topic draws three new
+  ones. `chooseOffer(s, id)` queues the topic and clears the offer; any other topic, or a second tap, does nothing.
+  `offerableTopics`, `drawOffer`, `offerOverdue` are exported for the planner and tests.
+- **The command** `studyOffer { topic }` (`commands.ts`, `sim.ts`). `queueResearch` / `moveResearch` / `cancelResearch`
+  stay in the sim (old tests, old callers) but the menu no longer sends them.
+- **Hands-off:** `planResearch` (`planner.ts`) now chooses among the three once the offer has stood `OFFER_WAIT_TICKS`
+  (3 game hours): the best by its old scoring (`topicScore` plus the "leads to a wanted topic" share). So that the town's
+  needs still come up, the planner also stores `research.suggested`, the two topics it would study first, and swaps them
+  into the offer when they are not there (`drawOffer` includes them too): two of the three are the town's suggestions, one
+  is random. Without them a town drawn three at random never got to Barter and its Trading Post. Remove the suggestions
+  by emptying `suggested`.
+- **Save:** new optional `ResearchState` fields `offer`, `offerAt`, `offers`, `offerEmpty`, `suggested`. Old queues and
+  picks load and run as before; nothing needs migrating. `orderQueue` also drops any repeat from `queue` / `picked`.
+- **Snapshot:** `research.offer`, `research.offerLeft` (ticks before the town chooses).
+- **The menu** (`panel/researchPanel.ts`, `.rs-*` CSS in `panel/panel.html`, `GROUPS.research` in `panel/subtabs.ts`):
+  "Studying now" (each topic with its bar and who studies it), "Choose a topic" (three big cards: name, line, time, what
+  it unlocks, a Study button; the same tap sent twice within 600 ms is ignored), "Stations", and an "All topics" tab with
+  the read-only tech tree.
+- **Functions changed in shared code:** `orderQueue` (`sim/research.ts`); `planResearch` (`planner.ts`: the queue-filling
+  loop and the `REFINE_AT` constant are gone, replaced by the choice above); `researchView` (`snapshot.ts`).
+- **Tests:** `test/researchOffer.test.ts`, `test/researchDupes.test.ts`; `test/helpers.ts` `overdueOffer`; the planner
+  and shop tests that ran the planner once and read the queue now make the offer overdue first (and the shop test that
+  expects a second topic runs a second pass).
+
+## The town waits for the menu; "evolution" becomes "promotion"
+
+**Pause while a menu is open (phone).** `mobile/mobile.ts` `holdForMenu`: opening any menu (but the founding panel)
+sends `setPaused true` unless the town was already paused by the player; closing it sends `setPaused false`. State is
+`heldByMenu` (`'wait'` until the snapshot shows the pause, `'on'` after). If the player presses ▶ inside the menu, the
+hold is dropped and the town is left running. Uses the existing `paused` flag, so nothing new is saved.
+
+**Promotion wording.** Only the words the player reads changed: the "ready for promotion" notice (`sim/classes.ts`
+`askEvolve`), the Town menu's "Promotions: ask me / they choose" (`panel/buildPanel.ts`), the People panel's "A
+promotion waits / awaits" and README. Ids and save fields (`kind: 'evolve'`, `evolveAsk`, `evolveTo`) are as they were.
+
+**The promotion that came back (changes "Evolutions that matter").** The sim could not be made to re-ask: every
+road, origin, founder line and level was run (pick, then hourly) and a question answered was always gone and never put
+again. Two gaps that could strand it were closed: `roadEvents.ts` `answerPrompt` now takes the town's own choice
+(`defaultOption`) for a promotion answered with an index that names no option, instead of returning with the question
+left standing; and the phone's event sheet (`mobile/eventSheet.ts`) marks every answered question `read`, so a snapshot
+that lags behind the answer cannot open the same question again after "Continue". Test: `test/evolutions.test.ts`
+("a promotion answered is done").
+
+## The raid board in the isometric look
+
+Changes "Tactics battles" (`tactics/tacticsView.ts`): with the Settings switch on (`isoViewOn`), the board's art comes
+from the town's people's kit (`iso/isoKits.ts`); with it off nothing changes (`TacticsScene.iso` is null).
+
+- `tactics/isoBoard.ts`, `IsoBoardArt`: `setKit(origin, theme)` (`kitNameFor`), `image`/`texture` (kit pieces loaded by
+  URL on first ask, `arrived` counts them and goes in the board's key so it is built again as they come), `top(ground,
+  road)` (`groundTile`'s tile and tint), `sidesOf` (the column's sides and lip taken from colours of the tile's own
+  slab edge, so they sit under the new top).
+- Tile tops: the kit's ground tile (open, bare, path) drawn onto the 64x32 diamond (clipped; a tint multiplied in for
+  water, sand and rock). A tile whose kit picture hasn't loaded returns null, so the board is built again next snapshot.
+- The town's wall, gate and towers on it: `pieceFor` of the wall's def (a run a tile wide, the gate over its two tiles
+  at 1.3 tiles) and of the tower's building def (`defs`, from the snapshot's buildings), stood on their tile's front
+  corner and sorted by `isoPiece` (`picture`). Traps, trees, boulders and logs are unchanged (no kit art placed yet).
+- Not done: field tiles (the board has no field cells), pond tiles use the bare tile tinted blue.
+
+## The founder's card
+
+Step 1 of playing the founder. The player steers the founder (`GameState.mainId`) with five orders, the camera follows them, the heir rule is the owner's, and a founder who dies with no heir ends the game.
+
+**Orders** (`sim/founder.ts`, commands in `sim/commands.ts`, applied in `sim/sim.ts`): `founderGo` (walk to a finished building), `founderWork` (a job for the day, or `null` for the town's choice), `founderRest` (home to bed for `REST_HOURS` = 6; each hour mends `REST_HEAL` of full health and lifts morale by `REST_MORALE`), `founderGive` (coins from the purse to the treasury; the card offers `GIVE_STEPS` 5, 20, 50), `founderHeir` (name a grown-up, or `null`). The state is `s.founderOrder` (optional, `FounderOrder`); `founderTick` ends a job or rest on time, and `founderTask` in `sim/people.ts` reads it in `chooseTask`, after raids, fire, wounds and eating, so the founder's needs and the town's emergencies still come first. A walk ends on arrival.
+
+**The card**: `panel/founderPanel.ts`, panel id `founder` (`shared/ipc.ts`), key `founderKey`. Opened by the ♛ button on the phone's top bar (`ui/topBar.ts`) or by tapping the founder on the map ("The founder…" on their tap card). Go to is done on the map: a finished building's tap card has "Send the founder here". The snapshot has `founder` (`FounderView`: order text, who would lead, who could be named, the jobs).
+
+**Camera**: `main.ts` eases the camera to the followed person (`snap.hero`), else the founder, and waits `FOLLOW_WAIT_MS` after the player pans (the old `camera.follow`). Not during a raid or after game over.
+
+**The heir rule** (`heirOf` in `sim/health.ts`, changes "Deaths made common again"): for the leader, the named heir (`s.heirId`, set by the Name an heir action or an adoption) if alive, then the partner, then the eldest grown child (lowest id). Nobody else. A leader's heir used to be anyone grown; now a stranger leads only if named. No heir: `s.gameOver` gets `founder`, `days` and `cause` as well as the text (and the snapshot carries them).
+
+**Game over**: `createGameOver` (`overlayUi.ts`) names the founder, the days they lasted and how they died. "Back to the main menu" calls the bridge's `endTown` (phone, `mobileBridge.ts`): the host makes the legend (`legendOf`, message `legend` in `shared/simHost.ts`), the page keeps it (`keepLegend`), drops the save and reloads to the main menu. The desktop has no `endTown`, so its button opens the New town panel as before.
+
+**Tests**: `test/founder.test.ts`; `test/deaths.test.ts` now names a stranger heir before the second death.
+
+## No time away
+
+The game only runs while it is open. Nothing is simulated for the time the app was closed or the page was hidden
+(the owner's call, October 2026). This replaces the HISTORY.md sections "Offline pacing", "Raids wait for you", "A plain
+return" and "Catch-up without recaps", and the away parts of "Choice events" (a choice event holding the town while
+away) and "Phone alerts".
+
+**What it does now**
+- A saved town resumes exactly where it was saved, on the phone and the desktop (`simHost.ts` no longer calls any
+  catch-up; the save's `savedAt` is only shown in the save list).
+- `GameLoop.hidden` (set by the page's visibility events through the `hidden` message, and by the desktop's lock
+  screen and fullscreen hiding) holds the clock: `pump()` resets `last` each tick, so the game stands still and
+  carries on from the same tick when visible again, with no time owed. `held` (the loading screen) works the same.
+  The player's own pause (`s.paused`) is never touched. The page already saved when going hidden (`hidden` message).
+  Note: on the desktop the strip hidden behind a fullscreen app now also stands still.
+
+**Deleted**
+- `sim/offline.ts` (`awayPlayMs`, `awayRealMs`, `startCatchUp`, `catchUp`, `MAX_OFFLINE_MS`), `sim/awaySummary.ts`,
+  `renderer/awayCard.ts` (the "Catching up…" screen and the "While you were away" card), their CSS, the
+  `littletown:away-seen` event and `readAbsence` in `mobile/notices.ts`, `Snapshot.catchingUp` and `Snapshot.away`,
+  `GameLoop.catchUp`/`catchingUp`, `favouriteAwayLines`, `openThreads`, `sim/highlights.ts` (the old morning report,
+  already unused), `holdForEvent`/`holdEventClock` and `Event.held` (events.ts), `Raid.waiting`/`Raid.alone`, the
+  gate prompt (`holdAtGate`, `openGate`, `raidAtGate`, `RAID_WAIT_MS`, `raidDueTick`).
+- `sim/raidWait.ts` keeps only what protects the open game: `fightOnScreen` and `holdForFight` (a fight on screen stops
+  the questions' clocks and nothing pops up over it).
+- Phone alerts for a time away: `sim/forecast.ts`, `alerts.ts` `plan`/`scheduleAlerts`, and the simHost's look ahead are
+  gone (an alert for something that can no longer happen while closed would be false). `alerts.ts` keeps the test
+  alert, `cleanAlerts` and `cancelAlerts` (drops alerts an older version booked). The alerts panel and its settings
+  are left as they were; the owner may want them removed too.
+- README's wording about catching up; tools `perf-sim.ts` and `sim-hash.ts` now just step 28,800 ticks.
+
+**Saves:** unchanged format. Old saves with `raid.waiting`/`alone`, `event.held`, a 'gate' prompt or old "While you
+were away" journal entries load fine; the fields are ignored (a gate prompt, if answered, simply closes; a town left
+paused by an old held event stays paused until the player unpauses).
+
+**Tests removed (they covered only the deleted behaviour, not loosened):** `awaySummary.test.ts`, `raidWait.test.ts`,
+`forecast.test.ts`, `highlights.test.ts`; the catch-up tests in `save.test.ts`; the away-card tests in
+`favourites.test.ts`, `anticipation.test.ts` and `notices.test.ts`; the phone-alert and away-event tests in
+`events.test.ts` and `hero.test.ts`. Added: a hidden page holds the game still and resumes with no catch-up
+(`fightHold.test.ts`). `runtime.quiet` (watchAsk.ts) is kept: the tests use it.
+
+## Planner fixes: knights' first research, every people researches
+
+Changes the HISTORY.md section "Research picked by hand" (the planner's topic scores).
+
+- **Knights researched the long way round.** Their start list lacks `basic_shelter`, and a prerequisite inherits most of
+  the worth of the topic behind it (`LEADS_SHARE`), so Fire Keeping then Oral Tradition beat Basic Shelter. `Needs.noHome`
+  (`sim/planner.ts`) is true while no housing building is unlocked; then a topic with no prerequisites that opens a home
+  scores 80 (not 30) for beds.
+- **`test/originPlanner.test.ts`**: for every origin, a town with the autopilot on runs 8 days and must finish a topic.
+
+## New town: pick, then Accept
+
+The 7-step "New town" wizard (`panel/newGamePanel.ts`) no longer opens a pop-up sheet when a tile is tapped. Tapping a tile
+(`tileGrid` in `panel/newTownTiles.ts`, which now just calls `onChoose`) picks it and frames it; the sticky footer
+(`.wizard-foot` in `panel/panel.html`) shows the picked option's name and its text lines (`.nt-details`, scrolls past
+26vh, 24vh sideways) above Back / **Accept**. Accept moves on; Back keeps the earlier pick. The last step's button reads
+"Accept: found ..." and founds the town. `stepTiles` holds each step's tiles so the footer can read the picked one.
+
+Wording: step 0 now says you play the founder and order every building yourself (the town lives on its own); the
+summary's "A world of N realms" line shows only while `CONQUEST.on`; Normal's text is "The intended balance of raids and
+disasters." (`data/biomes.ts`); Lost Tribe says "Keep everyone fed." (`data/founding.ts`). The old bottom-sheet styles
+(`.nt-back`, `.nt-sheet*` in `newTownStyles.ts`) and `Tile.scene` are now unused.
+
+## The founder's shops
+
+Step 3 of playing the founder. The founder can own several town shops, taverns and stalls and run each (`sim/founderShops.ts`, data in `data/founderShops.ts`). It changes nothing about how buildings are ordered or placed.
+
+**Buying** (`founderBuyShop`): the card's "Buy a shop" lists `buyableShops` (done venues with a `floor`, no owner, not a ring/room). The price is `businessPrice` (plot, makings and `BUSINESS_DAYS` of takings, `sim/ambition.ts`). The founder's purse pays it to the treasury and becomes `Building.owner`; the town's keeper goes and `Building.shop.run` (`{ stock, price, till, season?, last? }`, optional) marks a run shop (`isFounderShop`). One caveat: customers still come to one standing venue of each kind or line (`standing` in `sim/shop.ts`), so a second shop of the same kind is owned but gets no custom.
+
+**Running it**: `founderShopStock` picks a stock line (`STOCK_LINES`: 2-3 a venue or specialty line; each has a `sales` multiplier and a `cost` share of takings for restocking) and `founderShopPrice` a level (`PRICE_LEVELS`: Low `sales` 0.85, draws customers (+4 `attractiveness`) and lifts every grown-up's morale 1 a day; Fair; High `sales` 1.25, −4 attractiveness, morale −1 a day).
+
+**Managing it** (`founderShopManager`): the manager is the building's `operator`. A hired grown-up (`managerCandidates`: not a child, not already holding a job) is paid `managerWage` a day (`MANAGER_WAGE` × `PURSE_SCALE` × Social level); their Social skill scales sales (`managerSales`, 0.8 to 1.2). The founder's own id works the counter themselves for `SELF_SALES` 1.25, the best takings. `null` shuts it. `assignOperators` skips a founder's run shop, so with no manager nobody opens it. The autopilot never hires.
+
+**Takings**: `takeSale` (`sim/ambition.ts`) hands a founder's run shop's sale to `founderSale`, which adds it to `run.till` (and `bookTakings`). At dawn `settleShops` (called from `founderTick`) pays the stock cost, the manager's wage (a manager who can't be paid even from the purse leaves), and gives the rest to the founder with `giveCoins`, so the usual tax at dawn (`collectTax`) takes its share. A loss is `shopLoss` (the till drops); a fire takes the shop's takings with it (`sim/fire.ts`). `run.season` keeps the season's takings and profit (`DAYS_PER_SEASON`).
+
+**The card**: "Your shops" and "Buy a shop" in `panel/founderPanel.ts`; the snapshot's `FounderView` has `shops`, `buyable` and `hires`. Commands: `founderBuyShop`, `founderShopStock`, `founderShopPrice`, `founderShopManager` (`sim/commands.ts`, applied in `sim/sim.ts`). Not gated by the autopilot (they are the player's orders).
+
+**Tests**: `test/founderShops.test.ts`.
+
+## Power levels
+
+One rough number for anyone who can fight, and a short label for how two sides match, so the owner knows what to
+expect before a fight or a duel. A guide only: it reads the fighter and never changes how a fight works, and it draws
+no random numbers.
+
+- `src/shared/sim/power.ts` (pure, no Pixi or DOM). `powerOfFighter(f)` takes a `Fighter` (combat.ts) and gives the
+  square root of how long it lasts (`maxHp` over armour, block and dodge) times how hard it hits (average blow, strikes
+  true, aim against a typical foe's `TYPICAL_DODGE`, blows a second), times `POWER_SCALE`. A fresh townsperson reads
+  about 10-15, a wolf 11, a cave bear 48.
+- `powerOfPerson(p)` goes through `personFighter` (level, stats, class, weapon, armour, wounds and lost parts), then
+  lowers by the share of health they have left. `powerOfEnemy(kind, might)` uses `unitFighter` (`might` is a raid
+  raider's multiplier). `powerOfGroup`, `powerOfParty` add up (a side of ten reads about ten times one of them).
+- `matchupOf(mine, theirs)`: Easy (theirs under 0.65 of yours), Even (under 1.15), Risky (under 1.8), Deadly.
+  `powerLine` words it: "Your party 240 vs about 310: Risky". `placeFoes(d)` / `foesToExpect(d)`: what a place's
+  road fights and (for a dungeon) bosses come to.
+- Shown in: the person card chip and the People list row and Kit tab (`PersonView.battle.power`); the raid warning in
+  the top bar, the strip HUD and the Town tile (`RaidView.power`, `townPower`, `matchup`) and a raider's or roaming
+  band's tap card (`RaiderView.power`, `RoamerView.power`); the Bestiary; expedition destination cards and details,
+  the muster sheet (`MusterView.powerLine`) and quest and hunt offers (`DestinationView.partyPower`, `foesPower`,
+  `matchup`); the arena card (`ArenaView.card.power`, `matchup`).
+- `test/power.test.ts` calibrates it against the real fight rules: of two foes where one reads at least 1.5 times the
+  other, the stronger wins at least three in four fights; a person who reads stronger than a foe beats it; wounds
+  lower the reading; the labels follow the ratio.
+
+## Origin answers on the choice events
+
+Existing choice events (HISTORY "Choice events", "Events with purpose") now carry one extra answer for a single
+people, shown only in a town of that people and always last, so the common answers keep their numbers. Each ties into
+that people's own system and says what it does in the brackets on the button.
+
+- `data/originOptions.ts`: `ORIGIN_OPTIONS` (people -> event id -> `EventOption`) and `originOptions(origin, eventId)`.
+  The shorthands are written out in the file (importing `eventKit` there makes an import cycle with `sim/events.ts`).
+- `sim/events.ts`: `optionsOf(s, def)` is the event's answers in this town (used by `startEvent`, `answerEvent`,
+  `costOf`, `coinsLine`, and the later effects). Two new effects in `data/eventKit.ts`: `{ ways, by }` (a people's own
+  measure: grove/Court favour, Order honour, horde fury, pack renown, foundry power, Great Work progress, settler
+  wagons; nothing happens in another people's town) and `{ captives }` (prisoners into the free cells).
+- `test/originOptions.test.ts`.
+
+By people (event: answer):
+- Blood Court: refugees (blood farm captives + blood), sick_traveller (drain), deserter (thrall), captive_raider (farm).
+- Liches: refugees (raise them), dead_walk, w_pilgrim_dies, w_old_battlefield (raised dead join).
+- Druids: wildfire, bumper_crop, drought, l_wolf_pup (grove favour).
+- Fae: fairy_ring, wishing_well, stranger, comet (Court favour).
+- Alchemists: sick_traveller, fever_home, hermit_tome, sinkhole (Great Work progress).
+- Knights: refugees (sworn to service), deserter, tribute (single combat), mercenaries (honour).
+- Machines: stranger, l_gale, l_lightning_tree, broken_axle (colony power).
+- Settlers: refugees, stranger, bumper_crop, wild_horses (wagons, claims, horses).
+- Moon Pack: wolves_livestock, l_wolf_pup, bear, monster_lair (pack renown).
+- Nomads: wild_horses, horse_trade, drought, tribute (herds and the road).
+- Merfolk: flood, l_gale, plague_ship, refugees (the reef's fish, kelp, pearls).
+- Dwarves: cave, w_cave_in, dragon, w_ruin_map (ore, gold, gems; doors barred).
+- Orcs: refugees (thralls), captive_raider, tribute, scouts (fury).
+
+The town's recommendation (`recommend`) and its default when nobody answers come from the common answers only: the extra answer is the player's call. Deterministic: the
+existing event stream; no new fields in the save (`captives` uses `s.prisoners`, the rest the people's own state).
+
+## Land clearing by hand
+
+The player can mark wild land for clearing from the phone's map. The townsfolk still gather on their own; marked cells are taken first (`bestGatherTile`, unchanged).
+
+- **Command:** `markClear { cells, on }` (`sim/commands.ts`, applied in `sim/sim.ts`): marks (`on`) or unmarks a list of cells in one go, capped at `MARK_CLEAR_CAP` (150; `parseCommand` refuses a longer list). Only cells with a gather pool can be marked. `toggleGather` is kept for old callers.
+- **Clear button** (`renderer/main.ts`, `#clear-land`, above the home button): while on, a banner says so, a drag sweeps cells along the finger's path (`map.worldOf` then `map.cellAt`), and one `markClear` is sent when the finger lifts. A sweep that starts on a marked cell lifts marks; one that starts elsewhere adds them. A second finger (pinch) cancels the sweep. Off again, taps work as before. First use shows a one-line toast (`littletown.clearTip`).
+- **Marks on the map** (`map/mapView.ts` `drawMarks`): the pale outline plus a faint X.
+- **Regrowth** (`sim/regrow.ts`): a marked cell is not regrown on its due day (it tries again tomorrow). A mark goes by itself when the cell is bare (`setGround` and `clearCell` already did this).
+- **Not done:** the isometric town view is not on main yet (only the battle board), so only the top-down map has the button. When it lands, it should send the same `markClear` and draw the same marks.
+- Tests: `test/markClear.test.ts`.
+
+## Titles that take longer, come in many kinds and say how they were earned (branch claude/titles)
+Changes the HISTORY.md section "Titles from deeds" (raids and deeds): the ladders there now ask for more, and there
+are many more titles beside them.
+
+- **Slower.** `DEED_STEPS` (data/deeds.ts) names how many of each deed every ladder title takes, about two and a half
+  times what it did (raids defended 2/6/15 -> 5/15/40, buildings raised 5/15/40 -> 12/40/100, pieces made 10/30/80 ->
+  25/80/200, lives tended 3/10/25 -> 8/25/60, topics learned 3/8/20 -> 8/20/45, bosses 1/3/6 -> 2/5/10, dungeons
+  1/3/6 -> 2/5/10, sagas 1/3 -> 2/5, beasts 3/10/25 -> 8/25/60, bouts 1/4/10 -> 3/10/25, sneaks caught 2/6/15 ->
+  5/15/35, campaigns 1/3/6 -> 2/5/10). `ORIGIN_TITLE_AT` (sim/annals.ts) lifts the origin titles (Redfang, Paragon...)
+  from 3/8 raiders felled or 5/12 trips to 10/30 and 15/40. Titles already held are kept (nothing takes one away).
+  Measured on `test/fixtures/late-town.json.gz` for 10 days (`node tools/titles-rate.mjs 10`): before, 52 new titles
+  across 53 people (5.2 a day, 14 kinds, mostly "Wall of the Town", "Raiser of Halls", "Shield Bearer"); after, 20
+  across 37 people (2.0 a day). The two runs part ways early (titles feed `famous`, house strength and line renown,
+  so the town's course changes), so read it as the rate, not a like-for-like. The fixture's people carry no tallies
+  yet, so the new character titles barely show in it; they build up in towns played from here on.
+- **Many more kinds.** `data/titles.ts` (`TITLE_RULES`, about 90): each rule is a `when` over `TitleFacts` and a `why`
+  line. Fighting by foe kind (Wolfbane/Packbreaker, Bandit-Breaker, Gravewarden, Beastslayer, Ratcatcher, Drakeslayer,
+  Giantfeller, Rustbreaker, Spellbreaker, Warbreaker; the Slayer, the Reaper), the body (Ironhand for a fitted
+  prosthetic hand or arm, the One-Eyed, the Blind, Peg-Leg, the Armless, the Scarred), harvests (Green-Fingered,
+  the Harvester, Lord of the Furrow), mixed crafts (Jack of All Trades, the Bookworm, Hammer and Tongs, Wound-Binder),
+  roads (Far-Walker, the Wayfarer), love (the Twice-Wed, the Thrice-Wed, the Widowed), and misfortune and failings:
+  the Unlucky, the Battered, Nine Lives, Death-Dodger, Sticky-Fingers, the Cutpurse, Knuckles, the Vandal, Bloodhands,
+  the Jailbird, the Pardoned, the Sulker, the Sot, the Hothead, the Runaway, and from traits and natures the Coward,
+  the Idler, the Glutton, the Hermit, the Grudging, the Miser, the Dreamer, the Faithful, the Merry, the Bold, the
+  Gentle, the Rich, the Stay-at-Home. Each people has its own, gated on `s.origin`: Truesworn / Paragon of Vows /
+  Oathbreaker (knights), the Returned / Grave-Walker (liches), Bloodletter / Night-Stalker / the Pale (Blood Court),
+  Greenwarden / Beast-Whisperer (druids), Trickster / Glamour-Spun (fae), Transmuter / Burnt-Sleeves (alchemists),
+  Prime Unit / Faulty Unit (machines), Stonewright / Ironbeard (dwarves), Tide-Walker, Far-Rider, Moon-Scarred /
+  Fang-and-Claw, Skull-Taker / Warlord's Bane, Homesteader. All thresholds are in `TITLE_AT`; no one holds more than
+  `TITLE_MOST` (8) of these, and the young are forgiven the unflattering ones (`TITLE_AT.lived`, a level).
+- **Built from what they did.** `Person.tally` (new, optional) is counted by `tally(p, key, n)` (sim/deeds.ts) where it
+  happens: `slain:<foe kind>` (raidRecap `credit`), `wounds` (`woundPerson`), `downed` (health.ts), `wed` / `widowed`
+  (social.ts), `crime:<kind>` and `pardoned` (politics `trial` and its sentence), `break:<kind>` (breaks.ts), `reaped`
+  (farming.ts), `vows` / `vowsBroken` (chivalry.ts), `risen` (`tryRevive`), `gathered:<kind>` (a feast, rite... via
+  `gather`). Lost parts, fitted prosthetics and scars are read from the body.
+- **How it was earned.** `Person.titleWhy` (title -> a sentence) is written when a title is won, for the new ones, the
+  deed ladders ("Buildings raised: 12.") and the origin titles. `PersonView.titleWhy`; the person card shows the latest
+  one under the chips and the Background tab lists every title with its line.
+- **Rules.** `sim/titles.ts`: `titleFacts`, `earnedTitles`, `awardCharacterTitles` (hourly, from `annalsHourly`; only
+  with the autopilot on; no dice, so the same record earns the same titles). Old saves just have no tallies. Tests:
+  `test/titles.test.ts`. `test/planner.test.ts` now runs seed `lone-1` (the old `lone-6` town, a chaotic single run,
+  fell to one person once the early honours came later; 1, 2, 4, 7 and 8 all still grow).
+- Tool: `tools/titles-rate.ts` (run by `tools/titles-rate.mjs`) counts titles won in the late-town fixture.
+
+## Playing with no connection (the phone's service worker)
+
+The phone version now works fully offline once installed (changes "The phone's worker and snapshots"/web build; the old
+one-cache-per-build rule is gone).
+
+- **Two caches** (`src/renderer/mobile/sw.js`): the shell, `littletown-shell-<version>` (pages, scripts, manifest, small
+  json; replaced whole each build, older ones deleted on activate), and `littletown-art`, kept between builds. Each art
+  file is stored under `<url>?h=<hash>`, so a changed file is a new entry and an unchanged one is never fetched again.
+  Activate prunes only art entries the new manifest no longer lists.
+- **`art-manifest.json`** (`tools/build-web.mjs`): `{ version, art: { path: [hash, bytes, later] } }`; hash is the first
+  10 hex of md5. `SHELL` (regexp) picks shell files; everything else is art. `LATER` = `backdrops/ himeko/ iso/`.
+- **Install** fetches the shell and the art the first play needs (not `LATER`), missing or changed ones only. Offline,
+  an install fails and the old worker keeps serving, so the update applies next time online.
+- **Background download**: the page sends `'offline-start'` after the worker is ready; the worker fetches the missing
+  `LATER` files four at a time and posts `{ type: 'offline-status', done, total, ready, downloading, failed? }` to the
+  pages. Resumable (presence in the cache is the progress); the page re-asks every 5 s while not ready and re-kicks a
+  stalled download when online.
+- **Settings line** (`offlineLine()` in `mobile/mobile.ts`, in the ☰ menu above the install hint): "Ready to play
+  offline ✓", or "Downloading for offline: N%" (by bytes) with a "Download now" button once it has stopped.
+- `register('sw.js')` fails offline, so the status asks go through `serviceWorker.ready`, not the register promise.
+- Network audit: the only runtime fetches are the game's own files and the opt-in phone alerts (ntfy, already in
+  try/catch, off by default).
+- Tested with Playwright at 393x852: loaded, waited for the download (1382 art files, 30.8 MB), went offline, reloaded:
+  main menu, town, build panel, isometric view and lazy art (backdrop, himeko, iso) all served with no failed request.
+  After a rebuild with two art files changed, an update fetched only those two plus the shell files.
+
+## The Surface / Underground switch
+
+One button in the phone's top bar (beside the ☰, so it is always in the same place) flips between the town and the
+underground it has. It shows ⛏ on the surface and ☀ below. Tapping ⛏ goes down: straight in when there is one way
+(the Deep if there's a shaft, the Underdark once reached, each dug-out mine), or a small chooser when there are
+several, with the last level picked first and marked "(last)". With none, the button is greyed and a tap says "Dig a
+mine shaft to reach the Deep". Tapping ☀ closes whatever is open (`watchMine`/`watchDeep`/`watchUnder` off).
+
+Files: `src/shared/sim/underground.ts` (pure: `undergroundWays`, `undergroundNow`, `surfaceCommands`, `NO_WAY_DOWN`),
+`src/renderer/mobile/undergroundSwitch.ts` (the button and chooser; the last pick is kept in
+`localStorage` `littletown.undergroundLast`), styles `#ug-btn`/`#ug-chooser` in `mobile/index.html`. Test:
+`test/underground.test.ts`. No new commands and no sim change; the views, taps, pinch and tap card are untouched.
+The surface camera isn't moved while a view covers it, so going up returns to where it was. The dwarves' hold is
+on the map itself (its hallways lead into the Underdark), so it needs no entry of its own. There is no iso switch on
+this branch to check against.
+
+## Giving chase, and the flashier raid board (second pass)
+
+**Giving chase** (`sim/chase.ts`, new). Until now raiders who got away were simply gone. When a raid ends with fugitives
+(`gone`, not down, not run down by the town's hunt, not spared), `endRaid` calls `noteFugitives`, which keeps up to
+`CHASE_RUNNERS` (8) of them on `s.chaseOffer` for `CHASE_HOURS` (3). Autopilot only, no numbers from the town's stream.
+The snapshot's `chase` (`{ name, count, hoursLeft }`) shows the offer, and the raid recap card gets a "Give chase!" button
+that sends the new `giveChase` command (`commands.ts`, `sim.ts` -> `giveChase`). It raises a Raid of its own
+(`Raid.chase`, `s.raid`) fought on the tactics board:
+- the fugitives keep their loot (`carrying`) and are wounded to at most `CHASE_WOUNDED` (70%) of their health; the board's
+  `broken` is on from the start, so they run for the far edge at once and escape for good if they reach it;
+- the town sends its `CHASE_FIGHTERS` (6) healthiest standing fighters (`chasers`), starting `CHASE_GAP` (3) tiles behind
+  the nearest runner (`CHASE_AT` is the raiders' column), with a full charge, so the town takes the first turns;
+- the ground the two sides cross is levelled (no boulders, hills, logs, traps) so the chase is not stopped by terrain;
+- `updateChase` (called from `updateRaid` for a chase raid, skipping the rest of the raid logic) ends it: those struck
+  down give up their `carrying` and their kind's loot to the nearest stores (`depositNear`), told in a notice. No recap
+  card, feast, deeds or grudge. All gone: "they got away"; the town wiped: the chase is lost.
+`tactics.ts` `startTactics` has the chase branches; `stepTactics` ends a chase as 'fled' when nobody was caught.
+Test: `test/chase.test.ts` (offer, start distance and turn order, loot back in the stores).
+
+**Flashier battles** (`battle/juice.ts`, `battle/juiceRules.ts`, `tactics/tacticsView.ts`): blows are tiered
+(`blowTier`: normal, heavy, crit). Numbers grow and change colour with the tier (crit: 44px orange with "!!"); impacts are
+bigger (the pack effect sheets already in `art/effects.ts`, plus a `px:white-cross` flash on a crit) with sparks thrown
+(`SPARKS`, live sparks capped at `SPARK_CAP` 48, impact sprites at `IMPACT_CAP` 14). Hit-stop: a heavy blow, crit or kill
+holds the board's clock (`HIT_STOP`, `KILL_STOP`); a short zoom punch leans the camera in on the blow (`ZOOM_PUNCH`,
+`punch`, `focus`, eased by `fadePunch`); the final blow (the last foe felled) runs the board at `SLOWMO_RATE` for
+`SLOWMO_SECS`. The board's clock is `TacticsView.clock`: it runs behind the real one while held and eases back
+(`LAG_MAX_MS` caps it). Banner words slam in (`slamScale`): "FIRST BLOOD!" on the battle's first kill, "ROUTED!" when the
+leader falls, plus the existing multi-kill words. Spell and skill effect sprites on the board are drawn about 1.5x larger.
+**Reduce motion:** the ☰ menu has "Reduce motion" (`ui/motion.ts` `setReduceMotion`, key `littletown.reduceMotion`), and
+`reducedMotion()` now also honours it (and the phone's own setting): no shake, hit-stop, zoom, slow-motion, sparks or
+flash; numbers and banners still show. Extends HISTORY.md's "The flashier raid screen". Test: `test/juice.test.ts`.
+
+## Founder quests, the steward and the Story tab
+
+Step 4 of playing the founder. The founder can lead a quest or hunt, road questions on their trips wait for the player, a steward minds the town while they are away, and a Story tab keeps chapters about the founder.
+
+**Lead it yourself** (`sim/founderQuests.ts` `leadQuest`, command `quest` with `op: 'lead'`): a "Lead it yourself" button on a quest or hunt offer (Quest board) and on an accepted one next to "Send a party…". It raises a party with `raiseParty` (muster), puts the founder in (taking the place of the last pick if the party is full), makes them leader and sends it with `sendMuster`; an offer is accepted so its clock runs. It fails with a word (shown as a notice) if a party is already being raised or the founder is away, hurt or down.
+
+**Choices that wait** (`founderGoes`, `holdForFounder`, `waitingOnFounder`): on a trip the founder is on, the road questions (`crossroads` in `sim/muster.ts` and the strangers question in `sim/roadEvents.ts`) get `Prompt.waits = true` and `expiresTick = Number.MAX_SAFE_INTEGER` (no timer, no default; the snapshot gives `secondsLeft: null`). `Sim.step` returns before advancing the tick while `waitingOnFounder(s)` (commands are still applied, so the answer gets in). A waiting prompt whose trip is gone (called home, lost) drops its `waits` so the game cannot stick. Other parties keep their timers. Not gated by the autopilot. The snapshot has `waitingOnFounder`.
+
+**The steward** (`sim/steward.ts`, `GameState.gone`, optional): when the founder's `away` turns non-null, `stewardTick` names a steward (`stewardOf`: the heir by `heirOf` if at home, else the grown-up at home with the best Social and Research) and records what stood (finished buildings, the fallen, the coins). `goneRaid` (from `endRaid`) adds raids. When the founder is home after at least an hour, a "While you were gone" card (a `debrief`-kind prompt, `DEBRIEF_HOURS`) lists buildings finished, deaths, raids and coins. The steward is bookkeeping only: the town runs exactly as it did. Autopilot only.
+
+**The Story** (`sim/story.ts`, `GameState.story = { chapters, seen? }`, optional; the Story tab of the founder card (♛): `GROUPS.founder` in `panel/subtabs.ts`, `panel/storyPanel.ts`, key `storyKey`. Not a dock tab: an eighth tab wrapped the phone's tab row): `writeChapter` adds a chapter (`who`, `name`, `kind`, `title`, 2-4 `lines`, `day`) and tells it in the event box (a `debrief`-kind prompt, "<name>'s story: <title>"). Capped at `CHAPTERS_MOST` 120. Written for: the founding and the changes `storyHourly` finds against `story.seen` (a marriage, a child, a death in the family, a title earned); `storyTrip` (from `debrief` in muster: a trip the founder led or joined, won or lost); `storyShop` (`founderBuyShop`); `storyRaid` (`endRaid`, founder not downed); `storyDeath` (`killPerson`: the founder's last chapter, then the heir's first, `seen` restarted; with no heir the last chapter is written quietly and the game over card tells it). `storyView` gives one book a founder, the open one first and closed ones after; the tab keeps both. Autopilot only (the tests' plainGame writes none).
+
+**Saga hero**: `sagaTripHome` (`sim/sagas.ts`) makes the founder the hero when they were on the trip, whoever led.
+
+**Tests**: `test/founderQuests.test.ts`.
+
+## The castle and hold pieces (art only)
+
+Twelve isometric pieces for the Blood Court's castle and the dwarves' hold, in `src/renderer/art/iso/castles/`
+(`index.json` lists ids and sizes), drawn by PixelLab's style-matching tool (`generate-with-style-v2`) with four of
+each people's kit pieces as the style, then trimmed and reduced to 256 colours (412 KB). Credited in `CREDITS.md`.
+No code uses them yet, and `build.mjs` copies only `art/iso/kits`: the chat that draws them adds the copy.
+
+## Founder interactions A: duels, judging disputes, naming things
+
+"More ways to interact" in playing the founder. Changes the "Town politics and law" section of HISTORY.md in one way: a trial's prompt now waits for the founder (`waits`, no timer, no default).
+
+**Duels** (`sim/duel.ts`, `data/duels.ts`, command `duel { foe, to }`, state `GameState.duel`, `DuelState`). The founder may challenge a rival (`opinion` at or under `ENEMY`), a troublemaker (a `crime:` tally, or on strike) or, from the arena card, the posted visiting champion (`foe: -1`: the card is shut and the bets refunded). `whyChallenge`, `duelChoices` (each with the power line, "You 24 vs about 30: Risky", from `sim/power.ts`), `duelBlock` (raid, hurt under `DUEL_FIT`, away, a duel already on). The fight is the real one on one (`startBattle`/`stepBattle`, the arena's way, a person foe laid over a `DUEL_STAND_IN` unit so the fight screen can draw it), watchable (`duelTrip`, `DUEL_AWAY`). To yield: each gives in under `DUEL_YIELD` of its health, and one struck down outright dies at `DUEL_DEATH`. To the death: the one struck down dies (`killPerson`; no heir ends the game). A win: `reputation` +`DUEL_RENOWN_WIN`, town morale, a bloc's regard (`commons` for a troublemaker, `soldiers` for a rival), a purse from a champion's backers. A loss: wounds or death, `reputation` down. Rivals challenge the founder (`duelHourly`, autopilot only, own side stream, `CHALLENGE_PER_DAY`, `CHALLENGE_GAP_DAYS`): a `duel` prompt with `waits`; refusing costs renown and the founder's morale. UI: "Challenge to a duel…" on a person's tap card (main.ts `duelAsk`: power levels, then the two terms); the arena card for the champion. The snapshot's `founder` has `duels`, `duelBlock`, `duel`.
+
+**Judging disputes** (`sim/disputes.ts`, `data/disputes.ts`, `GameState.disputes`). `disputesHourly` (autopilot, side stream `disputes`, `DISPUTE_PER_DAY`, `DISPUTE_GAP_DAYS`, needs `DISPUTE_PEOPLE`): the worst-feeling pair in town quarrel (side with either, or make peace) or one accuses the other of theft (lenient, fair, harsh; guilt hidden, `THEFT_GUILTY`). A `dispute` prompt with `waits`. `answerDispute` moves the people's regard for the founder and for each other, their morale, their blocs' satisfaction (`politicsOf`) and the town's mood. `waitingOnFounder` now holds the game for any waiting prompt that has no trip.
+
+**Naming** (`sim/naming.ts`, command `name { kind, id, name }`). `cleanName`: 2 to 24 characters, letters, digits, spaces, ' and -, starting with a letter. A building's name goes in `homeName` with `Building.named` (signs now show for any named building); a child of the founder's family (or their partner's) takes the name as `name` (never one already in use: crafters are found by name); a unique's is in `GameState.uniqueNames` and `art/givenNames.ts` lays it over `ITEM_BY_ID` on each page. A newborn in the family (`askChildName`, from `welcomeChild`) and a forged unique (`askUniqueName`, from crafting) put a `name` prompt: three suggestions and "Keep", plus a text box in the event sheet (`Prompt.naming`, `PromptView.naming`); it lapses to keeping after `NAME_HOURS`. A building is named from its card (`buildingCard`).
+
+**Tests**: `test/founderInteractions.test.ts`.
+
+## More ways to interact: hiring, courting, feasts and haggling
+
+Step 5 of playing the founder (part b). All in `sim/founderDealings.ts`; commands `founderVisitor`, `founderApprentice`, `founderMatch`, `founderFeast`, `founderHaggle` (`sim/commands.ts`, applied in `sim/sim.ts`). Not gated by the autopilot (they are the player's orders). Every roll is a side stream: `new Rng(hashSeed(`${seed}:dealings:<what>:${tick}:<id>`))`. New optional state: `GameState.dealings = { feastAt?, goodwill?, cool? }`, and `Prompt.deal` with the new prompt kind `'deal'`.
+
+**Visitors** (`founderVisitor`, terms `'fee'` or `'favour'`; changes "Strangers and secrets", townsfolk visitors): the wanderer at the gate is asked for `VISITOR_FEE` coins (× `PURSE_SCALE`) to the treasury, with an `FEE_OFFENCE` chance (less the founder's Social × 0.02) that they take offence and go, or for a favour: they stay and their opinion of the founder rises by `FAVOUR_WARMTH`. Both use `acceptVisitor`/`rejectVisitor`.
+
+**Apprentices** (`founderApprentice`, `mastersOf`; "Schools, apprenticeships"): a child is given a master (at home, able, best skill at 2 or more, at most `APPRENTICES_MOST` 2 apprentices each; the founder may be one). Sets `Person.master` and `trade` (the master's best skill); `masterOf` in `sim/lineage.ts` then keeps it from the apprenticeship age.
+
+**Matches and courting** (`founderMatch`, `candidatesFor`, `matchable`; "Couples and children"): for the founder (if unwed) or a grown, unwed child of theirs. A prompt lists up to 3 unwed non-kin by how well they suit (opinion, `natureFit`, `chemistry`) with their natures, plus "Let it be". It waits for the answer (`waits`, no timer, the game is held). The chosen one may refuse: a chance from opinion, nature fit, chemistry and the founder's Social; a yes makes them partners (the usual marriage and children follow in `sim/social.ts`), a no costs opinion and rests that person for 72 hours (`dealings.cool`).
+
+**Feasts and festivals** (`founderFeast`, `FEASTS`; "Step 7, life's ceremonies"): costs `FEASTS[grade].cost` × `PURSE_SCALE` from the founder's purse then the treasury's spare above `TREASURY_KEEP`; food is eaten (`eatFeast`, double at a festival) and refused if the stores would drop under `FEAST_FOOD_DAYS`; the town gathers (`gather`, kind `feast`), renown (`s.reputation`) rises by 1 or 3, a festival also leaves a morale mark; there is a chance of trouble (`trouble`: a brawl between those who like each other least, or a theft from the treasury). Cooldown: 48 hours a feast, 120 a festival (`feastWait`); it also sets `s.lastFeast` so the town's own feasts keep their gap.
+
+**Haggling** (`founderHaggle`; "The town trades with caravans"): the Haggle button on each caravan deal in the Trade tab puts a prompt with the offer in words: a fair trade (the existing `trade`, existing prices), a hard bargain (what they ask cut to `HARD_CUT` 0.8; a chance of `INSULT_BASE` 0.4 less Social × 0.02 that the caravan leaves insulted), a gift for goodwill (`GIFT_COIN` coins, then the fair trade; `dealings.goodwill` +2), or walk away. Goodwill eases `makeOffers` prices (`GOODWILL_EACH` 0.04 each, at most 0.2, in `sim/trade.ts`) and fades by 1 with each caravan that arrives. The founder does not walk to the market; the prompt is the visit.
+
+**Held questions**: `waitingOnFounder` (`sim/founderQuests.ts`) now also holds the game for a `deal` prompt, and drops one that no longer stands (`dealStands`: someone paired or gone, the caravan left). `answerPrompt` sends kind `deal` to `answerDeal`. The prompt shows in the event box and prompt card like the other kinds (`mobile/eventSheet.ts`, `main.ts`).
+
+**The card**: `panel/founderPanel.ts` sections "Host a feast", "Visitors and apprentices", "Matches and courting" (headings in `GROUPS.founder`, `panel/subtabs.ts`); the snapshot's `FounderView.dealings` (`DealingsView`) and its redraw key.
+
+**Tests**: `test/founderDealings.test.ts`.
+
+## A simpler build menu
+
+Changes the build menu in `docs/notes/build-menu.md` (HISTORY.md "The build menu"). The owner: "too convoluted". No sim rule changed, nothing that can be built changed.
+
+- **Before** (settlers, 393x852): the Buildings tab opened on a "Being built" section ("nothing yet", "0 of 3 building slots in use",
+  "Nothing ordered or under way"), then "Build: your orders" with a hint and two Hide toggles ("Built", "Can't build yet"), a
+  "The town recommends" card (name, picture, why, what it does, Build), a "Build: Walls and streets" section of two long text cards,
+  then seven "Build: <kind>" sections of cards (cost chips, purpose, why, "in the stores now / the town gathers it", count in town,
+  Build, and a "More" tap), and finally the "In town" list. Before building one house a player had to read about seven headings, decide
+  on two toggles, and pick between a recommendation, a wall card and about forty cards.
+- **After:** one `Build` heading. At the top a small strip per order or site under way (picture, name, status, progress bar, Cancel; nothing
+  at all when nothing is). Then one "Recommended" card (building, one line why, cost or "needs 24 wood", big Build button). Then four tabs,
+  Homes and food / Work / Defence / Town (`BUILD_TABS`, `tabOf` in `panel/buildKinds.ts`; `kindOf` still sorts first), each a plain list of
+  compact rows: icon, name, cost line, Build. A row whose materials aren't all in the stores shows "needs 12 wood, 5 stone" in place of the
+  cost and dims its name (Build still works: the town gathers it, as before). Buildings still waiting on research are no longer listed.
+  The wall and the streets are rows in Defence and Town. Tapping a row opens its details: what it does, why, then the old facts (size, beds,
+  job, grows into...). Nothing of that is in the list.
+- **Gone from the menu:** the slot count, the Hide toggles (`hide.ts` is no longer used here), the long explanations, the duplicate
+  headings, the "in the stores" lines. "In town" moved to the Overview tab (`GROUPS` in `panel/subtabs.ts`: the Buildings tab is `/^Build/`).
+  Upgrades and demolition were not in this menu; they stay on a building's own card.
+- Redraw key: `buildKey` holds the open category (`tab`) instead of the hide toggles; the stock still keys the Buildings tab through
+  `costChipsKey`. CSS: `.brow*`, `.queue-row.strip`, `.card.recommend` in `panel/panel.html`.
+
+## The castle and the hold in the isometric view
+
+With the iso switch on, a Blood Court town's castle and a dwarves' hold are drawn from `art/iso/castles/` instead of
+the kit's generic pieces (off: nothing changes). The pure plan is `iso/isoCastle.ts`; `iso/isoCastleView.ts` draws it.
+
+- `planCastle(shape, rooms, landW)` turns the snapshot's `castle` (core, gate, side gates) and its finished rooms into
+  `Placed` pieces on footprints (cells), each with `depth` = `footDepth`, so they sort with the buildings and the folk.
+  The hall's ground is the `keep`; each room one of `hall`, `cellar`, `forge`, `brewery` by `roomPiece(defId)` (a small
+  regexp table, falling back to the hall); a `tower` at every outer corner; `wall` runs (`WALL_RUN` cells, `WALL_T`
+  thick, flipped along y) on the outer edges; a `gate` (`GATE_SPAN` cells) at the main gate and the side gates, their
+  wall cells left clear.
+- `PIECE_ID` maps pieces to each people's picture ids (`castlePeopleOf`: `hold` 'castle' = bloodcourt, 'mountain' =
+  dwarves); `pieceScale` sizes them (towers by height, walls and gates to their span, the rest to the kit's scale, capped
+  by footprint and height). `castleUrl` is where they are served.
+- `IsoView.setCastle` (called from `main.ts` each snapshot) feeds `IsoCastleView`; finished castle rooms are no longer
+  drawn as kit buildings (blueprints still are), and `buildingAt` finds a room under a tap.
+- `build.mjs` copies `art/iso/castles` to `out/renderer/iso/castles` (PNGs only). `tools/build-web.mjs` already puts
+  `iso/` in the art manifest as background-downloaded art, so it is cached for offline play (docs/notes/offline-play.md).
+- Test: `test/isoCastle.test.ts`. Builds on docs/notes/iso-castles-art.md (the art) and iso-view.md.
+
+## Night, doors, land clearing and weather in the isometric view
+
+Builds on "The isometric view, begun", "The iso town, filled in" (`docs/notes/iso-view.md`, `iso-town-details.md`) and "Land clearing by hand" (`land-clearing.md`). Still behind the Settings switch; the simulation is untouched.
+
+- **Pure rules** (`src/renderer/iso/isoLight.ts`, tested in `test/isoLight.test.ts`): `worldMatrix(ox)` (the affine map from world px to the diamonds), `lightBox(view, ox)` (a square of world px that covers every corner of a screen view, since a screen box is a slanted patch of land), `hasWindows`/`windowSpots` (which roles glow at night, and where, along the +y and +x faces), `doorSpot`, `gateSpan`, `anyoneNear`, and `swing(open, held, near, dt)` (a door opens at `OPEN_RATE`, stays `HOLD` seconds after the last walker, closes at `CLOSE_RATE`).
+- **Light and night:** the top-down light map (`map/lightMap.ts`, unchanged) is worked out as before; its sprite is now put in `IsoView.lightLayer`, a container given `worldMatrix` as its transform, so the multiply of the night's dark and every pool lie on the diamonds. `main.ts` hands the map `iso.lightView()` (the box above) instead of the small box round the view's middle, so no screen corner is left lit like day. Windows (`windowSpots`) and lit street lamps (`setLamps`, from `snapshot.lights`) get a warm additive glow in `IsoView.glow`, whose alpha follows the top-down lights layer's (`map.lights.alpha`, through `setNight`).
+- **Doors and gates:** `setWalkers` (each snapshot: townsfolk out of doors, and raiders) finds the doors and gates with someone near; `animate(dt)` (each frame) swings each one with `swing` and `drawDoor` draws a dark opening over the picture, a gate's across the middle of its run and a building's door on its +y face (a warm glow inside). No art is changed or generated. The windowed roles (`hasWindows`) and gates have one.
+- **Land clearing:** marking and unmarking already went through `map.worldOf`/`map.cellAt`, which are the iso view's in iso. `IsoView.setHighlight` and `drawMarks` now draw the marked cells (a pale diamond and a faint X) and the cell under the finger; `main.ts`'s `setHighlight` helper calls both views.
+- **Weather:** the rain, snow, leaves and screen washes were already stage-level. What was left in the hidden top-down world is moved over: `map.under` (puddles, snow settling, blood and debris) goes into `IsoView.flat` (laid on the diamonds with `worldMatrix`), and the sky's fog banks (`MapSky.fogLayer`, now public) into `IsoView.air`, centred on the screen each frame.
+- The minimap's frame keeps `iso.worldView()`; the culled top-down layers use the bigger `lightView()` box.
+- **Clear, made reliable (both views):** a tap on a tree's canopy landed on the empty cell north of the trunk and was refused. `clearCellAt` (`main.ts`) now looks at the finger's cell and then at the cells a little lower on the screen (12 and 24 px) for one that can take the mark (a wild cell, or a marked one to lift), for the first touch and for each step of a sweep. A touch the page cancels (`pointercancel`) now still sends what it swept (it only sent on `pointerup`), and a tap that marks nothing says "Nothing to clear here". The marks are a pale fill and a thick outline (top-down: `MapView.clearMarks`, a layer over the light map; iso: `IsoView.marks`, over the light layer), so they show at night. Drags never pan (the sweep returns before the camera) and a second finger cancels the sweep and pinches, as before. Checked with touch events (hasTouch) in a headless browser, top-down and iso, at 393x852: a drag over trees marked the cells under the finger's path.
+
+## Menu pass A: Town, Studies, Market, the ☰ menu and Phone alerts
+
+A tidy of the menus: at most four sub-tabs each, the one or two things a player comes for first, the rest one tap away,
+and wording that no longer promises things the game has dropped. No rule of the simulation changed. Files:
+`panel/subtabs.ts` (`GROUPS` for `build` and `trade`), `panel/buildPanel.ts`, `panel/dashboard.ts`,
+`panel/townOverview.ts`, `panel/researchPanel.ts`, `panel/tradePanel.ts`, `panel/empirePanel.ts`,
+`panel/alertsPanel.ts`, `mobile/mobile.ts`, `main.ts`.
+
+**Town (`build`)**: eight tabs became four: Overview (cards, glance, powers, the days ahead), Buildings (being built, in
+town, the building book), Stores (the stores, then Treasury, Tax and Guards) and More (Direction, Raid battles,
+Promotions and stats, Town size, then faith, villages, council, the people's ways and magic, each once the town has
+it). Tab names changed, so the redraw key's `on([...])` lists, the dashboard and glance tiles' links, and the strip's
+"show the villages" (`littletown.subtab.build` = `More`) were moved with them. The levers no longer sit under the cards.
+Removed: the why-lines repeated under Direction (the cards already show them), "decides for itself what and where",
+"It builds them itself, as it needs them", the building details' "(the Plan tab sets its direction)" (there is no Plan
+tab), "Last decided" (now "Latest"), "Callings and stats" and "Evolutions" (now "Promotions and stats", "Promotions: ask
+me / they choose"), "The founder's purse" (now "The town's purse").
+
+**Studies (`research`)**: still two tabs (Studying, Tech tree). "Research queue 3/3" is now "Studying 3/3"; the hints
+under the list and the tree are one short line each; "the town will get to it" and "The town builds more [stations]" are
+gone. The Town's Studying tile says "% done", not "queued".
+
+**Market (`trade`)**: nine tabs became four: Shops, Trade (caravan, prices, trade house, trade empire, harbour),
+Workshops, Animals (herds, horses, the ranch). The Trade empire hint pointed at "the Plan tab"; it now says Town, More.
+A shop card's takings were shown as a raw float ("took 35.254000000000005"); now whole coins.
+
+**The ☰ menu**: the flat list of settings is in three labelled groups (Sound and feel, Screen, Help), then Phone alerts;
+the zoom slider's label says to pinch too, so the extra caption is gone.
+
+**Phone alerts**: the intro no longer talks of raids waiting at the gate for twelve hours while you are away, or the game
+looking ahead when you leave. It lists what you are told about and the three steps to set it up.
+
+**Left alone, for the owner/coordinator**: there is no Plan menu (its one lever, Direction, is in Town, More); the sim's
+own text ("Building a elder lodge because...", `sim/whyLines.ts`) and the "While you were away" card are the sim's, not
+the menus'. Once the founder-led building and the three research offers land, Being built / Direction / the studying list
+want a second pass to show the player's own orders.
+
+## Menu pass B (People, Founder, Quests, War, Chronicle, event box)
+
+A tidy of the menus, wording and layout only. No sim rules changed.
+
+- **The founder's card** (`panel/founderPanel.ts`): the card is now a short home (portrait, health, purse, a one-line gear strip) with four big buttons: Orders (go to, work at, give, rest), Shops (owned shops, buy), People (heir, gate visitor, apprentices, matches) and Feast. Each opens its own small sheet with a Back button. The open sheet is module state (`sheet`) and is in `founderKey`; `renderFounder` takes the panel's `render` as a third argument. All buttons on the sheets are 44px+. `GROUPS.founder` (`panel/subtabs.ts`) now matches the new headings (Orders, Your shops, People, Host a feast).
+- **People** (`panel/townsfolkPanel.ts`, `personCard.ts`): sub-tabs cut from six to four: People, Jobs, Families (with Guilds), More (Prisoners, Arena). The person card's story tab shows three diary lines and three "Lately" lines. Stale wording removed: "Lean-to (Basic Shelter research)" in the bed hint, "evolution" in comments; the jobs and prisoners hints are shorter.
+- **Quests** (`panel/expeditionsPanel.ts`, `questBoardPanel.ts`): sub-tabs cut from six to four: Out now (with Companies), Quests, Places, More (realm, guild forge, unique weapons). Removed "the town takes it up itself" from the Sagas and Quest board hints (sagas still start on their own; they just show here).
+- **War** (`panel/warPanel.ts`): shorter map and campaign hints; dropped "the town picks no targets". Its four tabs are unchanged.
+- **Chronicle** (`panel/journalPanel.ts`): eleven filter pills became four tabs (Events, People, Town, Library), each with a small second row of filters (Events: All, Key events, Deaths; People: Heroes, Milestones, Legends; Town: Festivals, Culture, Shelf; Library: Bestiary, Scenes). The bottom bar still says "Annals" on the phone because "Chronicle" is cut off at 393px wide.
+- **The event box** (`mobile/eventSheet.ts`, `mobile/index.html`): the telling shows its first paragraph, with a "Read on" button (`.event-more`) for the rest. "Evolution" comments now say promotion. The option labels come from the event data and are unchanged.

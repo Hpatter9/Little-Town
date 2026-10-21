@@ -292,6 +292,20 @@ Grep the file and constant names too: most systems were changed again in later s
   nomads `sim/nomads.ts`; the merfolk `sim/sea.ts`; the dwarves the hold (`sim/castle.ts`); the orcs `sim/warpath.ts`.
   H: each people's name, e.g. "The Orc Warband", "The Moon Pack", "The merfolk rework".
 
+**The founder (the player's character)**
+- **The founder's card and orders:** `sim/founder.ts`, `panel/founderPanel.ts`, `sim/power.ts` (power levels),
+  `sim/titles.ts` + `data/titles.ts`. H: "The founder's card", "Power levels", "Titles that take longer".
+- **Building by hand:** `panel/buildPanel.ts` (`buildMenu`), `panel/buildKinds.ts`, `sim/pins.ts`, land clearing
+  (`sim/commands.ts`, `sim/regrow.ts`). H: "The build menu: the founder builds", "A simpler build menu", "Land clearing".
+- **Research offers:** `sim/researchOffer.ts`, `panel/researchPanel.ts`. H: "Research offered three at a time".
+- **Shops, dealings, duels, disputes, naming:** `sim/founderShops.ts` + `data/founderShops.ts`,
+  `sim/founderDealings.ts`, `sim/duel.ts` + `data/duels.ts`, `sim/disputes.ts`, `sim/naming.ts`. H: "The founder's
+  shops", "Founder interactions A", "More ways to interact".
+- **Quests the founder leads, the steward, the Story:** `sim/founderQuests.ts`, `sim/steward.ts`, `sim/story.ts`,
+  `panel/storyPanel.ts`. H: "Founder quests, the steward".
+- **Only while open:** `shared/simHost.ts`, `sim/offline.ts`; the phone's service worker (`tools/build-web.mjs`).
+  H: "No time away", "Playing with no connection".
+
 **The renderer**
 - **The map:** `map/mapView.ts` (ground chunks, buildings, props, lights layer), `map/mapPeople.ts`,
   `map/mapRaiders.ts`, `map/mapCamera.ts`, `map/minimap.ts`, `main.ts` (input, tap cards, hover). H: "Phase 3",
@@ -314,6 +328,11 @@ Grep the file and constant names too: most systems were changed again in later s
 - **Sound:** `ambience.ts`, `ambienceMix.ts`, `sfx.ts`, `music.ts`, `musicScore.ts`, `musicGen.ts`, `musicMood.ts`,
   `soundZones.ts`, `audioGate.ts`, `volume.ts`. H: "The soundscape", "Music, sound and real light", "Sounds that
   match".
+- **The isometric view (behind Settings, `littletown.iso`):** `iso/isoView.ts`, `iso/isoMath.ts`, `iso/isoKits.ts`,
+  `iso/isoTown.ts`, `iso/isoLight.ts`, `iso/isoCastle.ts` + `isoCastleView.ts`, `iso/folk*.ts` (townsfolk, not yet
+  wired), `tactics/isoBoard.ts`; art in `art/iso/` (kits, castles, folk; PixelLab). H: "The isometric view, begun",
+  "The iso town, filled in", "The isometric art", "Isometric townsfolk", "Night, doors", "The castle and the hold in
+  the isometric view", "The raid board in the isometric look".
 
 **Tests and tools**
 - `test/helpers.ts` (`plainGame`, land helpers), `test.mjs` (the runner: parallel, slowest first, slow files split
