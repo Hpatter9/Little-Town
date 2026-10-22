@@ -8,3 +8,4 @@ Adds sound for things the iso view shows. Everything is made with the existing W
 - **Chores and work:** the workers' sounds (`workSounds`) read the snapshot and `map.view`, so smithing, sawing, felling (`map.onFelled`), harvest and tilling already sound in iso. Added: a person drawing water at a well (`activity 'draw'`) now splashes (`workCue`).
 - **Fog:** nothing added.
 - Test: `test/isoSounds.test.ts`.
+- **Audiorective plugin:** the coordinator mentioned it, but its skills were not in this session's skill list, so it wasn't used; the sounds follow the game's existing Web Audio code.
