@@ -5,13 +5,17 @@
 // where a browser has no workers the page runs this itself, and the tests run it under node.
 
 import { boardPreview } from './sim/raidBoards';
+import { floorPreview } from './sim/delveFloors';
+import { DUNGEON_BY_ID } from './data/dungeons';
+import { sendDelve } from './sim/expeditions';
+import { isChild } from './sim/social';
 import type { AlertSettings } from './ipc';
 import { GameLoop } from './gameLoop';
 import { SnapDiffer, type SnapDelta } from './snapDelta';
 import type { Command } from './sim/commands';
 import type { JournalEntryView } from './sim/snapshot';
 import { parseSave, serialize } from './sim/save';
-import { newGame, type GameState, type Roamer } from './sim/state';
+import { maxHp, newGame, type GameState, type Roamer } from './sim/state';
 import { cleanNewGameOptions } from './data/founding';
 import { BIOMES } from './data/biomes';
 import { TICKS_PER_HOUR } from './sim/time';
@@ -115,6 +119,34 @@ export function startSimHost(post: (m: FromHost) => void): (m: ToHost) => void {
     raid: (kind: string, budget = 60) => startRaid(stateOf(), RAID_KIND_BY_ID[kind], budget, new Rng(2)),
     // (the next raids' board: a hand-made one by its id, e.g. 'The_Ford'; none for the dice again)
     raidBoard: (id?: string) => void (boardPreview.id = id),
+    // (a delve sent at once down a dungeon by its id, its party there in a moment: down a hand-made floor by its id, e.g.
+    //  'The_Bone_Stair', or 'rolled' for one laid out from its rolled rooms; then `__game.command({ type: 'watch',
+    //  expedition: id })` watches it)
+    delve: (dungeon: string, floor?: string) => {
+      const s = stateOf();
+      const d = DUNGEON_BY_ID[dungeon];
+      if (!d) return;
+      s.regions = [...new Set([...(s.regions ?? []), d.region])];
+      floorPreview.id = floor;
+      const party = s.people.filter((p) => p.away === null && !p.downed && !isChild(p)).slice(0, 4);
+      // (a preview party: hale and handy with a blade, so the map is seen past the first fight)
+      for (const p of party) {
+        p.skills.melee.level = Math.max(p.skills.melee.level, 60);
+        p.hp = maxHp(p);
+      }
+      // (whatever the town has studied)
+      const unlock = s.cheats.unlockAll;
+      s.cheats.unlockAll = true;
+      const r = sendDelve(s, dungeon, party.map((p) => p.id), 'safe');
+      s.cheats.unlockAll = unlock;
+      delete floorPreview.id;
+      const e = s.expeditions.at(-1);
+      if (r.ok && e) {
+        e.elapsed = Math.max(0, e.outTicks - 20);
+        e.rolled.outEvent = true;
+      }
+      return r.ok ? e?.id : r.reason;
+    },
     disaster: (kind: DisasterKind) => startDisaster(stateOf(), kind),
     festival: (now: 'prep' | 'hold' = 'hold') => previewFestival(stateOf(), now),
     dragon: (kind?: string) => summonDragon(stateOf(), kind),

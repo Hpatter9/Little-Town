@@ -75,6 +75,7 @@ import { natureOf, type NatureId } from '../data/natures';
 import { ageDays, ageLine, ageYears, isElder, lifeStage, type LifeStage } from './ageing';
 import { ROOM_SECONDS, TWISTS } from '../data/dungeons';
 import { bossName, delveRoomTicks, quietHours } from './delves';
+import { LOOK_OF_TYPE } from './delveFloors';
 import { HOME_REGION } from '../data/regions';
 import type { Biome } from '../data/biomes';
 import type { ClassId } from '../data/classes';
@@ -686,7 +687,7 @@ export interface ExpeditionView {
   /** A delve: the room they're in (1 up; 0 at the door) of how many, what it is, torches left, what's happened lately. */
   /** An assault (sim/factions.ts): the wave on now (0 before the fight) and how many. */
   assault: { wave: number; total: number; target: string } | null;
-  delve: { room: number; rooms: number; kind: string | null; torches: number; log: string[]; cleared: boolean; progress: number; twist: string | null; twistText: string; boss: string } | null;
+  delve: { room: number; rooms: number; kind: string | null; torches: number; log: string[]; cleared: boolean; progress: number; twist: string | null; twistText: string; boss: string; floor?: string; plan: string[]; look: string } | null;
   /** The Moon Pack's full-moon hunt. */
   hunt: boolean;
   /** The last fight's outcome, while fresh (the victory screen): how long ago it ended, in ticks. */
@@ -2574,7 +2575,7 @@ function expeditionView(s: GameState, e: Expedition): ExpeditionView {
     hunt: !!e.hunt,
     result: e.result && s.tick - e.result.tick < RESULT_TICKS ? { ...e.result, age: s.tick - e.result.tick } : null,
     assault: e.assault ? { wave: e.battle?.wave ?? e.assault.wave, total: e.assault.total, target: e.assault.target } : null,
-    delve: v ? { room: v.at + 1, rooms: v.rooms.length, kind: v.at >= 0 ? v.rooms[v.at] : null, torches: v.torches, log: [...v.log], cleared: !!v.cleared, progress: Math.min(1, v.ticks / delveRoomTicks(s, v)), twist: v.twist && v.twist !== 'none' ? TWISTS[v.twist].name : null, twistText: v.twist ? TWISTS[v.twist].text : '', boss: bossName(v) } : null,
+    delve: v ? { room: v.at + 1, rooms: v.rooms.length, kind: v.at >= 0 ? v.rooms[v.at] : null, torches: v.torches, log: [...v.log], cleared: !!v.cleared, progress: Math.min(1, v.ticks / delveRoomTicks(s, v)), twist: v.twist && v.twist !== 'none' ? TWISTS[v.twist].name : null, twistText: v.twist ? TWISTS[v.twist].text : '', boss: bossName(v), ...(v.floor ? { floor: v.floor } : {}), plan: [...v.rooms], look: LOOK_OF_TYPE[DUNGEON_BY_ID[e.dest]?.type ?? 'crypt'] } : null,
   };
 }
 

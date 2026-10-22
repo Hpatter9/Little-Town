@@ -6,6 +6,7 @@
 // are down; a lost or fled fight sends them home as on any trip (expeditions.ts). Deaths are real.
 
 import { addDeed } from './deeds';
+import { floorKinds, floorName, pickFloor } from './delveFloors';
 import { payParty } from './economy';
 /** The party's people (still in the town's list while away). */
 const partyOf = (s: GameState, e: Expedition): Person[] => e.members.map((id) => s.people.find((p) => p.id === id)).filter((p): p is Person => !!p);
@@ -43,6 +44,8 @@ export interface Delve {
   cleared?: boolean;
   /** What's happened lately, for the watcher and the card (newest last). */
   log: string[];
+  /** The hand-made floor it goes down (sim/delveFloors.ts; its rooms are the floor's), or none: rolled room by room. */
+  floor?: string;
 }
 
 /** Room odds (the first is always a fight, the one before the boss a rest camp). */
@@ -80,16 +83,21 @@ export function startDelve(s: GameState, e: Expedition, take: (m: Material, n: n
   const rooms: RoomKind[] = [];
   // (a dungeon cleared before has reawakened deeper)
   const depth = s.delved?.[d.id] ?? 0;
-  const count = d.rooms + depth * DEEPER_ROOMS;
-  for (let i = 0; i < count; i++) {
-    if (i === 0) rooms.push('fight');
-    else if (i === count - 1) rooms.push('camp');
-    else {
-      let r = rng.next() * total;
-      rooms.push(ODDS.find(([, w]) => (r -= w) < 0)?.[0] ?? 'fight');
+  // (a floor drawn by hand, if one fits, lays the rooms out; otherwise they're rolled)
+  const floor = pickFloor(s, e, d, d.rooms + depth * DEEPER_ROOMS + 1);
+  const count = floor ? floorKinds(floor).length - 1 : d.rooms + depth * DEEPER_ROOMS;
+  if (floor) rooms.push(...floorKinds(floor));
+  else {
+    for (let i = 0; i < count; i++) {
+      if (i === 0) rooms.push('fight');
+      else if (i === count - 1) rooms.push('camp');
+      else {
+        let r = rng.next() * total;
+        rooms.push(ODDS.find(([, w]) => (r -= w) < 0)?.[0] ?? 'fight');
+      }
     }
+    rooms.push('boss');
   }
-  rooms.push('boss');
   // (sometimes another party is down there too: met halfway)
   const rivals = RIVALS.filter((r) => r.era === d.era || (d.era === 'space' && r.era === 'modern'));
   const rival = rivals.length && rng.chance(RIVAL_CHANCE) ? rivals[rng.int(0, rivals.length - 1)] : null;
@@ -100,7 +108,8 @@ export function startDelve(s: GameState, e: Expedition, take: (m: Material, n: n
   const twist = twists.find(([, t]) => (r -= t.weight) < 0)?.[0] ?? 'none';
   const want = rooms.length + SPARE_TORCHES + (e.extraTorches ?? 0);
   const torches = take('wood', want);
-  e.delve = { rooms, boss, twist, at: -1, ticks: 0, torches, log: [], depth, ...(rival ? { rival: { name: rival.name, fighters: { ...rival.fighters } } } : {}) };
+  e.delve = { rooms, boss, twist, at: -1, ticks: 0, torches, log: [], depth, ...(floor ? { floor: floor.id } : {}), ...(rival ? { rival: { name: rival.name, fighters: { ...rival.fighters } } } : {}) };
+  if (floor) say(s, e.delve, `They go down by ${floorName(floor)}, under ${the(d.name)}.`);
   if (depth) say(s, e.delve, `${The(d.name)} has woken again, and it goes deeper than before: ${rooms.length} rooms.`);
   if (twist !== 'none') say(s, e.delve, `Word of ${the(d.name)}: ${TWISTS[twist].name}. ${TWISTS[twist].text}`);
   if (torches < want) notify(s, `There wasn't wood for all the torches: ${the(d.name)} party has ${torches} for ${rooms.length} rooms.`);

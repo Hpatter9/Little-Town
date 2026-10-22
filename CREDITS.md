@@ -76,6 +76,14 @@ The rooms seen inside the town's buildings (`src/renderer/interior/interiorView.
 `Objects/Decor0.png` by **DragonDePlatino** (beds, chairs, tables, shelves, candles, rugs, a throne:
 `src/renderer/art/interior/decor.png`, CC-BY 4.0), and walled and floored from the Glassblower's Workshop pack's
 `Walls_interior.png` (`src/renderer/art/interior/walls.png`, Craftpix.net free licence).
+The hand-made dungeon floors' maps (`src/renderer/delve/floorMap.ts`, and the LDtk editor's tileset for
+`maps/delve-floors.ldtk`) are cut from **DawnLike** by **DragonDePlatino** (CC-BY 4.0) into
+`src/renderer/art/floors/tiles.png` by `tools/compose-floor-art.py`: the walls and floors of `Objects/Wall.png` and
+`Objects/Floor.png`, the water, chasms and lava of `Objects/Pit0.png`/`Pit1.png`, doors, stairs and traps from
+`Door0.png`, `Tile.png` and `Trap0.png`, the furnishings, bones, graves, webs, statues and the red rug of `Decor0.png`/
+`Decor1.png`, fires from `Effect0.png`/`Effect1.png`, rubble and roots from `Ground0.png`, crystals and rocks from
+`Ore0.png`, a mushroom from `Tree0.png`, and the chest, barrel, gold and lantern from `Items/Chest0.png`, `Money.png`
+and `Light.png`.
 
 The shops' fronts on the town map (`src/renderer/art/shops/`) are cut from the Glassblower's Workshop pack's exterior
 and interior sheets: its big timber house and small shop (the gable set on its walls), the red market canopy over the
