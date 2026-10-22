@@ -24,7 +24,7 @@ let sheet: Sheet = 'home';
 function keyOfCard(s: Snapshot): string {
   const f = s.people.find((p) => p.id === s.mainId);
   if (!f || !s.founder) return 'none';
-  return [f.name, f.clsName, f.level, Math.round(f.hp), f.maxHp, Math.round(f.morale), f.coins, f.doing, s.founder.order, s.founder.heir?.id, s.founder.heir?.named, s.founder.heirs.map((h) => h.id).join(','), s.founder.shops.map((x) => [x.id, x.manager?.id, x.stock, x.price, x.today, x.last, x.seasonNet].join(':')).join(';'), s.founder.buyable.map((x) => `${x.id}:${x.price}`).join(','), s.founder.hires.map((h) => h.id).join(','), Object.values(f.gear).join(','), s.coins, dealingsKey(s)].join('|');
+  return [f.name, f.clsName, f.level, Math.round(f.hp), f.maxHp, Math.round(f.morale), f.coins, f.doing, s.founder.order, s.founder.winds.map((w) => (w.open ? 1 : 0)).join(''), s.founder.heir?.id, s.founder.heir?.named, s.founder.heirs.map((h) => h.id).join(','), s.founder.shops.map((x) => [x.id, x.manager?.id, x.stock, x.price, x.today, x.last, x.seasonNet].join(':')).join(';'), s.founder.buyable.map((x) => `${x.id}:${x.price}`).join(','), s.founder.hires.map((h) => h.id).join(','), Object.values(f.gear).join(','), s.coins, dealingsKey(s)].join('|');
 }
 
 const dealingsKey = (s: Snapshot): string => {
@@ -114,6 +114,11 @@ export function renderFounder(s: Snapshot, bridge: Bridge, redraw: () => void = 
     for (const j of v!.jobs) jobs.append(tall(button(JOB_NAMES[j], () => bridge.command({ type: 'founderWork', job: j }))));
     if (v!.order?.startsWith('Working')) jobs.append(tall(button('The town’s choice', () => bridge.command({ type: 'founderWork', job: null }))));
     o.push(jobs);
+    o.push(el('div', 'hint', 'Explore: spend the day pushing back the fog toward a quarter. The land’s dangers are yours to meet.'));
+    const winds = row();
+    for (const w of v!.winds) winds.append(tall(button(w.name[0].toUpperCase() + w.name.slice(1), () => bridge.command({ type: 'founderExplore', dir: w.dir }), { disabled: !w.open })));
+    if (v!.order?.startsWith('Exploring')) winds.append(tall(button('The town’s choice', () => bridge.command({ type: 'founderExplore', dir: null }))));
+    o.push(winds);
     o.push(el('div', 'hint', `Give to the town (it holds ${s.coins ?? 0} coins):`));
     const gifts = row();
     for (const n of GIVE_STEPS) gifts.append(tall(button(`${n} coins`, () => bridge.command({ type: 'founderGive', amount: n }), { disabled: (f!.coins ?? 0) < 1 })));

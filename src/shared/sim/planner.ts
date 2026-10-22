@@ -28,6 +28,8 @@ import { ensureLayout, layoutSpot } from './layout';
 import { LEISURE, LEISURE_PEOPLE, LOW_SPIRITS } from '../data/recreation';
 import { TRAINING_BUILDINGS } from '../data/training';
 const TRAINING_IDS = new Set(TRAINING_BUILDINGS.map((d) => d.id));
+import { rectExplored } from './fog';
+import { fogRemains } from './explore';
 import { isGrate, isRingPiece, planRing, ringAdvice, ringSite, ringWants, RING_PEOPLE } from './ringWall';
 import { pinRefusal } from './pins';
 import { inSea, seaBuild, seaTown } from './sea';
@@ -48,7 +50,7 @@ import { MATERIAL_NAMES, MATERIALS, type Material, type Stock , SEA_MATERIALS } 
 import { FOOD_VALUE } from '../data/people';
 import { RESEARCH_STATIONS, TOPICS, type Topic } from '../data/research';
 import { TERRAIN } from '../data/terrain';
-import { blueprintCount, buildSlots, canPlace, canUpgrade, demolish, depthOf, footprint, footprints, isUnlocked, placeBlueprint, stillNeeded, storages, totalCapacity, totalStock, townRadius, unlockInfo, upgrade, inWork, overgrownCells, refreshOvergrown } from './buildings';
+import { blueprintCount, buildSlots, canPlace, canUpgrade, UNEXPLORED, demolish, depthOf, footprint, footprints, isUnlocked, placeBlueprint, stillNeeded, storages, totalCapacity, totalStock, townRadius, unlockInfo, upgrade, inWork, overgrownCells, refreshOvergrown } from './buildings';
 import { buildable, wet, setGround, type Rect, touchesWater, type Pt, delveDepth, delvePool, doorOf, groundAt, idx, inMap, isMarked, isOpen, overlaps, roadDistance, setMarked, spiralSpot } from './land';
 import { cutInto, QUARRY_ROCK, rockBeside } from './relief';
 import { ROCK_FEW } from '../data/hills';
@@ -737,6 +739,7 @@ export function rockSpot(s: GameState, def: BuildingDef, mode: 'beside' | 'into'
         if (mode === 'into' ? !cutInto(m, rect) : rockBeside(m, rect) < QUARRY_ROCK) continue;
         const d = doorOf(rect);
         if (!isOpen(m, d.x, d.y) || !buildable(groundAt(m, d.x, d.y))) continue;
+        if (!rectExplored(s, rect.x, rect.y, w, h) || !rectExplored(s, d.x, d.y, 1, 1)) continue;
         let wild = false;
         for (let cy = rect.y; cy < rect.y + h; cy++) for (let cx = rect.x; cx < rect.x + w; cx++) if (!buildable(groundAt(m, cx, cy)) && groundAt(m, cx, cy) !== 'mountain') wild = true;
         if (!canPlace(s, def, rect.x, rect.y, undefined, false, wild).ok) continue;
@@ -780,7 +783,7 @@ function flatSpot(s: GameState, def: BuildingDef): (Pt & { wild?: true }) | null
     return n;
   };
   const r = spiralSpot(s.land, def.width, depthOf(def), taken, from, {
-    ok: castle || shore ? (rect) => (!castle || !nearCastle(castle, s.land, rect)) && (!shore || touchesWater(s.land, rect)) : undefined,
+    ok: (rect) => rectExplored(s, rect.x, rect.y, rect.w, rect.h) && rectExplored(s, doorOf(rect).x, doorOf(rect).y, 1, 1) && (!castle || !nearCastle(castle, s.land, rect)) && (!shore || touchesWater(s.land, rect)),
     water: sea,
     // (over the wild too: its trees and rocks are cleared first, sim/buildings.ts `overgrown`)
     wild: true,
@@ -1077,7 +1080,10 @@ function planPins(s: GameState, n: Needs, plan: TownPlan): boolean {
     }
     const at = roomKind(s, def) ? roomSpot(s, def) : findSpot(s, def);
     if (!at || !placeBlueprint(s, def.id, at.x, at.y, false, false, 'wild' in at && !!at.wild).ok) {
-      p.why = 'no room for it';
+      // (in the fog: the scouts go and look, sim/explore.ts)
+      const fogged = fogRemains(s);
+      if (fogged) s.fogNeed = s.tick;
+      p.why = fogged ? UNEXPLORED.toLowerCase() : 'no room for it';
       continue;
     }
     p.building = s.buildings[s.buildings.length - 1].id;
@@ -1286,6 +1292,7 @@ function planBuilding(s: GameState, n: Needs, plan: TownPlan): number[] {
     }
   }
   if (blocked) {
+    if (fogRemains(s)) s.fogNeed = s.tick;
     plan.waiting.push(`No room for a ${blocked.name}: clearing land`);
     // the nearest wild land, out from the camp
     for (const { i } of wildCells(s).slice(0, blocked.width * depthOf(blocked) + 2)) clear.push(i);

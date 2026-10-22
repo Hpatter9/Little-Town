@@ -23,6 +23,7 @@ import { MAGIC_BUILDINGS } from '../data/magic';
 import { isSeat } from '../data/seats';
 import { builtOn, cellCleared, depthOf, doorCell, footprint, layStreet } from './buildings';
 import { castleCells, castleGate, castleOn } from './castle';
+import { rectExplored } from './fog';
 import { buildable, doorOf, groundAt, idx, inMap, isMarked, isOpen, isPlannedRoad, isRoad, planRoad, setGround, setMarked, setRoad, wet, wildToClear, touchesWater, type Pt, type Rect } from './land';
 import { openGround } from '../data/biomes';
 import { nomadic } from './nomads';
@@ -449,6 +450,7 @@ export function layoutSpot(s: GameState, def: BuildingDef): (Pt & { wild?: true 
   };
   const bad = sat((x, y) => {
     if (!isOpen(m, x, y) || taken(x, y) || street(x, y) || inSquare(L, x, y)) return true;
+    if (!rectExplored(s, x, y, 1, 1)) return true; // (the fog: sim/fog.ts)
     if (!buildable(groundAt(m, x, y)) && !wildToClear(m, x, y)) return true;
     if (wall && wall.has(y * m.w + x)) return true;
     // (the main streets' lines are kept clear everywhere: the high street, the road south)
@@ -471,7 +473,7 @@ export function layoutSpot(s: GameState, def: BuildingDef): (Pt & { wild?: true 
       const door = { x: x + Math.floor(w / 2), y: y + h };
       // (a door on a side street: the row below it is one of the plan's)
       if (grid && zone !== 'farm' && zone !== 'defense' && zone !== 'square' && zone !== 'shore' && mod(door.y - L.row, BLOCK) !== 0 && !(zone === 'civic' && inSquare(L, door.x, door.y))) continue;
-      if (!isOpen(m, door.x, door.y) || taken(door.x, door.y) || wet(groundAt(m, door.x, door.y))) continue;
+      if (!isOpen(m, door.x, door.y) || taken(door.x, door.y) || wet(groundAt(m, door.x, door.y)) || !rectExplored(s, door.x, door.y, 1, 1)) continue;
       if (castleSum && castleSum(x - 1, y - 1, w + 2, h + 2)) continue;
       const r = { x, y, w, h };
       if (def.shore && !touchesWater(m, r)) continue;
