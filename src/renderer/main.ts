@@ -205,6 +205,7 @@ import { fightSounds, globalSounds, soundsBetween, tacticsSounds, workSounds } f
 import { createAmbience } from './ambience';
 import { readLevel } from './volume';
 import { ambientMix, type AmbientMix } from './ambienceMix';
+import { burnLevel, doorSound } from './isoSounds';
 import { quietZones, zoneMix, zoneSources, type ZoneMix } from './soundZones';
 import { BUZZ, buzzesBetween, collapsesBetween, type Buzz } from './vibration';
 import { createActionBar, createBanner, createExpeditionHeader, createGameOver, createPersonCard, createPromptCard, createToasts, type Action } from './overlayUi';
@@ -542,6 +543,16 @@ async function start(): Promise<void> {
     gainsView.useIso(iso.screenFx, { at, top: (id) => iso.topOf(id) });
     map.smokeColumns.useIso(iso.screenFx, at);
     map.workFx.useIso(iso.screenFx, iso.glow, at);
+    // (a door swinging open near the middle of the view creaks, softly and not often: isoSounds.ts)
+    let lastDoor = -9;
+    iso.onDoor = (x, y) => {
+      if (!view.music || view.hidden || !map.root.visible) return;
+      const now = performance.now() / 1000;
+      const d = doorSound(map.view, x, y, now - lastDoor);
+      if (!d) return;
+      lastDoor = now;
+      ambience.cue('creak', d.pan);
+    };
   }
   (window as unknown as { __workSeen?: unknown }).__workSeen = { felling, stockpile, gains: gainsView, chores, people }; // (previews)
   const traffic = new RoadTraffic(map.things); // (carts along the roads)
@@ -1995,6 +2006,8 @@ async function start(): Promise<void> {
       });
       // (a sandstorm or a blizzard howls)
       ambMix.wind = Math.max(ambMix.wind, sky.mix.sand, sky.mix.blizzard);
+      // (a burning building crackles and roars: louder the nearer the middle of the view and the more it has burned)
+      ambMix.fire = Math.max(ambMix.fire, burnLevel(next.buildings.filter((b) => b.fire !== undefined).map((b) => ({ ...buildingCentre(b), fire: b.fire! })), v));
       const raidNow = next.raid?.phase === 'active';
       if (raidNow && !wasRaid) ambience.cue('horn', 0, 0.2);
       wasRaid = raidNow;

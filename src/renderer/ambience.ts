@@ -33,11 +33,13 @@ export type Cue =
   // a rare thing revealed: a soft rising bell (mobile/revealCard.ts, sfx.ts `REVEAL_SOUND`)
   | 'reveal'
   // a busker's soft tune in the square (map/mapScenes.ts), heard only near them
-  | 'busk';
+  | 'busk'
+  // a door swinging in the isometric view, heard only near and quietly (isoSounds.ts)
+  | 'creak';
 
 /** Sounds by place (soundZones.ts): how loud each zone's bus is at full level (a share of the master), so a tavern in
  *  the middle of the view sits about with the rain. */
-export const ZONE_GAIN: Readonly<Record<ZoneKind, number>> = { tavern: 1.3, fiddle: 1.1, market: 1.3, hymns: 1.2, forge: 1.2, workshop: 1.1, herd: 1.3 };
+export const ZONE_GAIN: Readonly<Record<ZoneKind, number>> = { tavern: 1.3, fiddle: 1.1, market: 1.3, hymns: 1.2, forge: 1.2, workshop: 1.1, herd: 1.3, festival: 1.2 };
 /** How fast a zone's level and pan follow the view (s): a zone fades in and out as the view moves. */
 const ZONE_FADE = 0.7;
 
@@ -68,7 +70,7 @@ export function createAmbience(): Ambience {
   const zoneBus = {} as Record<ZoneKind, { gain: GainNode; pan: StereoPannerNode }>;
   /** Set while a call plays into a zone's bus (`inZone`): `voice` connects there, and the bus pans it. */
   let into: AudioNode | null = null;
-  const zoneDue = { laugh: 1, clink: 2, cry: 1.5, coins: 3, clang: 0.5, bellows: 2, shop: 0.8, herd: 2 };
+  const zoneDue = { flap: 1, whoop: 3, laugh: 1, clink: 2, cry: 1.5, coins: 3, clang: 0.5, bellows: 2, shop: 0.8, herd: 2 };
   let zonesNow: ZoneMix | null = null;
   let fiddleAt = 0;
   let fiddleStep = 0;
@@ -113,6 +115,7 @@ export function createAmbience(): Ambience {
     murmur(zoneBus.tavern.gain, 650, 0.9, 3.1);
     murmur(zoneBus.market.gain, 1150, 0.8, 4.3);
     murmur(zoneBus.forge.gain, 260, 0.7, 0.6);
+    murmur(zoneBus.festival.gain, 800, 0.8, 2.4);
     // (the browser keeps the sound asleep until a touch: wake it on the next one)
     const wakeUp = () => wake(ctx);
     window.addEventListener('pointerdown', wakeUp, { passive: true });
@@ -271,6 +274,17 @@ export function createAmbience(): Ambience {
     } finally {
       into = null;
     }
+  };
+  /** Bunting snapping in the wind: a short soft flutter of cloth. */
+  const flap = () => {
+    const n = 2 + Math.floor(Math.random() * 3);
+    for (let i = 0; i < n; i++) burst('bandpass', 1400 + Math.random() * 900, 1.2, 0.05, 0.02, 0, i * 0.07, 0.003);
+  };
+  /** A whoop from the festival crowd: one or two rising voices. */
+  const whoop = () => {
+    const f = 300 + Math.random() * 200;
+    tone('sawtooth', f, f * 1.5, 0.28, 0.012, 0, 0);
+    tone('sawtooth', f * 1.25, f * 1.8, 0.22, 0.008, 0, 0.1);
   };
   /** A laugh from the tavern: a few falling "ha"s. */
   const laugh = () => {
@@ -523,6 +537,8 @@ export function createAmbience(): Ambience {
     zcall('coins', lv('market') * 0.25, () => inZone('market', coins));
     zcall('clang', lv('forge') * 0.9, () => inZone('forge', clang));
     zcall('bellows', lv('forge') * 0.2, () => inZone('forge', bellows));
+    zcall('flap', lv('festival') * 0.8, () => inZone('festival', flap));
+    zcall('whoop', lv('festival') * 0.3, () => inZone('festival', whoop));
     zcall('shop', lv('workshop') * 0.7, () => inZone('workshop', shopWork));
     zcall('herd', lv('herd') * 0.3, () => inZone('herd', () => herdCall(z.herd.animal ?? 'cattle')));
     if (lv('fiddle') > 0.01) playFiddle();
@@ -718,6 +734,8 @@ export function createAmbience(): Ambience {
       tone('sawtooth', 300, 420, 0.3, 0.008, pan, delay);
       tone('sine', 140, 80, 0.08, 0.05, pan, delay + 0.32);
     },
+    // a door in the isometric view: a soft creak, no knock (sparing and quiet)
+    creak: (pan, delay) => tone('sawtooth', 260, 340, 0.22, 0.004, pan, delay),
     // a crowd's cheer: a swell of voices
     cheer: (pan, delay) => {
       burst('bandpass', 1100, 0.8, 1.6, 0.05, pan, delay, 0.25);

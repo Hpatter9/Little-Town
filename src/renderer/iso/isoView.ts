@@ -435,6 +435,8 @@ export class IsoView {
 
   /** Where townsfolk and raiders walk now (world px, every snapshot): a door or gate with any near is to open. */
   private near = new Set<number>();
+  /** Called where a door (not a gate) begins to swing open (world px), for its sound (isoSounds.ts). */
+  onDoor: ((x: number, y: number) => void) | null = null;
   setWalkers(who: readonly { x: number; y: number }[]): void {
     this.near.clear();
     for (const [id, d] of this.buildings) {
@@ -460,6 +462,10 @@ export class IsoView {
       if (!door) continue;
       const was = door.open;
       const n = swing(door.open, door.held, this.near.has(id), dt);
+      if (was === 0 && n.open > 0 && !door.gate && this.onDoor) {
+        const at = doorSpot(d.foot);
+        this.onDoor(at.x * CELL, at.y * CELL);
+      }
       door.open = n.open;
       door.held = n.held;
       if (Math.abs(door.open - was) < 0.01 && !(door.open === 0 && was !== 0)) continue;

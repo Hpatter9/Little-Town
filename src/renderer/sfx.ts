@@ -125,6 +125,7 @@ export function workCue(activity: string, work?: { kind: string; at: string | nu
     case 'till':
       return 'till';
     case 'fish':
+    case 'draw':
       return 'splash';
     case 'spar':
       return 'clash';
