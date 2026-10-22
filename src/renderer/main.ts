@@ -44,7 +44,6 @@ import { MapGains } from './map/mapGains';
 import { MapChores } from './map/mapChores';
 import { IsoView } from './iso/isoView';
 import { kitNameFor } from './iso/isoKits';
-import { isoViewOn } from './iso/isoSetting';
 import { finishedBetween, gainsBetween } from './map/workSeen';
 import { HomeDecor } from './map/homeDecor';
 import { Signposts } from './map/signposts';
@@ -415,8 +414,8 @@ async function start(): Promise<void> {
   const map = new MapView();
   // the isometric view, being built (iso/isoView.ts): Settings turns it on, and it then stands in for the top-down
   // map's world (hidden, though it still keeps its state: the hit tests and the layers not yet drawn in iso use it)
-  const iso = isoViewOn() ? new IsoView() : null;
-  if (iso) {
+  const iso = new IsoView();
+  {
     iso.syncLand(first.land);
     map.world.visible = false;
     map.lights.visible = false;
@@ -428,23 +427,21 @@ async function start(): Promise<void> {
     iso.overFlat.addChild(map.over); // (effects over everything: ash, spells, confetti)
   }
   /** Where the creatures and townlife are drawn into: the iso view's sorted `things` (moved by `placeLoose`) or the map's. */
-  const lay = iso ? iso.things : map.things;
+  const lay = iso.things;
   /** The cell under the finger in Clear mode, or the one inspected: the outline is drawn by both views. */
   const setHighlight = (cell: number | null) => {
     map.setHighlight(cell);
-    iso?.setHighlight(cell);
+    iso.setHighlight(cell);
   };
-  (window as unknown as { __iso?: IsoView | null }).__iso = iso; // (for previews)
+  (window as unknown as { __iso?: IsoView }).__iso = iso; // (for previews)
   // (real light: the dark of night, and every torch's pool and shadows: map/lightMap.ts)
   const lightMap = new LightMap(app.renderer);
   let lightDaylight = 1;
   (window as unknown as { __lightMap: LightMap }).__lightMap = lightMap;
-  if (iso) iso.lightLayer.addChild(lightMap.sprite);
-  else map.world.addChildAt(lightMap.sprite, map.world.getChildIndex(map.over));
+  iso.lightLayer.addChild(lightMap.sprite);
   // (the fog of war, over the land and the lights: black until explored, grey once left, clear in sight: map/fogLayer.ts)
   const fog = new FogLayer();
-  if (iso) iso.lightLayer.addChild(fog.sprite);
-  else map.world.addChild(fog.sprite);
+  iso.lightLayer.addChild(fog.sprite);
   (window as unknown as { __fog?: FogLayer }).__fog = fog; // (for previews)
   /** What is out of sight in the fog is hidden: creatures, raiders, roaming bands, strangers. */
   const inSightOnly = <T extends { x: number; y: number }>(list: readonly T[]): readonly T[] => (fog.on ? list.filter((t) => fog.seen(t.x, t.y)) : list);
@@ -454,8 +451,8 @@ async function start(): Promise<void> {
   const debris = new BattleDebris(map.under); // (and what the fallen dropped)
   const disaster = new MapDisaster(map.under, map.over); // (floods, wildfires and their ash: sim/disasters.ts)
   (window as unknown as { __pools?: BloodPools }).__pools = pools; // (for previews)
-  const people = new MapPeople(iso ? iso.things : map.things);
-  people.isoFolk = !!iso;
+  const people = new MapPeople(iso.things);
+  people.isoFolk = true;
   (window as unknown as { __people?: MapPeople }).__people = people; // (for previews and probes)
   people.lights = map.lights;
   (window as unknown as { __people?: MapPeople }).__people = people; // (for previews)
@@ -530,10 +527,10 @@ async function start(): Promise<void> {
     lastFelled = now;
     if (view.music && !view.hidden && x >= mv.x && x <= mv.x + mv.w && y >= mv.y && y <= mv.y + mv.h) ambience.cue(kind === 'tree' ? 'timber' : 'crumble', ((x - mv.x) / Math.max(1, mv.w)) * 1.6 - 0.8);
   };
-  const stockpile = new MapStockpile(lay, iso ? iso.artHidden : map.artHidden);
+  const stockpile = new MapStockpile(lay, iso.artHidden);
   const gainsView = new MapGains(map.over);
   const chores = new MapChores(lay);
-  if (iso) {
+  {
     // (the work and festival layers drawn in world px on top-down building sprites: here on the diamonds instead;
     //  what rises upright goes through `isoOf`, into `screenFx`)
     const at = (x: number, y: number) => iso.isoOf(x, y);
@@ -581,7 +578,7 @@ async function start(): Promise<void> {
   app.stage.addChild(map.root);
   // fog banks, sandstorms, blizzards and heat haze (map/mapSky.ts)
   const sky = new MapSky(map);
-  if (iso) iso.air.addChild(sky.fogLayer); // (fog banks drift over the screen in iso: moved with the view each frame)
+  iso.air.addChild(sky.fogLayer); // (fog banks drift over the screen in iso: moved with the view each frame)
   app.stage.addChild(sky.root);
   (window as unknown as { __sky?: MapSky }).__sky = sky; // (for previews)
   if (weather) app.stage.addChild(weather.root);
@@ -665,8 +662,8 @@ async function start(): Promise<void> {
     return x0;
   };
 
-  const camera = iso ? new MapCamera(iso.width, iso.height) : new MapCamera(first.land.w * CELL, first.land.h * CELL);
-  if (iso) camera.project = (p) => iso.isoOf(p.x, p.y);
+  const camera = new MapCamera(iso.width, iso.height);
+  camera.project = (p) => iso.isoOf(p.x, p.y);
   // the minimap of the wide land (map/minimap.ts), and the caption naming the region the view is over
   const minimap = new Minimap();
   minimap.mount(document.body);
@@ -839,7 +836,7 @@ async function start(): Promise<void> {
     if (raider) return { kind: 'raider', id: raider.id };
     const roamer = roamers.raiderAt(w.x, w.y);
     if (roamer) return { kind: 'roamer', id: Math.floor(roamer.id / ROAMER_IDS) };
-    const person = iso ? isoPersonAt(x, y) : people.personAt(w.x, w.y);
+    const person = isoPersonAt(x, y);
     // (one of a daughter village's folk: the village's card)
     const vil = person && snap.villages.find((v) => v.folk.some((f) => f.id === person.id));
     if (vil) return { kind: 'village', id: vil.id };
@@ -850,7 +847,7 @@ async function start(): Promise<void> {
     if (grave) return { kind: 'grave', id: grave.id };
     const sign = signs.signAt(w.x, w.y);
     if (sign) return { kind: 'sign', sign };
-    const building = iso ? iso.buildingAt(x, y) : map.buildingAt(w.x, w.y);
+    const building = iso.buildingAt(x, y);
     // (a daughter village's houses and fields are drawn as buildings with ids below zero: sim/villages.ts)
     if (building !== null) return building < 0 ? { kind: 'village', id: Math.floor((-building - 1) / 100) } : { kind: 'building', id: building };
     const ruin = ruins.ruinAt(w.x, w.y);
@@ -2050,7 +2047,6 @@ async function start(): Promise<void> {
       if (who) return personPicture(who);
       if (h.building && BUILDING_BY_ID[h.building]) {
         const old = buildingPicture(h.building, buildStyle || 'town', 96, 64);
-        if (!isoViewOn()) return old;
         // (the isometric view: the kit piece the map draws; until its image is in, a copy of the old picture that the
         // menu asks for again, not keeps)
         const iso = isoPicture(h.building, next.origin.id, next.theme, 96, 64);
@@ -2089,7 +2085,7 @@ async function start(): Promise<void> {
     }
     map.syncLand(next.land, next.calendar.season, next.biome, next.era); // (paints again only what changed)
     stockpile.sync(next.buildings); // (before the buildings, so a stockpile's own picture is hidden at once)
-    if (iso) {
+    {
       iso.syncLand(next.land);
       iso.setKit(kitNameFor(next.origin.id, next.theme));
       iso.setBiome(next.biome);
@@ -2100,7 +2096,7 @@ async function start(): Promise<void> {
     fog.sync(next.land.w, next.land.h, next.explored, next.sight);
     minimap.fog = fog.on ? fog.canvas : null;
     map.tick = next.tick;
-    if (iso) {
+    {
       iso.setWalkers([...next.people.filter((p) => p.away === null && !p.indoors), ...inSightOnly(next.raid?.phase === 'active' ? next.raid.raiders : [])]);
       iso.setLamps(next.lights ? next.lights.lights.filter((l) => l.room === null) : [], next.era);
     }
@@ -2173,12 +2169,6 @@ async function start(): Promise<void> {
     map.syncPlaces(next.places);
     map.syncBlight(next.blight ?? [], next.calamity?.heartAt ?? null);
     map.syncLeylines(next.magic ?? null); // (the leylines glowing after dark: map/mapLeylines.ts)
-    // (a tree with someone behind it, or a building's front, is drawn see-through)
-    map.seeThrough([
-      ...next.people.filter((p) => !p.indoors).map((p) => people.posOf(p.id) ?? p),
-      ...(next.raid?.phase === 'active' ? next.raid.raiders : []).map((r) => raiders.posOf(r.id) ?? r),
-      ...next.travellers,
-    ]);
     // (a nomad tribe that moved camp: the view goes to the new camp)
     if (lastCamp !== null && (next.camp.x !== lastCamp.x || next.camp.y !== lastCamp.y)) camera.centreOn(next.camp, app.screen.width, app.screen.height);
     lastCamp = next.camp;
@@ -2313,14 +2303,14 @@ async function start(): Promise<void> {
       camera.follow(at, w, h, performance.now(), FOLLOW_WAIT_MS);
     }
     const moving = camera.update(ticker.deltaMS / 1000, w, h);
-    if (iso) {
+    {
       iso.setCamera(camera.x, camera.y, w, h);
       const lv = iso.lightView(); // (a square of world px that covers the whole screen, whatever the slant)
       map.setCamera(lv.x, lv.y, lv.w, lv.h);
       iso.air.position.set(w / 2 - (lv.x + lv.w / 2), h / 2 - (lv.y + lv.h / 2)); // (the fog banks fill the screen)
       iso.setNight(map.lights.alpha);
       iso.animate(ticker.deltaMS / 1000);
-    } else map.setCamera(camera.x, camera.y, w, h);
+    }
     // screen shake (a boss's roar or sweeping attack)
     const shaking = performance.now() < shakeUntil;
     // (and the trail battle's: heavy blows and kills, battle/juice.ts)
@@ -2346,7 +2336,7 @@ async function start(): Promise<void> {
     felling.render(ticker.deltaMS / 1000, map.calm, map.wind());
     gainsView.render(ticker.deltaMS / 1000, map.calm);
     chores.render(ticker.deltaMS / 1000, performance.now(), map.calm, map.wind());
-    iso?.placeLoose(); // (everyone drawn into the things in world px, moved onto the diamonds)
+    iso.placeLoose(); // (everyone drawn into the things in world px, moved onto the diamonds)
     if (snap && minimap.shown)
       minimap.render({
         people: snap.people.filter((p) => p.away === null).map((p) => ({ x: p.x, y: p.y })),
@@ -2357,8 +2347,8 @@ async function start(): Promise<void> {
           const r = footprintOf(b);
           return { x: r.x * CELL, y: r.y * CELL, w: r.w * CELL, h: r.h * CELL };
         }),
-        view: iso ? iso.worldView() : map.view,
-        quad: iso?.viewQuad(),
+        view: iso.worldView(),
+        quad: iso.viewQuad(),
       });
     // the region under the middle of the view: its name shown a few seconds when it changes
     if (snap) {

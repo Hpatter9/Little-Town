@@ -19,7 +19,7 @@ import { inSea } from '../../shared/sim/sea';
 import { CELL, cellAt, groundAt, isMarked, isPlannedRoad, isRoad, wet, type Ground, type LandMap } from '../../shared/sim/land';
 import type { Building } from '../../shared/sim/state';
 import type { PlaceView } from '../../shared/sim/snapshot';
-import type { CropLook } from '../art/buildings';
+import type { CropLook } from '../art/farmland';
 import { topDownArt } from '../art/topDown';
 import { drawSite } from '../art/constructionSite';
 import { drawWallWorks, stagingAt } from '../art/wallWorks';
@@ -38,14 +38,14 @@ import propKinds from '../art/propKinds.json';
 import { loadTdTiles, tdTiles } from '../art/tdTiles';
 import { glowTexture } from '../town/layer';
 import { ChimneySmoke } from '../town/ambientView';
-import { CHUNK, chunkKey, groundArtReady, FOG_BAND, hash, paintChunk, visibility } from './groundArt';
+import { CHUNK, groundArtReady, FOG_BAND, hash, paintChunk, visibility } from './groundArt';
 import { onPackArt, packArt, packDressing, packTurning, type Join } from './packBuildings';
 import { flagRate, millSide, MILLS, sailSpeed, WHEEL_PX, WHEEL_TURN, wheelTexture } from './machinery';
 import doorUrl from '../art/village/dl_door.png';
 import { SmokeColumns } from './smokeColumns';
 import { loadRoadTiles } from '../art/roadTiles';
 import { loadGroundDetail } from '../art/groundDetail';
-import { isOutcrop, loadReliefArt, OUTCROP_SCALE, outcropSet, paintLand, paintShade, shadeAmount, shadeKey } from './reliefArt';
+import { isOutcrop, loadReliefArt, OUTCROP_SCALE, outcropSet, paintLand, shadeAmount } from './reliefArt';
 import { campfirePack, loadFieldTiles, onFieldTiles } from '../art/fieldTiles';
 import type { Era } from '../../shared/data/eras';
 import { buildCastle, castleArtReady, onCastleArt, roomFurniture, type CastleView } from './castleArt';
@@ -64,27 +64,10 @@ import { onStatueArt, statueArt } from './statueArt';
 import { STATUE } from '../../shared/data/memorials';
 import { SEAT_STAGE } from '../../shared/data/seats';
 
-/** Things this far outside the view are still drawn (so nothing pops at the edge). */
-/** When only the footpaths' wear has changed, one chunk is painted again at most this often (ms; syncLand): painting a
- *  chunk is the heaviest thing the map does, and paths come and go slowly anyway. */
-const WEAR_REPAINT_MS = 1500;
-/** The time (ms) a call may spend painting ground out of view: a snapshot's, a frame's of the camera's, or a worn path's. */
-const FILL_BUDGET_MS = 8;
-const PAN_BUDGET_MS = 6;
-const WEAR_BUDGET_MS = 4;
-/** How long the ground waits for its art sheets before it is painted without them. */
-const ART_WAIT_MS = 4000;
-/** A ground chunk waiting to be painted, and the key it will have. */
-interface DueChunk {
-  cx: number;
-  cy: number;
-  key: string;
-}
 /** Where the seabed things stand round a building in the sea (share of its width along, px below its foot), and their
  *  size against the atlas's (which is drawn for the raid map, larger). */
 const SEA_DRESS: [number, number][] = [[0.04, 2], [0.96, 4], [0.55, 7]];
 const SEA_DRESS_K = 0.7;
-const CULL_MARGIN = 64;
 
 /** Multiply colour for a daylight level: white by day, moonlit blue at night. */
 const NIGHT_TINT = 0x8a96c8;
@@ -120,16 +103,8 @@ const UNDERGROWTH: [PropKind, number][] = [['bush', 0.55], ['plant', 0.45]];
 const UNDERGROWTH_SHARE = 0.6;
 /** A tree with someone (or a building's front) behind it is drawn see-through, this much. */
 const SEE_THROUGH = 0.42;
-/** How much of a castle wall shows over someone standing behind it. */
-const WALL_SEE_THROUGH = 0.3;
 /** How hard the wind blows in each weather (the trees' sway, the clouds' and leaves' drift). */
 const WIND: Record<string, number> = { clear: 0.45, cloudy: 0.7, rain: 1, storm: 2.2, snow: 0.6, fog: 0.15 };
-/** How far a tree's crown leans at a wind of 1 (radians of skew), and a bush's. */
-const SWAY_TREE = 0.035;
-const SWAY_BUSH = 0.022;
-/** Cloud shadows over the land in fair weather by day: how many, how dark. */
-const CLOUDS: Record<string, number> = { clear: 3, cloudy: 7 };
-const CLOUD_DARK = 0.14;
 /** Leaves (and spring's blossom) falling from the trees in view: how many a second, the most at once, the colours. */
 const LEAF_RATE: Record<string, number> = { spring: 3, summer: 0.7, autumn: 7, winter: 0 };
 const LEAVES_MOST = 70;
@@ -152,26 +127,6 @@ interface Leaf {
   /** Seconds lying on the ground (-1 while still falling). */
   lying: number;
 }
-interface Cloud {
-  c: Container;
-  x: number;
-  y: number;
-  w: number;
-}
-
-/** A firefly: a tiny blinking glow in the lights layer, drifting over the grass on a warm, fair night. */
-interface Firefly {
-  s: Sprite;
-  x: number;
-  y: number;
-  vx: number;
-  vy: number;
-  phase: number;
-  rate: number;
-  life: number;
-}
-const FLIES_MAX = 36;
-const FLY_GROUND = new Set<Ground>(['grass', 'forest', 'marsh', 'fertile', 'hill']);
 
 interface DrawnBuilding {
   sig: string;
@@ -261,10 +216,8 @@ export class MapView {
   /** Screen space (the camera moves `world`). */
   readonly root = new Container();
   readonly world = new Container();
-  readonly ground = new Container();
   /** The evening shadow of high ground and ranges, one sprite per chunk that has any (reliefArt.ts `paintShade`). */
   private readonly shade = new Container();
-  private readonly shades = new Map<string, { sprite: Sprite; key: string }>();
   private readonly marks = new Graphics();
   /** The cells marked for clearing and the one under the finger: over the light map, so they show at night too. */
   private readonly clearMarks = new Graphics();
@@ -300,7 +253,6 @@ export class MapView {
   readonly under = new Container();
   readonly over = new Container();
   private readonly ghost = new Sprite();
-  private readonly chunks = new Map<string, { sprite: Sprite; key: string }>();
   /** The wild cells' objects, keyed by cell index times 2 (plus 1 for a wood's undergrowth). */
   private readonly props = new Map<number, { sprite: Sprite; key: string; kind: PropKind; alpha: number; faded?: boolean; reflect?: Sprite }>();
   private propTex = new Map<PropSet, Texture[]>();
@@ -317,7 +269,6 @@ export class MapView {
   private style = 'town';
   private tone: Tone = noTone;
   private toneKey = 'plain';
-  private daylight = 1;
   private daylightKey = 1;
   private frost = false;
   private highlight: number | null = null;
@@ -339,11 +290,8 @@ export class MapView {
   weather = 'clear';
   /** The view the camera last showed (world px): where the fireflies live, and the birds (mapBirds.ts). */
   view = { x: 0, y: 0, w: 0, h: 0 };
-  private readonly flies: Firefly[] = [];
   /** The wind's clock (the sway and the gusts that run across the woods), the clouds' shadows and the falling leaves. */
   private windT = 0;
-  private readonly cloudLayer = new Container();
-  private readonly clouds: Cloud[] = [];
   private readonly leaves: Leaf[] = [];
   private leafDue = 0;
   /** A castle town's keep (map/keepArt.ts): its floor and side walks under everything, its walls and towers among the
@@ -374,13 +322,10 @@ export class MapView {
       })
       .catch(() => undefined);
     this.things.sortableChildren = true;
-    // (the ground is its own render group: people walking and re-sorting among the things made Pixi rebuild the whole
-    // map's draw list every frame, the ground's hundred-odd chunks with it)
-    this.ground.isRenderGroup = true;
     this.ghost.visible = false;
     this.ghost.anchor.set(0.5, 1);
     this.ghost.zIndex = 1e9;
-    this.world.addChild(this.ground, this.shade, this.marks, this.under, this.things, this.cloudLayer, this.over, this.ghost, this.clearMarks);
+    this.world.addChild(this.shade, this.marks, this.under, this.things, this.over, this.ghost, this.clearMarks);
     this.over.addChild(this.smoke.root);
     this.festival = new MapFestival(this.things, this.over, this.lights);
     this.blight = new MapBlight(this.under, this.things);
@@ -394,10 +339,10 @@ export class MapView {
     this.lights.alpha = 0;
     this.root.addChild(this.world, this.lights, this.vignette);
     this.vignette.alpha = VIGNETTE;
-    loadTdTiles().then(() => this.repaint(), () => undefined);
-    loadRoadTiles().then(() => this.repaint(), () => undefined);
-    loadGroundDetail().then(() => this.repaint(), () => undefined);
-    loadReliefArt().then(() => this.repaint(), () => undefined); // (the cliffs and the tunnels' mouths: map/reliefArt.ts)
+    loadTdTiles().then(() => undefined, () => undefined); // (the raid board's ground is painted from these: clearGroundOf)
+    loadRoadTiles().then(() => undefined, () => undefined);
+    loadGroundDetail().then(() => undefined, () => undefined);
+    loadReliefArt().then(() => undefined, () => undefined); // (the cliffs and the tunnels' mouths: map/reliefArt.ts)
     loadFieldTiles().then(() => undefined, () => undefined);
     onFieldTiles(() => this.artGen++);
     onPackArt(() => this.artGen++);
@@ -410,8 +355,7 @@ export class MapView {
     });
   }
 
-  /** The camera: world position of the screen's top-left, and the screen's size. Only what's in view is drawn:
-   *  the ground's chunks and everything standing on it outside the view are skipped (Pixi draws all else). */
+  /** The camera: world position of the screen's top-left, and the screen's size. */
   setCamera(x: number, y: number, w: number, h: number): void {
     this.world.position.set(-Math.round(x), -Math.round(y));
     this.lights.position.copyFrom(this.world.position);
@@ -419,21 +363,6 @@ export class MapView {
     this.vignette.width = w;
     this.vignette.height = h;
     this.view = { x, y, w, h };
-    const x0 = x - CULL_MARGIN;
-    const y0 = y - CULL_MARGIN;
-    const x1 = x + w + CULL_MARGIN;
-    const y1 = y + h + CULL_MARGIN;
-    const side = CHUNK * CELL;
-    for (const c of this.chunks.values()) {
-      const s = c.sprite;
-      s.renderable = s.x + side > x0 && s.x < x1 && s.y + side > y0 && s.y < y1;
-    }
-    if (!this.world.visible) return; // (the isometric view stands in: nothing here is seen, so nothing is culled)
-    this.paintDue(PAN_BUDGET_MS);
-    for (const t of this.things.children) {
-      // (anything standing on the map is at most a few cells wide and some taller than wide, but for the keep's walls)
-      t.renderable = this.wide.has(t) || (t.x > x0 - 96 && t.x < x1 + 96 && t.y > y0 - 32 && t.y < y1 + 160);
-    }
   }
 
   /** Screen to world, and back. */
@@ -461,7 +390,6 @@ export class MapView {
     const key = this.realLight ? d + 2 : d;
     if (key === this.daylightKey && frost === this.frost) return;
     this.daylightKey = key;
-    this.daylight = d;
     this.frost = frost;
     // (with real light the dark is the light map's: only a little of the moon's blue is left in the tint)
     const t = daylightTint(this.realLight ? 0.75 + 0.25 * d : d);
@@ -498,154 +426,20 @@ export class MapView {
     this.biome = biome;
     this.width = land.w * CELL;
     this.height = land.h * CELL;
-    const td = tdTiles();
-    // (the streets planned are drawn over the ground as a ghost, kept apart from the chunks: sim/streets.ts)
+    // (the streets planned are drawn over the ground as a ghost: sim/streets.ts)
     if (land.plannedRoads !== this.plannedSeen || land.marked.length !== this.markedSeen) this.drawMarks();
-    // (nothing on the land has changed since the last look: skip it all. This ran on every snapshot, ten times a second,
-    // keying every chunk cell by cell)
-    const sig = `${land.version}|${land.open}|${land.camp.x},${land.camp.y}|${season}|${biome}|${era}|${!!td}|${this.blighted()}|${this.chunks.size}|${groundArtReady()}|${this.calm}|${this.propTex.size}`;
-    if (sig === this.landSig && (land.wear === this.landWear || performance.now() < this.nextWearPaint)) return;
-    // (the isometric view draws its own ground and hides this world: no chunk is painted for nobody to see; the props
-    // stay, for the falling leaves and the sway's positions)
-    if (!this.world.visible) {
-      this.landSig = sig;
-      this.landWear = land.wear;
-      this.syncProps(land, season, biome);
-      this.drawMarks();
-      return;
-    }
-    const cols = Math.ceil(land.w / CHUNK);
-    const rows = Math.ceil(land.h / CHUNK);
-    const reach = land.open + FOG_BAND + CHUNK;
-    // (only the footpaths' wear changed: the chunks it touches are painted again a few a frame, never all at once)
-    const wearOnly = sig === this.landSig;
-    this.paintFirst ||= performance.now();
-    const due = new Map<string, DueChunk>();
-    for (let cy = 0; cy < rows; cy++)
-      for (let cx = 0; cx < cols; cx++) {
-        const id = `${cx},${cy}`;
-        // (chunks wholly out of sight are one black square)
-        const near = Math.hypot((cx + 0.5) * CHUNK - land.camp.x, (cy + 0.5) * CHUNK - land.camp.y) <= reach;
-        const key = near ? chunkKey(land, cx, cy, season, !!td, era, this.blighted(), biome) : 'dark';
-        let c = this.chunks.get(id);
-        if (c && c.key === key) continue;
-        if (near) {
-          due.set(id, { cx, cy, key });
-          continue;
-        }
-        // (a dark square costs nothing: put up at once)
-        if (!c) {
-          c = { sprite: this.ground.addChild(new Sprite()), key: '' };
-          c.sprite.position.set(cx * CHUNK * CELL, cy * CHUNK * CELL);
-          this.chunks.set(id, c);
-        }
-        const old = c.sprite.texture;
-        c.sprite.texture = darkTexture();
-        if (old !== Texture.EMPTY && old !== darkTexture()) old.destroy(true);
-        c.key = key;
-      }
-    // (the rest are painted by `paintDue`, those in view first: a town's two thousand cells of ground took seconds
-    // painted in one go at the start, and again for each sheet of art that arrived)
-    this.due = due;
-    this.dueFrom = { land, season, biome, era, td };
+    // (nothing on the land has changed since the last look: skip it all. This ran on every snapshot, ten times a second)
+    const sig = `${land.version}|${land.open}|${land.camp.x},${land.camp.y}|${season}|${biome}|${era}|${this.blighted()}|${this.calm}|${this.propTex.size}`;
+    if (sig === this.landSig) return;
+    // (the isometric view draws its own ground: only the props stay, for the falling leaves and the raid board's trees
+    // and boulders)
     this.landSig = sig;
-    this.landWear = land.wear;
-    if (wearOnly) this.nextWearPaint = performance.now() + WEAR_REPAINT_MS;
-    this.paintDue(wearOnly ? WEAR_BUDGET_MS : FILL_BUDGET_MS);
-    if (wearOnly) return;
     this.syncProps(land, season, biome);
     this.drawMarks();
-    this.syncShade(land);
   }
 
-  /** Put up the evening shade for the chunks that have high ground to their west; painted once, again only if the
-   *  land it comes from changes. Its strength follows the hour (`setSun`). */
-  private syncShade(land: LandMap): void {
-    if (!land.relief) return;
-    const cols = Math.ceil(land.w / CHUNK);
-    const rows = Math.ceil(land.h / CHUNK);
-    for (let cy = 0; cy < rows; cy++)
-      for (let cx = 0; cx < cols; cx++) {
-        const id = `${cx},${cy}`;
-        const key = shadeKey(land, cx, cy, CHUNK);
-        const had = this.shades.get(id);
-        if ((had?.key ?? '') === key) continue;
-        if (!key) {
-          if (had) {
-            had.sprite.destroy({ texture: true });
-            this.shades.delete(id);
-          }
-          continue;
-        }
-        const sprite = had?.sprite ?? this.shade.addChild(new Sprite());
-        sprite.position.set(cx * CHUNK * CELL, cy * CHUNK * CELL);
-        sprite.texture.destroy(true);
-        sprite.texture = Texture.from(paintShade(land, cx, cy, CHUNK));
-        this.shades.set(id, { sprite, key });
-      }
-  }
-
-  /** Chunks waiting to be painted, and what they are painted from. */
-  private due = new Map<string, DueChunk>();
-  private dueFrom: { land: LandMap; season: string; biome: string; era: Era; td: ReturnType<typeof tdTiles> } | null = null;
-  /** When the ground was first asked for (the wait for its art ends a few seconds on). */
-  private paintFirst = 0;
-
-  /** Paint the chunks that are due: those in (or by) the view at once, the others nearest first for about `budgetMs`
-   *  a call (at least one). Waits for the ground's art sheets, so a chunk isn't painted for each sheet as it arrives. */
-  private paintDue(budgetMs: number): void {
-    const w = this.dueFrom;
-    if (!w || !this.due.size) return;
-    if (groundArtReady() !== '111' && performance.now() - this.paintFirst < ART_WAIT_MS) return;
-    const v = this.view;
-    const side = CHUNK * CELL;
-    const cx0 = v.w > 0 ? v.x + v.w / 2 : (w.land.camp.x + 0.5) * CELL;
-    const cy0 = v.w > 0 ? v.y + v.h / 2 : (w.land.camp.y + 0.5) * CELL;
-    const inView = (d: DueChunk) => v.w > 0 && d.cx * side + side > v.x - CULL_MARGIN && d.cx * side < v.x + v.w + CULL_MARGIN && d.cy * side + side > v.y - CULL_MARGIN && d.cy * side < v.y + v.h + CULL_MARGIN;
-    const order = [...this.due.values()].map((d) => ({ d, seen: inView(d), dist: Math.hypot((d.cx + 0.5) * side - cx0, (d.cy + 0.5) * side - cy0) }));
-    order.sort((a, b) => (a.seen === b.seen ? a.dist - b.dist : a.seen ? -1 : 1));
-    const start = performance.now();
-    let painted = 0;
-    for (const { d, seen } of order) {
-      if (!seen && painted > 0 && performance.now() - start > budgetMs) break;
-      const id = `${d.cx},${d.cy}`;
-      let c = this.chunks.get(id);
-      if (!c) {
-        c = { sprite: this.ground.addChild(new Sprite()), key: '' };
-        c.sprite.position.set(d.cx * side, d.cy * side);
-        this.chunks.set(id, c);
-      }
-      const old = c.sprite.texture;
-      c.sprite.texture = paintChunk(paintLand(w.land), d.cx, d.cy, w.season, w.biome, w.td, w.era, this.blighted());
-      if (old !== Texture.EMPTY && old !== darkTexture()) old.destroy(true);
-      c.key = d.key;
-      this.due.delete(id);
-      painted++;
-    }
-  }
-
-  /** What the land was at the last `syncLand` (and its wear), to skip it when nothing has changed. */
+  /** What the land was at the last `syncLand`, to skip it when nothing has changed. */
   private landSig = '';
-  private landWear: string | undefined = undefined;
-  private nextWearPaint = 0;
-
-  /** Paint everything again (the cobble tiles arrived). */
-  private repaint(): void {
-    for (const c of this.chunks.values()) c.key = '';
-    this.landSig = '';
-    if (this.land) this.syncLand(this.land, this.season, this.biome, this.era);
-  }
-
-  /** The sets of objects for this land and season (the sea's under water is for later). */
-  /** Whether the land is the undead's (the liches' and vampires'): blighted ground and dead trees. */
-  /** For the tactics board (tactics/tacticsView.ts): the painted ground of a land cell, as the chunk's canvas and where
-   *  the cell is in it (null while it isn't painted). */
-  groundOf(x: number, y: number): { src: CanvasImageSource; sx: number; sy: number } | null {
-    const c = this.chunks.get(`${Math.floor(x / CHUNK)},${Math.floor(y / CHUNK)}`);
-    const src = c?.sprite.texture.source?.resource as CanvasImageSource | undefined;
-    if (!c || !src || c.key === 'dark') return null;
-    return { src, sx: (x % CHUNK) * CELL, sy: (y % CHUNK) * CELL };
-  }
 
   /** The ground as it would be painted with no fog over it (the tactics board reaches past what the town has seen):
    *  chunks painted on asking, kept until the land or the season changes. */
@@ -687,12 +481,6 @@ export class MapView {
   /** A prop of one kind (a rock, a bush...) from the land's own sets, picked by the cell. */
   propKind(kind: PropKind, x: number, y: number): Texture | null {
     return this.propFor([[kind, 1]], x, y)?.tex ?? null;
-  }
-
-  /** A wall or gate's pack picture in the town's look, `w` cells wide (the tactics board's town wall). */
-  wallPicture(def: string, w: number, id: number, join?: Join): { tex: Texture; w: number; h: number } | null {
-    const art = packArt(def, w, this.style, id, join);
-    return art ? { tex: art.texture, w: art.width, h: art.height } : null;
   }
 
   /** And what stands on a wild cell of it (a tree, a bush, a rock), as the map draws it there. */
@@ -863,56 +651,6 @@ export class MapView {
     } else if (p.reflect) {
       p.reflect.destroy();
       p.reflect = undefined;
-    }
-  }
-
-  /** Trees with someone behind them, or a building's front, are drawn see-through (the trees are big now, and a
-   *  townsperson walking in the woods or a house behind a tree would be lost). `points` are world px: the feet of
-   *  everyone about; the buildings' fronts are added here. */
-  seeThrough(points: { x: number; y: number }[]): void {
-    const land = this.land;
-    if (!land || !this.world.visible) return; // (the isometric view draws its own trees and buildings)
-    // (a castle's tall walls: see-through where someone stands behind them, so the rooms stay in view)
-    for (const sp of this.castle?.walls ?? []) {
-      // (a run along the top of a cell hides what stands north of its foot; a run down a column, only what stands in
-      // its own strip: someone walking beside it is in front of it or level with it, not behind it)
-      const foot = sp.zIndex;
-      const column = sp.texture.width <= CELL / 2;
-      const hidden = column
-        ? points.some((pt) => pt.y < sp.y + sp.texture.height - CELL && pt.y > sp.y + 8 && pt.x > sp.x && pt.x < sp.x + sp.texture.width)
-        : points.some((pt) => pt.y < foot - 3 && pt.y > sp.y + 8 && pt.x > sp.x - 8 && pt.x < sp.x + sp.texture.width + 8);
-      const target = hidden ? WALL_SEE_THROUGH : 1;
-      sp.alpha = Math.abs(target - sp.alpha) < 0.03 ? target : sp.alpha + (target - sp.alpha) * 0.45;
-    }
-    const pts = points.slice();
-    for (const d of this.buildings.values()) {
-      const r = d.rect;
-      const foot = r.y + r.h;
-      pts.push({ x: r.x + r.w / 2, y: foot - 8 }, { x: r.x + r.w * 0.2, y: foot - 8 }, { x: r.x + r.w * 0.8, y: foot - 8 });
-    }
-    const fade = new Set<number>();
-    for (const pt of pts) {
-      const cx = Math.floor(pt.x / CELL);
-      const cy = Math.floor(pt.y / CELL);
-      // (a tree's foot is below the point, its crown reaching up over it: look a few cells down and either side)
-      for (let y = cy; y <= Math.min(land.h - 1, cy + 5); y++)
-        for (let x = Math.max(0, cx - 2); x <= Math.min(land.w - 1, cx + 2); x++) {
-          const n = (y * land.w + x) * 2;
-          const p = this.props.get(n);
-          if (!p || p.kind !== 'tree') continue;
-          const sp = p.sprite;
-          const w = sp.texture.width;
-          const h = sp.texture.height;
-          if (pt.y < sp.y - 4 && pt.y > sp.y - h * 0.95 && Math.abs(pt.x - sp.x) < w * 0.42) fade.add(n);
-        }
-    }
-    // (eased over a few snapshots, not snapped: a tree popping clear and back as someone passed read as a flash)
-    for (const [n, p] of this.props) {
-      const want = fade.has(n);
-      p.faded = want;
-      const target = want ? p.alpha * SEE_THROUGH : p.alpha;
-      const next = Math.abs(target - p.sprite.alpha) < 0.03 ? target : p.sprite.alpha + (target - p.sprite.alpha) * 0.45;
-      if (next !== p.sprite.alpha) p.sprite.alpha = next;
     }
   }
 
@@ -1350,11 +1088,8 @@ export class MapView {
     this.blight.render(dt);
     this.leylines.render(dt, this.calm);
     this.fadeWindows(dt);
-    this.fireflies(dt);
     this.windT += dt;
-    this.sway();
     this.turnMachinery(dt);
-    this.cloudShadows(dt);
     this.fallingLeaves(dt);
     if (this.castle?.flames.length) flickerCastle(this.castle.flames, (this.flick += dt));
     this.festival.glowK = this.lights.alpha;
@@ -1390,64 +1125,6 @@ export class MapView {
   wind(): number {
     const base = WIND[this.weather] ?? 0.5;
     return base * (0.75 + 0.25 * Math.sin(this.windT * 0.21));
-  }
-
-  /** The trees and bushes in view lean with the wind, each on its own beat, and gusts run across the woods from the west
-   *  as a wave (the crown moves, the foot stays: the sprite's anchor is at its foot). */
-  private sway(): void {
-    if (!this.world.visible) return; // (hidden under the isometric view)
-    const t = this.windT;
-    const wind = this.calm ? 0 : this.wind();
-    for (const p of this.props.values()) {
-      if (p.kind !== 'tree' && p.kind !== 'bush') continue;
-      const sp = p.sprite;
-      if (!sp.renderable) continue;
-      if (!wind) {
-        sp.skew.x = 0;
-        continue;
-      }
-      const phase = sp.x * 0.013 + sp.y * 0.007;
-      const gust = Math.max(0, Math.sin(t * 0.55 - sp.x * 0.004 + sp.y * 0.001)) ** 3;
-      const amp = (p.kind === 'tree' ? SWAY_TREE : SWAY_BUSH) * wind;
-      sp.skew.x = amp * (0.55 * Math.sin(t * (1.1 + wind * 0.5) + phase) + 0.25 * Math.sin(t * 2.7 + phase * 1.7) + gust * 1.4);
-    }
-  }
-
-  /** Soft shadows of clouds passing over the land by day in fair weather, drifting with the wind. */
-  private cloudShadows(dt: number): void {
-    const day = Math.max(0, Math.min(1, (this.daylight - 0.35) / 0.4));
-    const want = this.calm || day === 0 || !this.land ? 0 : (CLOUDS[this.weather] ?? 0);
-    const { x, y, w, h } = this.view;
-    this.cloudLayer.alpha = CLOUD_DARK * day;
-    const drift = 6 + this.wind() * 14;
-    while (this.clouds.length > want) this.clouds.pop()!.c.destroy({ children: true });
-    while (this.clouds.length < want) {
-      const cw = 260 + Math.random() * 340;
-      const c = this.cloudLayer.addChild(new Container());
-      // (a cloud's shadow: a few soft blobs heaped together)
-      const blobs = 4 + Math.floor(Math.random() * 4);
-      for (let i = 0; i < blobs; i++) {
-        const b = c.addChild(new Sprite(glowTexture()));
-        b.anchor.set(0.5);
-        b.tint = 0x000000;
-        b.width = cw * (0.45 + Math.random() * 0.5);
-        b.height = b.width * (0.45 + Math.random() * 0.25);
-        b.position.set((Math.random() - 0.5) * cw * 0.7, (Math.random() - 0.5) * cw * 0.2);
-      }
-      // (the first come anywhere in view; later ones come in from the west)
-      const first = this.clouds.length === 0 && x !== 0;
-      this.clouds.push({ c, x: first ? x + Math.random() * w : x - cw, y: y + Math.random() * h, w: cw });
-    }
-    for (const cl of this.clouds) {
-      cl.x += drift * dt;
-      cl.y += drift * 0.18 * dt;
-      // gone past the view (or the view moved away): back in from the west
-      if (cl.x - cl.w > x + w + 100 || cl.x + cl.w < x - 900 || cl.y - cl.w > y + h + 200 || cl.y + cl.w < y - 400) {
-        cl.x = x - cl.w * 0.6 - Math.random() * 300;
-        cl.y = y + Math.random() * h;
-      }
-      cl.c.position.set(Math.round(cl.x), Math.round(cl.y));
-    }
   }
 
   /** Leaves falling from the trees in view (blossom in spring, a few in summer, many in autumn), drifting with the wind
@@ -1495,47 +1172,6 @@ export class MapView {
         continue;
       }
       l.s.position.set(l.x, l.y);
-    }
-  }
-
-  /** Fireflies over the grass in view on warm, fair nights (the lights layer is dark by day): each drifts, blinks a
-   *  few times and winks out, and another comes. */
-  private fireflies(dt: number): void {
-    const warm = (this.season === 'spring' || this.season === 'summer') && !biomeById(this.biome).cold && !biomeById(this.biome).dry;
-    const fair = this.weather === 'clear' || this.weather === 'cloudy';
-    const want = !this.calm && warm && fair && this.lights.alpha > 0.2 && this.land ? FLIES_MAX : 0;
-    const { x, y, w, h } = this.view;
-    while (this.flies.length > want) this.flies.pop()!.s.destroy();
-    for (let tries = 0; this.flies.length < want && tries < 12; tries++) {
-      const fx = x + Math.random() * w;
-      const fy = y + Math.random() * h;
-      const cx = Math.floor(fx / CELL);
-      const cy = Math.floor(fy / CELL);
-      if (!FLY_GROUND.has(groundAt(this.land!, cx, cy)) || visibility(this.land!, cx, cy) === 0) continue;
-      const sp = this.lights.addChild(new Sprite(glowTexture()));
-      sp.anchor.set(0.5);
-      sp.width = sp.height = 7;
-      sp.tint = 0xd8ff78;
-      sp.alpha = 0;
-      this.flies.push({ s: sp, x: fx, y: fy, vx: 0, vy: 0, phase: Math.random() * Math.PI * 2, rate: 1.5 + Math.random() * 2, life: 4 + Math.random() * 8 });
-    }
-    for (let i = this.flies.length - 1; i >= 0; i--) {
-      const f = this.flies[i];
-      f.life -= dt;
-      f.phase += dt * f.rate;
-      f.vx = (f.vx + (Math.random() - 0.5) * 40 * dt) * 0.98;
-      f.vy = (f.vy + (Math.random() - 0.5) * 40 * dt) * 0.98;
-      f.x += f.vx * dt;
-      f.y += f.vy * dt;
-      const out = f.x < x - 20 || f.x > x + w + 20 || f.y < y - 20 || f.y > y + h + 20;
-      if (f.life <= 0 || out) {
-        f.s.destroy();
-        this.flies.splice(i, 1);
-        continue;
-      }
-      const blink = Math.max(0, Math.sin(f.phase));
-      f.s.alpha = blink * blink * Math.min(1, f.life);
-      f.s.position.set(f.x, f.y);
     }
   }
 
@@ -1854,15 +1490,4 @@ function animated(frames: PixelArt[]): AnimatedSprite {
   return a;
 }
 
-let dark: Texture | null = null;
-/** One black chunk for everything out of sight. */
-function darkTexture(): Texture {
-  if (dark) return dark;
-  const c = document.createElement('canvas');
-  c.width = c.height = CHUNK * CELL;
-  const g = c.getContext('2d')!;
-  g.fillStyle = '#0b0d14';
-  g.fillRect(0, 0, c.width, c.height);
-  return (dark = Texture.from(c));
-}
 

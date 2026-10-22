@@ -1,4 +1,4 @@
-// The raid board in the isometric look (the Settings switch, iso/isoSetting.ts): the tile tops are the town's people's
+// The raid board in the isometric look (the raid board of the town): the tile tops are the town's people's
 // kit ground tiles and the wall, the gate and the towers on it are the kit's pieces (iso/isoKits.ts). The kit's
 // pictures are loaded by URL the first time they're wanted. With the switch off nothing here is used.
 
