@@ -6,6 +6,30 @@ import { Texture } from 'pixi.js';
 import { loadImage } from '../art/loadImage';
 import { groundTile, kitNameFor, kitOf, kitUrl, pieceFor, type Kit } from '../iso/isoKits';
 import type { Ground } from '../../shared/sim/land';
+import type { TileLook } from '../../shared/sim/raidBoards';
+
+/** The ground tiles the board borrows from a kit whatever the town's people: a hand-made board's looks
+ *  (sim/raidBoards.ts), and water, sand and cliffs on any board (the kits' own four ground tiles differ by people, and
+ *  a settler's dirt tinted blue, sand-yellow or grey read as dark ground, not a river, a dune or a rock face). [kit,
+ *  tile, tint]. */
+const LOOKS: Record<TileLook, [string, string, number]> = {
+  dirt: ['settlers', 'dirt_tile', 0xffffff],
+  field: ['settlers', 'field_tile', 0xffffff],
+  flag: ['dwarves', 'flagstone_tile', 0xffffff],
+  snow: ['moonpack', 'snow_tile', 0xffffff],
+  ice: ['moonpack', 'snow_tile', 0x9cc8ec],
+  mud: ['orcs', 'mud_tile', 0xffffff],
+  plank: ['settlers', 'dirt_tile', 0xc08850],
+};
+const BORROWED: Partial<Record<Ground, [string, string, number]>> = {
+  water: ['merfolk', 'shallow_water_tile', 0x7894cc],
+  shallows: ['merfolk', 'shallow_water_tile', 0xffffff],
+  sand: ['merfolk', 'sand_tile', 0xffffff],
+  mountain: ['dwarves', 'rocky_tile', 0x9a968e],
+};
+/** The props on a hand-made board are the settlers' kit's pieces whatever the town's people (every kit has walls and
+ *  gates, not every one carts and barrels). */
+const PROP_KIT = 'settlers';
 
 export class IsoBoardArt {
   kit: Kit = kitOf('settlers');
@@ -20,8 +44,8 @@ export class IsoBoardArt {
   }
 
   /** A kit piece's picture, null until it has loaded. */
-  image(piece: string): HTMLImageElement | null {
-    const url = kitUrl(this.kit.name, piece);
+  image(piece: string, kit = this.kit.name): HTMLImageElement | null {
+    const url = kitUrl(kit, piece);
     const had = this.images.get(url);
     if (had !== undefined) return had;
     this.images.set(url, null);
@@ -34,10 +58,10 @@ export class IsoBoardArt {
     return null;
   }
 
-  texture(piece: string): Texture | null {
-    const im = this.image(piece);
+  texture(piece: string, kit = this.kit.name): Texture | null {
+    const im = this.image(piece, kit);
     if (!im) return null;
-    const url = kitUrl(this.kit.name, piece);
+    const url = kitUrl(kit, piece);
     let t = this.texs.get(url);
     if (!t) this.texs.set(url, (t = Texture.from(im)));
     return t;
@@ -48,8 +72,19 @@ export class IsoBoardArt {
     return pieceFor(this.kit, def);
   }
 
+  /** A hand-made board's prop (a cart, barrels, a fence...), null while it loads. */
+  prop(piece: string): Texture | null {
+    return this.texture(piece, PROP_KIT);
+  }
+
   /** The ground tile of a board tile and its tint (null while it loads). */
-  top(g: Ground, road: boolean): { im: HTMLImageElement; tint: number; piece: string } | null {
+  top(g: Ground, road: boolean, look?: TileLook): { im: HTMLImageElement; tint: number; piece: string } | null {
+    const lent = look ? LOOKS[look] : road ? undefined : BORROWED[g];
+    if (lent) {
+      const [kit, tile, tint] = lent;
+      const im = this.image(tile, kit);
+      return im ? { im, tint, piece: `${kit}/${tile}` } : null;
+    }
     const gt = groundTile(g, road, false);
     const piece = this.kit.tiles[gt.tile];
     const im = this.image(piece);
