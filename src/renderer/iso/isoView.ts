@@ -91,6 +91,8 @@ export class IsoView {
   private lampEra: Era | null = null;
   private lampHadTex = false;
   private markedKey = '';
+  /** The planned streets last drawn (the land's string: a new one when any cell changes). */
+  private plannedSeen: string | undefined = undefined;
   private highlight: number | null = null;
   private biome: Biome = 'forest';
   /** The cells walls, gates and grates stand on (y * land width + x), for joining them. */
@@ -159,13 +161,35 @@ export class IsoView {
     const land = this.land;
     if (!land) return;
     const key = `${land.w}|${land.marked.join(',')}|${this.highlight}`;
-    if (key === this.markedKey) return;
+    if (key === this.markedKey && land.plannedRoads === this.plannedSeen) return;
     this.markedKey = key;
+    this.plannedSeen = land.plannedRoads;
     const g = this.marks.clear();
     const diamond = (cx: number, cy: number, inset: number) => {
       const p = [tileToIso(cx + inset, cy + inset, this.ox), tileToIso(cx + 1 - inset, cy + inset, this.ox), tileToIso(cx + 1 - inset, cy + 1 - inset, this.ox), tileToIso(cx + inset, cy + 1 - inset, this.ox)];
       return p;
     };
+    // (the streets and paths still to be paved: a faint bed and a dotted line along the way it runs, joining the
+    // cells beside it that are planned or paved)
+    const plan = land.plannedRoads;
+    if (plan)
+      for (let i = plan.indexOf('#'); i >= 0; i = plan.indexOf('#', i + 1)) {
+        const c = cellAt(land, i);
+        g.poly(diamond(c.x, c.y, 0.18).flatMap((q) => [q.x, q.y])).fill({ color: 0xf0e0b0, alpha: 0.16 });
+        const mid = tileToIso(c.x + 0.5, c.y + 0.5, this.ox);
+        g.circle(mid.x, mid.y, 2.6).fill({ color: 0xfff4d0, alpha: 0.85 });
+        for (const [dx, dy] of [[1, 0], [0, 1], [-1, 0], [0, -1]] as const) {
+          const x = c.x + dx, y = c.y + dy;
+          if (x < 0 || y < 0 || x >= land.w || y >= land.h) continue;
+          const j = y * land.w + x;
+          if (plan[j] !== '#' && land.roads[j] !== '#') continue;
+          // (two dots on the way to the neighbour; the far one is drawn by it, if it's planned too)
+          for (const k of [0.25, 0.5]) {
+            const p = tileToIso(c.x + 0.5 + dx * k, c.y + 0.5 + dy * k, this.ox);
+            g.circle(p.x, p.y, 2.2).fill({ color: 0xfff4d0, alpha: 0.85 });
+          }
+        }
+      }
     for (const i of land.marked) {
       const c = cellAt(land, i);
       const p = diamond(c.x, c.y, 0.04);

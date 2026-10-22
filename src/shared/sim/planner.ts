@@ -50,8 +50,8 @@ import { MATERIAL_NAMES, MATERIALS, type Material, type Stock , SEA_MATERIALS } 
 import { FOOD_VALUE } from '../data/people';
 import { RESEARCH_STATIONS, TOPICS, type Topic } from '../data/research';
 import { TERRAIN } from '../data/terrain';
-import { blueprintCount, buildSlots, canPlace, canUpgrade, UNEXPLORED, demolish, depthOf, footprint, footprints, isUnlocked, placeBlueprint, stillNeeded, storages, totalCapacity, totalStock, townRadius, unlockInfo, upgrade, inWork, overgrownCells, refreshOvergrown } from './buildings';
-import { buildable, wet, setGround, type Rect, touchesWater, type Pt, delveDepth, delvePool, doorOf, groundAt, idx, inMap, isMarked, isOpen, overlaps, roadDistance, setMarked, spiralSpot } from './land';
+import { blueprintCount, buildSlots, canPlace, canUpgrade, UNEXPLORED, demolish, depthOf, footprint, footprints, isUnlocked, placeBlueprint, stillNeeded, storages, totalCapacity, totalStock, townRadius, unlockInfo, upgrade, inWork, overgrownCells, refreshOvergrown, NO_ROAD } from './buildings';
+import { buildable, wet, setGround, type Rect, touchesWater, type Pt, delveDepth, delvePool, doorOf, groundAt, idx, inMap, isMarked, isOpen, onPath, overlaps, roadDistance, setMarked, spiralSpot } from './land';
 import { cutInto, QUARRY_ROCK, rockBeside } from './relief';
 import { ROCK_FEW } from '../data/hills';
 import { SHAFT } from '../data/deep';
@@ -710,7 +710,10 @@ function nearestOrder(m: GameState['land'], c: Pt): { cells: Int32Array; d: Floa
 /** Each wild cell a spot would have cleared counts this much against it (a road's step is 1): the town builds on open
  *  ground where it can, and over a wood or rocks rather than walk further out (the owner's ask). */
 export const WILD_SPOT_COST = 1.5;
-export function findSpot(s: GameState, def: BuildingDef): (Pt & { wild?: true }) | null {
+/** A building the player ordered is put with its door on a street, a planned one or a path drawn by hand where it
+ *  can be (the owner's ask), looking up to this many rings further out from the camp for such a spot. */
+export const PATH_LOOK = 4;
+export function findSpot(s: GameState, def: BuildingDef, byPath = false): (Pt & { wild?: true }) | null {
   // (on a land with hills and mountains, sim/relief.ts: a quarry stands only against a face of rock; the shaft to the
   // Deep opens into the rock where a face is near; a few stores, homes and tombs are cut into a cliff)
   const rocky = s.land.relief ? rockKind(def) : null;
@@ -723,7 +726,7 @@ export function findSpot(s: GameState, def: BuildingDef): (Pt & { wild?: true })
     const at = rockSpot(s, def, 'into');
     if (at) return at;
   }
-  const flat = flatSpot(s, def);
+  const flat = flatSpot(s, def, byPath);
   // (no flat ground left for it: into the rock, however many already are)
   return flat ?? (rocky === 'into' ? rockSpot(s, def, 'into') : null);
 }
@@ -781,10 +784,24 @@ const INTO_REACH = 4;
 const QUARRY_REACH = 12;
 
 /** The nearest flat place for a building (the town plan's quarter for it first). */
-function flatSpot(s: GameState, def: BuildingDef): (Pt & { wild?: true }) | null {
+function flatSpot(s: GameState, def: BuildingDef, byPath = false): (Pt & { wild?: true }) | null {
   // (a town with a plan builds in the quarter the building belongs in: sim/layout.ts; else, or with no room there, as before)
   const planned = layoutSpot(s, def);
-  if (planned && canPlace(s, def, planned.x, planned.y, undefined, false, !!planned.wild).ok) return planned;
+  const plannedOk = !!planned && canPlace(s, def, planned.x, planned.y, undefined, false, !!planned.wild).ok;
+  // (the player's order, with its door on a path where it may: the plan's spot if its door is on one, else the nearest
+  // that is, else the plan's spot after all)
+  const pathed = byPath && !NO_ROAD(def);
+  if (planned && plannedOk && (!pathed || onPath(s.land, doorOf({ x: planned.x, y: planned.y, w: def.width, h: depthOf(def) })))) return planned;
+  if (pathed && planned && plannedOk) {
+    const near = spiralFlat(s, def, true);
+    return near && onPath(s.land, doorOf({ x: near.x, y: near.y, w: def.width, h: depthOf(def) })) ? near : planned;
+  }
+  return spiralFlat(s, def, pathed);
+}
+
+/** The nearest flat place out from the camp (or the tribe's home ground), each ring's spots nearest a road first; with
+ *  `pathed`, a spot whose door is on a path first (`PATH_LOOK`). */
+function spiralFlat(s: GameState, def: BuildingDef, pathed: boolean): (Pt & { wild?: true }) | null {
   // (a wandering tribe builds its great works on its home ground)
   const from = buildOrigin(s, def.id) ?? campCell(s);
   const taken = footprints(s);
@@ -805,6 +822,7 @@ function flatSpot(s: GameState, def: BuildingDef): (Pt & { wild?: true }) | null
     // (over the wild too: its trees and rocks are cleared first, sim/buildings.ts `overgrown`)
     wild: true,
     prefer: (rect) => (sea ? (inSea(s.land, rect) ? 0 : SEA_PREFER) : roadDistance(s.land, doorOf(rect))) + (farm ? Math.max(0, 5 - Math.hypot(rect.x + rect.w / 2 - from.x, rect.y + rect.h / 2 - from.y)) * 2 : 0) + wildIn(rect) * WILD_SPOT_COST,
+    ...(pathed ? { beside: (rect: Rect) => onPath(s.land, doorOf(rect)), besideReach: PATH_LOOK } : {}),
   });
   if (!r) return null;
   const wild = wildIn(r) > 0;
@@ -1097,7 +1115,7 @@ function planPins(s: GameState, n: Needs, plan: TownPlan): boolean {
       p.why = `no way to get ${names(missing.length ? missing : (Object.keys(def.cost) as Material[]))} yet`;
       continue;
     }
-    const at = roomKind(s, def) ? roomSpot(s, def) : findSpot(s, def);
+    const at = roomKind(s, def) ? roomSpot(s, def) : findSpot(s, def, true);
     if (!at || !placeBlueprint(s, def.id, at.x, at.y, false, false, 'wild' in at && !!at.wild).ok) {
       // (in the fog: the scouts go and look, sim/explore.ts)
       const fogged = fogRemains(s);

@@ -93,7 +93,7 @@ import type { Bridge, InspectInfo, StripState } from '../shared/ipc';
 import { blueprintCount, buildingCentre, buildingDoor, canPlace, defOf, isUnlocked, type PlaceCheck } from '../shared/sim/buildings';
 import type { PersonView, RaiderView, RoamerView, Snapshot, TravellerView } from '../shared/sim/snapshot';
 import { lineOfDef, venueOfDef } from '../shared/data/shop';
-import { storePanel, type PanelId } from '../shared/ipc';
+import { DRAW_PATH, storePanel, type PanelId } from '../shared/ipc';
 /** The window a venue's building opens (the shop, the tavern, or a specialty shop's). */
 /** The hours the gates stand shut (map/mapView.ts `gatesShut`). */
 const GATES_SHUT_FROM = 21;
@@ -176,7 +176,8 @@ import { bleedLeft } from '../shared/format';
 import { poolSize } from '../shared/sim/state';
 import { hashSeed } from '../shared/rng';
 import { MARK_CLEAR_CAP } from '../shared/sim/commands';
-import { CELL, cellAt, groundAt, idx, isMarked, isRoad, wet, WILD } from '../shared/sim/land';
+import { CELL, cellAt, groundAt, idx, isMarked, isPlannedRoad, isRoad, wet, WILD } from '../shared/sim/land';
+import { PATH_CAP, pathLine } from '../shared/sim/pathPlans';
 import { loadCreatures } from './art/creatures';
 import { loadEffects } from './art/effects';
 import { loadStills } from './art/stills';
@@ -703,6 +704,7 @@ async function start(): Promise<void> {
   clearButton.textContent = '⛏';
   clearButton.addEventListener('click', (e) => {
     e.stopPropagation();
+    if (drawing) endDraw(true);
     clearing = !clearing;
     sweep = null;
     clearButton.classList.toggle('on', clearing);
@@ -718,6 +720,88 @@ async function start(): Promise<void> {
     }
   });
   document.body.append(clearButton);
+  // (Draw a path (the owner's ask): while it's on, a drag lays a path's blueprint cell by cell, a tap lays a straight
+  //  run from the last cell laid, and a tap on a cell of blueprint lifts it. Each stretch is sent as a `drawPath` as the
+  //  finger goes, so the ghost shows under it; Cancel takes back what this go laid and lifted, Done keeps it.)
+  let drawing = false;
+  let stroke: { id: number; on: boolean; last: { x: number; y: number }; lastCell: number | null; moved: boolean } | null = null;
+  /** The last cell laid, for a tap's straight run; what this go laid and lifted, for Cancel. */
+  let anchor: number | null = null;
+  const laid = new Set<number>();
+  const lifted = new Set<number>();
+  const pathButton = document.createElement('button');
+  pathButton.id = 'draw-path';
+  pathButton.setAttribute('data-hit', '');
+  pathButton.title = 'Draw a path';
+  pathButton.setAttribute('aria-label', 'Draw a path');
+  pathButton.textContent = '⛙';
+  const startDraw = () => {
+    if (drawing) return;
+    if (clearing) clearButton.click();
+    if (placing) stopPlacing();
+    drawing = true;
+    stroke = null;
+    anchor = null;
+    laid.clear();
+    lifted.clear();
+    pathButton.classList.add('on');
+    banner.show('Drawing a path', 'Drag to lay it · tap its cells to lift them', () => endDraw(true));
+  };
+  /** Out of the mode: kept (Done), or what this go changed taken back (Cancel). */
+  const endDraw = (keep: boolean) => {
+    if (!drawing) return;
+    drawing = false;
+    stroke = null;
+    pathButton.classList.remove('on');
+    setHighlight(null);
+    banner.hide();
+    if (!keep) {
+      const back = [...laid].filter((i) => !lifted.has(i));
+      const again = [...lifted].filter((i) => !laid.has(i));
+      for (let k = 0; k < back.length; k += PATH_CAP) bridge.command({ type: 'drawPath', cells: back.slice(k, k + PATH_CAP), on: false });
+      for (let k = 0; k < again.length; k += PATH_CAP) bridge.command({ type: 'drawPath', cells: again.slice(k, k + PATH_CAP), on: true });
+    }
+    laid.clear();
+    lifted.clear();
+  };
+  pathButton.addEventListener('click', (e) => {
+    e.stopPropagation();
+    if (drawing) endDraw(true);
+    else startDraw();
+  });
+  document.body.append(pathButton);
+  /** The cell under a screen point (null off the land). */
+  const cellUnder = (sx: number, sy: number) => {
+    const w = map.worldOf(sx, sy);
+    return map.cellAt(w.x, w.y);
+  };
+  const plannedAt = (i: number) => isPlannedRoad(snap.land, i % snap.land.w, Math.floor(i / snap.land.w));
+  /** Lay (or lift) these cells now. */
+  const sendPath = (cells: number[], on: boolean) => {
+    const fresh = cells.filter((i) => (on ? !plannedAt(i) && !isRoad(snap.land, i % snap.land.w, Math.floor(i / snap.land.w)) : plannedAt(i)));
+    if (!fresh.length) return;
+    for (const i of fresh) (on ? laid : lifted).add(i);
+    bridge.command({ type: 'drawPath', cells: fresh.slice(0, PATH_CAP), on });
+  };
+  /** The cells from one to another, edge to edge (a straight run along the grid). */
+  const runOf = (a: number, b: number) => {
+    const w = snap.land.w;
+    return pathLine({ x: a % w, y: Math.floor(a / w) }, { x: b % w, y: Math.floor(b / w) }).map((p) => p.y * w + p.x);
+  };
+  /** A finger moving in Draw a path: each new cell under it joins the last along an edge. */
+  const strokeOver = (sx: number, sy: number) => {
+    if (!stroke) return;
+    const cell = cellUnder(sx, sy);
+    stroke.last = { x: sx, y: sy };
+    setHighlight(cell);
+    if (cell === null || cell === stroke.lastCell) return;
+    // (the cell first pressed goes down with the first step)
+    const run = stroke.lastCell === null ? [cell] : runOf(stroke.lastCell, cell).slice(stroke.moved ? 1 : 0);
+    stroke.moved = true;
+    stroke.lastCell = cell;
+    sendPath(run, stroke.on);
+    if (stroke.on) anchor = cell;
+  };
   camera.centreOn(first.camp, app.screen.width, app.screen.height); // (a nomad tribe's camp may be away on its pasture)
 
   /** The expedition shown in the split view: the most recently sent one. */
@@ -808,7 +892,8 @@ async function start(): Promise<void> {
   let placing: { def: BuildingDef; x: number; y: number; check: PlaceCheck } | null = null;
 
   const banner = createBanner(() => {
-    if (clearing) clearButton.click();
+    if (drawing) endDraw(false);
+    else if (clearing) clearButton.click();
     else stopPlacing();
   });
 
@@ -1448,6 +1533,8 @@ async function start(): Promise<void> {
   };
 
   const startPlacing = (defId: string) => {
+    if (defId === DRAW_PATH) return startDraw(); // (the build menu's Draw a path)
+    if (drawing) endDraw(true);
     const def = BUILDING_BY_ID[defId];
     if (!def) return;
     select(null);
@@ -1641,11 +1728,20 @@ async function start(): Promise<void> {
         if (camera.dragging) camera.endDrag(e.timeStamp);
         press = null;
         sweep = null;
+        stroke = null;
         pinchFrom = Math.max(20, spread());
         bridge.pinch('start', pinchFrom, ...between());
         return;
       }
       if (pinchFrom !== null || afterPinch) return;
+    }
+    if (drawing && e.button === 0 && !stroke) {
+      // (a press on a cell of blueprint lifts; anywhere else lays)
+      const cell = cellUnder(e.clientX, e.clientY);
+      stroke = { id: e.pointerId, on: cell === null || !plannedAt(cell), last: { x: e.clientX, y: e.clientY }, lastCell: cell, moved: false };
+      setHighlight(cell);
+      canvas.setPointerCapture(e.pointerId);
+      return;
     }
     if (clearing && !placing && e.button === 0 && !sweep) {
       const cell = clearCellAt(e.clientX, e.clientY, (c) => wildCell(c) || isMarked(snap.land, c));
@@ -1682,6 +1778,7 @@ async function start(): Promise<void> {
       boardPress.ly = e.clientY;
       return;
     }
+    if (stroke && e.pointerId === stroke.id) return strokeOver(e.clientX, e.clientY);
     if (sweep && e.pointerId === sweep.id) return sweepOver(e.clientX, e.clientY);
     if (battle.aiming) battle.lastAim = battle.toMap(e.clientX, e.clientY);
     if (touches.has(e.pointerId)) {
@@ -1713,6 +1810,24 @@ async function start(): Promise<void> {
       afterPinch = true;
     }
     if (touches.size === 0) afterPinch = false;
+    if (stroke && e.pointerId === stroke.id) {
+      const done = stroke;
+      stroke = null;
+      if (canvas.hasPointerCapture(e.pointerId)) canvas.releasePointerCapture(e.pointerId);
+      setHighlight(null);
+      const cell = done.lastCell;
+      // (a tap: on a cell of blueprint, it's lifted; elsewhere a straight run from the last cell laid, or the one cell)
+      if (!done.moved && e.type === 'pointerup' && cell !== null) {
+        if (!done.on) {
+          sendPath([cell], false);
+          if (anchor === cell) anchor = null;
+        } else {
+          sendPath(anchor !== null && anchor !== cell ? runOf(anchor, cell) : [cell], true);
+          anchor = cell;
+        }
+      } else if (done.moved && done.on && done.lastCell !== null) anchor = done.lastCell;
+      return;
+    }
     if (sweep && e.pointerId === sweep.id) {
       const done = sweep;
       sweep = null;

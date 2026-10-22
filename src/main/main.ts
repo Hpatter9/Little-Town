@@ -1,7 +1,7 @@
 import { app, BrowserWindow, ipcMain, Menu, nativeImage, powerMonitor, screen, shell, Tray, type Display, type MenuItemConstructorOptions } from 'electron';
 import path from 'node:path';
 import { PANEL_HEIGHT, PANEL_WIDTH, STRIP_HEIGHT, TICKER_HEIGHT } from '../shared/constants';
-import { IPC, PANEL_IDS, type PanelId, type StripMode, type StripState } from '../shared/ipc';
+import { DRAW_PATH, IPC, PANEL_IDS, type PanelId, type StripMode, type StripState } from '../shared/ipc';
 import { Worker } from 'node:worker_threads';
 import { BUILDING_BY_ID } from '../shared/data/buildings';
 import { parseCommand } from '../shared/sim/commands';
@@ -378,7 +378,7 @@ ipcMain.on(IPC.newGame, (e, raw: unknown) => {
   void newSeed(raw);
 });
 ipcMain.on(IPC.startPlacement, (_e, defId: unknown) => {
-  if (typeof defId !== 'string' || !BUILDING_BY_ID[defId]) return;
+  if (typeof defId !== 'string' || (!BUILDING_BY_ID[defId] && defId !== DRAW_PATH)) return;
   setPanel(null); // get the panel out of the way so the strip can be clicked
   if (settings.mode !== 'full') setMode('full');
   if (alive(strip)) strip.webContents.send(IPC.placement, defId);
