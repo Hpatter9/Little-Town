@@ -19,6 +19,7 @@ import { JOBS, type Job, type Priority } from '../data/people';
 import { TOPIC_BY_ID } from '../data/research';
 import { cleanName } from './naming';
 import { DIRECTIONS, type Direction } from './planner';
+import { PATH_CAP } from './pathPlans';
 
 export type MusterOp = 'raise' | 'add' | 'drop' | 'lead' | 'persuade' | 'order' | 'set' | 'send' | 'cancel';
 const MUSTER_OPS: readonly MusterOp[] = ['raise', 'add', 'drop', 'lead', 'persuade', 'order', 'set', 'send', 'cancel'];
@@ -42,6 +43,8 @@ export type Command =
   /** Mark a wild cell of the land for gathering (clearing it), or unmark it. */
   | { type: 'toggleGather'; cell: number }
   | { type: 'markClear'; cells: number[]; on: boolean }
+  /** Lay (on) or lift a path's blueprint over cells drawn on the map (sim/pathPlans.ts). */
+  | { type: 'drawPath'; cells: number[]; on: boolean }
   /** Place a blueprint with its top-left cell at (x, y). */
   | { type: 'placeBuilding'; def: string; x: number; y: number }
   /** Cancel a blueprint or demolish a finished building. */
@@ -215,6 +218,8 @@ export function parseCommand(raw: unknown): Command | null {
       return Number.isInteger(c.cell) ? { type: 'toggleGather', cell: c.cell as number } : null;
     case 'markClear':
       return Array.isArray(c.cells) && typeof c.on === 'boolean' && c.cells.length <= MARK_CLEAR_CAP && c.cells.every((q) => Number.isInteger(q)) ? { type: 'markClear', cells: c.cells as number[], on: c.on } : null;
+    case 'drawPath':
+      return Array.isArray(c.cells) && typeof c.on === 'boolean' && c.cells.length <= PATH_CAP && c.cells.every((q) => Number.isInteger(q)) ? { type: 'drawPath', cells: c.cells as number[], on: c.on } : null;
     case 'placeBuilding':
       return typeof c.def === 'string' && BUILDING_BY_ID[c.def] && Number.isInteger(c.x) && Number.isInteger(c.y) ? { type: 'placeBuilding', def: c.def, x: c.x as number, y: c.y as number } : null;
     case 'demolish':

@@ -19,7 +19,7 @@ import { eraOfResearch, TOPIC_BY_ID } from '../../shared/data/research';
 import { PINS_MOST } from '../../shared/sim/pins';
 import { isRingPiece, WALL_KINDS } from '../../shared/sim/ringWall';
 import { BUILD_TABS, tabOf, whyOf, type BuildTab } from './buildKinds';
-import type { Bridge } from '../../shared/ipc';
+import { DRAW_PATH, type Bridge } from '../../shared/ipc';
 import type { Command } from '../../shared/sim/commands';
 import { DIRECTION_DEFS, DIRECTIONS } from '../../shared/sim/planner';
 import { isUnlocked } from '../../shared/sim/buildings';
@@ -268,6 +268,8 @@ interface Row {
   /** Orders already at their most: the row can't take another. */
   full?: boolean;
   order: Command;
+  /** A row that starts something on the map in place of an order (Draw a path), with its button's word. */
+  act?: { label: string; go: (bridge: Bridge | undefined) => void };
   more: () => More[];
 }
 
@@ -314,6 +316,7 @@ function buildRows(s: Snapshot): (Row & { tab: BuildTab })[] {
   rows.push(
     { tab: 'Defence', key: 'bld:ring', icon: WALL_KINDS[0], name: wall, cost: BUILDING_BY_ID[WALL_KINDS[0]].cost, ordered: s.ringOrdered, order: { type: 'orderRing' }, more: () => ['A wall round the town with gates where the roads cross: raiders have to break it. The town picks the line and works it until it stands. Worth widening once the space inside is mostly built on.'] },
     { tab: 'Town', key: 'bld:streets', icon: null, name: 'Lay the streets', cost: {}, ordered: s.streetsOrdered, order: { type: 'orderStreets' }, more: () => ['Paves the paths folk have worn, and a road to each gate of the wall.'] },
+    { tab: 'Town', key: 'bld:path', icon: null, name: 'Draw a path', cost: {}, ordered: false, order: { type: 'orderStreets' }, act: { label: 'Draw', go: (b) => b?.startPlacement(DRAW_PATH) }, more: () => ['Drag across the map to lay a path where you want it; tap a cell of it to lift it. The builders pave it as they pave the streets, a bridge over a river taking wood. New buildings are put beside a path where they can be.'] },
   );
   return rows;
 }
@@ -335,7 +338,7 @@ function buildRow(row: Row, s: Snapshot, bridge: Bridge | undefined): HTMLElemen
   main.append(row.icon ? thumb(row.icon, 28, s) : el('span', 'thumb-gap'));
   const text = el('div', 'brow-text');
   text.append(el('div', 'card-name', row.name), costLine(s, row.cost));
-  main.append(text, button(row.ordered ? 'Ordered' : 'Build', () => bridge?.command(row.order), { cls: 'place small', disabled: row.ordered || !!row.full }));
+  main.append(text, row.act ? button(row.act.label, () => row.act!.go(bridge), { cls: 'place small' }) : button(row.ordered ? 'Ordered' : 'Build', () => bridge?.command(row.order), { cls: 'place small', disabled: row.ordered || !!row.full }));
   c.append(main);
   return expandable(c, row.key, row.more);
 }

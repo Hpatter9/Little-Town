@@ -107,7 +107,8 @@ export interface Bridge {
   /** Subscribe to state changes. Returns an unsubscribe function. */
   onState(cb: (s: StripState) => void): () => void;
 
-  /** From the Build panel: close the panel and start placing a building on the strip. */
+  /** From the Build panel: close the panel and start placing a building on the strip (or, with `DRAW_PATH`, start
+   *  drawing a path). */
   startPlacement(defId: string): void;
   /** Strip: a placement was requested. */
   onPlacement(cb: (defId: string) => void): () => void;
@@ -174,3 +175,6 @@ export interface SnapMessage {
   full?: Snapshot;
   d?: SnapDelta;
 }
+
+/** The `startPlacement` id that starts the Draw a path mode on the strip (not a building). */
+export const DRAW_PATH = '@path';

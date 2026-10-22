@@ -556,13 +556,20 @@ export function doorFree(m: LandMap, r: Rect, taken: readonly Rect[], water = fa
 
 /** The nearest place out from `from` for a w by h footprint: rings outward, each ring's spots sorted by `prefer`
  *  (lower first; nearer a road, say). `inside`: it must lie within this rectangle; `avoid`: and clear of this one;
- *  `ok`: and pass this test; `door: false`: its door cell needn't be free (a castle's room). Null if there's none
- *  within `maxR` rings. */
-export function spiralSpot(m: LandMap, w: number, h: number, taken: readonly Rect[], from: Pt, opts: { maxR?: number; inside?: Rect; avoid?: Rect; prefer?: (r: Rect) => number; roads?: boolean; ok?: (r: Rect) => boolean; door?: boolean; carve?: boolean; water?: boolean; wild?: boolean } = {}): Rect | null {
+ *  `ok`: and pass this test; `door: false`: its door cell needn't be free (a castle's room). `beside`: a spot that
+ *  passes it is wanted (a door on a path): it comes first in its ring, and up to `besideReach` rings further out are
+ *  looked at for one before the nearest spot is taken anyway. Null if there's none within `maxR` rings. */
+export function spiralSpot(m: LandMap, w: number, h: number, taken: readonly Rect[], from: Pt, opts: { maxR?: number; inside?: Rect; avoid?: Rect; prefer?: (r: Rect) => number; roads?: boolean; ok?: (r: Rect) => boolean; door?: boolean; carve?: boolean; water?: boolean; wild?: boolean; beside?: (r: Rect) => boolean; besideReach?: number } = {}): Rect | null {
   const maxR = opts.maxR ?? m.open + 2;
+  /** The nearest spot found, held while the rings just beyond are looked at for one `beside`. */
+  let first: Rect | null = null;
+  let firstR = 0;
   for (let r = 0; r <= maxR; r++) {
+    if (first && r > firstR + (opts.besideReach ?? 0)) return first;
     let best: Rect | null = null;
     let bestScore = Infinity;
+    let near: Rect | null = null;
+    let nearScore = Infinity;
     for (const c of ringCells(from.x, from.y, r)) {
       const rect = { x: c.x - Math.floor(w / 2), y: c.y - Math.floor(h / 2), w, h };
       if (opts.inside && !(rect.x >= opts.inside.x && rect.y >= opts.inside.y && rect.x + w <= opts.inside.x + opts.inside.w && rect.y + h <= opts.inside.y + opts.inside.h)) continue;
@@ -570,14 +577,30 @@ export function spiralSpot(m: LandMap, w: number, h: number, taken: readonly Rec
       if (!fits(m, rect, taken, { roads: opts.roads, carve: opts.carve, water: opts.water, wild: opts.wild }) || (opts.door !== false && !doorFree(m, rect, taken, opts.water))) continue;
       if (opts.ok && !opts.ok(rect)) continue;
       const score = opts.prefer ? opts.prefer(rect) : 0;
-      if (score < bestScore) {
+      if (opts.beside && opts.beside(rect)) {
+        if (score < nearScore) {
+          nearScore = score;
+          near = rect;
+        }
+      } else if (score < bestScore) {
         bestScore = score;
         best = rect;
       }
     }
-    if (best) return best;
+    if (near) return near;
+    if (best && !opts.beside) return best;
+    if (best && !first) {
+      first = best;
+      firstR = r;
+    }
   }
-  return null;
+  return first;
+}
+
+/** Whether a cell is a street or a planned one, or has one beside it along an edge (a door on the path). */
+export function onPath(m: LandMap, p: Pt): boolean {
+  if (isRoad(m, p.x, p.y) || isPlannedRoad(m, p.x, p.y)) return true;
+  return [[1, 0], [-1, 0], [0, 1], [0, -1]].some(([dx, dy]) => isRoad(m, p.x + dx, p.y + dy) || isPlannedRoad(m, p.x + dx, p.y + dy));
 }
 
 /** Chessboard distance from a cell to the nearest road (up to `max`), for laying buildings along the roads. */

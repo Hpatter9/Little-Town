@@ -6,6 +6,7 @@ import { CONQUEST } from '../data/conquest';
 import { tacticsOrder } from './tactics';
 import { regrowHourly } from './regrow';
 import { streetsHourly } from './streets';
+import { drawPath } from './pathPlans';
 import { roamersTick, skirmishTrip } from './roamers';
 import { strays } from './strays';
 import { skiesHourly, skiesTick } from './skies';
@@ -760,6 +761,9 @@ export class Sim {
         setMarked(s.land, c.cell, !isMarked(s.land, c.cell));
         break;
       }
+      case 'drawPath':
+        drawPath(s, c.cells, c.on);
+        break;
       case 'markClear': {
         // (a drag's worth: only wild cells with something to gather can be marked; any can be unmarked)
         for (const i of c.cells.slice(0, MARK_CLEAR_CAP)) {

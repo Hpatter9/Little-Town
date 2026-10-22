@@ -357,7 +357,7 @@ export function cellCleared(s: Pick<GameState, 'land' | 'buildings'>, x: number,
 }
 
 /** Kinds that get no road of their own (the road runs past the fields, not into them). */
-const NO_ROAD = (def: BuildingDef) => !!CROPS[def.id] || !!HERDS[def.id] || (!!def.hp && !def.housing) || !!def.defense || def.id === 'campfire';
+export const NO_ROAD = (def: BuildingDef) => !!CROPS[def.id] || !!HERDS[def.id] || (!!def.hp && !def.housing) || !!def.defense || def.id === 'campfire';
 
 /** Lay a road from a building's door to the nearest road, or to the camp (the first road of all runs to the fire):
  *  the cheapest way over open buildable ground, round every footprint. Up to `ROAD_REACH` cells. */
