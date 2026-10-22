@@ -3,10 +3,11 @@
 // committed file is what this makes of the committed project, so the two can't drift apart.
 //
 // It reads each level's Terrain and Height IntGrid layers by their values' identifiers (so the values may be reordered
-// in the editor) and its Things layer's entities by their identifiers and `kind` / `line` / `way` fields; the board's
-// name, lands and raid kinds are the level's fields.
+// in the editor), its Things layer's entities by their identifiers and `kind` / `line` / `way` fields, and its Decor
+// layer's (the dressing, nothing the rules see) by their `kind`; the board's name, lands and raid kinds are the level's
+// fields.
 
-import { BOARD_GROUNDS, COVER_KINDS, PROP_KINDS, type BoardThing, type RaidBoardDef } from '../src/shared/sim/raidBoards';
+import { BOARD_GROUNDS, COVER_KINDS, DECOR_KINDS, PROP_KINDS, type BoardThing, type DecorKind, type RaidBoardDef } from '../src/shared/sim/raidBoards';
 import { BIOMES, type Biome } from '../src/shared/data/biomes';
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
@@ -69,8 +70,17 @@ export function boardsFromLdtk(project: Json): RaidBoardDef[] {
       } else throw new Error(`${where}: unknown entity ${e.__identifier}`);
       things.push([u, v, what as BoardThing]);
     }
+    const decor: [number, number, DecorKind][] = [];
+    for (const e of layer('Decor').entityInstances) {
+      const [u, v] = e.__grid as [number, number];
+      const what = e.fieldInstances.find((x: Json) => x.__identifier === 'kind')?.__value;
+      if (e.__identifier !== 'Decor' || !(DECOR_KINDS as readonly string[]).includes(what)) throw new Error(`${where}: ${e.__identifier} of unknown kind "${what}" at ${u},${v}`);
+      decor.push([u, v, what]);
+    }
     // (in reading order, so the file doesn't change when the editor saves its entities in another order)
-    things.sort((a, b) => a[1] - b[1] || a[0] - b[0] || (a[2] < b[2] ? -1 : a[2] > b[2] ? 1 : 0));
+    const order = (a: [number, number, string], b: [number, number, string]) => a[1] - b[1] || a[0] - b[0] || (a[2] < b[2] ? -1 : a[2] > b[2] ? 1 : 0);
+    things.sort(order);
+    decor.sort(order);
     const biomes = (field('biomes') ?? []) as string[];
     for (const b of biomes) if (!(BIOMES as readonly string[]).includes(b)) throw new Error(`${where}: unknown land "${b}"`);
     return {
@@ -84,6 +94,7 @@ export function boardsFromLdtk(project: Json): RaidBoardDef[] {
       ground,
       height,
       things,
+      decor,
     };
   });
 }
@@ -117,6 +128,9 @@ export function boardsSource(boards: RaidBoardDef[]): string {
     out.push('    ],');
     out.push('    things: [');
     for (const [u, v, what] of b.things) out.push(`      [${u}, ${v}, ${q(what)}],`);
+    out.push('    ],');
+    out.push('    decor: [');
+    for (const [u, v, what] of b.decor) out.push(`      [${u}, ${v}, ${q(what)}],`);
     out.push('    ],');
     out.push('  },');
   }

@@ -2,7 +2,7 @@
 // kit ground tiles and the wall, the gate and the towers on it are the kit's pieces (iso/isoKits.ts). The kit's
 // pictures are loaded by URL the first time they're wanted. With the switch off nothing here is used.
 
-import { Texture } from 'pixi.js';
+import { Rectangle, Texture } from 'pixi.js';
 import { loadImage } from '../art/loadImage';
 import { groundTile, kitNameFor, kitOf, kitUrl, pieceFor, type Kit } from '../iso/isoKits';
 import type { Ground } from '../../shared/sim/land';
@@ -72,9 +72,29 @@ export class IsoBoardArt {
     return pieceFor(this.kit, def);
   }
 
-  /** A hand-made board's prop (a cart, barrels, a fence...), null while it loads. */
+  /** A hand-made board's prop (a cart, barrels, a fence...: the settlers' kit's, or `kit/piece`), null while it loads. */
   prop(piece: string): Texture | null {
-    return this.texture(piece, PROP_KIT);
+    return this.art(piece.includes('/') ? piece : `${PROP_KIT}/${piece}`);
+  }
+
+  /** Any kit's piece as `kit/piece` (the land's trees and rocks, the dressing in `wild/`), null while it loads. */
+  art(kitPiece: string): Texture | null {
+    const k = kitPiece.indexOf('/');
+    return this.texture(kitPiece.slice(k + 1), kitPiece.slice(0, k));
+  }
+
+  private readonly halves = new Map<string, Texture>();
+  /** The left ('a') or right ('b') half of a picture (a run's corner is a half piece toward each neighbour). */
+  half(tex: Texture, side: 'a' | 'b'): Texture {
+    const key = `${tex.uid}:${side}`;
+    let t = this.halves.get(key);
+    if (!t) {
+      const f = tex.frame;
+      const w = Math.floor(f.width / 2);
+      t = new Texture({ source: tex.source, frame: new Rectangle(side === 'a' ? f.x : f.x + w, f.y, side === 'a' ? w : f.width - w, f.height) });
+      this.halves.set(key, t);
+    }
+    return t;
   }
 
   /** The ground tile of a board tile and its tint (null while it loads). */

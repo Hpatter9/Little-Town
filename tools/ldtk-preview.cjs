@@ -88,6 +88,12 @@ const CELL = 20;
               g.stroke();
             }
           }
+        // (the dressing under the things, a little smaller: nothing the fight sees)
+        for (const e of L('Decor')?.entityInstances ?? []) {
+          const [u, v] = e.__grid;
+          const t = e.__tile;
+          if (t) g.drawImage(im, t.x, t.y, t.w, t.h, u * CELL + CELL / 6, v * CELL + CELL / 6, (CELL * 2) / 3, (CELL * 2) / 3);
+        }
         for (const e of L('Things').entityInstances) {
           const [u, v] = e.__grid;
           const t = e.__tile;
