@@ -59,9 +59,9 @@ Checked in a phone-size preview (393x852): the clock stood still with an event u
   question, the gate's, and a debrief (closing that is reading it).
 - The button: `mobile/waitingChoices.ts` (`#choices-bubble`, "❓ N", under the news bubble) opens the oldest parked choice
   (`openPrompt`). The desktop strip has its own small "N choices waiting" button (`overlayUi.ts`, `PromptCard.waiting`).
-  `PromptView.parked` / `pinned` carry it to the renderer.
+  `PromptView.parked` / `waits` carry it to the renderer.
 - **Founder choices:** a question with `Prompt.waits` (founder quests, disputes, duels, deals: main's `waitingOnFounder`) holds the town until answered even when closed, never times out, and the card says so
   ("The town waits for your answer"); its button is red. Nothing in main sets it yet: the founder-led quests (not on main) should set
   it on their questions. There is no heir-choice question on main (the founder's death with no heir is `gameOver`), so nothing to do there.
-- Tests: park/open/auto-resolve/pinned/not-parkable in `test/popups.test.ts`. Phone preview (393x852, 852x393): the ✕ closes the box, the clock runs
+- Tests: park/open/auto-resolve/waits/not-parkable in `test/popups.test.ts`. Phone preview (393x852, 852x393): the ✕ closes the box, the clock runs
   on, the "❓ 1" button reopens it, and the clock stands still while the box is up.
