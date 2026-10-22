@@ -6,7 +6,9 @@
 
 import type { Slot } from '../../shared/data/items';
 import type { OriginId } from '../../shared/data/origins';
+import type { LifeStage } from '../../shared/sim/ageing';
 import type { Look } from '../../shared/data/people';
+import { CHILD_SCALE } from '../iso/folkRules';
 import { recolour } from '../iso/folkTint';
 import { folkWho } from '../iso/folkWho';
 import { loadImage } from './loadImage';
@@ -17,6 +19,9 @@ export interface PortraitWho {
   origin?: OriginId;
   look: Look;
   gear: Partial<Record<Slot, string>>;
+  /** A child wears a child's look and stands shorter (iso/folkRules.ts). */
+  lifeStage?: LifeStage;
+  growsUpIn?: number | null;
 }
 
 /** A look's south-facing standing frame, tight to the figure. */
@@ -96,7 +101,7 @@ export interface PortraitOpts {
 }
 
 /** Draw a figure into `c` (cleared first), by mode. */
-export function paintFigure(c: HTMLCanvasElement, f: FolkFigure, o: Pick<PortraitOpts, 'mode' | 'grey'>): void {
+export function paintFigure(c: HTMLCanvasElement, f: FolkFigure, o: Pick<PortraitOpts, 'mode' | 'grey'> & { child?: boolean }): void {
   const g = c.getContext('2d')!;
   g.clearRect(0, 0, c.width, c.height);
   g.imageSmoothingEnabled = false;
@@ -108,7 +113,7 @@ export function paintFigure(c: HTMLCanvasElement, f: FolkFigure, o: Pick<Portrai
     g.drawImage(f.canvas, sx, 0, side, side, 0, 0, c.width, c.height);
   } else {
     // (in quarter steps, so the pixels stay square and even)
-    const k = Math.max(0.25, Math.floor(Math.min((c.width * 0.9) / f.w, (c.height * 0.94) / f.h) * 4) / 4);
+    const k = Math.max(0.25, Math.floor(Math.min((c.width * 0.9) / f.w, (c.height * 0.94) / f.h) * 4) / 4) * (o.child ? CHILD_SCALE : 1);
     const w = Math.round(f.w * k), h = Math.round(f.h * k);
     g.drawImage(f.canvas, Math.round((c.width - w) / 2), c.height - h - Math.round(c.height * 0.03), w, h);
   }
@@ -123,7 +128,7 @@ export function paintPortrait(c: HTMLCanvasElement, who: PortraitWho, o: Portrai
   const now = (): boolean => {
     const f = folkFigure(w.path, w.variant);
     if (!f) return false;
-    paintFigure(c, f, o);
+    paintFigure(c, f, { ...o, child: w.child });
     return true;
   };
   if (now()) return;
@@ -165,9 +170,9 @@ export function drawFigureAt(g: CanvasRenderingContext2D, f: FolkFigure, cx: num
 /** The townsfolk as of the last snapshot (panel.ts, main.ts: `folkKnow`), so a view that has only someone's id and
  *  look (a party member, a shop's keeper) wears the look the map gives them. */
 const known = new Map<number, PortraitWho>();
-export function folkKnow(people: { id: number; origin?: OriginId; look: Look; gear: Partial<Record<Slot, string>> }[]): void {
+export function folkKnow(people: { id: number; origin?: OriginId; look: Look; gear: Partial<Record<Slot, string>>; lifeStage?: LifeStage; growsUpIn?: number | null }[]): void {
   known.clear();
-  for (const p of people) known.set(p.id, { id: p.id, origin: p.origin, look: p.look, gear: p.gear });
+  for (const p of people) known.set(p.id, { id: p.id, origin: p.origin, look: p.look, gear: p.gear, lifeStage: p.lifeStage, growsUpIn: p.growsUpIn });
 }
 /** Someone by their id (with the gear given, which may be what they carry); a stranger is a settler in plain dress. */
 export function folkWhoById(id: number, look: Look, gear?: Partial<Record<Slot, string>>, origin?: OriginId): PortraitWho {

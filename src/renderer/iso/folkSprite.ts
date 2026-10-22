@@ -7,7 +7,7 @@ import { Container, Sprite, type Texture } from 'pixi.js';
 import { ITEM_BY_ID } from '../../shared/data/items';
 import { loadFolkSet, type FolkSet } from './folkLoader';
 import {
-  armedSuffix, facingFromVector, frameAt, isFighting, lookPath, play, wantedAnim, type FolkDir, type FolkPlay, type FolkState,
+  CHILD_SCALE, armedSuffix, facingFromVector, frameAt, isFighting, lookPath, play, wantedAnim, type FolkDir, type FolkPlay, type FolkState,
 } from './folkRules';
 import { folkWho } from './folkWho';
 
@@ -70,6 +70,7 @@ export class FolkSprite extends Container {
     const bare = lookPath(pick, null);
     const wanted = lookPath(pick, suffix);
     const variant = who.variant;
+    this.sprite.scale.set(who.child ? CHILD_SCALE : 1);
     this.ensure(bare, wanted, variant);
 
     // an armed look that isn't here (yet) is the bare one
