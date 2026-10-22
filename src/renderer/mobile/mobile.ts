@@ -173,6 +173,10 @@ function layout(): void {
   }
   document.documentElement.style.setProperty('--strip-h', `${height * z}px`);
   strip.contentDocument?.documentElement?.style.setProperty('--ui-zoom', String(1 / z));
+  // (sideways the title bar floats over the strip's top: how far, in the page's px, so the strip's banner (Clearing land,
+  // Drawing a path) hangs below it and its words and Done can be read)
+  const over = Math.max(0, $('top').getBoundingClientRect().bottom - strip.getBoundingClientRect().top);
+  strip.contentDocument?.documentElement?.style.setProperty('--top-over', `${sideways.matches ? Math.round(over) : 0}px`);
   // (the news bubble carries the news: the strip's own pop-up notices would only repeat them, so it pops only the
   // day's small change; the class keeps its old name)
   strip.contentDocument?.body?.classList.toggle('feed-shown', !battleOn);

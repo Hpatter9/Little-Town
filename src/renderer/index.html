@@ -273,6 +273,10 @@
       #clear-land.on {
         background: #8a6a20;
         border-color: #ffe080;
+        color: #fff4c8;
+        outline: 2px solid #ffe080;
+        outline-offset: 1px;
+        box-shadow: 0 0 10px 2px rgba(255, 210, 90, 0.75);
       }
       /* Draw a path (main.ts): above Clear land; lit while the mode is on */
       #draw-path {
@@ -295,6 +299,10 @@
       #draw-path.on {
         background: #8a6a20;
         border-color: #ffe080;
+        color: #fff4c8;
+        outline: 2px solid #ffe080;
+        outline-offset: 1px;
+        box-shadow: 0 0 10px 2px rgba(255, 210, 90, 0.75);
       }
       body.in-battle #draw-path,
       body.in-fight #draw-path,
@@ -1728,6 +1736,11 @@
       body.embedded #prompt,
       body.embedded #banner {
         top: 8px;
+      }
+      /* (sideways the phone's title bar lies over the strip's top: the banner hangs below it; --top-over is in the
+         page's px and the banner's zoom is 1 / the strip's scale, so it lands right: mobile.ts layout) */
+      body.embedded #banner {
+        top: calc(var(--top-over, 0px) + 8px);
       }
       /* (notices go to the bottom corner, clear of a question card at the top: they fade in a few seconds) */
       body.embedded #toasts {

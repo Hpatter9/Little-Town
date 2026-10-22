@@ -10,8 +10,8 @@ import { guildBadge } from './art/guildMarks';
 import type { GuildRole } from '../shared/data/guilds';
 
 export interface Banner {
-  /** With `done`, a Done button beside Cancel calls it. */
-  show(text: string, detail: string, done?: () => void): void;
+  /** With `done`, a Done button beside Cancel calls it; `only` shows Done alone (a mode with nothing to take back). */
+  show(text: string, detail: string, done?: () => void, only?: boolean): void;
   hide(): void;
 }
 
@@ -36,11 +36,12 @@ export function createBanner(onCancel: () => void): Banner {
   el.append(text, detail, finish, cancel);
   document.body.append(el);
   return {
-    show(t, d, done) {
+    show(t, d, done, only) {
       if (text.textContent !== t) text.textContent = t;
       if (detail.textContent !== d) detail.textContent = d;
       onDone = done ?? null;
       finish.hidden = !done;
+      cancel.hidden = !!done && !!only;
       el.hidden = false;
     },
     hide() {

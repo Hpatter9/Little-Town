@@ -89,6 +89,13 @@ ${boost(`${P.on}, ${U} .ui-btn.on, ${U} .event-option.recommended, ${U} button.p
   border-image-source: var(--ui-btn-on, var(--ui-btn, none)) !important; color: var(--ui-on-text) !important;
   box-shadow: 0 0 8px var(--ui-glow, transparent) !important; filter: none;
 }
+/* (the map's modes, ⛏ Clear land and ⛙ Draw a path, at the strip's left: while one is on it is clearly lit and pressed
+   in, gold-rimmed and glowing, so it reads as on at a glance on a phone) */
+${boost(`${U} #clear-land.on, ${U} #draw-path.on`)} {
+  border-image-source: var(--ui-btn-on, var(--ui-btn, none)) !important; background: #8a6a20 !important; background-clip: padding-box !important;
+  color: #fff4c8 !important; outline: 2px solid #ffe080 !important; outline-offset: 1px; transform: translateY(1px);
+  box-shadow: 0 0 10px 2px rgba(255, 210, 90, 0.75) !important; filter: brightness(1.15);
+}
 ${boost(`${U} button.danger`)} { border-image-source: var(--ui-btn-down, var(--ui-btn, none)) !important; color: #ffb0a0 !important; }
 /* (the news bubble keeps its tone inside the slab's rim: blue, gold for something that wants you, red a threat) */
 ${boost(`${U} #notice-bubble`)} { border-image-slice: 6 !important; background: #2a5a9a !important; background-clip: padding-box !important; color: #fff !important; }

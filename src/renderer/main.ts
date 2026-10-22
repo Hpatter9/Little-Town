@@ -709,7 +709,8 @@ async function start(): Promise<void> {
     sweep = null;
     clearButton.classList.toggle('on', clearing);
     if (!clearing) return banner.hide();
-    banner.show('Clearing land', 'Drag over trees and rock · tap a mark to lift it');
+    // (the marks are kept as each drag ends: nothing to take back, so the banner has Done alone)
+    banner.show('Clearing land', 'Drag over trees and rock · tap a mark to lift it', () => clearing && clearButton.click(), true);
     try {
       if (!localStorage.getItem(CLEAR_TIP_KEY)) {
         localStorage.setItem(CLEAR_TIP_KEY, '1');
