@@ -8,7 +8,7 @@ import { CanvasSource, Texture } from 'pixi.js';
 import { FINE, paint, type PixelArt, type Tone } from '../art/pixelArt';
 import { drawFence, drawSoil, fieldTilesReady } from '../art/fieldTiles';
 import { paintFarm } from '../art/farmland';
-import type { CropLook } from '../art/buildings';
+import type { CropLook } from '../art/farmland';
 
 const FENCE = '#9a7a4a';
 const FENCE_DARK = '#6a522f';

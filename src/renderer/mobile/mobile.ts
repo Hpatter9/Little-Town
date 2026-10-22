@@ -30,7 +30,6 @@ import { startUndergroundSwitch } from './undergroundSwitch';
 import { watchMilestones } from './milestoneCards';
 import type { LoadingHost } from './loading';
 import { townSketch } from '../loading/sketch';
-import { isoViewOn, setIsoView } from '../iso/isoSetting';
 import { reduceMotionSet, setReduceMotion } from '../ui/motion';
 
 /** A phone on its side (the same test as the page's CSS): the tabs run across the top, and the town fills the
@@ -580,9 +579,6 @@ function drawMenu(): void {
       item(`Minimap: ${minimapShown() ? 'on' : 'off'}`, () => (setMinimap(!minimapShown()), drawMenu())),
       // (the loading screen's scene behind the logo, off for a slow phone: mobile/loading.ts)
       item(`Loading scene: ${loadingSceneOn() ? 'on' : 'off'}`, () => (setLoadingScene(!loadingSceneOn()), drawMenu())),
-      // (the isometric view, being built: iso/isoView.ts; the strip reads it as it starts, so the town is saved and
-      // the page loaded again)
-      item(`Isometric view: ${isoViewOn() ? 'on' : 'off'}`, () => switchIso(!isoViewOn(), !fromMenu)),
       zooms,
       label('Help'),
       item(`Tips: ${tipsOn() ? 'on' : 'off'}`, () => (setTipsOn(!tipsOn()), drawMenu())),
@@ -640,18 +636,6 @@ function setMinimap(on: boolean): void {
     try {
       localStorage.setItem('littletown.minimap', on ? '1' : '0');
     } catch {}
-}
-/** The isometric view turned on or off: the town saved, and the page loaded again (back into the town if it was in
- *  it, `ENTER_KEY` in mobile/mainMenu.ts). */
-function switchIso(on: boolean, inTown: boolean): void {
-  setIsoView(on);
-  menu.hidden = true;
-  void (inTown ? (bridge.suspend?.() ?? Promise.resolve()) : Promise.resolve()).finally(() => {
-    try {
-      if (inTown) sessionStorage.setItem('littletown.enter', '1');
-    } catch {}
-    location.reload();
-  });
 }
 /** The loading screen's scene (mobile/loading.ts reads the same key; kept apart so this page needn't bundle it). */
 const SCENE_KEY = 'littletown.loadingScene';

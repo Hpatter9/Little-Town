@@ -34,7 +34,6 @@ import { BoardLife, logTexture } from './boardLife';
 import { actFx } from '../../shared/data/actFx';
 import { FIRST_BLOOD, ghostStep, LAG_MAX_MS, ROUTED } from '../battle/juiceRules';
 import { uiPlate } from '../ui/pixiFrame';
-import { isoViewOn } from '../iso/isoSetting';
 import type { TileLook } from '../../shared/sim/raidBoards';
 import { IsoBoardArt } from './isoBoard';
 
@@ -46,9 +45,6 @@ const TH = 32;
 const HH = 12;
 /** How far the columns reach below the ground's level. */
 const FOOT = 10;
-/** How tall the town's wall and its gate stand on the board (px). */
-const WALL_TALL = 30;
-const GATE_TALL = 44;
 /** A sim tick (ms). */
 const TICK = 100;
 
@@ -120,7 +116,7 @@ export class TacticsScene {
   private readonly shade = new Graphics();
   private view: TacticsView | null = null;
   /** With the isometric switch on: the kit's art for the tops, the wall and the towers (null: the classic board). */
-  private readonly iso = isoViewOn() ? new IsoBoardArt() : null;
+  private readonly iso = new IsoBoardArt();
   private defs = new Map<number, string>();
 
   private key = '';
@@ -225,7 +221,6 @@ export class TacticsScene {
     // (pictures that have come since the board was built: towers, the wall's and gate's, the boulders and thickets)
     const pics =
       t.tiles.filter((x) => x.bld !== undefined && this.map.buildingPicture(x.bld)).length +
-      t.tiles.filter((x) => x.wall && this.map.wallPicture(x.wall, x.gate ? 2 : 1, x.lx * 7 + x.ly, x.gate ? undefined : 'h')).length +
       t.tiles.filter((x) => (x.block === 'rock' || x.bush) && this.map.propKind(x.block === 'rock' ? 'rock' : 'bush', x.lx, x.ly)).length;
     const key = `${t.w}x${t.h}:${t.tiles[0].lx},${t.tiles[0].ly}:${t.side}:${t.tiles.map((x) => x.h).join('')}:${t.tiles.map((x) => (x.hill ? x.hill[1] : x.log ? 'l' : x.art ? 'w' : x.tree ? 't' : x.g[0]) + (x.look?.[0] ?? '') + (x.prop?.[0] ?? '')).join('')}:${pics}${this.iso ? `:${this.iso.kit.name}${this.iso.arrived}` : ''}`;
     if (key !== this.key || this.tiles.length === 0) this.build(t, key);
@@ -358,34 +353,13 @@ export class TacticsScene {
           // (the gate once, over its two tiles)
           const above = t.tiles[(v - 1) * t.w + u];
           if (v > 0 && above?.gate) continue;
-          if (this.iso) {
-            const [x2, y2] = this.at(u, v + 1, tile.h);
-            this.isoPiece(this.iso.piece(tile.wall), (x + x2) / 2, (y + y2) / 2 + TH / 2, TW * 1.3, (y + y2) / 2 + TH / 2);
-            continue;
-          }
-          const pic = this.map.wallPicture(tile.wall, 2, tile.lx * 7 + tile.ly);
-          if (!pic) continue;
           const [x2, y2] = this.at(u, v + 1, tile.h);
-          this.picture(pic, (x + x2) / 2, (y + y2) / 2 + 4, Math.min(TW * 1.3, (GATE_TALL * pic.w) / Math.max(1, pic.h)), (y + y2) / 2 + TH / 2);
+          this.isoPiece(this.iso.piece(tile.wall), (x + x2) / 2, (y + y2) / 2 + TH / 2, TW * 1.3, (y + y2) / 2 + TH / 2);
           continue;
         }
-        if (this.iso) {
-          this.isoPiece(this.iso.piece(tile.wall), x, y + TH / 2, TW, y + 2);
-          const def = tile.bld !== undefined ? this.defs.get(tile.bld) : undefined;
-          if (def) this.isoPiece(this.iso.piece(def), x, y + TH / 2, TW * 0.9, y + 3);
-          continue;
-        }
-        const pic = this.map.wallPicture(tile.wall, 1, tile.lx * 7 + tile.ly, 'h');
-        // (two runs of stakes a tile, end to end down the line, so the wall stands unbroken)
-        if (pic)
-          for (const k of [-1, 1]) {
-            const sp = this.picture(pic, x + k * (TW / 4), y + 6 - k * (TH / 4), TW / 2 + 2, y + 2 - k);
-            sp.scale.y = WALL_TALL / Math.max(1, pic.h);
-          }
-        if (tile.bld !== undefined) {
-          const tower = this.map.buildingPicture(tile.bld);
-          if (tower) this.picture(tower, x, y + 4, TW * 0.9, y + 3);
-        }
+        this.isoPiece(this.iso.piece(tile.wall), x, y + TH / 2, TW, y + 2);
+        const def = tile.bld !== undefined ? this.defs.get(tile.bld) : undefined;
+        if (def) this.isoPiece(this.iso.piece(def), x, y + TH / 2, TW * 0.9, y + 3);
       }
     // boulders and thickets on the field
     for (let v = 0; v < t.h; v++)

@@ -3,7 +3,6 @@
 // PNGs are loaded by URL as the strip does (iso/isoView.ts), once each, and kept per (people, piece). Null until
 // the image has arrived: the caller shows the old picture meanwhile and asks again.
 
-import { isoViewOn } from '../iso/isoSetting';
 import { kitNameFor, kitOf, kitUrl, pieceFor } from '../iso/isoKits';
 import { loadImage } from './loadImage';
 
@@ -56,10 +55,10 @@ function fit(im: HTMLImageElement, boxW: number, boxH: number): HTMLCanvasElemen
   return c;
 }
 
-/** The iso picture of a building for a town of this people, or null (iso off, or the image not in yet: `onLoad` is
+/** The iso picture of a building for a town of this people, or null (no people given, or the image not in yet: `onLoad` is
  *  called when it arrives, so the caller can ask again). */
 export function isoPicture(defId: string, origin: string | undefined, theme: string | undefined, boxW: number, boxH: number, onLoad: () => void = () => undefined): HTMLCanvasElement | null {
-  if (!origin || !isoViewOn()) return null;
+  if (!origin) return null;
   const kit = kitOf(kitNameFor(origin, theme));
   const piece = pieceFor(kit, defId);
   const key = `${kit.name}:${piece}:${boxW}x${boxH}`;

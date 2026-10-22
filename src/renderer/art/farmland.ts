@@ -5,7 +5,6 @@
 // their roots' colour, flax with its sky-blue flowers, herbs in mixed clumps with little blooms, and an orchard's
 // trees from whips to round shaded crowns in fruit. Painted on the fine grid (2 canvas px an art px) by `paintFarm`.
 
-import type { CropLook } from './buildings';
 
 type G = CanvasRenderingContext2D;
 
@@ -27,6 +26,9 @@ function stream(seed: number): () => number {
     return (a >>> 0) / 4294967296;
   };
 }
+
+/** How far along a field's crop is (other buildings ignore it). */
+export type CropLook = 'fallow' | 'sprout' | 'young' | 'tall' | 'heading' | 'ripe';
 
 /** Paint a field of `W` x `H` art px on `g` (scaled `k` canvas px an art px). `material` is the crop's
  *  (grain, vegetables, fiber, herbs, fruit), `orchard` for trees. */
