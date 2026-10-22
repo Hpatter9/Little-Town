@@ -126,8 +126,12 @@ export function play(wanted: FolkAnim, has: (a: FolkAnim) => boolean): FolkPlay 
 
 /** The base looks drawn so far, per people (folder names under art/iso/folk/). Add a look here as its art arrives. */
 export const FOLK_LOOKS: Record<string, readonly string[]> = {
-  settlers: ['woman_leather'],
+  settlers: ['woman_base', 'woman_leather', 'woman_plate', 'man_base', 'man_leather', 'man_plate', 'dwarf_base', 'dwarf_apron', 'dwarf_plate'],
 };
+
+/** The base look's dress by what they wear: plate for heavy body armour, leather for light or medium, base otherwise. */
+export const dressOf = (weight: string | undefined): 'plate' | 'leather' | 'base' =>
+  weight === 'heavy' ? 'plate' : weight === 'medium' || weight === 'light' ? 'leather' : 'base';
 
 /** A small stable hash of a person's id (the same person always gets the same pick; no randomness). */
 export function idHash(id: number, salt = 0): number {
@@ -144,9 +148,19 @@ export interface FolkLookPick {
 
 /** Which look a person wears: their people's folder (settlers where their own isn't drawn yet), then a look of their
  *  sex (a look named `man_*` or `woman_*`), the one in their outfit's colour first, else a stable pick by id. */
-export function pickLook(st: Pick<FolkState, 'id' | 'origin' | 'look'>, looks: Record<string, readonly string[]> = FOLK_LOOKS): FolkLookPick {
+export function pickLook(st: Pick<FolkState, 'id' | 'origin' | 'look'>, looks: Record<string, readonly string[]> = FOLK_LOOKS, dress?: 'plate' | 'leather' | 'base'): FolkLookPick {
   const people = st.origin && looks[st.origin]?.length ? st.origin : 'settlers';
-  const all = looks[people] ?? [];
+  const every = looks[people] ?? [];
+  // (dwarves wear the dwarf looks, where a folder has them; everyone else the human ones)
+  const dwarf = st.origin === 'dwarves' && every.some((l) => l.startsWith('dwarf_'));
+  const kin = every.filter((l) => l.startsWith('dwarf_') === dwarf);
+  const all = kin.length ? kin : every;
+  const dressed = dress ? all.filter((l) => l.endsWith(`_${dress}`)) : [];
+  if (dressed.length) {
+    const sx = dressed.filter((l) => l.startsWith(st.look.gender === 'f' ? 'woman_' : 'man_'));
+    const from = sx.length ? sx : dressed;
+    return { people, look: from[idHash(st.id, 1) % from.length] };
+  }
   const sexed = all.filter((l) => l.startsWith(st.look.gender === 'f' ? 'woman_' : 'man_'));
   const pool = sexed.length ? sexed : all;
   if (!pool.length) return { people, look: 'woman_leather' };
