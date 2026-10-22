@@ -35,6 +35,15 @@ import potsUrl from '../art/clutter/pots3.png';
 import jarUrl from '../art/clutter/jar2.png';
 import goldUrl from '../art/clutter/gold2.png';
 import bookUrl from '../art/clutter/book_open.png';
+import cratesPairUrl from '../art/clutter/crates_pair.png';
+import crateBarrelUrl from '../art/clutter/crate_barrel.png';
+import stoolUrl from '../art/clutter/stool.png';
+import tableSmallUrl from '../art/clutter/table_small.png';
+import shelfTallUrl from '../art/clutter/shelf1.png';
+import floorTilesUrl from '../art/floors/tiles.png';
+import { tileIndex, TILE_COLS } from '../delve/floorArt';
+import { handRoomFor, roomPreview, type Furniture } from './handRooms';
+import type { HandMap } from '../../shared/sim/handMaps';
 
 const T = 16;
 /** Wall rows over the floor (the wall picture is 44 px tall: about three tiles). */
@@ -87,6 +96,8 @@ interface Layout {
   hearth: { x: number; y: number } | null;
   fire: { x: number; y: number; kind: 'forge' | 'brazier' } | null;
   stone: boolean;
+  /** A room furnished by hand (handRooms.ts): its floor, a row a string ('.' planks, 'o' flagstones, 'r' the rug). */
+  floor?: string[];
 }
 
 function kindFor(def: string): Kind {
@@ -235,6 +246,69 @@ function layout(kind: Kind, cols: number, rows: number, beds: number): Layout {
   return L;
 }
 
+/** What a hand-furnished room's furniture is drawn as (handRooms.ts `FURNITURE`): a decor cell or a clutter picture. */
+const FURNITURE_PIC: Readonly<Record<Furniture, { pic: Crop; flip?: boolean; w?: number }>> = {
+  bed: { pic: BED },
+  chair: { pic: CHAIR },
+  chair_r: { pic: CHAIR, flip: true },
+  chair_up: { pic: CHAIR_UP },
+  round_table: { pic: ROUND_TABLE },
+  table: { pic: TABLE },
+  long_table: { pic: LONG_TABLE, w: 3 },
+  throne: { pic: THRONE },
+  candle: { pic: CANDLE },
+  candelabra: { pic: CANDELABRA },
+  shelf: { pic: SHELF },
+  shelf_books: { pic: SHELF_BOOKS },
+  shelf_books2: { pic: SHELF_BOOKS2 },
+  cabinet: { pic: CABINET },
+  desk: { pic: DESK },
+  desk2: { pic: DESK2 },
+  cross: { pic: CROSS },
+  pot: { pic: POT },
+  barrel: { pic: whole(barrelUrl) },
+  crate: { pic: whole(crateUrl) },
+  crate_stack: { pic: whole(crateStackUrl) },
+  crates_pair: { pic: whole(cratesPairUrl) },
+  crate_barrel: { pic: whole(crateBarrelUrl) },
+  chest: { pic: whole(chestUrl) },
+  chest_gold: { pic: whole(chestGoldUrl) },
+  rack: { pic: whole(rackUrl) },
+  rack2: { pic: whole(rack2Url) },
+  shields: { pic: whole(shieldsUrl) },
+  potions: { pic: whole(potionsUrl) },
+  plants: { pic: whole(plantsUrl) },
+  pots: { pic: whole(potsUrl) },
+  jar: { pic: whole(jarUrl) },
+  gold: { pic: whole(goldUrl) },
+  book: { pic: whole(bookUrl) },
+  stool: { pic: whole(stoolUrl), w: 0.8 },
+  table_small: { pic: whole(tableSmallUrl) },
+  tall_shelf: { pic: whole(shelfTallUrl) },
+  rug_grey: { pic: RUG_GREY, w: 2 },
+};
+
+/** A room furnished by hand (handRooms.ts): its furniture where it was put (its feet on the bottom of its cell), the
+ *  folk's spots in the middle of theirs, its fire, its floor. */
+function handLayout(m: HandMap): Layout {
+  const L: Layout = { pieces: [], beds: [], stations: [], desks: [], seats: [], hearth: null, fire: null, stone: false, floor: m.grids.Floor };
+  for (const t of m.things) {
+    const [u, v, what, kind] = t;
+    if (what === 'Furniture') {
+      const f = FURNITURE_PIC[kind as Furniture];
+      L.pieces.push({ pic: f.pic, x: u, y: v + 1, w: f.w, flip: f.flip, flat: f.pic === RUG_GREY });
+    } else if (what === 'Spot') {
+      if (kind === 'bed') L.beds.push({ x: u + 0.5, y: v + 1 });
+      else if (kind === 'hearth') L.hearth = { x: u + 0.5, y: v + 0.9 };
+      else (kind === 'station' ? L.stations : kind === 'desk' ? L.desks : L.seats).push({ x: u + 0.5, y: v + 0.9 });
+    } else if (what === 'Fire') L.fire = { x: u + 0.5, y: kind === 'forge' ? v + 0.5 : v + 0.4, kind: kind as 'forge' | 'brazier' };
+  }
+  return L;
+}
+
+// (for previews: `__room('Tavern')` in the strip's console furnishes every building looked into as that room)
+Object.assign(window, { __room: (id?: string) => void (roomPreview.id = id) });
+
 const images = new Map<string, HTMLImageElement | null>();
 function img(url: string): HTMLImageElement | null {
   if (!images.has(url)) {
@@ -343,10 +417,12 @@ export class InteriorScene {
     g.fillStyle = '#120e0c';
     g.fillRect(0, 0, W, H);
     // the room's size by the building's, and its fit on the screen (below the bar; above or beside the window)
-    const cols = Math.max(7, Math.min(10, v.w * 2 + 2));
-    const rows = Math.max(5, Math.min(7, v.d * 2 + 1));
     const kind = kindFor(v.def);
-    const L = layout(kind, cols, rows, v.beds);
+    // (a room furnished by hand, if one is drawn for it; else furnished by what it is, to its size)
+    const hand = handRoomFor(v.def, kind, v.beds, v.building);
+    const cols = hand ? hand.w : Math.max(7, Math.min(10, v.w * 2 + 2));
+    const rows = hand ? hand.h : Math.max(5, Math.min(7, v.d * 2 + 1));
+    const L = hand ? handLayout(hand) : layout(kind, cols, rows, v.beds);
     const sideways = W > H;
     const top = 56 * dpr;
     const box = sideways ? { x: 8 * dpr, y: top, w: W - 284 * dpr, h: H - top - 8 * dpr } : { x: 8 * dpr, y: top, w: W - 16 * dpr, h: H - top - 210 * dpr };
@@ -377,8 +453,25 @@ export class InteriorScene {
     };
     // the floor
     const floorIm = img(L.stone ? stoneUrl : wallsUrl);
+    const stoneIm = img(stoneUrl);
+    const planksIm = img(wallsUrl);
+    const rugIm = L.floor ? img(floorTilesUrl) : null;
     for (let y = 0; y < rows; y++)
       for (let x = 0; x < cols; x++) {
+        // (a hand-furnished room's own floor, cell by cell: flagstones, planks, the red rug laid by its neighbours)
+        if (L.floor) {
+          const ch = L.floor[y]?.[x] ?? '.';
+          if (ch === 'o' && stoneIm) g.drawImage(stoneIm, (x % 2) * 16, (y % 2) * 16, 16, 16, tx(x), ty(y), T * k, T * k);
+          else if (planksIm) g.drawImage(planksIm, 144, (y % 2) * 16, 16, 16, tx(x), ty(y), T * k, T * k);
+          if (ch === 'r' && rugIm) {
+            const rug = (dx: number, dy: number) => L.floor![y + dy]?.[x + dx] === 'r';
+            const cx = !rug(-1, 0) && rug(1, 0) ? 0 : rug(-1, 0) && !rug(1, 0) ? 2 : 1;
+            const cy = !rug(0, -1) && rug(0, 1) ? 0 : rug(0, -1) && !rug(0, 1) ? 2 : 1;
+            const i = tileIndex(`rug:${cx}${cy}`);
+            g.drawImage(rugIm, (i % TILE_COLS) * 16, Math.floor(i / TILE_COLS) * 16, 16, 16, tx(x), ty(y), T * k, T * k);
+          }
+          continue;
+        }
         if (!floorIm) break;
         if (L.stone) g.drawImage(floorIm, (x % 2) * 16, (y % 2) * 16, 16, 16, tx(x), ty(y), T * k, T * k);
         else g.drawImage(floorIm, 144, (y % 2) * 16, 16, 16, tx(x), ty(y), T * k, T * k);

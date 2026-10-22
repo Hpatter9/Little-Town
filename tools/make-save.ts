@@ -1,13 +1,28 @@
 // Writes a dwarves town, run for some days, as a phone save (for previews). Run: node tools/make-save.mjs out.txt [days]
 // (SEED=, ORIGIN=settlers, BIOME=highlands: another town; RELIEF=0 a level land; VALLEY=River_Valley a starting valley
-// drawn by hand, sim/startValleys.ts; SCENARIO=band; EXPLORE=24 the land that far round the camp seen)
+// drawn by hand, sim/startValleys.ts; SCENARIO=band; EXPLORE=24 the land that far round the camp seen;
+// HOME_DEF=longhouse a home built at the start with everyone's bed in it)
 import { writeFileSync } from 'node:fs';
 import { serialize } from '../src/shared/sim/save';
 import { Sim } from '../src/shared/sim/sim';
-import { newGame } from '../src/shared/sim/state';
+import { campCell, newGame } from '../src/shared/sim/state';
+import { BUILDING_BY_ID } from '../src/shared/data/buildings';
+import { spiralSpot } from '../src/shared/sim/land';
+import { depthOf, footprints } from '../src/shared/sim/buildings';
 import { TICKS_PER_DAY } from '../src/shared/sim/time';
 const env = process.env;
 const sim = new Sim(newGame(env.SEED ?? 'shot', { origin: (env.ORIGIN ?? 'dwarves') as never, relief: env.RELIEF !== '0', ...(env.BIOME ? { biome: env.BIOME as never } : {}), ...(env.VALLEY ? { valley: env.VALLEY } : {}), ...(env.SCENARIO ? { scenario: env.SCENARIO } : {}) }));
+// (HOME=longhouse: one built at the start, everyone's bed in it, to see them inside it)
+if (env.HOME_DEF) {
+  const st = sim.state;
+  const d = BUILDING_BY_ID[env.HOME_DEF];
+  const r = spiralSpot(st.land, d.width, depthOf(d), footprints(st), campCell(st));
+  if (r) {
+    const id = st.nextId++;
+    st.buildings.push({ id, def: d.id, tile: r.x, row: r.y, status: 'done', delivered: {}, progress: 1, store: {} });
+    for (const p of st.people) p.bed = id;
+  }
+}
 for (let t = 0; t < Number(process.argv[3] ?? 6) * TICKS_PER_DAY; t++) sim.step();
 // (EXPLORE=24: the land that far round the camp already seen, for previews of the land about the town)
 if (env.EXPLORE && sim.state.explored) {

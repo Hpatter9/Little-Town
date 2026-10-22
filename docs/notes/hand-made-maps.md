@@ -212,3 +212,65 @@ landmarks on its own ground, its edge frayed; laid on each of its lands it stand
 camp, every wild cell holding something, and most of the wide land walked to; the pick is the seed's, about 0.6, by
 land and scenario; the tests' towns have none; a town founded in one keeps it, has the founder its seed makes, its
 camp where it was, regions, and spots found for its first buildings; a hold and a shore town never have one.
+
+## The buildings' rooms, furnished by hand
+
+Seven rooms are furnished by hand in `maps/rooms.ldtk` (16px cells, a cell a floor tile; the back wall is drawn above
+the top row), and a building looked into (`Look inside`) is furnished as the room drawn for it. This changes HISTORY
+"Inside every building" (interior/interiorView.ts); no rule changes, nothing saved.
+
+**The format** (`ROOM_SPEC` in `renderer/interior/handRooms.ts`; the data is `data/interiorRooms.ts`): **Floor** (IntGrid:
+planks, the default; flagstones; the red rug, laid by its neighbours from DawnLike's nine rug pieces), **Things**:
+`Furniture` (`FURNITURE`: beds, chairs (`chair_r` faces the other way, `chair_up` from behind), tables round, plain and
+long (three cells), the throne, candles, a candelabra, shelves, bookshelves, a cupboard, desks, the cross, pots, barrels,
+crates, chests, the gold, racks of weapons, shields, potions, plants, jars, a book, a stool, a tall shelf, a grey rug;
+DawnLike's decor cells and the dungeon packs' clutter the view already drew with), standing on the bottom of its cell;
+`Spot` (`bed`, `station`, `desk`, `seat`, `hearth`: where the folk go, as the view's own layouts have them) and `Fire`
+(a furnace or a brazier). Level fields: `name`, `about`, `kinds` (what kind of room it is for: map/roomKinds.ts's, and the
+view's temple and barracks) and `defs` (buildings it's for by id, before any kind).
+
+**The rooms** (`docs/notes/hand-made-maps/room-*-tall.png` in the game at 393x852, `room-tavern-wide.png` at 852x393;
+the townsfolk sheltering from the rain sat at their places):
+- **The Common Room** (the brewery): the bar with its kegs and stools, the hearth and its rug, a long table, a round one.
+- **The Town Hall** (every people's seat, the town hall): flagstones, a red runner to the founder's chair, the
+  strongboxes and the gold, bookshelves, the council's long tables.
+- **The Shop** (the market hall): shelves, jars and potions along the back, the counter with two places behind it,
+  crates, barrels and a chest of stock.
+- **The Smithy** (every forge: the smithy, bloomery, kiln, armourer, gunsmith...): the furnace, racks of blades and
+  shields, the quench barrel, a bench, three places to work.
+- **The Chapel** (the temple, the cathedral): the aisle up to the cross, candles, eight pews.
+- **A Cottage** (homes of up to three): three beds, the hearth, a table and two chairs on a rug.
+- **A Longhouse** (homes of up to six): six beds down both walls, the fire in the middle, the long table.
+
+**Picking** (`handRoomFor(def, kind, beds, building)`, pure): the rooms for the building by id (`defs`), else by its
+kind (`roomsFor`; a home's only with a bed spot for everyone who sleeps there); the smallest that does, and among those
+the building's own id picks (`hashSeed(`room:${building}`)`), so a building is always the same room. None (a study, a
+block of flats, a barracks...) is furnished as it always was (`layout`): the fallback.
+
+**The drawing** (`interior/interiorView.ts`): `handLayout` turns the room into the view's own `Layout`: its pieces
+(`FURNITURE_PIC`), its beds, stations, desks, seats and hearth, its fire, and its floor drawn cell by cell. The folk go
+to those spots as they go to the generated rooms' (asleep in the beds, at the stations working, reading at desks, at the
+seats and the hearth, the rest about the floor).
+
+**Left for the owner.** The inns (the Fireside Inn, the Tavern) and the shops (the Trading Post, the General Store and
+the specialty shops) have no `Look inside`: their own window shows them, furnished piece by piece with what the town
+buys (and `test/interiors.test.ts` keeps it so). So the hand-made Common Room and Shop name them in their `defs` but are
+seen at the brewery and the market hall. If the owner wants the inns' and shops' own windows drawn from these rooms (or
+a `Look inside` on them as well), that's a change to the venues' window (panel/shopPanel.ts).
+
+**Previews.** `__room('Tavern')` in the strip's console (the iframe's window) furnishes every building looked into as
+that room (`roomPreview`, never set in play). `HOME_DEF=longhouse` in tools/make-save.mjs builds a home at the start
+with everyone's bed in it.
+
+**Tests** (`test/interiorRooms.test.ts`): the data is the converter's make of the project, which is LDtk 1.5 JSON with
+the game's own lists; every room fits the screen, one piece a cell, a long table on the floor, somewhere for its folk, at
+most one fire, a home's bed spots on its beds, every building it names real; the brewery, the market, the town hall,
+every seat, the smithy, the temple, a cottage (three beds) and a longhouse (six) get their rooms, a block of flats and a
+library the old layouts, each a building the town can look into; the pick is the same for a building each time.
+
+## The whole of it
+
+`node tools/ldtk-maps.mjs` makes every hand-made map's data (raid boards, floors, story places, valleys, rooms) from
+`maps/*.ldtk`; `node tools/floor-preview.mjs` draws the floors and story places whole; `python3
+tools/compose-floor-art.py` cuts the DawnLike sheet every one of them (and the LDtk editor) draws with. The scratch
+authoring scripts that first laid the maps out are not kept: the LDtk projects are the maps now.
