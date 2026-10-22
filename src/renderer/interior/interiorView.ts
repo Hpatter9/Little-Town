@@ -45,9 +45,9 @@ import { tileIndex, TILE_COLS } from '../delve/floorArt';
 import { handRoomFor, roomPreview, type Furniture } from './handRooms';
 import type { HandMap } from '../../shared/sim/handMaps';
 
-const T = 16;
+export const T = 16;
 /** Wall rows over the floor (the wall picture is 44 px tall: about three tiles). */
-const WALL_H = 44;
+export const WALL_H = 44;
 
 type Crop = [string, number, number, number, number];
 const D = (x: number, y: number, w = 16, h = 16): Crop => [decorUrl, x, y, w, h];
@@ -87,7 +87,7 @@ interface Piece {
 }
 /** Where the folk go: beds (the pillow's place), stations and desks (where the worker stands), seats, the hearth,
  *  open floor. */
-interface Layout {
+export interface Layout {
   pieces: Piece[];
   beds: { x: number; y: number }[];
   stations: { x: number; y: number }[];
@@ -290,7 +290,7 @@ const FURNITURE_PIC: Readonly<Record<Furniture, { pic: Crop; flip?: boolean; w?:
 
 /** A room furnished by hand (handRooms.ts): its furniture where it was put (its feet on the bottom of its cell), the
  *  folk's spots in the middle of theirs, its fire, its floor. */
-function handLayout(m: HandMap): Layout {
+export function handLayout(m: HandMap): Layout {
   const L: Layout = { pieces: [], beds: [], stations: [], desks: [], seats: [], hearth: null, fire: null, stone: false, floor: m.grids.Floor };
   for (const t of m.things) {
     const [u, v, what, kind] = t;
@@ -431,6 +431,108 @@ export class InteriorScene {
     const k = Math.max(1, Math.floor(Math.min(box.w / artW, box.h / artH) * 2) / 2);
     const ox = Math.round(box.x + (box.w - artW * k) / 2 + 4 * k);
     const oy = Math.round(box.y + (box.h - artH * k) / 2);
+    const used: { x: number; y: number }[] = [];
+    const folk = (tx: (x: number) => number, ty: (y: number) => number): Draw[] => {
+      const list: Draw[] = [];
+      const slots = { bed: [...L.beds], station: [...L.stations], desk: [...L.desks], seat: [...L.seats] };
+      // (more folk than places: the open floor, a spot clear of everyone placed so far)
+      const floorSpot = (i: number) => {
+        let best = { x: 1.5, y: rows - 1 };
+        let far = -1;
+        for (let y = 2.2; y < rows - 0.3; y += 0.9)
+          for (let x = 1.2; x < cols - 0.8; x += 1.1) {
+            const d = Math.min(9, ...used.map((u) => Math.hypot(u.x - x, (u.y - y) * 1.4))) + ((x * 7 + y * 3 + i) % 1) * 0.01;
+            if (d > far) {
+              far = d;
+              best = { x, y };
+            }
+          }
+        return best;
+      };
+      v.inside.forEach((who, i) => {
+        const pv = this.people.get(who.id);
+        if (!pv) return;
+        const keys = hkLayers(hkWhoOf(pv), { fighting: false, activity: who.at === 'station' ? pv.activity : 'idle' });
+        const h = (who.child ? 22 : 30) * k;
+        if (who.at === 'bed' && slots.bed.length) {
+          const b = slots.bed.shift()!;
+          // asleep: the head on the pillow, a blanket over them, a z drifting up
+          list.push({
+            y: b.y + 0.01,
+            fn: () => {
+              const x = tx(b.x);
+              const y = ty(b.y) - 12 * k;
+              g.fillStyle = pv.look.hairColor;
+              g.beginPath();
+              g.ellipse(x, y - 0.8 * k, 3.2 * k, 2.6 * k, 0, 0, Math.PI * 2);
+              g.fill();
+              g.fillStyle = pv.look.skin;
+              g.beginPath();
+              g.ellipse(x, y + 0.6 * k, 2.6 * k, 2.2 * k, 0, 0, Math.PI * 2);
+              g.fill();
+              g.fillStyle = 'rgba(255,255,255,0.85)';
+              g.font = `bold ${7 * k}px ${this.font()}`;
+              const z = (now / 900 + i) % 1;
+              g.globalAlpha = 1 - z;
+              g.fillText('z', x + 4 * k, y - 4 * k - z * 10 * k);
+              g.globalAlpha = 1;
+            },
+          });
+          return;
+        }
+        const spot =
+          (who.at === 'station' && (slots.station.shift() ?? slots.desk.shift())) ||
+          (who.at === 'desk' && (slots.desk.shift() ?? slots.station.shift())) ||
+          ((who.at === 'table' || who.at === 'hearth') && (who.at === 'hearth' && L.hearth ? L.hearth : slots.seat.shift())) ||
+          floorSpot(i);
+        used.push(spot);
+        const working = who.at === 'station';
+        const facing = working ? 'up' : who.at === 'desk' ? 'down' : 'down';
+        const [col, rowCell] = hkPose({ facing, moving: who.at === 'floor' && who.child, walked: now / 30, working, sinceBlow: 99, sinceHit: 99, down: false, ranged: false, now, reading: who.at === 'desk', playing: who.child, ref: who.id });
+        list.push({
+          y: spot.y + 0.02,
+          fn: () => {
+            const x = tx(spot.x);
+            const y = ty(spot.y);
+            g.fillStyle = 'rgba(0,0,0,0.25)';
+            g.beginPath();
+            g.ellipse(x, y, 5 * k, 1.6 * k, 0, 0, Math.PI * 2);
+            g.fill();
+            const bob = !working && Math.sin(now / 700 + who.id) > 0.6 ? k : 0;
+            hkDraw(g, keys, col, rowCell, Math.round(x), Math.round(y - bob), h);
+          },
+        });
+      });
+      return list;
+    };
+    paintRoom(g, { cols, rows, L, ox, oy, k, now, night: v.night, side: 4, folk });
+  }
+}
+
+/** A thing in the room, drawn in order of its feet's y (tile units). */
+export type Draw = { y: number; fn: () => void };
+
+/** What `paintRoom` draws: a room of cols x rows tiles with its layout, at (ox, oy) (the floor's top left is
+ *  ox, oy + the wall) scaled by k, with `side` pixels of dark wall either side; `folk` gives the people to set among the
+ *  furniture, by the room's own tile-to-pixel maps. */
+export interface RoomPaint {
+  cols: number;
+  rows: number;
+  L: Layout;
+  ox: number;
+  oy: number;
+  k: number;
+  now: number;
+  night: boolean;
+  side: number;
+  folk: (tx: (x: number) => number, ty: (y: number) => number) => Draw[];
+}
+
+/** The room itself: its back wall, floor, furniture and fire, the people among them, the firelight and the night.
+ *  Shared by the looked-into building (InteriorScene) and the inns' and shops' own windows (panel/shopPanel.ts). */
+export function paintRoom(g: CanvasRenderingContext2D, p: RoomPaint): void {
+    const { cols, rows, L, ox, oy, k, now, side } = p;
+    const artH = WALL_H + rows * T + 6;
     const fy = oy + WALL_H * k; // the floor's top
     const tx = (x: number) => ox + x * T * k;
     const ty = (y: number) => fy + y * T * k;
@@ -482,9 +584,9 @@ export class InteriorScene {
     g.fillStyle = 'rgba(0,0,0,0.35)';
     g.fillRect(tx(0), fy, T * k * cols, 6 * k); // the wall's shadow on the floor
     g.fillStyle = '#2a1e18';
-    g.fillRect(tx(0) - 4 * k, oy, 4 * k, artH * k - 6 * k);
-    g.fillRect(tx(cols), oy, 4 * k, artH * k - 6 * k);
-    g.fillRect(tx(0) - 4 * k, ty(rows), (cols * T + 8) * k, 4 * k);
+    g.fillRect(tx(0) - side * k, oy, side * k, artH * k - 6 * k);
+    g.fillRect(tx(cols), oy, side * k, artH * k - 6 * k);
+    g.fillRect(tx(0) - side * k, ty(rows), (cols * T + side * 2) * k, side * k);
     // the fire (a furnace or a brazier), flickering
     if (L.fire) {
       if (L.fire.kind === 'forge') {
@@ -505,78 +607,8 @@ export class InteriorScene {
       }
     }
     // things and folk, back to front
-    type Draw = { y: number; fn: () => void };
-    const list: Draw[] = L.pieces.map((p) => ({ y: p.flat ? -99 : p.y, fn: () => blit(p.pic, tx(p.x), ty(p.y), p.w, p.flip) }));
-    const slots = { bed: [...L.beds], station: [...L.stations], desk: [...L.desks], seat: [...L.seats] };
-    // (more folk than places: the open floor, a spot clear of everyone placed so far)
-    const used: { x: number; y: number }[] = [];
-    const floorSpot = (i: number) => {
-      let best = { x: 1.5, y: rows - 1 };
-      let far = -1;
-      for (let y = 2.2; y < rows - 0.3; y += 0.9)
-        for (let x = 1.2; x < cols - 0.8; x += 1.1) {
-          const d = Math.min(9, ...used.map((u) => Math.hypot(u.x - x, (u.y - y) * 1.4))) + ((x * 7 + y * 3 + i) % 1) * 0.01;
-          if (d > far) {
-            far = d;
-            best = { x, y };
-          }
-        }
-      return best;
-    };
-    v.inside.forEach((who, i) => {
-      const pv = this.people.get(who.id);
-      if (!pv) return;
-      const keys = hkLayers(hkWhoOf(pv), { fighting: false, activity: who.at === 'station' ? pv.activity : 'idle' });
-      const h = (who.child ? 22 : 30) * k;
-      if (who.at === 'bed' && slots.bed.length) {
-        const b = slots.bed.shift()!;
-        // asleep: the head on the pillow, a blanket over them, a z drifting up
-        list.push({
-          y: b.y + 0.01,
-          fn: () => {
-            const x = tx(b.x);
-            const y = ty(b.y) - 12 * k;
-            g.fillStyle = pv.look.hairColor;
-            g.beginPath();
-            g.ellipse(x, y - 0.8 * k, 3.2 * k, 2.6 * k, 0, 0, Math.PI * 2);
-            g.fill();
-            g.fillStyle = pv.look.skin;
-            g.beginPath();
-            g.ellipse(x, y + 0.6 * k, 2.6 * k, 2.2 * k, 0, 0, Math.PI * 2);
-            g.fill();
-            g.fillStyle = 'rgba(255,255,255,0.85)';
-            g.font = `bold ${7 * k}px ${this.font()}`;
-            const z = (now / 900 + i) % 1;
-            g.globalAlpha = 1 - z;
-            g.fillText('z', x + 4 * k, y - 4 * k - z * 10 * k);
-            g.globalAlpha = 1;
-          },
-        });
-        return;
-      }
-      const spot =
-        (who.at === 'station' && (slots.station.shift() ?? slots.desk.shift())) ||
-        (who.at === 'desk' && (slots.desk.shift() ?? slots.station.shift())) ||
-        ((who.at === 'table' || who.at === 'hearth') && (who.at === 'hearth' && L.hearth ? L.hearth : slots.seat.shift())) ||
-        floorSpot(i);
-      used.push(spot);
-      const working = who.at === 'station';
-      const facing = working ? 'up' : who.at === 'desk' ? 'down' : 'down';
-      const [col, rowCell] = hkPose({ facing, moving: who.at === 'floor' && who.child, walked: now / 30, working, sinceBlow: 99, sinceHit: 99, down: false, ranged: false, now, reading: who.at === 'desk', playing: who.child, ref: who.id });
-      list.push({
-        y: spot.y + 0.02,
-        fn: () => {
-          const x = tx(spot.x);
-          const y = ty(spot.y);
-          g.fillStyle = 'rgba(0,0,0,0.25)';
-          g.beginPath();
-          g.ellipse(x, y, 5 * k, 1.6 * k, 0, 0, Math.PI * 2);
-          g.fill();
-          const bob = !working && Math.sin(now / 700 + who.id) > 0.6 ? k : 0;
-          hkDraw(g, keys, col, rowCell, Math.round(x), Math.round(y - bob), h);
-        },
-      });
-    });
+    const list: Draw[] = L.pieces.map((q) => ({ y: q.flat ? -99 : q.y, fn: () => blit(q.pic, tx(q.x), ty(q.y), q.w, q.flip) }));
+    list.push(...p.folk(tx, ty));
     list.sort((a, b) => a.y - b.y);
     for (const d of list) d.fn();
     // the light: a warm pool by the fire, and the dark of night over the room
@@ -590,9 +622,8 @@ export class InteriorScene {
       g.fillStyle = grad;
       g.fillRect(fx - r, fyy - r, r * 2, r * 2);
     }
-    if (v.night) {
+    if (p.night) {
       g.fillStyle = 'rgba(10,14,40,0.35)';
-      g.fillRect(tx(0) - 4 * k, oy, (cols * T + 8) * k, artH * k);
+      g.fillRect(tx(0) - side * k, oy, (cols * T + side * 2) * k, artH * k);
     }
-  }
 }

@@ -2103,7 +2103,8 @@
           top: 0;
         }
         .shop-floor {
-          max-height: 72vh;
+          /* (the hand-made rooms are taller than the old picture: it fits the window sideways, below the menu bar) */
+          max-height: max(120px, calc(100vh - 180px));
         }
       }
       .shop-tier {

@@ -77,3 +77,35 @@ export function handRoomFor(def: string, kind: string, beds: number, building: n
 }
 
 export const roomFloor = (m: HandMap, u: number, v: number): string => cellOf(m, 'Floor', u, v, '.');
+
+/** The room an inn's or a shop's own window is drawn from (the venue windows in panel/shopPanel.ts): the Common Room for
+ *  the inns, the Shop for every shop. Null if the map isn't there. */
+export const venueRoom = (venue: 'shop' | 'tavern'): HandMap | null => INTERIOR_ROOMS.find((m) => m.id === (venue === 'tavern' ? 'Tavern' : 'Shop')) ?? null;
+
+/** Where a venue's people stand in its room (cells, their feet): the keeper at the first place behind the counter,
+ *  customers at the counter in front of it, a browser or a guest about the open floor (a tavern's seats and hearth
+ *  as well), and the door they come and go by, below the room's middle. */
+export interface VenueSpots {
+  keeper: { x: number; y: number };
+  counter: { x: number; y: number }[];
+  browse: { x: number; y: number }[];
+  door: { x: number; y: number };
+}
+const WIDE: Readonly<Record<string, number>> = { long_table: 3 };
+export function venueSpots(m: HandMap): VenueSpots {
+  const stations = spotsOf(m, 'station');
+  const base = stations[0] ?? [Math.floor(m.w / 2), 1];
+  const behind = Math.max(...stations.map((s) => s[1]), base[1]);
+  // (cells with something standing on them)
+  const taken = new Set<string>();
+  for (const t of m.things)
+    if (t[2] === 'Furniture' && t[3] !== 'rug_grey') for (let k = 0; k < (WIDE[t[3]] ?? 1); k++) taken.add(`${t[0] + k},${t[1]}`);
+  const at = (u: number, v: number) => ({ x: u + 0.5, y: v + 0.9 });
+  const browse: { x: number; y: number }[] = [];
+  // (the places to sit and the hearth first, then the open floor in front of the counter)
+  for (const kind of ['seat', 'hearth'] as const) for (const [u, v] of spotsOf(m, kind)) browse.push(at(u, v));
+  for (let v = behind + 2; v < m.h; v++) for (let u = 0; u < m.w; u++) if (!taken.has(`${u},${v}`)) browse.push(at(u, v));
+  // (the counter's front: the row under the one the keepers' places are behind)
+  const counter = (stations.length ? stations : [base]).slice(0, 2).map(([u]) => at(u, behind + 2));
+  return { keeper: at(base[0], base[1]), counter: counter.length > 1 ? counter : [counter[0], at(base[0] + 1, behind + 2)], browse, door: { x: m.w / 2, y: m.h - 0.1 } };
+}
