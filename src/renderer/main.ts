@@ -421,7 +421,10 @@ async function start(): Promise<void> {
     map.screenOf = (wx, wy) => iso.screenOf(wx, wy);
     // (the ground's own layer, blood and puddles, lies on the diamonds)
     iso.flat.addChild(map.under);
+    iso.overFlat.addChild(map.over); // (effects over everything: ash, spells, confetti)
   }
+  /** Where the creatures and townlife are drawn into: the iso view's sorted `things` (moved by `placeLoose`) or the map's. */
+  const lay = iso ? iso.things : map.things;
   /** The cell under the finger in Clear mode, or the one inspected: the outline is drawn by both views. */
   const setHighlight = (cell: number | null) => {
     map.setHighlight(cell);
@@ -445,32 +448,32 @@ async function start(): Promise<void> {
   people.lights = map.lights;
   (window as unknown as { __people?: MapPeople }).__people = people; // (for previews)
   (window as unknown as { __hkCell?: typeof hkCell }).__hkCell = hkCell; // (for previews: a townsperson's cell)
-  const raiders = new MapRaiders(map.things);
+  const raiders = new MapRaiders(lay);
   raiders.rings = 'fight';
-  const roamers = new MapRaiders(map.things); // (the bands roaming the land: sim/roamers.ts)
-  const penned = new MapRaiders(map.things); // (the ranch's beasts in their pens: sim/ranch.ts)
+  const roamers = new MapRaiders(lay); // (the bands roaming the land: sim/roamers.ts)
+  const penned = new MapRaiders(lay); // (the ranch's beasts in their pens: sim/ranch.ts)
   (window as unknown as { __penned?: unknown }).__penned = penned; // (for previews)
-  const herds = new MapHerds(map.things);
+  const herds = new MapHerds(lay);
   const boats = new MapBoats(map.things);
   const airships = new MapAirships(map.things, map.over, map.under); // (the skies: sim/skies.ts)
   const wagons = new MapWagons(map.things); // (the caravans' wagons: sim/bands.ts)
-  const birds = new MapBirds(map.things, map);
+  const birds = new MapBirds(lay, map);
   (window as unknown as { __birds?: MapBirds }).__birds = birds; // (for previews)
   // (the small scenes about town: the elders' benches and crumbs, puddle splashes, the busker's notes: map/mapScenes.ts)
   const scenes = new MapScenes(map.things, (id) => people.posOf(id));
   let buskDue = 0;
-  const butterflies = new MapButterflies(map.things, map);
-  const wildlife = new MapWildlife(map.things, map);
+  const butterflies = new MapButterflies(lay, map);
+  const wildlife = new MapWildlife(lay, map);
   (window as unknown as { __wildlife?: MapWildlife }).__wildlife = wildlife; // (for previews)
   const water = new MapWater(map.things, map.under, map.over, map.root, map);
   // footprints in the snow, the sand and the rain's mud, and breath in the cold (map/mapTracks.ts)
   const tracks = new MapTracks(map.under, map.over, map);
   (window as unknown as { __tracks?: MapTracks }).__tracks = tracks; // (for previews)
   // the town's dogs, cats and hens (map/mapPets.ts)
-  const pets = new MapPets(map.things, map.over, map);
+  const pets = new MapPets(lay, map.over, map);
   // bees and hives, dragonflies, bats, moths, crows and scarecrows, rats (map/mapCritters.ts); frost, dew, hail and
   // drifts on the ground (map/groundFrost.ts)
-  const critters = new MapCritters(map.things, map.over, map);
+  const critters = new MapCritters(lay, map.over, map);
   pets.onCatch = (id) => critters.caught(id);
   const frost = new GroundFrost(map.under);
   (window as unknown as { __critters?: unknown }).__critters = { critters, frost }; // (for previews)
@@ -482,7 +485,7 @@ async function start(): Promise<void> {
   (window as unknown as { __wide?: WideWorld }).__wide = wide; // (for previews)
   const graves = new MapGraves(map.things); // (a headstone for each of the fallen)
   // the town being itself: snowmen, snowballs, the coffin carried, the lookouts on the towers (map/mapTownLife.ts)
-  const townLife = new MapTownLife(map.things, map.over, map.lights, (id) => people.posOf(id));
+  const townLife = new MapTownLife(lay, map.over, map.lights, (id) => people.posOf(id));
   (window as unknown as { __townLife?: MapTownLife }).__townLife = townLife; // (previews)
   (window as unknown as { __graves?: MapGraves }).__graves = graves; // (previews)
   const market = new MapMarket(map.things); // (market day's stalls)
@@ -2273,7 +2276,6 @@ async function start(): Promise<void> {
     const [jx, jy] = mapJuice.shake();
     app.stage.position.set((shaking ? Math.round((Math.random() - 0.5) * 6) : 0) + jx, (shaking ? Math.round((Math.random() - 0.5) * 4) : 0) + jy);
     people.render(performance.now());
-    iso?.placeLoose(); // (the townsfolk moved onto the diamonds)
     townLife.render(performance.now());
     raiders.render(performance.now());
     roamers.render(performance.now()); // (the bands on the land: drawn only once this was added)
@@ -2292,6 +2294,7 @@ async function start(): Promise<void> {
     felling.render(ticker.deltaMS / 1000, map.calm, map.wind());
     gainsView.render(ticker.deltaMS / 1000, map.calm);
     chores.render(ticker.deltaMS / 1000, performance.now(), map.calm, map.wind());
+    iso?.placeLoose(); // (everyone drawn into the things in world px, moved onto the diamonds)
     if (snap && minimap.shown)
       minimap.render({
         people: snap.people.filter((p) => p.away === null).map((p) => ({ x: p.x, y: p.y })),
@@ -2303,6 +2306,7 @@ async function start(): Promise<void> {
           return { x: r.x * CELL, y: r.y * CELL, w: r.w * CELL, h: r.h * CELL };
         }),
         view: iso ? iso.worldView() : map.view,
+        quad: iso?.viewQuad(),
       });
     // the region under the middle of the view: its name shown a few seconds when it changes
     if (snap) {
