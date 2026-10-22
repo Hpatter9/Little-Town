@@ -28,7 +28,7 @@ async function fetchArt(cache, path, hash) {
 }
 
 /** Fetches the listed files, a few at a time; each one counts when it lands. */
-async function fetchAll(paths, art, onEach) {
+async function fetchAll(paths, art, onEach, lanes = 4) {
   const cache = await caches.open(ART);
   let next = 0;
   const worker = async () => {
@@ -38,7 +38,7 @@ async function fetchAll(paths, art, onEach) {
       onEach?.(p);
     }
   };
-  await Promise.all([worker(), worker(), worker(), worker()]);
+  await Promise.all(Array.from({ length: lanes }, worker));
 }
 
 self.addEventListener('install', (e) => {
@@ -120,7 +120,11 @@ function download() {
       const { art } = await manifest();
       const { missing } = await status();
       let n = 0;
-      await fetchAll(missing, art, () => ++n % 8 === 0 && void tell());
+      // (two at a time, the shell's pictures first: the game's own fetches of the art it is showing keep most of a slow line)
+      const early = missing.filter((p) => !art[p][2]);
+      const later = missing.filter((p) => art[p][2]);
+      await fetchAll(early, art, () => ++n % 8 === 0 && void tell(), 2);
+      await fetchAll(later, art, () => ++n % 8 === 0 && void tell(), 2);
     } catch {
       // (no signal: what came down stays, and "Download now" carries on from there)
       setTimeout(() => ((running = null), tell({ failed: true })), 0);

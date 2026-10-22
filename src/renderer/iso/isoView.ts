@@ -639,8 +639,19 @@ export class IsoView {
 
   /** Everything others put in `things` in world px (the townsfolk: map/mapPeople.ts), moved to its spot on the
    *  diamonds and sorted among the buildings. Run after they have drawn, every frame. */
+  private nearFeet: Rect[] = [];
+  private nearFor: Building[] | null = null;
+  private nearGen = -2;
+  private nearN = -1;
   placeLoose(): void {
-    const near = [...this.buildings.values()].map((d) => d.foot);
+    // (the footprints are kept between frames: they change only when the buildings are synced)
+    if (this.nearFor !== this.builtFrom || this.nearGen !== this.builtGen || this.nearN !== this.buildings.size) {
+      this.nearFor = this.builtFrom;
+      this.nearGen = this.builtGen;
+      this.nearN = this.buildings.size;
+      this.nearFeet = [...this.buildings.values()].map((d) => d.foot);
+    }
+    const near = this.nearFeet;
     for (const c of this.things.children) {
       if (this.own.has(c)) continue;
       const last = this.placed.get(c);

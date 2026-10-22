@@ -11,6 +11,7 @@ export function setReduceMotion(on: boolean): void {
   try {
     localStorage.setItem(REDUCE_KEY, on ? '1' : '0');
   } catch {}
+  checkedAt = -Infinity;
 }
 export const reduceMotionSet = (): boolean => {
   try {
@@ -19,7 +20,16 @@ export const reduceMotionSet = (): boolean => {
     return false;
   }
 };
-export const reducedMotion = (): boolean => reduceMotionSet() || (typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches);
+// (asked for every frame by the battle juice: a storage read and a media query, so the answer is kept half a second)
+let checkedAt = -Infinity;
+let reduced = false;
+export const reducedMotion = (): boolean => {
+  const now = typeof performance === 'undefined' ? 0 : performance.now();
+  if (now - checkedAt < 500) return reduced;
+  checkedAt = now;
+  reduced = reduceMotionSet() || (typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches);
+  return reduced;
+};
 
 /** The number a value starts with and what's round it ("2.8 days" -> 2.8, "", " days"), or null. */
 export function leadingNumber(text: string): { n: number; pre: string; post: string; places: number } | null {
