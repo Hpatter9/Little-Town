@@ -571,7 +571,7 @@ function drawMenu(): void {
       item(`Loading scene: ${loadingSceneOn() ? 'on' : 'off'}`, () => (setLoadingScene(!loadingSceneOn()), drawMenu())),
       // (the isometric view, being built: iso/isoView.ts; the strip reads it as it starts, so the town is saved and
       // the page loaded again)
-      item(`Isometric view (in progress): ${isoViewOn() ? 'on' : 'off'}`, () => switchIso(!isoViewOn(), !fromMenu)),
+      item(`Isometric view: ${isoViewOn() ? 'on' : 'off'}`, () => switchIso(!isoViewOn(), !fromMenu)),
       zooms,
       label('Help'),
       item(`Tips: ${tipsOn() ? 'on' : 'off'}`, () => (setTipsOn(!tipsOn()), drawMenu())),

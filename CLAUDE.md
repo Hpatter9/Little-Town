@@ -328,9 +328,9 @@ Grep the file and constant names too: most systems were changed again in later s
 - **Sound:** `ambience.ts`, `ambienceMix.ts`, `sfx.ts`, `music.ts`, `musicScore.ts`, `musicGen.ts`, `musicMood.ts`,
   `soundZones.ts`, `audioGate.ts`, `volume.ts`. H: "The soundscape", "Music, sound and real light", "Sounds that
   match".
-- **The isometric view (behind Settings, `littletown.iso`):** `iso/isoView.ts`, `iso/isoMath.ts`, `iso/isoKits.ts`,
-  `iso/isoTown.ts`, `iso/isoLight.ts`, `iso/isoCastle.ts` + `isoCastleView.ts`, `iso/folk*.ts` (townsfolk, not yet
-  wired), `tactics/isoBoard.ts`; art in `art/iso/` (kits, castles, folk; PixelLab). H: "The isometric view, begun",
+- **The isometric view (the default since 0.182.0; Settings turns it off, `littletown.iso`):** `iso/isoView.ts`, `iso/isoMath.ts`, `iso/isoKits.ts`,
+  `iso/isoTown.ts`, `iso/isoLight.ts`, `iso/isoCastle.ts` + `isoCastleView.ts`, `iso/folk*.ts` (townsfolk, each
+  people's own cast), `tactics/isoBoard.ts`; art in `art/iso/` (kits, castles, folk; PixelLab). H: "The isometric view, begun",
   "The iso town, filled in", "The isometric art", "Isometric townsfolk", "Night, doors", "The castle and the hold in
   the isometric view", "The raid board in the isometric look".
 
