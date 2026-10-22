@@ -15,6 +15,8 @@ import type { BackdropId } from './backdrops';
 import type { EventEffect } from './eventKit';
 import { SAGAS_2 } from './sagas2';
 import { SAGAS_3 } from './sagas3';
+import { CREATURE_SAGA_DEF } from './creatureSaga';
+import type { CreatureDeed, CreatureKind } from './creature';
 import { calm, coin, dayOf, eraAt, gain, grown, has, mod, mood, raidIn, rep, teach, byEra } from './sagaKit';
 import type { GameState } from '../sim/state';
 import type { Material } from './materials';
@@ -28,7 +30,11 @@ export type SagaEffect =
   | { castKill: 'a' | 'b'; chance: number; cause: string }
   | { title: string }
   | { unique: string }
-  | { join: number; type?: string };
+  | { join: number; type?: string }
+  /** The great creature (sim/creature.ts): the kind picked, its nature moved, a deed taught (1 praise, -1 scolding). */
+  | { creature: CreatureKind }
+  | { creatureAlign: number }
+  | { creatureTeach: CreatureDeed; by: number };
 
 export type Next = string | ((flags: readonly string[], s: GameState) => string);
 
@@ -43,7 +49,8 @@ export interface SagaOption {
 export type Foes = Record<string, number> | ((s: GameState) => Partial<Record<string, number>>);
 
 export type Chapter =
-  | { kind: 'choice'; text: string; picture: BackdropId; options: SagaOption[]; default?: number }
+  /** (`waits`: the game is held until it is answered, like a question on the founder's own trip.) */
+  | { kind: 'choice'; text: string; picture: BackdropId; options: SagaOption[]; default?: number; waits?: boolean }
   | {
       kind: 'trip';
       /** The place on the Expedition Board, and what the board says of it. */
@@ -77,6 +84,9 @@ export interface SagaDef {
   cast?: boolean;
   first: string;
   chapters: Record<string, Chapter>;
+  /** A saga that runs beside the others (the great creature's): begun by its own system, never drawn, and not counted
+   *  against MAX_SAGAS or the gap between sagas. */
+  apart?: boolean;
 }
 
 
@@ -672,7 +682,8 @@ const FIRST_SAGAS: readonly SagaDef[] = [
 /** Every saga: the first six, and the twenty-five of sagas2.ts and sagas3.ts. */
 export const SAGAS: readonly SagaDef[] = [...FIRST_SAGAS, ...SAGAS_2, ...SAGAS_3];
 
-export const SAGA_BY_ID: Record<string, SagaDef> = Object.fromEntries(SAGAS.map((g) => [g.id, g]));
+/** (and the sagas apart, begun by their own systems and never drawn: the great creature's, data/creatureSaga.ts) */
+export const SAGA_BY_ID: Record<string, SagaDef> = Object.fromEntries([...SAGAS, CREATURE_SAGA_DEF].map((g) => [g.id, g]));
 
 /** One saga at a time (the owner's call), never sooner than `SAGA_GAP_DAYS` after the last one ended, and then only now
  *  and then (`SAGA_DAILY` of the mornings at `SAGA_HOUR`), from day `SAGA_FIRST_DAY`: a story is an occasion, with time
