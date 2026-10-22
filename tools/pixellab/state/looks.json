@@ -1,0 +1,94 @@
+{
+ "woman_base": {
+  "desc": "young woman villager in a plain grey vest and leggings, brown bob haircut",
+  "size": [
+   98,
+   98
+  ],
+  "character_id": "b0418164-a7a5-48e8-93fe-64789dc28236"
+ },
+ "woman_plate": {
+  "desc": "young woman knight in steel plate armour with a blue tabard, red braided hair",
+  "size": [
+   98,
+   98
+  ],
+  "character_id": "3b21f8e5-3af3-4f60-9401-4689ebe805d8",
+  "old_ids": [
+   "7eca8cb4-6d69-4ea2-8d42-67ca13ca2ba0",
+   "7e070bfd-bed9-4971-b591-6b5c2a67ab7b"
+  ]
+ },
+ "man_base": {
+  "desc": "man villager in a plain grey shirt and trousers, brown hair and beard",
+  "size": [
+   105,
+   105
+  ],
+  "character_id": "3ac122b0-1d86-4821-b780-aa53fec9e485"
+ },
+ "man_leather": {
+  "desc": "man in brown leather jerkin and trousers, short blond hair",
+  "size": [
+   103,
+   103
+  ],
+  "character_id": "5a79f141-d342-4e54-a860-bdf9fca5bb89"
+ },
+ "man_plate": {
+  "desc": "bearded man with brown hair wearing steel plate armour and a blue tabard",
+  "size": [
+   122,
+   122
+  ],
+  "character_id": "51d2e802-e25d-4cf6-8366-3838a322ebf5",
+  "old_ids": [
+   "948d1b5f-217a-498c-807b-f2ba1e0a3c28",
+   "aae618fa-f118-48ec-afad-9fc9827b4486",
+   "1e856d2b-156c-446a-aca8-4d28532a75eb",
+   "343dbb5e-9ad6-421f-a243-5d35a2db2595",
+   "c47adb6e-878e-430f-9b39-b7005cc1d0b1",
+   "406addcf-179a-4bed-ad42-d361504efe9f"
+  ]
+ },
+ "dwarf_base": {
+  "desc": "stocky dwarf in a grey sleeveless shirt and trousers, braided brown hair and long beard",
+  "size": [
+   88,
+   88
+  ],
+  "character_id": "e5cb0c73-059f-4972-913f-e406fee6055d",
+  "old_ids": [
+   "c060abed-4162-45de-bdb5-b557f323537b",
+   "bf711b15-e41f-4b01-b105-ba92bc4cf961"
+  ]
+ },
+ "dwarf_apron": {
+  "desc": "stocky dwarf smith in a leather apron, red hair and beard",
+  "size": [
+   92,
+   92
+  ],
+  "character_id": "f55c8e94-d591-4090-9574-56751de60123"
+ },
+ "dwarf_plate": {
+  "desc": "stocky dwarf warrior in heavy bronze-trimmed plate armour and a horned helmet, beard",
+  "size": [
+   96,
+   96
+  ],
+  "character_id": "a559bfb4-4b5e-48ab-87cd-25d6c69c1302"
+ },
+ "woman_leather": {
+  "desc": "young woman villager in brown leather jerkin, leggings and boots, brown ponytail",
+  "size": [
+   96,
+   96
+  ],
+  "character_id": "13337f32-26c4-4205-922d-6802f56f6da0"
+ },
+ "woman_leather_axe": {
+  "desc": "woman leather with axe",
+  "character_id": "b926d804-3806-48b4-ae23-4e56aba46aae"
+ }
+}

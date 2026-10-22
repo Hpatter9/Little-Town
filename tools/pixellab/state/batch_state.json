@@ -1,0 +1,1622 @@
+{
+ "woman_leather:walk": {
+  "done": [
+   "south",
+   "south-east",
+   "east",
+   "north-east",
+   "north",
+   "north-west",
+   "west",
+   "south-west"
+  ],
+  "group": "ef43bb19-e8da-403c-9529-28901cb1f31b"
+ },
+ "woman_base:walk": {
+  "done": [
+   "south",
+   "south-east",
+   "east",
+   "north-east",
+   "north-west",
+   "west",
+   "south-west",
+   "north"
+  ],
+  "group": "4eea7a64-cccc-4fa8-aaa4-90b72da2744c"
+ },
+ "woman_plate:walk": {
+  "done": [
+   "south",
+   "east",
+   "south-east",
+   "north-east",
+   "west",
+   "south-west",
+   "north-west",
+   "north"
+  ],
+  "group": "a091e162-40f9-4878-9378-af817b9bdd0d"
+ },
+ "man_base:walk": {
+  "done": [
+   "south",
+   "east",
+   "south-east",
+   "north-east",
+   "north",
+   "west",
+   "south-west",
+   "north-west"
+  ],
+  "group": "f5ab5459-b911-4a95-8a67-b8552a9378a0"
+ },
+ "man_leather:walk": {
+  "done": [
+   "south",
+   "south-east",
+   "east",
+   "north-east",
+   "north-west",
+   "south-west",
+   "north",
+   "west"
+  ],
+  "group": "2d329273-fa18-4862-a3b1-c7e8cf165373"
+ },
+ "man_plate:walk": {
+  "done": [
+   "south",
+   "east",
+   "south-east",
+   "north-east",
+   "north-west",
+   "west",
+   "south-west",
+   "north"
+  ],
+  "group": "e81d859a-f7fd-477f-a427-ba86713c43cf"
+ },
+ "dwarf_base:walk": {
+  "done": [
+   "south",
+   "south-east",
+   "north-west",
+   "west",
+   "east",
+   "north-east",
+   "south-west",
+   "north"
+  ],
+  "group": "c751eaef-b23d-4b9f-92a6-81652b77dd5c"
+ },
+ "dwarf_apron:walk": {
+  "done": [
+   "south",
+   "east",
+   "north-east",
+   "south-east",
+   "north-west",
+   "west",
+   "south-west",
+   "north"
+  ],
+  "group": "15c897eb-253e-4543-8825-ea7124d1f296"
+ },
+ "dwarf_plate:walk": {
+  "done": [
+   "south",
+   "east",
+   "west",
+   "north-east",
+   "south-east",
+   "north",
+   "south-west",
+   "north-west"
+  ],
+  "group": "8ebef393-4aec-445e-a749-11dbff77b2fd"
+ },
+ "woman_leather:run": {
+  "done": [
+   "south",
+   "south-east",
+   "north",
+   "north-east",
+   "south-west",
+   "west",
+   "east",
+   "north-west"
+  ],
+  "group": "9249a6af-e695-49f4-a117-9ba300eb4261"
+ },
+ "woman_leather:idle": {
+  "done": [
+   "south",
+   "south-east",
+   "east",
+   "north-east",
+   "north",
+   "north-west",
+   "west",
+   "south-west"
+  ],
+  "group": "caaf9e7d-f077-4c34-890e-89355a2083e3"
+ },
+ "woman_plate:run": {
+  "done": [
+   "south",
+   "east",
+   "south-east",
+   "north",
+   "north-west",
+   "west",
+   "south-west",
+   "north-east"
+  ],
+  "group": "c24d211a-006f-4061-80d1-7ef061c9205f"
+ },
+ "woman_base:run": {
+  "done": [
+   "south",
+   "east",
+   "south-east",
+   "north-east",
+   "north",
+   "north-west",
+   "west",
+   "south-west"
+  ],
+  "group": "ed398c2b-00fd-413e-baec-0f66b6b6fbf0"
+ },
+ "dwarf_plate:run": {
+  "done": [
+   "south",
+   "east",
+   "north-east",
+   "north",
+   "north-west",
+   "south-east",
+   "south-west",
+   "west"
+  ],
+  "group": "21a02947-8079-4057-b4f2-0040ccdfacc5"
+ },
+ "man_base:run": {
+  "done": [
+   "south",
+   "west",
+   "south-east",
+   "north",
+   "north-west",
+   "east",
+   "north-east",
+   "south-west"
+  ],
+  "group": "57a4a076-85af-490c-a7ba-36de2dc4d579"
+ },
+ "man_plate:run": {
+  "done": [
+   "south",
+   "east",
+   "north",
+   "north-east",
+   "north-west",
+   "south-west",
+   "west",
+   "south-east"
+  ],
+  "group": "cd7593e4-bf25-4759-902d-8c41273780c0"
+ },
+ "woman_leather:death": {
+  "done": [
+   "south",
+   "north-east",
+   "north-west",
+   "north",
+   "west",
+   "south-east",
+   "east",
+   "south-west"
+  ],
+  "group": "b89220d7-5f88-4f84-9f4c-171c8c5a49cb"
+ },
+ "man_leather:run": {
+  "done": [
+   "south",
+   "north-east",
+   "south-east",
+   "north",
+   "east",
+   "north-west",
+   "west",
+   "south-west"
+  ],
+  "group": "b3a2ca73-f101-407c-ba02-47d4693458e2"
+ },
+ "dwarf_base:run": {
+  "done": [
+   "south",
+   "south-east",
+   "north-east",
+   "north-west",
+   "west",
+   "south-west",
+   "east",
+   "north"
+  ],
+  "group": "8acc0450-ca47-4525-bbf0-b42e35506694"
+ },
+ "woman_plate:idle": {
+  "done": [
+   "south",
+   "east",
+   "south-east",
+   "west",
+   "north-west",
+   "north-east",
+   "north",
+   "south-west"
+  ],
+  "group": "3694c007-55c1-49ed-b59e-6b340772f8c4"
+ },
+ "dwarf_apron:run": {
+  "done": [
+   "south",
+   "north-west",
+   "west",
+   "north-east",
+   "south-west",
+   "south-east",
+   "east",
+   "north"
+  ],
+  "group": "dd7e52da-8080-477f-bf01-81409132af1e"
+ },
+ "dwarf_plate:idle": {
+  "done": [
+   "south",
+   "south-east",
+   "east",
+   "north",
+   "north-east",
+   "west",
+   "north-west",
+   "south-west"
+  ],
+  "group": "ea66128c-0bd6-4e2c-a411-ed417a0a520b"
+ },
+ "woman_leather:hurt": {
+  "done": [
+   "south",
+   "south-east",
+   "north-east",
+   "east",
+   "north",
+   "north-west",
+   "south-west",
+   "west"
+  ],
+  "group": "f3a69ab1-ad81-4e83-bdaf-bb2b119f9d38"
+ },
+ "man_base:idle": {
+  "done": [
+   "south",
+   "south-east",
+   "east",
+   "north-east",
+   "west",
+   "north-west",
+   "north",
+   "south-west"
+  ],
+  "group": "432a7144-2b41-4e35-b97a-eabc52b7b483"
+ },
+ "woman_plate:death": {
+  "done": [
+   "south",
+   "south-east",
+   "north",
+   "north-east",
+   "south-west",
+   "west",
+   "east",
+   "north-west"
+  ],
+  "group": "cecc1e8e-70be-4570-acd0-9644a1a29da9"
+ },
+ "man_leather:idle": {
+  "done": [
+   "south",
+   "south-east",
+   "east",
+   "north-east",
+   "north",
+   "west",
+   "south-west",
+   "north-west"
+  ],
+  "group": "c09bc4b8-d723-405b-8bb5-9dfdbfb8b947"
+ },
+ "dwarf_apron:idle": {
+  "done": [
+   "south",
+   "east",
+   "south-east",
+   "north",
+   "north-west",
+   "south-west",
+   "west",
+   "north-east"
+  ],
+  "group": "554ead4c-2926-4dce-959f-ba04107e9a18"
+ },
+ "woman_base:idle": {
+  "done": [
+   "south",
+   "south-east",
+   "north-east",
+   "east",
+   "west",
+   "south-west",
+   "north-west",
+   "north"
+  ],
+  "group": "7a209c64-a0ed-4c2f-b338-6967030f9eb9"
+ },
+ "man_plate:idle": {
+  "done": [
+   "south",
+   "south-east",
+   "north",
+   "east",
+   "north-east",
+   "west",
+   "south-west",
+   "north-west"
+  ],
+  "group": "f146192f-30aa-4fad-9260-e907ca292100"
+ },
+ "dwarf_plate:death": {
+  "done": [
+   "south",
+   "east",
+   "north",
+   "north-east",
+   "west",
+   "south-west",
+   "south-east",
+   "north-west"
+  ],
+  "group": "1a9fe1af-d17d-4aff-b316-fba33cff9c4d"
+ },
+ "dwarf_base:idle": {
+  "done": [
+   "south",
+   "east",
+   "south-east",
+   "north-east",
+   "south-west",
+   "west",
+   "north-west",
+   "north"
+  ],
+  "group": "014d77fe-bb7b-438c-8b55-639b0a9cfba1"
+ },
+ "man_base:death": {
+  "done": [
+   "south",
+   "south-east",
+   "east",
+   "north",
+   "north-east",
+   "north-west",
+   "west",
+   "south-west"
+  ],
+  "group": "f429ada9-d9e3-4404-a907-050001314c68"
+ },
+ "woman_leather:cast_1h": {
+  "done": [
+   "south",
+   "east",
+   "south-east",
+   "north-east",
+   "west",
+   "north",
+   "south-west",
+   "north-west"
+  ],
+  "group": "1c1e0cbd-3bbd-4b47-9511-f58b4cba023f"
+ },
+ "woman_plate:hurt": {
+  "done": [
+   "south",
+   "north",
+   "south-east",
+   "north-east",
+   "north-west",
+   "south-west",
+   "west",
+   "east"
+  ],
+  "group": "4c6e8eca-f02d-422d-83e9-edba72a330ff"
+ },
+ "dwarf_apron:death": {
+  "done": [
+   "south",
+   "east",
+   "south-east",
+   "north-east",
+   "north",
+   "north-west",
+   "south-west",
+   "west"
+  ],
+  "group": "a126aa7c-af33-4a06-9c48-c53501b06257"
+ },
+ "woman_base:death": {
+  "done": [
+   "south",
+   "north-west",
+   "north",
+   "east",
+   "north-east",
+   "west",
+   "south-west",
+   "south-east"
+  ],
+  "group": "2bc22f60-f0e0-4d3b-9530-3bddff926195"
+ },
+ "man_plate:death": {
+  "done": [
+   "south",
+   "south-east",
+   "east",
+   "north",
+   "south-west",
+   "north-west",
+   "north-east",
+   "west"
+  ],
+  "group": "e0cf6752-1757-4253-8160-f59356eee3d0"
+ },
+ "man_leather:death": {
+  "done": [
+   "south",
+   "north-east",
+   "south-east",
+   "east",
+   "south-west",
+   "north",
+   "west",
+   "north-west"
+  ],
+  "group": "23541932-f869-4f32-954e-f244ecf9800c"
+ },
+ "dwarf_plate:hurt": {
+  "done": [
+   "south",
+   "south-east",
+   "east",
+   "north",
+   "north-east",
+   "west",
+   "south-west",
+   "north-west"
+  ],
+  "group": "31bfaff7-96be-4ebc-b2d0-6ccc5b5b4da2"
+ },
+ "dwarf_base:death": {
+  "done": [
+   "south",
+   "east",
+   "south-east",
+   "north-east",
+   "north-west",
+   "north",
+   "west",
+   "south-west"
+  ],
+  "group": "cb18f4ab-4e0e-46c4-b18e-46ab63f9b47d"
+ },
+ "woman_leather+axe": {
+  "edited": true,
+  "character_id": "d9e9c256-febe-4249-89cf-318b9cb0ddfc"
+ },
+ "woman_leather+hammer": {
+  "edited": true,
+  "character_id": "3b0eeeac-c08e-4729-8792-a93d8d03d316"
+ },
+ "woman_leather+sword": {
+  "edited": true,
+  "character_id": "c916e040-06dc-4c3a-9610-c917ad9cb8e2"
+ },
+ "woman_leather+bow": {
+  "edited": true,
+  "character_id": "46408985-c558-4ba0-83a3-0be0ca45c559"
+ },
+ "woman_leather+greatsword": {
+  "edited": true,
+  "character_id": "c29bbd86-2c45-4467-8ab9-e38702911aa0"
+ },
+ "woman_leather+staff": {
+  "edited": true,
+  "character_id": "7ab30b8c-a9fa-4537-8329-b5e39e33632e"
+ },
+ "man_base:hurt": {
+  "done": [
+   "south",
+   "south-east",
+   "east",
+   "south-west",
+   "north",
+   "north-west",
+   "west",
+   "north-east"
+  ],
+  "group": "e5600638-f8b8-42ad-a31c-0724cd40dd35"
+ },
+ "woman_plate:cast_1h": {
+  "done": [
+   "south",
+   "south-east",
+   "east",
+   "north-east",
+   "north",
+   "west",
+   "north-west",
+   "south-west"
+  ],
+  "group": "8881ac2d-f55c-4924-9a42-551beaf285ce"
+ },
+ "dwarf_apron:hurt": {
+  "done": [
+   "south",
+   "north",
+   "east",
+   "south-east",
+   "west",
+   "north-east",
+   "north-west",
+   "south-west"
+  ],
+  "group": "cdd5a2bb-859c-41ad-8c85-d13392107e1b"
+ },
+ "woman_base:hurt": {
+  "done": [
+   "south",
+   "east",
+   "north",
+   "north-west",
+   "west",
+   "south-west",
+   "north-east",
+   "south-east"
+  ],
+  "group": "e36c23ed-a917-4300-958a-dc81a238a9b5"
+ },
+ "dwarf_base:hurt": {
+  "done": [
+   "south",
+   "east",
+   "south-east",
+   "north",
+   "north-east",
+   "north-west",
+   "west",
+   "south-west"
+  ],
+  "group": "0af84336-6c4c-4d14-bb0f-7d7534eceaf3"
+ },
+ "dwarf_plate:cast_1h": {
+  "done": [
+   "south",
+   "south-east",
+   "north-east",
+   "east",
+   "north",
+   "south-west",
+   "west",
+   "north-west"
+  ],
+  "group": "52398be9-c07d-4cd8-809a-ea09546b99b5"
+ },
+ "man_leather:hurt": {
+  "done": [
+   "south",
+   "north-west",
+   "south-east",
+   "north-east",
+   "north",
+   "west",
+   "south-west",
+   "east"
+  ],
+  "group": "d6fdeb1e-805b-4c0b-b708-8f727489ea87"
+ },
+ "woman_leather+hammer:hammer": {
+  "done": [
+   "south",
+   "south-east",
+   "east",
+   "north-east",
+   "north",
+   "north-west",
+   "south-west",
+   "west"
+  ],
+  "group": "ecafb430-f323-43ed-9467-952985d824c2"
+ },
+ "woman_leather+axe:chop": {
+  "done": [
+   "south",
+   "south-east",
+   "north-east",
+   "east",
+   "north",
+   "north-west",
+   "south-west",
+   "west"
+  ],
+  "group": "adc3fea1-08ea-476b-933b-05687e527459"
+ },
+ "woman_leather+sword:attack_1h": {
+  "done": [
+   "south",
+   "south-east",
+   "north-east",
+   "north",
+   "north-west",
+   "west",
+   "east",
+   "south-west"
+  ],
+  "group": "886966ae-0b3d-4f68-8012-2e324b6d3506"
+ },
+ "woman_leather+staff:cast_2h": {
+  "done": [
+   "south",
+   "south-east",
+   "east",
+   "south-west",
+   "west",
+   "north-east",
+   "north-west",
+   "north"
+  ],
+  "group": "f94ddfe0-94fa-411e-855a-588051dc65bb"
+ },
+ "woman_leather+greatsword:attack_2h": {
+  "done": [
+   "south",
+   "south-east",
+   "east",
+   "north-east",
+   "west",
+   "south-west",
+   "north-west",
+   "north"
+  ],
+  "group": "23972c3b-4a31-4fe7-86e6-6ef973cf41af"
+ },
+ "woman_leather+bow:attack_bow": {
+  "done": [
+   "south",
+   "south-east",
+   "east",
+   "north-east",
+   "north",
+   "south-west",
+   "west",
+   "north-west"
+  ],
+  "group": "2c615f5b-6520-4654-9af2-8861bfd79600"
+ },
+ "man_plate:hurt": {
+  "done": [
+   "south",
+   "east",
+   "south-east",
+   "north-east",
+   "west",
+   "north",
+   "north-west",
+   "south-west"
+  ],
+  "group": "c9e27a58-25ea-4117-99b9-7592aa4e9d92"
+ },
+ "dwarf_apron:cast_1h": {
+  "done": [
+   "south",
+   "east",
+   "north-east",
+   "north",
+   "west",
+   "north-west",
+   "south-west",
+   "south-east"
+  ],
+  "group": "68fe73eb-2002-4f50-85e8-0170f2212511"
+ },
+ "man_base:cast_1h": {
+  "done": [
+   "south",
+   "north-east",
+   "south-east",
+   "east",
+   "north",
+   "north-west",
+   "west",
+   "south-west"
+  ],
+  "group": "794a84db-d041-4a04-9511-61ce1c1701ff"
+ },
+ "woman_plate+axe": {
+  "edited": true,
+  "character_id": "32b0f3f9-500f-42b7-9b19-ab0bada51eda"
+ },
+ "woman_plate+hammer": {
+  "edited": true,
+  "character_id": "a98cce8f-5f5a-4ec3-8efc-f4f0b52aa926"
+ },
+ "woman_plate+sword": {
+  "edited": true,
+  "character_id": "140c4f85-574c-4fd0-85c0-c2dfaf7e8bd4"
+ },
+ "woman_plate+bow": {
+  "edited": true,
+  "character_id": "714f56f0-e7ea-4fb0-af13-8544d1fbb0b3"
+ },
+ "woman_plate+greatsword": {
+  "edited": true,
+  "character_id": "21141ff3-8559-4d77-9792-855f96040eaf"
+ },
+ "woman_plate+staff": {
+  "edited": true,
+  "character_id": "9ffe83ea-8792-4605-83de-9d0f15c2bc8f"
+ },
+ "dwarf_base:cast_1h": {
+  "done": [
+   "south",
+   "east",
+   "south-east",
+   "north-east",
+   "north",
+   "west",
+   "north-west",
+   "south-west"
+  ],
+  "group": "80f9a297-76e7-4dd9-be53-441a5a6ae900"
+ },
+ "dwarf_plate+axe": {
+  "edited": true,
+  "character_id": "d843ac80-e6e9-49f3-91fe-e9439834c2a1"
+ },
+ "dwarf_plate+hammer": {
+  "edited": true,
+  "character_id": "a04ff603-f051-4056-91b6-3b469a776ea0"
+ },
+ "dwarf_plate+sword": {
+  "edited": true,
+  "character_id": "8040c042-d03b-4c0a-a3c6-8df431cf7f38"
+ },
+ "dwarf_plate+bow": {
+  "edited": true,
+  "character_id": "8e9675f2-236f-4ea4-86b4-ab51d2ea45c4"
+ },
+ "dwarf_plate+greatsword": {
+  "edited": true,
+  "character_id": "4f20e83a-c2d4-4fac-9b0d-3fa764b9ca22"
+ },
+ "dwarf_plate+staff": {
+  "edited": true,
+  "character_id": "441d1751-7731-409a-90e2-0aba20653d93"
+ },
+ "woman_base:cast_1h": {
+  "done": [
+   "south",
+   "north-east",
+   "north-west",
+   "north",
+   "west",
+   "east",
+   "south-west",
+   "south-east"
+  ],
+  "group": "90f1b1a0-ed2e-4837-abab-b0e9f31c66a9"
+ },
+ "man_leather:cast_1h": {
+  "done": [
+   "south",
+   "west",
+   "north",
+   "south-west",
+   "south-east",
+   "east",
+   "north-east",
+   "north-west"
+  ],
+  "group": "7366ad95-88bd-4cf0-9d07-efd5be03cb8f"
+ },
+ "man_plate:cast_1h": {
+  "done": [
+   "south",
+   "north-east",
+   "north-west",
+   "east",
+   "west",
+   "south-west",
+   "north",
+   "south-east"
+  ],
+  "group": "0b1e4b99-6618-4732-b7c6-82f3a0cb9190"
+ },
+ "dwarf_apron+axe": {
+  "edited": true,
+  "character_id": "83f9181f-3371-4c2c-b5ba-08b2e8fb3d37"
+ },
+ "dwarf_apron+hammer": {
+  "edited": true,
+  "character_id": "8afd6146-84d8-4992-91d4-41e13e1b8b1b"
+ },
+ "dwarf_apron+sword": {
+  "edited": true,
+  "character_id": "41508c78-5fc3-4ce3-92f5-567f3cfdf4a0"
+ },
+ "dwarf_apron+bow": {
+  "edited": true,
+  "character_id": "547b36de-faa2-48ad-b857-f8b6821b92dc"
+ },
+ "dwarf_apron+greatsword": {
+  "edited": true,
+  "character_id": "8f92639e-18b4-49f3-b5cf-88d71b2d0136"
+ },
+ "dwarf_apron+staff": {
+  "edited": true,
+  "character_id": "2b53473d-a0ea-4fdf-b15d-4d1eefd4af1d"
+ },
+ "man_base+axe": {
+  "edited": true,
+  "character_id": "6be151fc-82be-4ef3-be77-3ac9782aad66"
+ },
+ "man_base+hammer": {
+  "edited": true,
+  "character_id": "c1ac0c18-4bdc-4417-9bec-0795629de34c"
+ },
+ "man_base+sword": {
+  "edited": true,
+  "character_id": "b180d8c7-1882-45dd-a2ae-ab7d73129325"
+ },
+ "man_base+bow": {
+  "edited": true,
+  "character_id": "2e2ba060-4e4c-4eaa-8c3b-69a13fcdefba"
+ },
+ "man_base+greatsword": {
+  "edited": true,
+  "character_id": "e542093e-dc50-4dd4-9d20-af0affa88051"
+ },
+ "man_base+staff": {
+  "edited": true,
+  "character_id": "2fdc7a14-d236-4020-902f-bfb57e1d40f9"
+ },
+ "woman_plate+bow:attack_bow": {
+  "done": [
+   "south",
+   "west",
+   "east",
+   "north-west",
+   "south-east",
+   "north-east",
+   "north",
+   "south-west"
+  ],
+  "group": "ee368bdc-e4c0-49ac-8ea3-d9b6c5866285"
+ },
+ "woman_plate+hammer:hammer": {
+  "done": [
+   "south",
+   "south-east",
+   "east",
+   "north",
+   "north-east",
+   "west",
+   "north-west",
+   "south-west"
+  ],
+  "group": "10244acc-46c6-4a2b-8b3e-ef5588a8e055"
+ },
+ "dwarf_plate+axe:chop": {
+  "done": [
+   "south",
+   "north-east",
+   "south-east",
+   "east",
+   "north",
+   "west",
+   "south-west",
+   "north-west"
+  ],
+  "group": "1b41c783-8687-4c9e-a306-d0d74f96e1f6"
+ },
+ "woman_plate+axe:chop": {
+  "done": [
+   "south",
+   "south-east",
+   "north-east",
+   "east",
+   "north",
+   "north-west",
+   "west",
+   "south-west"
+  ],
+  "group": "e2388bbd-6a6d-4901-ae19-2ca571e69fbf"
+ },
+ "woman_plate+staff:cast_2h": {
+  "done": [
+   "south",
+   "north-east",
+   "east",
+   "south-east",
+   "north-west",
+   "south-west",
+   "north",
+   "west"
+  ],
+  "group": "c6ce3789-1387-4ae3-8dcd-6ad72383ff2a"
+ },
+ "woman_plate+sword:attack_1h": {
+  "done": [
+   "south",
+   "south-east",
+   "east",
+   "north-east",
+   "north",
+   "north-west",
+   "south-west",
+   "west"
+  ],
+  "group": "3070af2b-509a-4e2c-bbd7-176cee4b46a9"
+ },
+ "dwarf_plate+hammer:hammer": {
+  "done": [
+   "south",
+   "north-east",
+   "south-east",
+   "north-west",
+   "north",
+   "east",
+   "south-west",
+   "west"
+  ],
+  "group": "c92d202f-ca1e-4042-a4d7-f93a251f45ea"
+ },
+ "dwarf_plate+sword:attack_1h": {
+  "done": [
+   "south",
+   "east",
+   "south-east",
+   "north-east",
+   "north-west",
+   "north",
+   "west",
+   "south-west"
+  ],
+  "group": "909327ac-3624-43de-9102-97abd4a2edde"
+ },
+ "woman_plate+greatsword:attack_2h": {
+  "done": [
+   "south",
+   "south-east",
+   "north-east",
+   "east",
+   "north",
+   "west",
+   "north-west",
+   "south-west"
+  ],
+  "group": "78098ecf-463e-4392-97dd-83c247b47145"
+ },
+ "dwarf_plate+greatsword:attack_2h": {
+  "done": [
+   "south",
+   "south-east",
+   "north-east",
+   "north",
+   "east",
+   "west",
+   "south-west",
+   "north-west"
+  ],
+  "group": "f5427f17-6031-439f-97ad-74b4bd62fece"
+ },
+ "dwarf_plate+bow:attack_bow": {
+  "done": [
+   "south",
+   "south-east",
+   "east",
+   "north-east",
+   "north",
+   "north-west",
+   "south-west",
+   "west"
+  ],
+  "group": "65987105-5c97-4745-a0ad-2485896d2d1e"
+ },
+ "dwarf_plate+staff:cast_2h": {
+  "done": [
+   "south",
+   "west",
+   "north-east",
+   "east",
+   "south-west",
+   "south-east",
+   "north",
+   "north-west"
+  ],
+  "group": "91e87c74-3e33-44e1-a19e-fa539a05b5c5"
+ },
+ "woman_base+axe": {
+  "edited": true,
+  "character_id": "e9c06873-ad34-4d71-a136-0d4a66c085cd"
+ },
+ "woman_base+hammer": {
+  "edited": true,
+  "character_id": "5b15d9ae-c150-4207-b267-f4d518609251"
+ },
+ "woman_base+sword": {
+  "edited": true,
+  "character_id": "d486f3f4-6865-4586-8e1b-790589accf9b"
+ },
+ "woman_base+bow": {
+  "edited": true,
+  "character_id": "1c2f3467-78ba-4c79-8919-28d3dbcdeae6"
+ },
+ "woman_base+greatsword": {
+  "edited": true,
+  "character_id": "1fbfad02-93b7-4dba-b920-262288e19d6f"
+ },
+ "woman_base+staff": {
+  "edited": true,
+  "character_id": "ec0b9d7c-9e13-4017-9bd7-85cf995355d5"
+ },
+ "man_plate+axe": {
+  "edited": true,
+  "character_id": "e49fa060-7123-418a-9307-35304c38be9b"
+ },
+ "man_plate+hammer": {
+  "edited": true,
+  "character_id": "8f0d96a5-bb1b-4153-84a7-3112d4af5d3c"
+ },
+ "man_plate+sword": {
+  "edited": true,
+  "character_id": "aea640dc-55cc-4303-8d79-c566d2d11362"
+ },
+ "man_plate+bow": {
+  "edited": true,
+  "character_id": "ecba4315-83b3-46d6-89d2-3a61a8537869"
+ },
+ "man_plate+greatsword": {
+  "edited": true,
+  "character_id": "c6d7d5c7-7d2b-48df-b476-66df2e4c2632"
+ },
+ "man_plate+staff": {
+  "edited": true,
+  "character_id": "c3bb9430-df57-4e1f-9928-af9230f3f9fe"
+ },
+ "dwarf_base+axe": {
+  "edited": true,
+  "character_id": "1709eb9d-f011-48b6-9a1f-19a1a544ec3c"
+ },
+ "dwarf_base+hammer": {
+  "edited": true,
+  "character_id": "d4712c2a-a9b3-40d3-8e73-7424d675e9e3"
+ },
+ "dwarf_base+sword": {
+  "edited": true,
+  "character_id": "da75e748-3738-4794-9866-7904ec4e3eb3"
+ },
+ "dwarf_base+bow": {
+  "edited": true,
+  "character_id": "2bc27a01-1ab8-40bb-acb3-a00d01d76704"
+ },
+ "dwarf_base+greatsword": {
+  "edited": true,
+  "character_id": "27244a55-2428-48f2-8fe3-5e14a6442025"
+ },
+ "dwarf_base+staff": {
+  "edited": true,
+  "character_id": "072c2024-6f61-46e5-a1af-6672732fd688"
+ },
+ "man_base+bow:attack_bow": {
+  "done": [
+   "south",
+   "east",
+   "south-east",
+   "north-east",
+   "west",
+   "north-west",
+   "south-west",
+   "north"
+  ],
+  "group": "2f8e653c-50b1-446b-b129-2f8b943499a9"
+ },
+ "dwarf_apron+bow:attack_bow": {
+  "done": [
+   "south",
+   "south-east",
+   "east",
+   "north-west",
+   "north",
+   "west",
+   "north-east",
+   "south-west"
+  ],
+  "group": "724e7e7a-9e2e-4dd1-b240-3bfaaa8f83c1"
+ },
+ "man_base+axe:chop": {
+  "done": [
+   "south",
+   "east",
+   "south-east",
+   "north-east",
+   "north-west",
+   "west",
+   "south-west",
+   "north"
+  ],
+  "group": "f010d1d5-9612-4909-b4dc-8e7a2d4c7d43"
+ },
+ "man_base+greatsword:attack_2h": {
+  "done": [
+   "south",
+   "south-east",
+   "east",
+   "north-east",
+   "north",
+   "north-west",
+   "south-west",
+   "west"
+  ],
+  "group": "6b142f2f-4e33-46c7-84a9-1b4a4a859aa1"
+ },
+ "man_base+hammer:hammer": {
+  "done": [
+   "south",
+   "east",
+   "south-east",
+   "north",
+   "north-west",
+   "west",
+   "south-west",
+   "north-east"
+  ],
+  "group": "5d1f4a35-7dcc-437d-93a0-ca11597b08f3"
+ },
+ "man_base+sword:attack_1h": {
+  "done": [
+   "south",
+   "north",
+   "east",
+   "north-east",
+   "south-east",
+   "west",
+   "south-west",
+   "north-west"
+  ],
+  "group": "bbe3f283-d049-4f00-b232-d8d140f882d6"
+ },
+ "man_base+staff:cast_2h": {
+  "done": [
+   "south",
+   "south-east",
+   "east",
+   "north",
+   "west",
+   "south-west",
+   "north-east",
+   "north-west"
+  ],
+  "group": "5b70c773-3ad3-4d92-be10-e4f94029fbdd"
+ },
+ "man_leather+axe": {
+  "edited": true,
+  "character_id": "c190f58b-fe89-48d0-9417-8cb212a9e037"
+ },
+ "man_leather+hammer": {
+  "edited": true,
+  "character_id": "4c05a497-d911-4d13-890f-1394b1589ae5"
+ },
+ "man_leather+sword": {
+  "edited": true,
+  "character_id": "08859e04-099a-4286-8df4-df4b989306fb"
+ },
+ "man_leather+bow": {
+  "edited": true,
+  "character_id": "d591bac0-6910-44e6-85eb-6bd11e841ba6"
+ },
+ "man_leather+greatsword": {
+  "edited": true,
+  "character_id": "641cea65-3a0c-42e5-b08f-ec284ad9dbcc"
+ },
+ "man_leather+staff": {
+  "edited": true,
+  "character_id": "884fb2cf-5a7a-46c3-ac1f-76a01a3369b5"
+ },
+ "dwarf_apron+hammer:hammer": {
+  "done": [
+   "south",
+   "east",
+   "south-east",
+   "north-east",
+   "north",
+   "north-west",
+   "south-west",
+   "west"
+  ],
+  "group": "6ad7be17-f364-4d52-b41a-9a5fa415f430"
+ },
+ "dwarf_apron+greatsword:attack_2h": {
+  "done": [
+   "south",
+   "south-east",
+   "north-east",
+   "east",
+   "north",
+   "north-west",
+   "south-west",
+   "west"
+  ],
+  "group": "cf2fa1de-bf62-46f8-b957-a1611a05e9ea"
+ },
+ "dwarf_base+greatsword:attack_2h": {
+  "done": [
+   "south",
+   "south-east",
+   "north-east",
+   "east",
+   "north-west",
+   "north",
+   "west",
+   "south-west"
+  ],
+  "group": "df82b190-696d-4ac1-baff-2a4660e476e5"
+ },
+ "dwarf_base+axe:chop": {
+  "done": [
+   "south",
+   "south-east",
+   "east",
+   "north",
+   "north-east",
+   "west",
+   "north-west",
+   "south-west"
+  ],
+  "group": "8d3e81c9-64f2-40c1-b0b3-5eda50c68423"
+ },
+ "woman_base+staff:cast_2h": {
+  "done": [
+   "south",
+   "north-east",
+   "south-east",
+   "north",
+   "east",
+   "west",
+   "north-west",
+   "south-west"
+  ],
+  "group": "0bff0163-7e4a-49d3-ac7c-f8dbaef741b4"
+ },
+ "dwarf_base+staff:cast_2h": {
+  "done": [
+   "south",
+   "north-east",
+   "east",
+   "north-west",
+   "south-east",
+   "west",
+   "north",
+   "south-west"
+  ],
+  "group": "62d30a81-81ed-4262-848d-3a76ef6cebc7"
+ },
+ "woman_base+axe:chop": {
+  "done": [
+   "south",
+   "north-west",
+   "north-east",
+   "north",
+   "south-east",
+   "east",
+   "west",
+   "south-west"
+  ],
+  "group": "b6174c85-e2df-437e-aefb-1cf4acf8417c"
+ },
+ "dwarf_base+sword:attack_1h": {
+  "done": [
+   "south",
+   "east",
+   "south-east",
+   "north-east",
+   "north",
+   "south-west",
+   "north-west",
+   "west"
+  ],
+  "group": "5612d672-8160-4221-9021-d553d38d7186"
+ },
+ "woman_base+sword:attack_1h": {
+  "done": [
+   "south",
+   "north",
+   "east",
+   "north-east",
+   "south-east",
+   "south-west",
+   "west",
+   "north-west"
+  ],
+  "group": "c3d27b5b-c58f-470b-b0c7-bda790f84c0d"
+ },
+ "woman_base+greatsword:attack_2h": {
+  "done": [
+   "south",
+   "south-east",
+   "east",
+   "north-east",
+   "south-west",
+   "west",
+   "north-west",
+   "north"
+  ],
+  "group": "8fc70909-13be-482a-9590-1defa282f4e5"
+ },
+ "dwarf_base+bow:attack_bow": {
+  "done": [
+   "south",
+   "east",
+   "north-west",
+   "west",
+   "south-west",
+   "north-east",
+   "south-east",
+   "north"
+  ],
+  "group": "d5f2a816-8a32-417b-831e-e6a26b74c45f"
+ },
+ "dwarf_base+hammer:hammer": {
+  "done": [
+   "south",
+   "south-east",
+   "east",
+   "north-east",
+   "north",
+   "north-west",
+   "west",
+   "south-west"
+  ],
+  "group": "0889162d-38ab-42cc-ada0-f03c22bf326f"
+ },
+ "dwarf_apron+axe:chop": {
+  "done": [
+   "south",
+   "south-east",
+   "east",
+   "west",
+   "north-east",
+   "south-west",
+   "north",
+   "north-west"
+  ],
+  "group": "e75ccefe-3cd7-4b79-818e-cf3edf6c9d1f"
+ },
+ "woman_base+bow:attack_bow": {
+  "done": [
+   "south",
+   "south-east",
+   "east",
+   "north-east",
+   "north",
+   "north-west",
+   "west",
+   "south-west"
+  ],
+  "group": "f3d256b6-5a9f-44c4-908a-fe1e3c90160b"
+ },
+ "woman_base+hammer:hammer": {
+  "done": [
+   "south",
+   "south-east",
+   "east",
+   "north-east",
+   "north",
+   "north-west",
+   "west",
+   "south-west"
+  ],
+  "group": "c5f4e7be-9c1e-4ce1-89ec-482dc67ffc89"
+ },
+ "man_plate+greatsword:attack_2h": {
+  "done": [
+   "south",
+   "south-east",
+   "east",
+   "north-east",
+   "north",
+   "north-west",
+   "west",
+   "south-west"
+  ],
+  "group": "d1e3c49e-2160-443d-8516-26a79e370a52"
+ },
+ "man_leather+axe:chop": {
+  "done": [
+   "south",
+   "east",
+   "south-east",
+   "north-east",
+   "north",
+   "north-west",
+   "west",
+   "south-west"
+  ],
+  "group": "95f2310f-db66-42bc-8382-250a5cbb9882"
+ },
+ "man_plate+sword:attack_1h": {
+  "done": [
+   "south",
+   "south-east",
+   "east",
+   "north-east",
+   "north",
+   "north-west",
+   "west",
+   "south-west"
+  ],
+  "group": "77513753-3c3a-4bf7-8844-5873222f0401"
+ },
+ "man_plate+staff:cast_2h": {
+  "done": [
+   "south",
+   "south-east",
+   "east",
+   "north-east",
+   "north",
+   "north-west",
+   "west",
+   "south-west"
+  ],
+  "group": "51f1d902-cc35-4b1e-8b61-2da1068c379d"
+ },
+ "dwarf_apron+staff:cast_2h": {
+  "done": [
+   "south",
+   "south-east",
+   "east",
+   "north-east",
+   "north",
+   "north-west",
+   "west",
+   "south-west"
+  ],
+  "group": "bf38ef27-dcb2-4912-8306-1fbab5bbf0db"
+ },
+ "dwarf_apron+sword:attack_1h": {
+  "done": [
+   "south",
+   "south-east",
+   "east",
+   "north-east",
+   "north",
+   "north-west",
+   "west",
+   "south-west"
+  ],
+  "group": "c57e621b-70b2-4306-9472-c75e3aa6b474"
+ },
+ "man_leather+bow:attack_bow": {
+  "done": [
+   "south",
+   "south-east",
+   "east",
+   "north-east",
+   "north",
+   "north-west",
+   "west",
+   "south-west"
+  ],
+  "group": "6f02a41d-f0a5-4c00-8ff0-0076d30a72a6"
+ },
+ "man_leather+sword:attack_1h": {
+  "done": [
+   "south",
+   "south-east",
+   "east",
+   "north-east",
+   "north",
+   "north-west",
+   "west",
+   "south-west"
+  ],
+  "group": "67b89aa4-fe16-423b-9f92-97e4230b2b1a"
+ },
+ "man_leather+hammer:hammer": {
+  "done": [
+   "south",
+   "south-east",
+   "east",
+   "north-east",
+   "north",
+   "north-west",
+   "west",
+   "south-west"
+  ],
+  "group": "a854eed0-db57-41fa-aa47-d3b296d9df17"
+ },
+ "man_leather+staff:cast_2h": {
+  "done": [
+   "south",
+   "south-east",
+   "east",
+   "north-east",
+   "north",
+   "north-west",
+   "south-west",
+   "west"
+  ],
+  "group": "dd22b569-463e-4b65-ac61-5bf1b6b9f225"
+ },
+ "man_leather+greatsword:attack_2h": {
+  "done": [
+   "south",
+   "south-east",
+   "east",
+   "north-east",
+   "north",
+   "north-west",
+   "west",
+   "south-west"
+  ],
+  "group": "426b2b0f-2d9b-4d47-9077-76f5e5c6489f"
+ },
+ "man_plate+bow:attack_bow": {
+  "done": [
+   "south",
+   "south-east",
+   "east",
+   "north-east",
+   "north-west",
+   "west",
+   "north",
+   "south-west"
+  ],
+  "group": "0eaa7a65-6c71-453e-a848-b41628565e89"
+ },
+ "man_plate+hammer:hammer": {
+  "done": [
+   "south",
+   "south-east",
+   "east",
+   "north-east",
+   "north",
+   "north-west",
+   "west",
+   "south-west"
+  ],
+  "group": "f8697031-a3ec-434f-9dd2-9ae6b2ce140f"
+ },
+ "man_plate+axe:chop": {
+  "done": [
+   "south",
+   "south-east",
+   "north-east",
+   "east",
+   "south-west",
+   "west",
+   "north",
+   "north-west"
+  ],
+  "group": "476c3f61-238d-4b72-ac93-d2ba36bdf706"
+ }
+}

@@ -1,0 +1,170 @@
+{
+ "orc_brute": {
+  "edited": true,
+  "character_id": "dc0e6a73-7490-4831-991d-f8f1ac0c942c",
+  "walk": {
+   "done": [
+    "south",
+    "south-east",
+    "east",
+    "north-east",
+    "north",
+    "north-west",
+    "west",
+    "south-west"
+   ],
+   "group": "4276541f-b610-4841-9c26-f07d1c2b7d48"
+  },
+  "idle": {
+   "done": [
+    "south",
+    "south-east",
+    "east",
+    "north-east",
+    "north",
+    "north-west",
+    "west",
+    "south-west"
+   ],
+   "group": "cb8e2221-5589-4903-8869-3756e0a1869f"
+  },
+  "attack": {
+   "done": [
+    "south",
+    "south-east",
+    "east",
+    "north-east",
+    "north",
+    "north-west",
+    "west",
+    "south-west"
+   ],
+   "group": "ce095326-9319-4200-9fb0-167d366c2e04"
+  },
+  "death": {
+   "done": [
+    "south",
+    "south-east",
+    "east",
+    "north-east",
+    "north",
+    "north-west",
+    "west",
+    "south-west"
+   ],
+   "group": "89d382b8-4c2f-4da4-acc6-32ec5c462372"
+  }
+ },
+ "orc_woman": {
+  "edited": true,
+  "character_id": "aedb0f52-2f8e-49e6-9a65-3d3b152703eb",
+  "walk": {
+   "done": [
+    "south",
+    "south-east",
+    "east",
+    "north-east",
+    "north",
+    "north-west",
+    "west",
+    "south-west"
+   ],
+   "group": "1ac528ea-1ebe-4dc0-ac5c-37f3a7bc17a9"
+  },
+  "idle": {
+   "done": [
+    "south",
+    "south-east",
+    "east",
+    "north-east",
+    "north",
+    "north-west",
+    "west",
+    "south-west"
+   ],
+   "group": "09bbd900-f6c1-43f2-bc95-993c95b8a53a"
+  },
+  "attack": {
+   "done": [
+    "south",
+    "south-east",
+    "east",
+    "north-east",
+    "north",
+    "north-west",
+    "west",
+    "south-west"
+   ],
+   "group": "d6d62db8-9e57-4723-a2dd-c89ebcafe2ba"
+  },
+  "death": {
+   "done": [
+    "south",
+    "south-east",
+    "east",
+    "north-east",
+    "north",
+    "north-west",
+    "west",
+    "south-west"
+   ],
+   "group": "8c060ef7-8d97-4caa-a7f9-bc915030c64e"
+  }
+ },
+ "orc_shaman": {
+  "edited": true,
+  "character_id": "155ebe74-80b0-4efc-bb74-6691a4064f19",
+  "walk": {
+   "done": [
+    "south",
+    "south-east",
+    "east",
+    "north-east",
+    "north",
+    "north-west",
+    "west",
+    "south-west"
+   ],
+   "group": "4bd7b007-e01f-43b6-84bd-9242cbcc9d7e"
+  },
+  "idle": {
+   "done": [
+    "south",
+    "south-east",
+    "east",
+    "north-east",
+    "north",
+    "north-west",
+    "west",
+    "south-west"
+   ],
+   "group": "085839e1-9c6b-4e25-b62d-5a2cc199c7be"
+  },
+  "attack": {
+   "done": [
+    "south",
+    "south-east",
+    "east",
+    "north-east",
+    "north",
+    "north-west",
+    "west",
+    "south-west"
+   ],
+   "group": "9145f0e2-767f-499d-a0ac-4f83b216d0ef"
+  },
+  "death": {
+   "done": [
+    "south",
+    "south-east",
+    "east",
+    "north-east",
+    "north",
+    "north-west",
+    "west",
+    "south-west"
+   ],
+   "group": "8f69a872-c120-4dbd-9e79-996a6c7da852"
+  }
+ }
+}
