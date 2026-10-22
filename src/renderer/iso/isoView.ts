@@ -13,6 +13,9 @@ import { glowTexture } from '../town/layer';
 import type { Biome } from '../../shared/data/biomes';
 import { footprint } from '../../shared/sim/buildings';
 import type { Building } from '../../shared/sim/state';
+import lampUrl from '../art/packs/v_lamp.png';
+import { LAMP_LOOK } from '../map/lampRules';
+import type { Era } from '../../shared/data/eras';
 import { loadImage } from '../art/loadImage';
 import { BUILDING_BY_ID } from '../../shared/data/buildings';
 import { cellHash, gateFlip, propFor, sceneryFor, wallMaskAt, wallPieceFor, wallShape } from './isoTown';
@@ -78,8 +81,10 @@ export class IsoView {
   private readonly marks = new Graphics();
   /** Fog and the like that drifts over the land in screen px (the sky's banks: map/mapSky.ts). */
   readonly air = new Container();
-  private lamps: { x: number; y: number }[] = [];
-  private lampSprites: Sprite[] = [];
+  private lamps: { x: number; y: number; lit: boolean }[] = [];
+  private lampSprites: Container[] = [];
+  private lampEra: Era | null = null;
+  private lampHadTex = false;
   private markedKey = '';
   private highlight: number | null = null;
   private biome: Biome = 'forest';
@@ -174,22 +179,52 @@ export class IsoView {
     this.glow.visible = alpha > 0.02;
   }
 
-  /** The street lamps and torches lit now (cells): a small flame glow on each, over the light map's pool. */
-  setLamps(lit: readonly { x: number; y: number }[]): void {
-    const same = lit.length === this.lamps.length && lit.every((l, i) => l.x === this.lamps[i].x && l.y === this.lamps[i].y);
-    if (same) return;
-    this.lamps = lit.map((l) => ({ x: l.x, y: l.y }));
-    for (const s of this.lampSprites) s.destroy();
-    this.lampSprites = this.lamps.map((l) => {
+  /** The town's street lights (cells), lit or not: each gets its post (a torch on a stake, or the lantern post from the
+   *  Medieval age) standing among the things, and, when lit, a small flame glow over the light map's pool. A glow is
+   *  never drawn without its post under it. */
+  setLamps(lights: readonly { x: number; y: number; lit: boolean }[], era: Era = 'medieval'): void {
+    const same = era === this.lampEra && lights.length === this.lamps.length && lights.every((l, i) => l.x === this.lamps[i].x && l.y === this.lamps[i].y && l.lit === this.lamps[i].lit);
+    const post = LAMP_LOOK[era] ?? LAMP_LOOK.medieval;
+    const tex = post.kind === 'post' ? this.texUrl(lampUrl) : null;
+    const have = post.kind === 'post' ? tex !== null : true;
+    if (same && have === this.lampHadTex) return;
+    this.lampHadTex = have;
+    this.lampEra = era;
+    this.lamps = lights.map((l) => ({ x: l.x, y: l.y, lit: l.lit }));
+    for (const s of this.lampSprites) s.destroy({ children: true });
+    this.lampSprites = [];
+    for (const l of this.lamps) {
+      const p = tileToIso(l.x + 0.5, l.y + 0.5, this.ox);
+      const foot = { x: Math.round(p.x), y: Math.round(p.y) };
+      let stand: Container;
+      if (post.kind === 'torch' || !tex) {
+        // (a torch on a stake, as the top-down view draws it)
+        const g = new Graphics();
+        g.rect(-1, -22, 2, 22).fill(0x5a3a20);
+        g.rect(-2, -26, 4, 5).fill(0x3a2a18);
+        g.circle(0, -28, 2.5).fill(l.lit ? 0xffa030 : 0x5a4a38);
+        if (l.lit) g.circle(0, -29, 1.3).fill(0xfff0a0);
+        stand = g;
+      } else {
+        const sp = new Sprite(tex);
+        sp.anchor.set(0.5, 1);
+        sp.scale.set(0.8);
+        if (post.tint !== 0xffffff) sp.tint = post.tint;
+        stand = sp;
+      }
+      stand.position.set(foot.x, foot.y);
+      stand.zIndex = footDepth({ x: l.x, y: l.y, w: 1, h: 1 }) + 0.015;
+      this.things.addChild(stand);
+      this.lampSprites.push(stand);
+      if (!l.lit) continue;
       const s = new Sprite(glowTexture());
       s.anchor.set(0.5);
       s.tint = 0xffb060;
       s.width = s.height = 22;
-      const p = tileToIso(l.x + 0.5, l.y + 0.5, this.ox);
-      s.position.set(Math.round(p.x), Math.round(p.y - 12));
+      s.position.set(foot.x, foot.y - 26);
       this.glow.addChild(s);
-      return s;
-    });
+      this.lampSprites.push(s);
+    }
   }
 
   /** A square of world px covering the whole screen, for the layers worked out in world px (the light map). */

@@ -2050,7 +2050,7 @@ async function start(): Promise<void> {
     map.tick = next.tick;
     if (iso) {
       iso.setWalkers([...next.people.filter((p) => p.away === null && !p.indoors), ...(next.raid?.phase === 'active' ? next.raid.raiders : [])]);
-      iso.setLamps(next.lights ? next.lights.lights.filter((l) => l.lit && l.room === null) : []);
+      iso.setLamps(next.lights ? next.lights.lights.filter((l) => l.room === null) : [], next.era);
     }
     stockpile.sync(next.buildings); // (before the buildings, so a stockpile's own picture is hidden at once)
     // (the gates shut at night and when raiders come: the palisade's are drawn closed)
