@@ -66,6 +66,7 @@ export const buildKey = (s: Snapshot, tab: string | null = null) => {
   const heritageTiles = () => [s.heritage?.blood && [s.heritage.blood.store, s.heritage.blood.farms, s.heritage.blood.prisoners, s.heritage.blood.cells, s.heritage.blood.nightly], s.heritage?.horde && [s.heritage.horde.fury, s.heritage.horde.waaagh, s.heritage.horde.out?.target, s.heritage.horde.name]];
   return JSON.stringify([
     tab,
+    chipTab, // (the Build list's own chips: a tap on one has to redraw)
     s.theme,
     on(['Overview'], () => [s.powers.map((p) => [p.id, Math.ceil(p.readyHours), Math.ceil(p.activeHours), p.held, p.affordable]), s.powerLog[0], s.nomad && [s.nomad.site, s.nomad.settled, Math.ceil((s.nomad.nextMoveDays ?? 0) * 24)], s.lichOffer, heritageTiles()]),
     on(['Overview'], () => [dashboardKey(s), s.why?.research, s.why?.craft]),
@@ -254,6 +255,8 @@ export function renderBuild(s: Snapshot, bridge: Bridge | undefined, rerender: (
 
 /** The category tab open in the build menu (kept for the session; part of the panel's redraw key). */
 let tab: BuildTab = BUILD_TABS[0];
+/** The chip the Build list is on (kept for `buildKey`, which hides `tab` behind a parameter of its own). */
+let chipTab: BuildTab = tab;
 
 /** One row of the build menu: what to show and what Build does. */
 interface Row {
@@ -288,9 +291,9 @@ function buildMenu(s: Snapshot, bridge: Bridge | undefined, rerender: () => void
   }
   const rows = buildRows(s);
   const tabs = BUILD_TABS.filter((t) => rows.some((r) => r.tab === t));
-  if (!tabs.includes(tab) && tabs.length) tab = tabs[0];
+  if (!tabs.includes(tab) && tabs.length) tab = chipTab = tabs[0];
   const bar = el('div', 'row directions');
-  for (const t of tabs) bar.append(button(t, () => { tab = t; rerender(); }, { cls: `place small${t === tab ? ' on' : ' quiet'}` }));
+  for (const t of tabs) bar.append(button(t, () => { tab = chipTab = t; rerender(); }, { cls: `place small${t === tab ? ' on' : ' quiet'}` }));
   out.push(bar);
   const list = el('div', 'brows');
   for (const row of rows.filter((r) => r.tab === tab)) list.append(buildRow(row, s, bridge));

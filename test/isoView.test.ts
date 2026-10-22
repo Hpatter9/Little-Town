@@ -178,3 +178,13 @@ test('scenery and props are picked the same every time, from pieces the kit has'
   assert.deepEqual(groundTile('grass', true, false, 'desert'), groundTile('grass', true, false));
   assert.ok(Object.keys(BIOME_GROUND).length >= 6);
 });
+
+test('traps, turrets and the halls of learning are not drawn as cottages', () => {
+  const settlers = kitOf('settlers');
+  assert.deepEqual(roleOf('spike_trap'), { role: 'trap' });
+  assert.equal(pieceFor(settlers, 'spike_trap'), 'rocks');
+  assert.equal(pieceFor(settlers, 'ballista'), 'watchtower');
+  assert.equal(pieceFor(settlers, 'library'), 'longhouse');
+  assert.equal(pieceFor(kitOf('orcs'), 'wolf_trap'), 'thorn_bush');
+  assert.equal(pieceFor(settlers, 'hold_hallway'), 'cottage');
+});
