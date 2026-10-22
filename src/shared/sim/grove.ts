@@ -41,6 +41,7 @@ import { takeFromStorage } from './expeditions';
 import { minorWound } from './injuries';
 import { addStock, maxHp, notify, type GameState, type Raid, type Raider } from './state';
 import { raidBudget, startRaid } from './raids';
+import { raidNews } from './raidSight';
 import { storages } from './buildings';
 import { tellStory } from './telling';
 import { DAYS_PER_SEASON, TICKS_PER_DAY, TICKS_PER_HOUR, calendarOf } from './time';
@@ -132,9 +133,9 @@ export function groveMorning(s: GameState, g: GroveState): void {
       notify(s, `The angry grove's thorns lashed ${cutter.name}.`);
     }
     if (!s.raid && rng.chance(WOLVES_CHANCE) && RAID_KIND_BY_ID[WOLVES_RAID]) {
-      startRaid(s, RAID_KIND_BY_ID[WOLVES_RAID], Math.max(12, Math.round(raidBudget(s) * 0.6)), rng);
+      startRaid(s, RAID_KIND_BY_ID[WOLVES_RAID], Math.max(12, Math.round(raidBudget(s) * 0.6)), rng, undefined, undefined, true);
       log(s, g, 'The grove loosed its wolves on the town.');
-      notify(s, 'The grove is angry: wolves come howling out of the trees!', true);
+      raidNews(s, s.raid!, 'The grove is angry: wolves come howling out of the trees!', true);
     }
   }
   if (g.favour <= GUARDIAN_LEAVES_AT && g.guardians.length) {

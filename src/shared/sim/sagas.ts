@@ -19,6 +19,7 @@ import { hashSeed, Rng } from '../rng';
 import { notify, setOutcome, type Expedition, type GameState, type Person, type Raid, type SagaRun } from './state';
 import { TICKS_PER_DAY, TICKS_PER_HOUR, calendarOf } from './time';
 import { raidBudget, raidKindsFor, scheduleNextRaid, startRaid } from './raids';
+import { raidPromptWords } from './raidSight';
 import { apply } from './events';
 import { isChild, adjust, opinion } from './social';
 import { killPerson } from './health';
@@ -225,18 +226,14 @@ function raidNow(s: GameState, r: SagaRun, c: Extract<Chapter, { kind: 'raid' }>
   const id = c.raid === 'people' ? (['bandits', 'marauders', 'gang', 'warband', 'army', 'pirates', 'rivals'].find((k) => open.includes(k)) ?? 'rivals') : c.raid;
   const kind = RAID_KIND_BY_ID[id];
   if (!kind) return goTo(s, r, c.win);
-  const raid = startRaid(s, kind, Math.max(4, Math.round(raidBudget(s) * c.budget)), rng);
+  const raid = startRaid(s, kind, Math.max(4, Math.round(raidBudget(s) * c.budget)), rng, undefined, undefined, true);
   raid.saga = r.run;
   if (c.boss && ENEMIES[c.boss] && raid.raiders.length) {
     const first = raid.raiders[0];
     const hp = ENEMIES[c.boss].hp;
     raid.raiders.push({ ...first, id: s.nextId++, kind: c.boss, hp, maxHp: hp, goal: 'harm', x: first.x + raid.side * 30, carrying: {} });
   }
-  const prompt = s.prompts.find((q) => q.id === raid.prompt);
-  if (prompt) {
-    prompt.title = defOf(r).title;
-    prompt.text = `${sagaText(s, r, c.text)} ${prompt.text}`;
-  }
+  raidPromptWords(s, raid, defOf(r).title, sagaText(s, r, c.text));
   scheduleNextRaid(s, rng);
 }
 

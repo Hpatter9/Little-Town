@@ -46,6 +46,7 @@ import { killPerson } from './health';
 import { inMap } from './land';
 import { findSpot } from './planner';
 import { raidBudget, scheduleNextRaid, startRaid } from './raids';
+import { raidNews } from './raidSight';
 import { seaTown } from './sea';
 import { isChild } from './social';
 import { campCell, notify, type Building, type GameState, type Prompt, type Raid } from './state';
@@ -368,10 +369,10 @@ function powerFalls(s: GameState, e: GreatEnemyState, g: Rng): void {
 function markedRaid(s: GameState, e: GreatEnemyState, g: Rng): void {
   const d = enemyDef(e);
   const kind = RAID_KIND_BY_ID[d.army];
-  const r = startRaid(s, kind, raidBudget(s) * MARK_SHARE, g);
+  const r = startRaid(s, kind, raidBudget(s) * MARK_SHARE, g, undefined, undefined, true);
   r.enemy = 'mark';
   scheduleNextRaid(s, g);
-  notify(s, `Raiders bearing ${d.short}'s mark are coming!`, true);
+  raidNews(s, r, `Raiders bearing ${d.short}'s mark are coming!`, true);
 }
 
 /* ------------------------------------------------------------ the march */
@@ -381,13 +382,13 @@ function host(s: GameState, e: GreatEnemyState, g: Rng): void {
   const d = enemyDef(e);
   const { l, i } = g.pick(living(e));
   const kind = RAID_KIND_BY_ID[d.army];
-  const r = startRaid(s, kind, raidBudget(s) * HOST_SHARE, g, undefined, { most: Math.min(HOST_CAP, HOST_MOST + Math.floor(grownAtHome(s) / HOST_PER_GROWN)), siege: s.era === 'neolithic' ? 0 : 1, leader: l.id, host: `enemy:${e.kind}` });
+  const r = startRaid(s, kind, raidBudget(s) * HOST_SHARE, g, undefined, { most: Math.min(HOST_CAP, HOST_MOST + Math.floor(grownAtHome(s) / HOST_PER_GROWN)), siege: s.era === 'neolithic' ? 0 : 1, leader: l.id, host: `enemy:${e.kind}` }, true);
   r.enemy = 'host';
   r.enemyLt = i;
   r.leavesTick = r.arrivesTick + HOST_HOURS * TICKS_PER_HOUR;
   e.lastHost = s.tick;
   scheduleNextRaid(s, g);
-  notify(s, `${capital(l.name)} leads a host of ${d.short}'s against the town!`, true);
+  raidNews(s, r, `${capital(l.name)} leads a host of ${d.short}'s against the town!`, true);
 }
 
 /** It demands tribute (a question in the event box: left unanswered, the town pays if it easily can). */
@@ -563,7 +564,7 @@ export function startSiege(s: GameState, e: GreatEnemyState): Raid {
     siege: s.era === 'neolithic' ? 0 : 2,
     leader: d.boss,
     host: `enemy:${e.kind}`,
-  });
+  }, true);
   // (its living lieutenants march with it)
   const lead = r.raiders.find((rd) => rd.kind === d.boss);
   if (lead)
@@ -574,7 +575,7 @@ export function startSiege(s: GameState, e: GreatEnemyState): Raid {
   r.enemy = 'siege';
   r.leavesTick = r.arrivesTick + SIEGE_HOURS * TICKS_PER_HOUR;
   e.siegeAt = undefined;
-  notify(s, `The last siege: ${d.name} has come to the gate with all its host!`, true);
+  raidNews(s, r, `The last siege: ${d.name} has come to the gate with all its host!`, true);
   return r;
 }
 

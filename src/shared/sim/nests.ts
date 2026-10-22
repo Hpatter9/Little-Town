@@ -168,9 +168,9 @@ export function nestRaid(s: GameState, p: MapPlace, g: Rng = roll(s, 'raid', s.t
   if (!kind || s.raid) return false;
   n.raided = s.tick;
   const budget = Math.max(8, raidBudget(s) * (NEST_RAID_SHARE + NEST_RAID_PER_LEVEL * n.level));
-  startRaid(s, kind, budget, g);
+  const raid = startRaid(s, kind, budget, g, undefined, undefined, true);
   scheduleNextRaid(s, g);
-  if (p.found === null) findNest(s, p, `${kind.name} come against the town, and their tracks lead back to where they came from: `);
+  if (p.found === null && !raid.veil) findNest(s, p, `${kind.name} come against the town, and their tracks lead back to where they came from: `);
   return true;
 }
 
