@@ -1,0 +1,1552 @@
+{
+ "lich_lord": {
+  "edited": true,
+  "character_id": "b9724a5a-b2bb-49c9-9ce9-d69c7bcca71e",
+  "walk": {
+   "done": [
+    "south",
+    "south-east",
+    "east",
+    "north-east",
+    "north",
+    "north-west",
+    "west",
+    "south-west"
+   ],
+   "group": "890f89a3-718e-4e4d-92b9-45a6ac5f7af0"
+  },
+  "idle": {
+   "done": [
+    "south",
+    "south-east",
+    "east",
+    "north-east",
+    "north",
+    "north-west",
+    "west",
+    "south-west"
+   ],
+   "group": "8f8a870d-fdee-45fb-b262-af40cd73f7ff"
+  },
+  "attack": {
+   "done": [
+    "south",
+    "south-east",
+    "east",
+    "north-east",
+    "north",
+    "north-west",
+    "west",
+    "south-west"
+   ],
+   "group": "b549a402-9999-4bb7-970f-b6199d8a220c"
+  },
+  "death": {
+   "done": [
+    "south",
+    "south-east",
+    "east",
+    "north-east",
+    "north",
+    "north-west",
+    "west",
+    "south-west"
+   ],
+   "group": "0191ae4c-5929-4186-ab8b-5de6ff63235f"
+  }
+ },
+ "lich_ghoul": {
+  "edited": true,
+  "character_id": "68a59d68-0e6e-4c1a-aff7-ea9721f22827",
+  "walk": {
+   "done": [
+    "south",
+    "south-east",
+    "east",
+    "north-east",
+    "north",
+    "north-west",
+    "west",
+    "south-west"
+   ],
+   "group": "eab3dc08-e6e6-4201-bb85-66d2e0d84f45"
+  },
+  "idle": {
+   "done": [
+    "south",
+    "south-east",
+    "east",
+    "north-east",
+    "north",
+    "north-west",
+    "west",
+    "south-west"
+   ],
+   "group": "39dd0c8a-628a-4b54-9cd1-09bfe47ea30c"
+  },
+  "attack": {
+   "done": [
+    "south",
+    "south-east",
+    "east",
+    "north-east",
+    "north",
+    "north-west",
+    "west",
+    "south-west"
+   ],
+   "group": "93ba54f8-9862-47a0-95f8-1cc522b8c473"
+  },
+  "death": {
+   "done": [
+    "south",
+    "south-east",
+    "east",
+    "north-east",
+    "north",
+    "north-west",
+    "west",
+    "south-west"
+   ],
+   "group": "d7396ff3-310e-4431-9388-57ad68d669b2"
+  }
+ },
+ "lich_skeleton": {
+  "edited": true,
+  "character_id": "5231165e-3cb0-4728-b032-486965edefc4",
+  "walk": {
+   "done": [
+    "south",
+    "south-east",
+    "east",
+    "north-east",
+    "north",
+    "north-west",
+    "west",
+    "south-west"
+   ],
+   "group": "c82fe2c7-4381-4670-bf69-55c4f214e23e"
+  },
+  "idle": {
+   "done": [
+    "south",
+    "south-east",
+    "east",
+    "north-east",
+    "north",
+    "north-west",
+    "west",
+    "south-west"
+   ],
+   "group": "f7066e8a-e644-4c0e-994e-c8435f2e54e5"
+  },
+  "attack": {
+   "done": [
+    "south",
+    "south-east",
+    "east",
+    "north-east",
+    "north",
+    "north-west",
+    "west",
+    "south-west"
+   ],
+   "group": "708e57a0-698e-4713-abb5-6d942a17c241"
+  },
+  "death": {
+   "done": [
+    "south",
+    "south-east",
+    "east",
+    "north-east",
+    "north",
+    "north-west",
+    "west",
+    "south-west"
+   ],
+   "group": "7ba50f11-eb37-472e-875e-5af0b2c00025"
+  }
+ },
+ "druid_elder": {
+  "edited": true,
+  "character_id": "eaa88c85-ce62-4678-90c6-c2ae464932a7",
+  "walk": {
+   "done": [
+    "south",
+    "south-east",
+    "east",
+    "north-east",
+    "north",
+    "north-west",
+    "west",
+    "south-west"
+   ],
+   "group": "23f1a12f-2dc1-4c48-8be5-ef881dda0efd"
+  },
+  "idle": {
+   "done": [
+    "south",
+    "south-east",
+    "east",
+    "north-east",
+    "north",
+    "north-west",
+    "west",
+    "south-west"
+   ],
+   "group": "baa852cf-6e0b-4ae1-9a0e-04d7fdf417c8"
+  },
+  "attack": {
+   "done": [
+    "south",
+    "south-east",
+    "east",
+    "north-east",
+    "north",
+    "north-west",
+    "west",
+    "south-west"
+   ],
+   "group": "3fe324bd-df5b-4796-902d-b2ca3c1052b6"
+  },
+  "death": {
+   "done": [
+    "south",
+    "south-east",
+    "east",
+    "north-east",
+    "north",
+    "north-west",
+    "west",
+    "south-west"
+   ],
+   "group": "f3915a35-5b82-4eec-81e5-d026ce4dd6f2"
+  }
+ },
+ "druid_woman": {
+  "edited": true,
+  "character_id": "0131668d-4fc1-4c16-b229-cc6132599c4f",
+  "walk": {
+   "done": [
+    "south",
+    "south-east",
+    "east",
+    "north-east",
+    "north",
+    "north-west",
+    "west",
+    "south-west"
+   ],
+   "group": "add6feb3-7de1-4044-8f0b-9dcf9e605f1b"
+  },
+  "idle": {
+   "done": [
+    "south",
+    "south-east",
+    "east",
+    "north-east",
+    "north",
+    "north-west",
+    "west",
+    "south-west"
+   ],
+   "group": "a23bd282-ec42-4a11-9053-a326a63d378c"
+  },
+  "attack": {
+   "done": [
+    "south",
+    "south-east",
+    "east",
+    "north-east",
+    "north",
+    "north-west",
+    "west",
+    "south-west"
+   ],
+   "group": "7d18f119-6e06-4100-86e7-34b79449dac2"
+  },
+  "death": {
+   "done": [
+    "south",
+    "south-east",
+    "east",
+    "north-east",
+    "north",
+    "north-west",
+    "west",
+    "south-west"
+   ],
+   "group": "34d0d48a-82bf-43f5-af3e-9ed7d8dfc742"
+  }
+ },
+ "druid_warden": {
+  "edited": true,
+  "character_id": "b6cf8a22-e813-4480-92e6-14397d911dca",
+  "walk": {
+   "done": [
+    "south",
+    "south-east",
+    "east",
+    "north-east",
+    "north",
+    "north-west",
+    "west",
+    "south-west"
+   ],
+   "group": "a56f463c-a605-4790-8f33-9ef982467fbe"
+  },
+  "idle": {
+   "done": [
+    "south",
+    "south-east",
+    "east",
+    "north-east",
+    "north",
+    "north-west",
+    "west",
+    "south-west"
+   ],
+   "group": "37cc3a6a-de9a-4fac-9501-833dd53ec080"
+  },
+  "attack": {
+   "done": [
+    "south",
+    "south-east",
+    "east",
+    "north-east",
+    "north",
+    "north-west",
+    "west",
+    "south-west"
+   ],
+   "group": "6b87b400-7ff0-4b72-9bf4-1424487205a9"
+  },
+  "death": {
+   "done": [
+    "south",
+    "south-east",
+    "east",
+    "north-east",
+    "north",
+    "north-west",
+    "west",
+    "south-west"
+   ],
+   "group": "d5577c96-b5b0-4f58-9a9f-8070a56a7da0"
+  }
+ },
+ "vamp_lord": {
+  "edited": true,
+  "character_id": "e03631ae-18c8-48d4-b35b-32ca28d5b95f",
+  "walk": {
+   "done": [
+    "south",
+    "south-east",
+    "east",
+    "north-east",
+    "north",
+    "north-west",
+    "west",
+    "south-west"
+   ],
+   "group": "bbc807a9-77d2-4f29-92bb-b9a858b6c925"
+  },
+  "idle": {
+   "done": [
+    "south",
+    "south-east",
+    "east",
+    "north-east",
+    "north",
+    "north-west",
+    "west",
+    "south-west"
+   ],
+   "group": "d8f77dbf-70ff-4691-907e-545bb43f2cfc"
+  },
+  "attack": {
+   "done": [
+    "south",
+    "south-east",
+    "east",
+    "north-east",
+    "north",
+    "north-west",
+    "west",
+    "south-west"
+   ],
+   "group": "1f2c3f0e-4f09-48ba-9db7-ef41b83ecd23"
+  },
+  "death": {
+   "done": [
+    "south",
+    "south-east",
+    "east",
+    "north-east",
+    "north",
+    "north-west",
+    "west",
+    "south-west"
+   ],
+   "group": "9da5bfb0-f379-4a9b-b21f-85874b39c0ac"
+  }
+ },
+ "vamp_lady": {
+  "edited": true,
+  "character_id": "a31936d2-d458-4aa6-bc7b-a6301130d24d",
+  "walk": {
+   "done": [
+    "south",
+    "south-east",
+    "east",
+    "north-east",
+    "north",
+    "north-west",
+    "west",
+    "south-west"
+   ],
+   "group": "dc627e9b-fb91-4f86-bfa9-ae58c083e3b9"
+  },
+  "idle": {
+   "done": [
+    "south",
+    "south-east",
+    "east",
+    "north-east",
+    "north",
+    "north-west",
+    "west",
+    "south-west"
+   ],
+   "group": "44a69329-a0e2-49ab-b9c8-1713707d5c06"
+  },
+  "attack": {
+   "done": [
+    "south",
+    "south-east",
+    "east",
+    "north-east",
+    "north",
+    "north-west",
+    "west",
+    "south-west"
+   ],
+   "group": "0f4420e6-d4c9-4fba-a479-d6c0e39b8a7d"
+  },
+  "death": {
+   "done": [
+    "south",
+    "south-east",
+    "east",
+    "north-east",
+    "north",
+    "north-west",
+    "west",
+    "south-west"
+   ],
+   "group": "d746502b-d104-483f-91c7-6441e97464c8"
+  }
+ },
+ "vamp_thrall": {
+  "edited": true,
+  "character_id": "c9600f20-5e12-47dc-a568-1f9a416ff903",
+  "walk": {
+   "done": [
+    "south",
+    "south-east",
+    "east",
+    "north-east",
+    "north",
+    "north-west",
+    "west",
+    "south-west"
+   ],
+   "group": "b07c53de-6465-4e78-82dd-2412958ae349"
+  },
+  "idle": {
+   "done": [
+    "south",
+    "south-east",
+    "east",
+    "north-east",
+    "north",
+    "north-west",
+    "west",
+    "south-west"
+   ],
+   "group": "d46f2e99-a573-4c6e-8363-215d9bf14d54"
+  },
+  "attack": {
+   "done": [
+    "south",
+    "south-east",
+    "east",
+    "north-east",
+    "north",
+    "north-west",
+    "west",
+    "south-west"
+   ],
+   "group": "8d548564-ba40-4d3a-99bb-706a2d49047e"
+  },
+  "death": {
+   "done": [
+    "south",
+    "south-east",
+    "east",
+    "north-east",
+    "north",
+    "north-west",
+    "west",
+    "south-west"
+   ],
+   "group": "f75da5b6-e26b-4aba-b1bb-2297bc9f3999"
+  }
+ },
+ "wolf_hunter": {
+  "edited": true,
+  "character_id": "1cc4176c-2eed-4465-bacc-51ce2ea66c20",
+  "walk": {
+   "done": [
+    "south",
+    "south-east",
+    "east",
+    "north-east",
+    "north",
+    "north-west",
+    "west",
+    "south-west"
+   ],
+   "group": "b30a8080-949d-4c85-8f30-6c2925bc70d2"
+  },
+  "idle": {
+   "done": [
+    "south",
+    "south-east",
+    "east",
+    "north-east",
+    "north",
+    "north-west",
+    "west",
+    "south-west"
+   ],
+   "group": "04da0829-c916-49ae-850e-9469879de46e"
+  },
+  "attack": {
+   "done": [
+    "south",
+    "south-east",
+    "east",
+    "north-east",
+    "north",
+    "north-west",
+    "west",
+    "south-west"
+   ],
+   "group": "273f9d71-64b0-44e3-9d82-f624d2a4ade3"
+  },
+  "death": {
+   "done": [
+    "south",
+    "south-east",
+    "east",
+    "north-east",
+    "north",
+    "north-west",
+    "west",
+    "south-west"
+   ],
+   "group": "fa1cd81c-db17-4265-9c20-060f2e390763"
+  }
+ },
+ "wolf_woman": {
+  "edited": true,
+  "character_id": "e4646da9-491f-4abe-ab52-fdfd4d7ab4bc",
+  "walk": {
+   "done": [
+    "south",
+    "south-east",
+    "east",
+    "north-east",
+    "north",
+    "north-west",
+    "west",
+    "south-west"
+   ],
+   "group": "2d642133-54c2-4903-82ba-765731e83102"
+  },
+  "idle": {
+   "done": [
+    "south",
+    "south-east",
+    "east",
+    "north-east",
+    "north",
+    "north-west",
+    "west",
+    "south-west"
+   ],
+   "group": "c63c013f-c654-4f41-b5e6-007d7d2089e7"
+  },
+  "attack": {
+   "done": [
+    "south",
+    "south-east",
+    "east",
+    "north-east",
+    "north",
+    "north-west",
+    "west",
+    "south-west"
+   ],
+   "group": "433efa7a-ca5c-4a9b-a70c-5c3c2f547df2"
+  },
+  "death": {
+   "done": [
+    "south",
+    "south-east",
+    "east",
+    "north-east",
+    "north",
+    "north-west",
+    "west",
+    "south-west"
+   ],
+   "group": "3ebca220-3fe2-4255-ae8f-214b4e199db5"
+  }
+ },
+ "wolf_beast": {
+  "edited": true,
+  "character_id": "214fdb32-1789-4bf5-bdc1-4422bac6afa2",
+  "walk": {
+   "done": [
+    "south",
+    "south-east",
+    "east",
+    "north-east",
+    "north",
+    "north-west",
+    "west",
+    "south-west"
+   ],
+   "group": "640ccd5d-a160-4f90-bf38-dc988d09c2c9"
+  },
+  "idle": {
+   "done": [
+    "south",
+    "south-east",
+    "east",
+    "north-east",
+    "north",
+    "north-west",
+    "west",
+    "south-west"
+   ],
+   "group": "3fa7cf30-9077-4a5f-be30-ab772e47d52c"
+  },
+  "attack": {
+   "done": [
+    "south",
+    "south-east",
+    "east",
+    "north-east",
+    "north",
+    "north-west",
+    "west",
+    "south-west"
+   ],
+   "group": "7c320d26-af8f-4fd7-b252-db23e855815d"
+  },
+  "death": {
+   "done": [
+    "south",
+    "south-east",
+    "east",
+    "north-east",
+    "north",
+    "north-west",
+    "west",
+    "south-west"
+   ],
+   "group": "c61f4983-e4a7-41e5-888a-d994389af201"
+  }
+ },
+ "robot_worker": {
+  "edited": true,
+  "character_id": "f5ba39ea-08e3-4331-a06d-828bd87e4964",
+  "walk": {
+   "done": [
+    "south",
+    "south-east",
+    "east",
+    "north-east",
+    "north",
+    "north-west",
+    "west",
+    "south-west"
+   ],
+   "group": "812793e6-57a3-483b-a933-65e8979108c0"
+  },
+  "idle": {
+   "done": [
+    "south",
+    "south-east",
+    "east",
+    "north-east",
+    "north",
+    "north-west",
+    "west",
+    "south-west"
+   ],
+   "group": "325a48e0-8147-467b-8e9b-48b6c5b3af90"
+  },
+  "attack": {
+   "done": [
+    "south",
+    "south-east",
+    "east",
+    "north-east",
+    "north",
+    "north-west",
+    "west",
+    "south-west"
+   ],
+   "group": "a5a8e51e-a5b3-472e-8048-f779f6983379"
+  },
+  "death": {
+   "done": [
+    "south",
+    "south-east",
+    "east",
+    "north-east",
+    "north",
+    "north-west",
+    "west",
+    "south-west"
+   ],
+   "group": "d6dde279-ac6c-4868-9bc9-594ff2873da0"
+  }
+ },
+ "robot_guard": {
+  "edited": true,
+  "character_id": "2bcdfd76-7f0a-4e1a-ac5a-fedd05d549b7",
+  "walk": {
+   "done": [
+    "south",
+    "south-east",
+    "east",
+    "north-east",
+    "north",
+    "north-west",
+    "west",
+    "south-west"
+   ],
+   "group": "f9ff0a2c-b6db-4460-b80d-2ee03ae1d159"
+  },
+  "idle": {
+   "done": [
+    "south",
+    "south-east",
+    "east",
+    "north-east",
+    "north",
+    "north-west",
+    "west",
+    "south-west"
+   ],
+   "group": "494e5e4e-289f-46ff-8693-96357f6355e3"
+  },
+  "attack": {
+   "done": [
+    "south",
+    "south-east",
+    "east",
+    "north-east",
+    "north",
+    "north-west",
+    "west",
+    "south-west"
+   ],
+   "group": "65a856c0-d4b1-4f2a-b262-dfcffb9ef80b"
+  },
+  "death": {
+   "done": [
+    "south",
+    "south-east",
+    "east",
+    "north-east",
+    "north",
+    "north-west",
+    "west",
+    "south-west"
+   ],
+   "group": "502df8a0-e74e-4b25-bb61-2d3c16ab8072"
+  }
+ },
+ "robot_android": {
+  "edited": true,
+  "character_id": "c16fbc1d-5442-47ac-a884-2915e1ed7472",
+  "walk": {
+   "done": [
+    "south",
+    "south-east",
+    "east",
+    "north-east",
+    "north",
+    "north-west",
+    "west",
+    "south-west"
+   ],
+   "group": "d6283d28-ef42-4360-9cae-fd3690964365"
+  },
+  "idle": {
+   "done": [
+    "south",
+    "south-east",
+    "east",
+    "north-east",
+    "north",
+    "north-west",
+    "west",
+    "south-west"
+   ],
+   "group": "2ca209ff-76cf-4527-a903-99d99e95f32a"
+  },
+  "attack": {
+   "done": [
+    "south",
+    "south-east",
+    "east",
+    "north-east",
+    "north",
+    "north-west",
+    "west",
+    "south-west"
+   ],
+   "group": "5fc937d7-5ed7-4789-ab88-9c6de1544958"
+  },
+  "death": {
+   "done": [
+    "south",
+    "south-east",
+    "east",
+    "north-east",
+    "north",
+    "north-west",
+    "west",
+    "south-west"
+   ],
+   "group": "acd38694-8fce-44de-a700-0a9832e5dd08"
+  }
+ },
+ "mer_man": {
+  "edited": true,
+  "character_id": "bd2cc24f-bf1d-4891-8064-411e07d8c460",
+  "walk": {
+   "done": [
+    "south",
+    "south-east",
+    "east",
+    "north-east",
+    "north",
+    "north-west",
+    "west",
+    "south-west"
+   ],
+   "group": "e7b5e618-1945-43f7-b351-131804adfa8d"
+  },
+  "idle": {
+   "done": [
+    "south",
+    "south-east",
+    "east",
+    "north-east",
+    "north",
+    "north-west",
+    "west",
+    "south-west"
+   ],
+   "group": "cd0fed16-cf02-447b-9535-668a236def7b"
+  },
+  "attack": {
+   "done": [
+    "south",
+    "south-east",
+    "east",
+    "north-east",
+    "north",
+    "north-west",
+    "west",
+    "south-west"
+   ],
+   "group": "83a8e18c-7361-4ed9-8f75-8edb13487f1c"
+  },
+  "death": {
+   "done": [
+    "south",
+    "south-east",
+    "east",
+    "north-east",
+    "north",
+    "north-west",
+    "west",
+    "south-west"
+   ],
+   "group": "dfc32aff-57ad-4ab8-a68c-6f9ddd523ed9"
+  }
+ },
+ "mer_woman": {
+  "edited": true,
+  "character_id": "aaae5bc1-3afd-4e90-8175-a853a43cdc60",
+  "walk": {
+   "done": [
+    "south",
+    "south-east",
+    "east",
+    "north-east",
+    "north",
+    "north-west",
+    "west",
+    "south-west"
+   ],
+   "group": "215d784c-cfb4-4cf0-80ec-8e2410a3a81b"
+  },
+  "idle": {
+   "done": [
+    "south",
+    "south-east",
+    "east",
+    "north-east",
+    "north",
+    "north-west",
+    "west",
+    "south-west"
+   ],
+   "group": "53b636f1-f486-45bc-9d01-da2c13c2f0c8"
+  },
+  "attack": {
+   "done": [
+    "south",
+    "south-east",
+    "east",
+    "north-east",
+    "north",
+    "north-west",
+    "west",
+    "south-west"
+   ],
+   "group": "4ea0f9f1-2bea-4612-a883-441fc1e38eea"
+  },
+  "death": {
+   "done": [
+    "south",
+    "south-east"
+   ],
+   "group": "07100602-1ed4-44f0-be36-ceec2a83ca10"
+  }
+ },
+ "mer_fisher": {
+  "edited": true,
+  "character_id": "3a017d03-03e5-4a14-b63a-23f8cd5bebb4",
+  "walk": {
+   "done": [
+    "south",
+    "south-east",
+    "east",
+    "north-east",
+    "north",
+    "north-west",
+    "west",
+    "south-west"
+   ],
+   "group": "f8e36f10-ff0a-41be-82e7-5be8aac23340"
+  },
+  "idle": {
+   "done": [
+    "south",
+    "south-east",
+    "east",
+    "north-east",
+    "north",
+    "north-west",
+    "west",
+    "south-west"
+   ],
+   "group": "298e44eb-907e-41d7-92a4-ea00b1d3b95e"
+  },
+  "attack": {
+   "done": [
+    "south",
+    "south-east",
+    "east",
+    "north-east",
+    "north",
+    "north-west",
+    "west",
+    "south-west"
+   ],
+   "group": "8b64e27e-f18a-460f-9885-2fdb88828b26"
+  },
+  "death": {
+   "done": [
+    "south"
+   ],
+   "group": "4024ec14-927b-44e4-9e1c-f3b7e05bc7ab"
+  }
+ },
+ "nomad_rider": {
+  "edited": true,
+  "character_id": "b0e89a2e-a3cd-4366-a7c9-84a222014ab8",
+  "walk": {
+   "done": [
+    "south",
+    "south-east",
+    "east",
+    "north-east",
+    "north",
+    "north-west",
+    "west",
+    "south-west"
+   ],
+   "group": "34b7f7d4-13ba-4dcc-80b5-a82bf2c17009"
+  },
+  "idle": {
+   "done": [
+    "south",
+    "south-east",
+    "east",
+    "north-east",
+    "north",
+    "north-west",
+    "west",
+    "south-west"
+   ],
+   "group": "da98a322-eaa5-430f-bbb1-0ad739958c7b"
+  },
+  "attack": {
+   "done": [
+    "south",
+    "south-east",
+    "east",
+    "north-east",
+    "north",
+    "north-west",
+    "west",
+    "south-west"
+   ],
+   "group": "d32f5123-72d0-4064-97f3-5bad4eedde11"
+  },
+  "death": {
+   "done": [
+    "south"
+   ],
+   "group": "c35129ac-cb52-447d-8cbc-3fc55afaab17"
+  }
+ },
+ "nomad_woman": {
+  "edited": true,
+  "character_id": "1176c83e-3810-41f5-9876-c27634398290",
+  "walk": {
+   "done": [
+    "south",
+    "south-east",
+    "east",
+    "north-east",
+    "north",
+    "north-west",
+    "west",
+    "south-west"
+   ],
+   "group": "744084a4-322d-4c62-91a9-281ca594dbce"
+  },
+  "idle": {
+   "done": [
+    "south",
+    "south-east",
+    "east",
+    "north-east",
+    "north",
+    "north-west",
+    "west",
+    "south-west"
+   ],
+   "group": "5cc9d3c9-f385-441e-ab98-23ec7eabb737"
+  },
+  "attack": {
+   "done": [
+    "south",
+    "south-east",
+    "east",
+    "north-east",
+    "north",
+    "north-west",
+    "west",
+    "south-west"
+   ],
+   "group": "8464d436-fbea-41a3-8fa5-745883dcfd16"
+  },
+  "death": {
+   "done": [
+    "south",
+    "south-east"
+   ],
+   "group": "eb1af814-66d3-46dd-8e88-360e43f7855a"
+  }
+ },
+ "nomad_herder": {
+  "edited": true,
+  "character_id": "5ef6769a-0a13-49dc-8af5-ea39f5c4caee",
+  "walk": {
+   "done": [
+    "south",
+    "south-east",
+    "east",
+    "north-east",
+    "north",
+    "north-west",
+    "west",
+    "south-west"
+   ],
+   "group": "c69e3404-ab05-47c6-aa8d-3cfa724920f8"
+  },
+  "idle": {
+   "done": [
+    "south",
+    "south-east",
+    "east",
+    "north-east",
+    "north",
+    "north-west",
+    "west",
+    "south-west"
+   ],
+   "group": "4a9ab850-4b95-4b07-8a62-9ba54593f0f0"
+  },
+  "attack": {
+   "done": [
+    "south",
+    "south-east",
+    "east",
+    "north-east",
+    "north",
+    "north-west",
+    "west",
+    "south-west"
+   ],
+   "group": "d6ee2209-f2bc-42f9-9616-c58af74f83ab"
+  },
+  "death": {
+   "done": [
+    "south",
+    "south-east"
+   ],
+   "group": "4c473032-3524-4ee9-885e-ac272c9561c0"
+  }
+ },
+ "fae_lord": {
+  "edited": true,
+  "character_id": "d9d1a628-a136-4520-8dbb-30d9addc0074",
+  "walk": {
+   "done": [
+    "south",
+    "south-east",
+    "east",
+    "north-east",
+    "north",
+    "north-west",
+    "west",
+    "south-west"
+   ],
+   "group": "6a6608e2-8289-4905-b085-9e1f787a0239"
+  },
+  "idle": {
+   "done": [
+    "south",
+    "south-east",
+    "east",
+    "north-east",
+    "north",
+    "north-west",
+    "west",
+    "south-west"
+   ],
+   "group": "277ca72e-3960-4824-a645-4b1a10c9b65f"
+  },
+  "attack": {
+   "done": [
+    "south",
+    "south-east",
+    "east",
+    "north-east",
+    "north",
+    "north-west",
+    "west",
+    "south-west"
+   ],
+   "group": "936c7fb8-430b-4870-9a92-fdbb13ab3cad"
+  },
+  "death": {
+   "done": [
+    "south"
+   ],
+   "group": "5cecf74b-79f8-4a8a-bcaf-d54d6fcc5cc7"
+  }
+ },
+ "fae_woman": {
+  "edited": true,
+  "character_id": "5185d225-d610-4848-9d15-a58a0e874f69",
+  "walk": {
+   "done": [
+    "south",
+    "south-east",
+    "east",
+    "north-east",
+    "north",
+    "north-west",
+    "west",
+    "south-west"
+   ],
+   "group": "97dbc84d-9be9-4c72-a659-053fdb401b39"
+  },
+  "idle": {
+   "done": [
+    "south",
+    "south-east",
+    "east",
+    "north-east",
+    "north",
+    "north-west",
+    "west",
+    "south-west"
+   ],
+   "group": "cf67ba0b-66b7-421e-ad52-a01e9c7a025b"
+  },
+  "attack": {
+   "done": [
+    "south",
+    "south-east",
+    "east",
+    "north-east",
+    "north",
+    "north-west",
+    "west",
+    "south-west"
+   ],
+   "group": "6e5dc7cf-64a0-4f47-bbe6-8522a9ff8272"
+  },
+  "death": {
+   "done": [
+    "south"
+   ],
+   "group": "5311d0fa-33ec-4662-9716-421323621df8"
+  }
+ },
+ "fae_sprite": {
+  "edited": true,
+  "character_id": "ebbf94e7-0b18-4c43-ae24-cbd39ba1c963",
+  "walk": {
+   "done": [
+    "south",
+    "south-east",
+    "east",
+    "north-east",
+    "north",
+    "north-west",
+    "west",
+    "south-west"
+   ],
+   "group": "8c12fc3d-1b2e-4b53-97af-ba0862974849"
+  },
+  "idle": {
+   "done": [
+    "south",
+    "south-east",
+    "east",
+    "north-east",
+    "north",
+    "north-west",
+    "west",
+    "south-west"
+   ],
+   "group": "4db79e43-d117-460b-a2f5-5f2bd3c2aa69"
+  },
+  "attack": {
+   "done": [
+    "south",
+    "south-east",
+    "east",
+    "north-east",
+    "north",
+    "north-west",
+    "west",
+    "south-west"
+   ],
+   "group": "764ee9d5-5497-4c2a-b105-2a4a0cf50729"
+  },
+  "death": {
+   "done": [
+    "south",
+    "south-east"
+   ],
+   "group": "f195950c-92dc-4c9c-88b1-ed993342963d"
+  }
+ },
+ "alch_master": {
+  "edited": true,
+  "character_id": "1f1981fb-694f-47fe-9a77-ffcfa343c4cf",
+  "walk": {
+   "done": [
+    "south",
+    "south-east",
+    "east",
+    "north-east",
+    "north",
+    "north-west",
+    "west",
+    "south-west"
+   ],
+   "group": "707199fe-8cd9-4b9c-86bf-3c4f9f7b63fd"
+  },
+  "idle": {
+   "done": [
+    "south",
+    "south-east",
+    "east",
+    "north-east",
+    "north",
+    "north-west",
+    "west",
+    "south-west"
+   ],
+   "group": "fd83e9a6-5a6e-4dcd-9adb-f890e15bade6"
+  },
+  "attack": {
+   "done": [
+    "south",
+    "south-east",
+    "east",
+    "north-east",
+    "north",
+    "north-west",
+    "west",
+    "south-west"
+   ],
+   "group": "ab970ef5-20bf-4893-87fe-7a804328f0ef"
+  }
+ },
+ "alch_woman": {
+  "edited": true,
+  "character_id": "612e4898-f2cc-4650-9d97-9457e4d60dd0",
+  "walk": {
+   "done": [
+    "south",
+    "south-east",
+    "east",
+    "north-east",
+    "north",
+    "north-west",
+    "west",
+    "south-west"
+   ],
+   "group": "4995bc11-9bb1-4cff-b8ab-16fe2494215f"
+  },
+  "idle": {
+   "done": [
+    "south",
+    "south-east",
+    "east",
+    "north-east",
+    "north",
+    "north-west",
+    "west",
+    "south-west"
+   ],
+   "group": "fba29aae-e3c3-4dc3-a9a3-7c2910ca69e7"
+  },
+  "attack": {
+   "done": [
+    "south",
+    "south-east",
+    "east",
+    "north-east",
+    "north",
+    "north-west",
+    "west",
+    "south-west"
+   ],
+   "group": "684ee93f-797a-4560-90e0-ca7d8d20348f"
+  }
+ },
+ "alch_apprentice": {
+  "edited": true,
+  "character_id": "266e3e82-c5f8-421f-a625-11fb84285254",
+  "walk": {
+   "done": [
+    "south",
+    "south-east",
+    "east",
+    "north-east",
+    "north",
+    "north-west",
+    "west",
+    "south-west"
+   ],
+   "group": "7acfee1a-2a36-4799-8f58-cd8ae12db859"
+  },
+  "idle": {
+   "done": [
+    "south",
+    "south-east",
+    "east",
+    "north-east",
+    "north",
+    "north-west",
+    "west",
+    "south-west"
+   ],
+   "group": "00ea078f-ae1f-460a-b35e-2fbc7697f099"
+  },
+  "attack": {
+   "done": [
+    "south",
+    "south-east",
+    "east",
+    "north-east",
+    "north",
+    "north-west",
+    "west",
+    "south-west"
+   ],
+   "group": "54763b23-b4ea-450a-bb60-76557bb23c8c"
+  }
+ },
+ "knight_sir": {
+  "edited": true,
+  "character_id": "24d042ef-30ab-4bdc-84df-f0f3c448877c",
+  "walk": {
+   "done": [
+    "south",
+    "south-east",
+    "east",
+    "north-east",
+    "north",
+    "north-west",
+    "west",
+    "south-west"
+   ],
+   "group": "693f2bde-89a8-41c3-a90e-968f7db43a7f"
+  },
+  "idle": {
+   "done": [
+    "south",
+    "south-east",
+    "east",
+    "north-east",
+    "north",
+    "north-west",
+    "west",
+    "south-west"
+   ],
+   "group": "6bc38db4-42c9-43fa-ab7a-3b371d897ab4"
+  },
+  "attack": {
+   "done": [
+    "south",
+    "south-east",
+    "east",
+    "north-east",
+    "north",
+    "north-west",
+    "west",
+    "south-west"
+   ],
+   "group": "20605902-f665-4715-9306-0e8507ce5ab5"
+  }
+ },
+ "knight_dame": {
+  "edited": true,
+  "character_id": "2fe8befd-1306-43eb-b41e-eb68e66773c5",
+  "walk": {
+   "done": [
+    "south",
+    "south-east",
+    "east",
+    "north-east",
+    "north",
+    "north-west",
+    "west",
+    "south-west"
+   ],
+   "group": "678ddac6-b02e-48e2-93ba-2c615132817d"
+  },
+  "idle": {
+   "done": [
+    "south",
+    "south-east",
+    "east",
+    "north-east",
+    "north",
+    "north-west",
+    "west",
+    "south-west"
+   ],
+   "group": "f5bcde61-31dd-4f5c-800d-77b7026ee3d6"
+  },
+  "attack": {
+   "done": [
+    "south",
+    "south-east",
+    "east",
+    "north-east",
+    "north",
+    "north-west",
+    "west",
+    "south-west"
+   ],
+   "group": "0f238c0d-b6f6-45c5-8ae3-d19421e55cbe"
+  }
+ },
+ "knight_squire": {
+  "edited": true,
+  "character_id": "f7447885-d1ee-4916-b2e9-3f5096efdcdb",
+  "walk": {
+   "done": [
+    "south",
+    "south-east",
+    "east",
+    "north-east",
+    "north",
+    "north-west",
+    "west",
+    "south-west"
+   ],
+   "group": "53e84e6e-9190-42e7-8e38-05dbac1fec47"
+  },
+  "idle": {
+   "done": [
+    "south",
+    "south-east",
+    "east",
+    "north-east",
+    "north",
+    "north-west",
+    "west",
+    "south-west"
+   ],
+   "group": "1fb2536b-c476-4fdd-898b-a2f7e8ca95b0"
+  },
+  "attack": {
+   "done": [
+    "south",
+    "south-east",
+    "east",
+    "north-east",
+    "north",
+    "north-west",
+    "west",
+    "south-west"
+   ],
+   "group": "95a3060e-26bc-400a-813d-8c773011a384"
+  }
+ }
+}
