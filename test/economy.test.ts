@@ -9,7 +9,7 @@ import { appeal, roomsOf, spotFor, tavernOf } from '../src/shared/sim/shop';
 import { Sim } from '../src/shared/sim/sim';
 import { snapshot } from '../src/shared/sim/snapshot';
 import { type Building, type GameState, campCell } from '../src/shared/sim/state';
-import { calendar, TICKS_PER_DAY, TICKS_PER_HOUR } from '../src/shared/sim/time';
+import { TICKS_PER_DAY, TICKS_PER_HOUR, calendarOf } from '../src/shared/sim/time';
 import { buyGear, TAVERN_NIGHT } from '../src/shared/sim/wages';
 import { drinkAt, nightOut } from '../src/shared/sim/nightOut';
 import { incomeOf, loadPrice, payFromTreasury, payParty } from '../src/shared/sim/economy';
@@ -253,7 +253,7 @@ test('guests who come of an evening take a bed for the night and leave in the mo
         // (nobody with a bed walks off in the night: they set out in the morning)
         if (t.phase === 'leaving' && !left.has(t.id)) {
           left.add(t.id);
-          if (calendar(s.tick).hour !== 7) morning = false;
+          if (calendarOf(s).hour !== 7) morning = false;
         }
       }
     }

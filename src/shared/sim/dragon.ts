@@ -17,7 +17,7 @@ import type { Material } from '../data/materials';
 import { hashSeed, Rng } from '../rng';
 import { buildingCentre, defOf, depositNear } from './buildings';
 import { campXY, castSpellFx, maxHp, notify, setOutcome, type Expedition, type GameState, type Person, type Prompt } from './state';
-import { TICKS_PER_DAY, TICKS_PER_HOUR, calendar } from './time';
+import { TICKS_PER_DAY, TICKS_PER_HOUR, calendarOf } from './time';
 import { setFire } from './fire';
 import { killPerson } from './health';
 import { woundPerson } from './injuries';
@@ -133,7 +133,7 @@ export function dragonTick(s: GameState): void {
 }
 
 function maybeCome(s: GameState): void {
-  if (calendar(s.tick).day < dragonArrivalDay(s.seed) || grown(s) < DRAGON_PEOPLE) return;
+  if (calendarOf(s).day < dragonArrivalDay(s.seed) || grown(s) < DRAGON_PEOPLE) return;
   summonDragon(s);
 }
 
@@ -168,7 +168,7 @@ function demand(s: GameState, d: DragonState): void {
   const name = dragonName(d.kind);
   const coins = s.coins ?? 0;
   const options = [`Pay the tribute (${d.tribute} coins)`, ...(herds >= 3 ? [`Give it half the herds (${Math.ceil(herds / 2)} beasts)`] : []), 'Refuse: let it come'];
-  const cal = calendar(s.tick);
+  const cal = calendarOf(s);
   const text = d.paid
     ? `${name} is back on the hill above the town, smoke curling from its jaws. It wants more this time: ${d.tribute} coins. The treasury holds ${coins}.`
     : `${name} lands on the hill above the town, folds its wings and speaks, in a voice like a landslide: tribute, or fire. It wants ${d.tribute} coins. The treasury holds ${coins}.`;

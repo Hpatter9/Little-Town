@@ -6,7 +6,7 @@ import type { Skill } from './skills';
 import type { Stock } from './materials';
 import type { Era } from './eras';
 import type { GameState } from '../sim/state';
-import { calendar } from '../sim/time';
+import { calendarOf } from '../sim/time';
 
 export const mood = (mood: number, hours: number, text: string): EventEffect => ({ mood, hours, text });
 export const mod = (lever: Lever, mult: number, hours: number, text: string): EventEffect => ({ mod: lever, mult, hours, text });
@@ -35,4 +35,4 @@ export const knows = (s: GameState, topic: string) => s.research.done.includes(t
 /** The town's land. */
 export const land = (s: GameState, ...biomes: string[]) => biomes.includes(s.biome ?? 'forest');
 /** It is winter in the town. */
-export const winter = (s: GameState) => calendar(s.tick).season === 'winter';
+export const winter = (s: GameState) => calendarOf(s).season === 'winter';

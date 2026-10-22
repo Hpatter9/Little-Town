@@ -3,7 +3,7 @@
 import { BIOME_DEFS, type Biome } from '../data/biomes';
 import { originOf, type OriginId } from '../data/origins';
 import { hashSeed } from '../rng';
-import { calendar, TICKS_PER_DAY } from './time';
+import { TICKS_PER_DAY, calendarOf } from './time';
 import { notify, type GameState } from './state';
 
 export const SETTLEMENT_VOTE_DAY = 15;
@@ -42,7 +42,7 @@ function storyOf(s: GameState): { word: string; reason: string } {
 
 /** Choose once, with a seeded ballot so a save always reaches the same result. */
 export function voteSettlementName(s: GameState): boolean {
-  if (s.townName || calendar(s.tick).day < SETTLEMENT_VOTE_DAY) return false;
+  if (s.townName || calendarOf(s).day < SETTLEMENT_VOTE_DAY) return false;
   const origin = originOf(s);
   const biome = s.biome ?? 'forest';
   const style = origin.rules.castle ? 'Keep' : origin.rules.hold ? 'Hall' : origin.rules.nomadic ? 'Camp' : PLACE_KIND[origin.id];

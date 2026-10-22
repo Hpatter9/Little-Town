@@ -18,7 +18,7 @@ import {
 import { the } from '../data/expeditions';
 import { hashSeed, Rng } from '../rng';
 import { notify, type Expedition, type GameState, type Person } from './state';
-import { calendar } from './time';
+import { calendarOf } from './time';
 
 export interface Company {
   id: number;
@@ -35,7 +35,7 @@ export interface Company {
   deeds: string[];
 }
 
-const day = (s: GameState) => calendar(s.tick).day;
+const day = (s: GameState) => calendarOf(s).day;
 const alive = (s: GameState, id: number) => s.people.some((p) => p.id === id);
 /** The living members of a company. */
 export const livingOf = (s: GameState, c: Company) => c.members.filter((id) => alive(s, id));

@@ -36,7 +36,7 @@ import { minorWound } from './injuries';
 import { CELL, groundAt, inMap, isRoad, setGround, WILD, wet, type Pt } from './land';
 import { raidBudget, startRaid } from './raids';
 import { isChild } from './social';
-import { calendar, TICKS_PER_DAY, TICKS_PER_HOUR } from './time';
+import { TICKS_PER_DAY, TICKS_PER_HOUR, calendarOf } from './time';
 import { assignBeds, housingCapacity } from './townsfolk';
 import { takeFromStorage } from './expeditions';
 import { seaTown } from './sea';
@@ -199,7 +199,7 @@ export function proposeVillage(s: GameState, rng: Rng): boolean {
   const name = nameFor(s, rng);
   const goers = who.ids.map((id) => s.people.find((p) => p.id === id)!).filter(Boolean);
   const dir = compass(s, at);
-  const cal = calendar(s.tick);
+  const cal = calendarOf(s);
   const prompt: Prompt = {
     id: s.nextId++,
     kind: 'village',
@@ -379,7 +379,7 @@ export function villageBuildings(s: GameState): Building[] {
     v.plots.forEach((p, i) => {
       const b: Building = { id: -(v.id * 100 + i + 1), def: p.def, tile: p.x, row: p.y, status: 'done', delivered: {}, progress: 1, store: {}, builtAt: v.founded };
       if (p.field) {
-        const cal = calendar(s.tick);
+        const cal = calendarOf(s);
         const growth = cal.season === 'winter' ? 0 : ((cal.day % 3) * 24 + cal.hour + i * 5) / 72;
         b.crop = { stage: cal.season === 'winter' ? 'fallow' : growth > 0.85 ? 'ripe' : 'growing', growth: Math.min(1, growth), work: 0 };
       }
@@ -499,7 +499,7 @@ function wedding(s: GameState, v: Village, rng: Rng): void {
 
 function beset(s: GameState, v: Village, rng: Rng): void {
   const foe = rng.pick([...BESET_FOES]);
-  const cal = calendar(s.tick);
+  const cal = calendarOf(s);
   const can = s.coins !== undefined && (s.coins ?? 0) >= SELLSWORDS_COINS;
   const prompt: Prompt = {
     id: s.nextId++,
@@ -644,7 +644,7 @@ const loaded = (v: Village) => Object.values(v.goods).reduce((t, n) => t + Math.
 export function villagesHourly(s: GameState): void {
   if (s.tick % TICKS_PER_HOUR !== 0 || s.autopilot === false || s.gameOver) return;
   const rng = rngOf(s, 1);
-  const hour = calendar(s.tick).hour;
+  const hour = calendarOf(s).hour;
   // (the parting's question unanswered: the default stands)
   if (s.villagePlan && !s.prompts.some((p) => p.id === s.villagePlan!.prompt)) answerParting(s, 0, rng);
   if (hour === VILLAGE_HOUR && wantVillage(s)) proposeVillage(s, rng);

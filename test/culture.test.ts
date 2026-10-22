@@ -4,7 +4,7 @@ import { CULTURE_ITEMS, CULTURE_TRAITS, CUSTOM_DAY, CUSTOM_HOUR, TRAIT_BY_ID, di
 import { ITEM_BY_ID } from '../src/shared/data/items';
 import { cultureDaily, cultureHourly, cultureOf, cultureView, fashionName } from '../src/shared/sim/culture';
 import { recordFallen } from '../src/shared/sim/annals';
-import { calendar, TICKS_PER_DAY, TICKS_PER_HOUR } from '../src/shared/sim/time';
+import { TICKS_PER_DAY, TICKS_PER_HOUR, calendarOf } from '../src/shared/sim/time';
 import { storages } from '../src/shared/sim/buildings';
 import { addStock } from '../src/shared/sim/state';
 import { plainGame } from './helpers';
@@ -51,9 +51,9 @@ test('a held trait orders its dish and keeps its custom', () => {
   addStock(storages(s)[0].store, 'berries', 300);
   s.tick = 25 * TICKS_PER_DAY;
   let sawOrder = false, kept = false;
-  const seasonStart = () => calendar(s.tick).season === t.custom.season && calendar(s.tick).dayOfSeason === 1 && calendar(s.tick).hour === 5;
+  const seasonStart = () => calendarOf(s).season === t.custom.season && calendarOf(s).dayOfSeason === 1 && calendarOf(s).hour === 5;
   while (!seasonStart()) s.tick += TICKS_PER_HOUR;
-  while (!(calendar(s.tick).dayOfSeason === CUSTOM_DAY && calendar(s.tick).hour === CUSTOM_HOUR)) {
+  while (!(calendarOf(s).dayOfSeason === CUSTOM_DAY && calendarOf(s).hour === CUSTOM_HOUR)) {
     s.tick += TICKS_PER_HOUR;
     cultureHourly(s);
     if (s.crafting.some((o) => o.item === dishId(t))) { sawOrder = true; s.items[dishId(t)] = 2; }

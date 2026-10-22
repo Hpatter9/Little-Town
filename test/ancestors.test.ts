@@ -9,7 +9,7 @@ import { placeCleared, placeDestination } from '../src/shared/sim/places';
 import { realm } from '../src/shared/sim/factions';
 import { pickRivals, FACTION_BY_ID } from '../src/shared/data/factions';
 import { newGame, type Raid, type Raider } from '../src/shared/sim/state';
-import { calendar, TICKS_PER_DAY, TICKS_PER_HOUR } from '../src/shared/sim/time';
+import { TICKS_PER_DAY, TICKS_PER_HOUR, calendarOf } from '../src/shared/sim/time';
 import { plusOf } from '../src/shared/data/quality';
 import { UNIQUES } from '../src/shared/data/uniques';
 import { groundAt } from '../src/shared/sim/land';
@@ -109,7 +109,7 @@ test('a spirit comes to the fire, asks to be remembered, and shows the way to th
   let asked = null;
   for (let d = 2; d < 60 && !asked; d++) {
     s.tick = d * TICKS_PER_DAY;
-    while (calendar(s.tick).hour !== 22) s.tick += TICKS_PER_HOUR;
+    while (calendarOf(s).hour !== 22) s.tick += TICKS_PER_HOUR;
     ancestorsHourly(s);
     asked = s.prompts.find((p) => p.kind === 'ways' && p.ways?.system === 'legacy') ?? null;
   }

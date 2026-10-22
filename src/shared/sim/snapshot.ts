@@ -64,7 +64,7 @@ import { peopleOf } from './strangers';
 import { FOUNDER_BY_ID } from '../data/founders';
 import { backstory } from '../data/backstories';
 import { AMBITIONS } from '../data/ambitions';
-import { TICKS_PER_DAY } from './time';
+import { TICKS_PER_DAY, calendarOf } from './time';
 import { ambitionOf, businessPrice } from './ambition';
 import type { Attrs } from '../data/attributes';
 import { roadFavours } from '../data/pathAttrs';
@@ -1452,7 +1452,7 @@ export function snapshot(s: GameState): Snapshot {
     raidRecap: s.raidRecap && s.tick - s.raidRecap.tick < RECAP_HOURS * TICKS_PER_HOUR ? { ...s.raidRecap, hoursAgo: (s.tick - s.raidRecap.tick) / TICKS_PER_HOUR } : null,
     chase: canChase(s) ? { name: s.chaseOffer!.name, count: s.chaseOffer!.runners.length, hoursLeft: (s.chaseOffer!.until - s.tick) / TICKS_PER_HOUR } : null,
     eventOutcome: s.eventOutcome && s.tick - s.eventOutcome.tick < OUTCOME_HOURS * TICKS_PER_HOUR ? { title: s.eventOutcome.title, choice: s.eventOutcome.choice, text: s.eventOutcome.text, tick: s.eventOutcome.tick } : null,
-    calendar: calendar(s.tick),
+    calendar: calendarOf(s),
     stock,
     storageUsed: poolSize(stock),
     storageCapacity: totalCapacity(s),
@@ -1699,7 +1699,7 @@ export function snapshot(s: GameState): Snapshot {
     enclosure: enclosure(s),
     castle: castleOn(s) ? { hold: holdOf(s)!, cells: [...castleCells(s)], core: coreRect(s), gate: castleGate(s), bounds: castleBounds(s), doors: [...castleLayout(s)!.doors], galleries: galleryCells(s), gates: castleLayout(s)!.gates.slice(1).map((g) => ({ x: g.inside.x, y: g.inside.y, side: g.side })) } : null,
     spells: (s.spellFx ?? []).filter((f) => s.tick - f.tick < Math.min(SPELL_FX_TICKS, f.secs * TICK_HZ + 10)).map((f) => ({ n: f.n, spell: f.spell, name: spellName(f.spell), since: s.tick - f.tick, x: f.x, y: f.y ?? null, by: f.by ?? null, targets: f.targets, secs: f.secs })),
-    moonNight: moonPhaseOf(nightDay(s.tick)) === FULL_MOON_PHASE && (calendar(s.tick).hour >= 20 || calendar(s.tick).hour < 5),
+    moonNight: moonPhaseOf(nightDay(s.tick)) === FULL_MOON_PHASE && (calendarOf(s).hour >= 20 || calendarOf(s).hour < 5),
     moonPhase: moonPhaseOf(nightDay(s.tick)),
     weather: weatherAt(s.seed, s.tick, s.doom?.phase === 'active' ? s.doom.kind : null),
     direction: directionOf(s),
@@ -1880,10 +1880,10 @@ function venueViewNow(s: GameState, venue: 'shop' | 'tavern', line?: ShopLine): 
     keeperId: keeper?.id ?? null,
     customers: inside
       .filter((t) => t.phase === 'shopping' && s.tick < t.until)
-      .map((t) => ({ id: t.id, name: t.name, kind: t.kind, look: t.look, tier: t.tier ?? 1, wants: t.want ? wantText(t.want) : '', temper: temperOf(t.temper).name, req: t.req ?? null, bed: t.bed ?? null, asleep: !!t.bed && asleepHour(calendar(s.tick).hour), stage: t.stage ?? null, talk: t.talk ?? null, purse: Math.round(t.purse ?? 0), people: t.origin ? (ORIGIN_DEFS[t.origin]?.name ?? null) : null })),
+      .map((t) => ({ id: t.id, name: t.name, kind: t.kind, look: t.look, tier: t.tier ?? 1, wants: t.want ? wantText(t.want) : '', temper: temperOf(t.temper).name, req: t.req ?? null, bed: t.bed ?? null, asleep: !!t.bed && asleepHour(calendarOf(s).hour), stage: t.stage ?? null, talk: t.talk ?? null, purse: Math.round(t.purse ?? 0), people: t.origin ? (ORIGIN_DEFS[t.origin]?.name ?? null) : null })),
     locals: s.nightOut && s.nightOut.tavern === b.id ? s.people.filter((p) => p.task?.type === 'drink' && p.activity === 'drink').map((p) => ({ id: p.id, name: p.name, look: p.look })) : [],
     rooms: roomsOf(b),
-    night: calendar(s.tick).daylight < 0.35,
+    night: calendarOf(s).daylight < 0.35,
     beds: bedsOf(b).length,
     lodgers: inside.filter((t) => t.bed && t.phase === 'shopping').length,
     passing: inside.filter((t) => t.phase !== 'shopping').length,
@@ -2665,7 +2665,7 @@ export function describe(s: GameState, p: Person): string {
     case 'defend':
       return p.activity === 'fight' ? 'Fighting off the raiders!' : 'Defending the town';
     case 'patrol':
-      return task.band === undefined && watchHour(calendar(s.tick).hour) ? (task.post !== undefined ? 'On the night watch, at a gate' : 'On the night watch') : 'On patrol';
+      return task.band === undefined && watchHour(calendarOf(s).hour) ? (task.post !== undefined ? 'On the night watch, at a gate' : 'On the night watch') : 'On patrol';
     case 'shelter':
       return p.bed !== null ? 'Sheltering from the raid' : 'Huddled by the fire (no bed to hide in)';
     case 'repair':

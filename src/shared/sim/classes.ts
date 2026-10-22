@@ -22,7 +22,7 @@ import { beginRecord, statsHourly } from './attributes';
 import { isBeast, unitFighter, type Fighter } from './combat';
 import { isChild } from './social';
 import { campXY, notify, setOutcome, type GameState, type Person, type Prompt, type Raid, type Raider } from './state';
-import { calendar, TICK_HZ, TICKS_PER_DAY, TICKS_PER_HOUR } from './time';
+import { TICK_HZ, TICKS_PER_DAY, TICKS_PER_HOUR, calendarOf } from './time';
 import { eventPicture } from '../data/eventScenes';
 import { weatherAt } from './weather';
 import { seaTown } from './sea';
@@ -145,7 +145,7 @@ export function chooseRoad(s: GameState, p: Person, roads: PathNode[]): PathNode
 /** Put an evolution to the player: the two roads, and letting them choose. */
 export function askEvolve(s: GameState, p: Person, roads: PathNode[]): void {
   const node = PATH_BY_ID[p.road!];
-  const cal = calendar(s.tick);
+  const cal = calendarOf(s);
   const base = lineage(node.id)[0];
   const scene = (base.founder ? FOUNDER_FORK : FORK[base.id] ?? '{name} stands where the road forks.').replaceAll('{name}', p.name);
   // (an origin road beside the shared ones is told as theirs alone; on a people's own calling every road is)

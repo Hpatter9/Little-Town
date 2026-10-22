@@ -5,7 +5,7 @@ import { attending, ceremoniesHourly, victoryFeast, weddingFeast } from '../src/
 import { killPerson } from '../src/shared/sim/health';
 import { relationsChanged } from '../src/shared/sim/social';
 import { addStock, maxHp, type GameState, type Person } from '../src/shared/sim/state';
-import { calendar, TICKS_PER_HOUR } from '../src/shared/sim/time';
+import { TICKS_PER_HOUR, calendarOf } from '../src/shared/sim/time';
 import { storages } from '../src/shared/sim/buildings';
 import { plainGame } from './helpers';
 
@@ -24,7 +24,7 @@ function toEvening(s: GameState) {
   do {
     s.tick += TICKS_PER_HOUR;
     ceremoniesHourly(s);
-  } while (calendar(s.tick).hour !== GATHER_HOUR);
+  } while (calendarOf(s).hour !== GATHER_HOUR);
 }
 
 test('a death is mourned at the evening funeral by those who were close, and their grief is eased', () => {

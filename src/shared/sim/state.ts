@@ -1107,6 +1107,8 @@ export interface GameState {
   seed: string;
   /** Ticks simulated since the game began. */
   tick: number;
+  /** Ticks the day's clock has stood still while the town was held for a fight on screen (time.ts `clockTick`); left out in older saves: none. */
+  fightTicks?: number;
   /** State of the simulation RNG. All sim randomness draws from this, never Math.random(). */
   rngState: number;
   paused: boolean;

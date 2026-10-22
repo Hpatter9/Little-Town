@@ -12,7 +12,7 @@ import { benchSpot, eavesSpot, puddleSpot, RIVER_APART, RIVER_FROM, riverSpot, t
 import { pastimeActivity, pastimeFor } from '../src/shared/sim/pastimes';
 import { CELL, groundAt } from '../src/shared/sim/land';
 import { campXY, maxHp, notify, type GameState, type Person } from '../src/shared/sim/state';
-import { calendar, TICKS_PER_HOUR } from '../src/shared/sim/time';
+import { calendar, TICKS_PER_HOUR, calendarOf } from '../src/shared/sim/time';
 import { weatherAt } from '../src/shared/sim/weather';
 import { hooded, instrumentOf, sceneMoment, splashJump } from '../src/renderer/map/sceneMoments';
 import { gossipNow, GOSSIP_SHARE } from '../src/renderer/map/speech';
@@ -315,6 +315,6 @@ test('a couple sits together by the water at dusk (not in winter), on a bank nea
   assert.ok(Math.abs((pa.x + pb.x) / 2 - at.x) < 1, 'at their own place on the bank');
   assert.equal(pastimeActivity('riverside'), 'sit');
   // the river is frozen in winter: no sitting by it
-  while (calendar(s.tick).season !== 'winter') s.tick += 24 * TICKS_PER_HOUR;
+  while (calendarOf(s).season !== 'winter') s.tick += 24 * TICKS_PER_HOUR;
   assert.notEqual(pastimeFor(s, a, 1)?.pastime, 'riverside');
 });

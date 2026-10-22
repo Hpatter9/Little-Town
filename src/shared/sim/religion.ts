@@ -47,7 +47,7 @@ import { raidBudget, startRaid } from './raids';
 import { isChild } from './social';
 import { askWays } from './telling';
 import { campXY, castSpellFx, foodDaysFor, maxHp, notify, tireless, type Building, type Expedition, type GameState, type Person, type Prompt, type Raid, type Task } from './state';
-import { calendar, DAYS_PER_SEASON, TICKS_PER_DAY, TICKS_PER_HOUR } from './time';
+import { calendar, DAYS_PER_SEASON, TICKS_PER_DAY, TICKS_PER_HOUR, calendarOf } from './time';
 
 export type MiracleKind = 'spared' | 'storm' | 'famine';
 type LogKind = 'feast' | 'omen' | 'wrath' | 'miracle' | 'faith' | 'cult' | 'priest' | 'pilgrim';
@@ -189,7 +189,7 @@ const firstPriest = (s: GameState) => priestsOf(s)[0];
 /** A priest's dawn duty (people.ts): at their place of worship for `PRIEST_HOURS` from the hour of the offering. */
 export function priestDuty(s: GameState, p: Person): Task | null {
   if (s.autopilot === false || s.raid) return null;
-  const h = calendar(s.tick).hour;
+  const h = calendarOf(s).hour;
   if (h < FAITH_HOUR || h >= FAITH_HOUR + PRIEST_HOURS) return null;
   const b = s.buildings.find((q) => q.operator === p.id && q.status === 'done' && WORSHIP[q.def]);
   return b ? { type: 'officiate', building: b.id } : null;
@@ -211,7 +211,7 @@ export function altarSpot(b: Building, p: Person): { x: number; y: number } {
 export function religionHourly(s: GameState): void {
   if (!on(s) || s.tick === 0 || s.tick % TICKS_PER_HOUR !== 0) return;
   if (!s.people.some((p) => p.away === null)) return;
-  const hour = calendar(s.tick).hour;
+  const hour = calendarOf(s).hour;
   funeralRites(s);
   if (hour === FAITH_HOUR) dawn(s);
   if (hour === PILGRIM_HOUR) pilgrimage(s);
@@ -331,7 +331,7 @@ function priestRite(s: GameState): void {
 
 /** The day of each god's feast in the season (1-based), and the days to the next one. */
 export function feastIn(s: GameState, d: Domain): number {
-  const c = calendar(s.tick);
+  const c = calendarOf(s);
   const day = FEAST_DAYS[DOMAINS.indexOf(d)];
   return day >= c.dayOfSeason ? day - c.dayOfSeason : day + DAYS_PER_SEASON - c.dayOfSeason;
 }
@@ -339,7 +339,7 @@ export function feastIn(s: GameState, d: Domain): number {
 /** A god's feast day: kept with a priest at home (food laid out, the town lifted, a cruel or a merciful rite by the
  *  people's ways), or let pass and the god slighted. */
 function feastDay(s: GameState): void {
-  const i = FEAST_DAYS.indexOf(calendar(s.tick).dayOfSeason);
+  const i = FEAST_DAYS.indexOf(calendarOf(s).dayOfSeason);
   if (i < 0) return;
   const d = DOMAINS[i];
   const f = faithOf(s);

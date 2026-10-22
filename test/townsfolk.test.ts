@@ -5,7 +5,7 @@ import { SKILLS } from '../src/shared/data/skills';
 import { totalStock } from '../src/shared/sim/buildings';
 import { Sim } from '../src/shared/sim/sim';
 import { addStock, autoPriorities, makePerson, newGame, type Building, type GameState, type Person } from '../src/shared/sim/state';
-import { TICK_HZ } from '../src/shared/sim/time';
+import { TICK_HZ, calendarOf } from '../src/shared/sim/time';
 import { gainSkill, housingCapacity, mood, workFactor } from '../src/shared/sim/townsfolk';
 import { Rng } from '../src/shared/rng';
 import { camp, campPx, nearestWild, plainGame, priorities, row, wildsNear } from './helpers';
@@ -225,7 +225,7 @@ test('traits: Hard Worker works faster, Lazy slower; Quick Learner and passions 
 test('with a barracks, guards on Defend High walk patrols on their shift, and off shift they work', async () => {
   const { Sim } = await import('../src/shared/sim/sim');
   const { plainGame, priorities } = await import('./helpers');
-  const { calendar, TICKS_PER_HOUR } = await import('../src/shared/sim/time');
+  const { TICKS_PER_HOUR } = await import('../src/shared/sim/time');
   const sim = new Sim(plainGame('patrol'));
   const s = sim.state;
   addBuilding(s, 'barracks', camp(s).x + 2);
@@ -239,7 +239,7 @@ test('with a barracks, guards on Defend High walk patrols on their shift, and of
     sim.step();
     if (p.task?.type === 'patrol') {
       patrolled++;
-      const h = calendar(s.tick).hour;
+      const h = calendarOf(s).hour;
       assert.equal((p.id % 2 === 0) === (h >= 6 && h < 18), true, 'only on their own shift');
     }
   }

@@ -54,7 +54,7 @@ import { isChild } from './social';
 import { earn, maxHp, notify, type GameState, type Person, type Prompt } from './state';
 import { askWays, tellStory } from './telling';
 import { noteJousts } from './arena';
-import { calendar, TICKS_PER_DAY, TICKS_PER_HOUR } from './time';
+import { TICKS_PER_DAY, TICKS_PER_HOUR, calendarOf } from './time';
 import { gainSkill } from './townsfolk';
 import { tally } from './deeds';
 
@@ -94,7 +94,7 @@ const home = (s: GameState) => s.people.filter((p) => p.away === null && !p.down
 const fighters = (s: GameState) => home(s).sort((a, b) => b.skills.melee.level - a.skills.melee.level || a.id - b.id);
 
 function log(s: GameState, o: OrderState, text: string): void {
-  o.log.unshift(`Day ${calendar(s.tick).day}: ${text}`);
+  o.log.unshift(`Day ${calendarOf(s).day}: ${text}`);
   if (o.log.length > 12) o.log.length = 12;
 }
 
@@ -105,7 +105,7 @@ export function orderHourly(s: GameState): void {
   if (!o) return;
   checkVows(s, o);
   comeHome(s, o);
-  const hour = calendar(s.tick).hour;
+  const hour = calendarOf(s).hour;
   if (hour === CODE_HOUR) {
     swear(s, o);
     for (const p of home(s)) dub(s, o, p);
@@ -199,7 +199,7 @@ export function tourney(s: GameState, o: OrderState): { name: string; won: boole
   const rng = roll(s, 'tourney');
   const entrants = fighters(s).slice(0, TOURNEY_ENTRANTS);
   if (!entrants.length) return [];
-  const visitor = VISITOR_LEVEL + Math.floor(calendar(s.tick).day / 4);
+  const visitor = VISITOR_LEVEL + Math.floor(calendarOf(s).day / 4);
   const jousts: { p: Person; won: boolean }[] = [];
   const results = entrants.map((p) => {
     const odds = Math.max(0.1, Math.min(0.9, 0.5 + (p.skills.melee.level - visitor) * 0.06));

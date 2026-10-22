@@ -42,7 +42,7 @@ import { TAVERN_BASE, TAVERN_PER_LEVEL } from '../data/operators';
 import { ASH_MORALE, FALLOUT_MORALE, FREEZE_COLD_MORALE, FREEZE_MORALE, PLAGUE_MORALE, PLAGUE_WORK, SMOG_MORALE } from '../data/doom';
 import { isInjured } from './health';
 import { foodDaysFor, makeUndying, NO_EATERS_DAYS, townFull, tireless, maxHp, campX, campXY, edgeXY, makePerson, notify, sideOf, buildingById, type Building, type GameState, type Person, type Visitor } from './state';
-import { calendar, TICKS_PER_HOUR } from './time';
+import { TICKS_PER_HOUR, calendarOf } from './time';
 import { ORIGIN_DEFS, rulesOf } from '../data/origins';
 import { natureOf } from '../data/natures';
 import { makeStranger, oneOf, orcLook, strangerOrigin, welcomes } from './strangers';
@@ -96,13 +96,13 @@ export function isNight(hour: number): boolean {
 /** Time for bed: late at night (unless fully rested), or dead on their feet. */
 export function wantsSleep(s: GameState, p: Person): boolean {
   if (tireless(p)) return false;
-  return (bedtime(s, p, calendar(s.tick).hour) && p.needs.rest < 0.9) || p.needs.rest < 0.15;
+  return (bedtime(s, p, calendarOf(s).hour) && p.needs.rest < 0.9) || p.needs.rest < 0.15;
 }
 
 /** Done sleeping: fully rested, or rested enough and it's day (their day: a guard on the night watch's is the night). */
 export function wantsToWake(s: GameState, p: Person): boolean {
   if (p.downed) return false; // stays in bed until back on their feet
-  const h = calendar(s.tick).hour;
+  const h = calendarOf(s).hour;
   // (the night watch is up for its watch if rested at all: the hours of the watch, sim/nightWatch.ts)
   if (nightWatch(s, p) && watchHour(h) && p.needs.rest >= WATCH_WAKE_REST) return true;
   return p.needs.rest >= 1 || ((nightWatch(s, p) ? !bedtime(s, p, h) : h >= 6 && h < 22) && p.needs.rest >= 0.6);
@@ -321,7 +321,7 @@ export function workFactor(s: GameState, p: Person): number {
   if (p.traits.includes('hard_worker')) f *= 1.2;
   if (p.traits.includes('lazy')) f *= 0.8;
   if (p.traits.includes('night_owl')) {
-    const h = calendar(s.tick).hour;
+    const h = calendarOf(s).hour;
     f *= h >= 20 || h < 5 ? 1.2 : 0.9;
   }
   if (p.morale >= 70) f *= 1.1;
@@ -337,7 +337,7 @@ export function workFactor(s: GameState, p: Person): number {
   if (s.magic?.enchanted && s.magic.enchanted > s.tick) f *= ENCHANT_WORK; // (the tools enchanted: sim/magic.ts)
   // vampires come alive at night
   if (p.monster === 'vampire') {
-    const h = calendar(s.tick).hour;
+    const h = calendarOf(s).hour;
     f *= h >= 20 || h < 5 ? VAMPIRE_NIGHT_WORK : VAMPIRE_DAY_WORK;
   }
   // worker bots lend a hand with everything

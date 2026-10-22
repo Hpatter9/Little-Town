@@ -71,7 +71,7 @@ import { adjust, isChild } from './social';
 import { campXY, earn, maxHp, notify, type Faction, type GameState, type Person, type Prompt } from './state';
 import { askWays, tellStory } from './telling';
 import { queueScene } from './cutscenes';
-import { calendar, TICKS_PER_DAY, TICKS_PER_HOUR } from './time';
+import { TICKS_PER_DAY, TICKS_PER_HOUR, calendarOf } from './time';
 import { gainSkill } from './townsfolk';
 
 /** Where the war party is while it's out (`Person.away`). */
@@ -123,7 +123,7 @@ const might = (p: Person) => levelOf(p) * 2 + p.skills.melee.level;
 const nameOf = (f: Faction | undefined) => (f ? FACTION_BY_ID[f.id]?.name ?? f.id : 'the roads');
 
 function log(s: GameState, h: HordeState, text: string): void {
-  h.log.unshift(`Day ${calendar(s.tick).day}: ${text}`);
+  h.log.unshift(`Day ${calendarOf(s).day}: ${text}`);
   if (h.log.length > 12) h.log.length = 12;
 }
 
@@ -146,7 +146,7 @@ export function hordeHourly(s: GameState): void {
     log(s, h, 'The Waaagh! blew itself out. The horde sleeps it off.');
     notify(s, 'The Waaagh! is over. The horde is sated, for now.', true);
   }
-  if (calendar(s.tick).hour !== HORDE_HOUR) return;
+  if (calendarOf(s).hour !== HORDE_HOUR) return;
   morning(s, h);
 }
 
@@ -226,7 +226,7 @@ function thralls(s: GameState, h: HordeState): void {
   const got: Partial<Record<Material, number>> = {};
   for (const [m, k] of Object.entries(THRALL_WORK) as [Material, number][]) got[m] = k * n;
   depositNear(s, campXY(s), got);
-  if (calendar(s.tick).day % 3 === 0) log(s, h, `The ${n === 1 ? 'thrall' : `${n} thralls`} hauled ${Object.entries(got).map(([m, k]) => `${k} ${m}`).join(' and ')}.`);
+  if (calendarOf(s).day % 3 === 0) log(s, h, `The ${n === 1 ? 'thrall' : `${n} thralls`} hauled ${Object.entries(got).map(([m, k]) => `${k} ${m}`).join(' and ')}.`);
 }
 
 /* ------------------------------------------------------------ war raids */

@@ -886,7 +886,7 @@ export class MapPeople {
       // the isometric view draws them as the PixelLab looks (iso/folkSprite.ts): the figure stands where the top-down
       // sprite would, and the view's `placeLoose` carries it onto the diamonds. Their special forms keep the old sprite.
       const wolfNow = v.monster === 'werewolf' && (this.moon || inCombat);
-      const folkOn = this.isoFolk && !hidden && !swimming && !wolfNow && !form && !(v.beast && inCombat && v.downed === null);
+      const folkOn = this.isoFolk && !hidden && !swimming && !form && !(v.beast && inCombat && v.downed === null);
       if (this.isoFolk) {
         if (folkOn) {
           const f = (d.folk ??= this.layer.addChild(new FolkSprite()));
@@ -894,7 +894,7 @@ export class MapPeople {
           f.scale.set(FOLK_SCALE * k);
           f.position.set(s.x, s.y);
           f.zIndex = z;
-          f.update(v, d.x, d.y, now / 1000, Math.max(0.001, (now - (d.folkAt ?? now - 16)) / 1000));
+          f.update(v, d.x, d.y, now / 1000, Math.max(0.001, (now - (d.folkAt ?? now - 16)) / 1000), undefined, wolfNow);
           d.folkAt = now;
           s.visible = false;
         } else if (d.folk) d.folk.visible = false;

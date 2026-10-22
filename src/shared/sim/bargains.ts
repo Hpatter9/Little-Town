@@ -38,7 +38,7 @@ import { fullMoon } from './monsters';
 import { isChild } from './social';
 import { notify, type GameState, type Person, type Prompt } from './state';
 import { askWays, tellStory } from './telling';
-import { calendar, TICKS_PER_DAY, TICKS_PER_HOUR } from './time';
+import { TICKS_PER_DAY, TICKS_PER_HOUR, calendarOf } from './time';
 import { assignBeds } from './townsfolk';
 
 export interface FaeDebt {
@@ -72,7 +72,7 @@ const roll = (s: GameState, salt: string) => new Rng(hashSeed(`${s.seed}:court:$
 export const courtMood = (f: number) => COURT_MOODS.find(([at]) => f >= at)?.[1] ?? 'The Court is cool';
 
 function log(s: GameState, c: CourtState, text: string): void {
-  c.log.unshift(`Day ${calendar(s.tick).day}: ${text}`);
+  c.log.unshift(`Day ${calendarOf(s).day}: ${text}`);
   if (c.log.length > 10) c.log.length = 10;
 }
 
@@ -82,7 +82,7 @@ export function courtHourly(s: GameState): void {
   const c = courtOf(s);
   if (!c) return;
   for (const d of [...c.debts]) if (s.tick >= d.due) collect(s, c, d);
-  if (calendar(s.tick).hour !== COURT_HOUR) return;
+  if (calendarOf(s).hour !== COURT_HOUR) return;
   c.favour = clamp(c.favour - Math.sign(c.favour) * Math.min(COURT_DRIFT, Math.abs(c.favour)));
   coldIron(s, c);
   if (fullMoon(s) && c.favour >= REVEL_AT) revel(s, c);

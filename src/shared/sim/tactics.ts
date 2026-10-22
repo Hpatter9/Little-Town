@@ -42,7 +42,7 @@ import { before, credit, TOWERS } from './raidRecap';
 import { attackPerson, defenderAttack } from './raids';
 import { GATE_OF, GRATE_OF, isGrate, WALL_KINDS } from './ringWall';
 import { buildingById, maxHp, notify, type GameState, type Person, type Raid, type Raider } from './state';
-import { calendar, TICK_HZ, TICKS_PER_HOUR } from './time';
+import { TICK_HZ, TICKS_PER_HOUR, calendarOf } from './time';
 import { weatherAt } from './weather';
 import { runtime } from './watchAsk';
 import { enemyArmor } from '../data/enemies';
@@ -1162,7 +1162,7 @@ export function blowMult(t: Pick<Tactics, 'tiles' | 'w'>, from: { u: number; v: 
 /** How far a shot reaches from a tile: further from high ground, less by night. */
 export function shotReach(s: GameState, st: TacStats, from: TacTile, to: TacTile): number {
   if (!st.shooter) return st.reach;
-  const h = calendar(s.tick).hour;
+  const h = calendarOf(s).hour;
   const dark = h >= 21 || h < 5 ? 1 : 0;
   return Math.max(1, st.reach + Math.max(0, Math.floor((from.h - to.h) * HIGH_REACH)) - dark);
 }
@@ -1850,7 +1850,7 @@ export function tacticsView(s: GameState): TacticsView | null {
       };
     }
   }
-  const h = calendar(s.tick).hour;
+  const h = calendarOf(s).hour;
   const night = h >= 21 || h < 5;
   const w = weatherAt(s.seed, s.tick, null).kind;
   const leader = t.leader ? raiderOf(r, t.leader) : undefined;
@@ -1877,7 +1877,7 @@ export function tacticsView(s: GameState): TacticsView | null {
     objective: leader && !t.broken ? `Defeat ${ENEMIES[leader.kind].name}` : t.broken ? 'Rout the rest' : 'Rout the raiders',
     conditions: [night ? 'Night: shots fall short' : '', w === 'rain' || w === 'storm' || w === 'snow' || w === 'fog' ? `${w[0].toUpperCase()}${w.slice(1)}: archers' aim spoiled` : ''].filter(Boolean).join(' · '),
     night,
-    season: calendar(s.tick).season,
+    season: calendarOf(s).season,
     weather: w,
     biome: s.biome ?? 'forest',
     speed: s.battleSpeed ?? 1,

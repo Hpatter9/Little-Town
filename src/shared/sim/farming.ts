@@ -26,7 +26,7 @@ import { biomeOf } from '../data/biomes';
 import { BUILDING_BY_ID, RIVER_GROWTH, RIVER_TILES } from '../data/buildings';
 import { generateWorld } from '../world';
 import { addStock, foodDaysFor, carryCapacity, ERA_MULTIPLIER, notify, poolSize, type Building, type GameState, type Person } from './state';
-import { calendar, DAYS_PER_SEASON, TICK_HZ, TICKS_PER_HOUR } from './time';
+import { DAYS_PER_SEASON, TICK_HZ, TICKS_PER_HOUR, calendarOf } from './time';
 import { gainSkill, workFactor } from './townsfolk';
 import { cropSpeed } from './origin';
 import { SHAFT } from '../data/deep';
@@ -64,7 +64,7 @@ export function byRiver(s: GameState, b: Building): boolean {
 
 /** Every tick: crops grow. */
 export function growCrops(s: GameState): void {
-  const season = calendar(s.tick).season;
+  const season = calendarOf(s).season;
   let speed: number | null = null;
   // (the blight round the monster nests and the Calamity's heart: sim/nests.ts)
   const blight = s.places?.some((p) => p.nest) || s.calamity ? blightSources(s) : null;
@@ -176,7 +176,7 @@ function foodDays(s: GameState): number {
 export function ripensInTime(s: GameState, b: Building): boolean {
   const def = CROPS[b.def];
   if (def.indoor) return true;
-  const cal = calendar(s.tick);
+  const cal = calendarOf(s);
   if (cal.season === 'winter') return false;
   if (cal.season !== 'autumn' || def.establishHours) return true;
   const left = (DAYS_PER_SEASON - cal.dayOfSeason) * 24 + (24 - cal.hour);
@@ -187,7 +187,7 @@ export function ripensInTime(s: GameState, b: Building): boolean {
 /** Once a day, at dawn: the soil rests and is mucked, blight may strike, and at the turn of winter, the harvest home. */
 export function tendFields(s: GameState, rng: Rng): void {
   if (s.tick % TICKS_PER_HOUR !== 0) return;
-  const cal = calendar(s.tick);
+  const cal = calendarOf(s);
   if (cal.hour !== 6) return;
   const fields = s.buildings.filter((b) => isField(b) && !CROPS[b.def].indoor);
   if (cal.season === 'winter' && cal.dayOfSeason === 1) harvestHome(s);

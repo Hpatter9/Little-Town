@@ -47,7 +47,7 @@ import { takeFromStorage } from './expeditions';
 import { newcomer } from './powers';
 import { addStock, maxHp, notify, townFull, type GameState, type Person, type Prompt } from './state';
 import { askWays, tellStory } from './telling';
-import { calendar, TICKS_PER_DAY, TICKS_PER_HOUR } from './time';
+import { TICKS_PER_DAY, TICKS_PER_HOUR, calendarOf } from './time';
 import { gainSkill } from './townsfolk';
 import { weatherAt } from './weather';
 
@@ -82,7 +82,7 @@ const spend = (s: GameState, cost: Partial<Record<Material, number>>) => {
 };
 
 function log(s: GameState, f: FoundryState, text: string): void {
-  f.log.unshift(`Day ${calendar(s.tick).day}: ${text}`);
+  f.log.unshift(`Day ${calendarOf(s).day}: ${text}`);
   if (f.log.length > 12) f.log.length = 12;
 }
 
@@ -90,7 +90,7 @@ function log(s: GameState, f: FoundryState, text: string): void {
 export function foundryHourly(s: GameState): void {
   if (s.autopilot === false || s.tick % TICKS_PER_HOUR !== 0) return;
   const f = foundryOf(s);
-  if (!f || calendar(s.tick).hour !== FOUNDRY_HOUR) return;
+  if (!f || calendarOf(s).hour !== FOUNDRY_HOUR) return;
   const rng = roll(s, 'day');
   power(s, f, rng);
   wear(s, f, rng);
@@ -106,7 +106,7 @@ export function foundryHourly(s: GameState): void {
 /* ------------------------------------------------------------ power */
 
 export function power(s: GameState, f: FoundryState, rng: Rng): number {
-  const cal = calendar(s.tick);
+  const cal = calendarOf(s);
   const wx = weatherAt(s.seed, s.tick, null).kind;
   const panels = SOLAR + SOLAR_PER_BUILDING * s.buildings.filter((b) => b.status === 'done').length;
   const sun = panels * (cal.season === 'winter' ? 0.5 : 1) * (wx === 'clear' ? 1 : wx === 'rain' || wx === 'storm' || wx === 'snow' ? 0.4 : 0.7);

@@ -4,7 +4,7 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { faithHourly, faithOf, faithView } from '../src/shared/sim/faith';
 import { FAITH_HOUR, WRATH_AT } from '../src/shared/data/gods';
-import { calendar, TICKS_PER_HOUR } from '../src/shared/sim/time';
+import { TICKS_PER_HOUR, calendarOf } from '../src/shared/sim/time';
 import { plainGame, put, row, camp } from './helpers';
 
 /** Run the town's mornings: faithHourly at the hour of the offering, day after day. */
@@ -12,7 +12,7 @@ function mornings(s: ReturnType<typeof plainGame>, days: number): void {
   s.autopilot = true;
   for (let d = 0; d < days; d++) {
     do s.tick += TICKS_PER_HOUR;
-    while (calendar(s.tick).hour !== FAITH_HOUR);
+    while (calendarOf(s).hour !== FAITH_HOUR);
     faithHourly(s);
   }
 }

@@ -27,7 +27,7 @@ import { totalStock } from './buildings';
 import { guardsOf } from './treasury';
 import { CELL } from './land';
 import { campXY, earn, maxHp, notify, setOutcome, type Faction, type GameState, type Person, type Prompt } from './state';
-import { calendar, paceDay, TICKS_PER_DAY, TICKS_PER_HOUR } from './time';
+import { paceDay, TICKS_PER_DAY, TICKS_PER_HOUR, calendarOf } from './time';
 import type { Material } from '../data/materials';
 
 /** What a rising power keeps of its own doings (on the Faction). */
@@ -52,7 +52,7 @@ const home = (s: GameState) => s.people.filter((p) => p.away === null && !isChil
 /** Each hour (the autopilot on): a night raid due, a rift's creatures; at the morning's hour, the day's moves. */
 export function risingHourly(s: GameState): void {
   if (s.autopilot === false || s.gameOver || s.tick % TICKS_PER_HOUR !== 0 || !s.factions) return;
-  const hour = calendar(s.tick).hour;
+  const hour = calendarOf(s).hour;
   for (const f of realm(s)) {
     const id = defOf(f).rising;
     if (!id || f.stance === 'destroyed') continue;
@@ -67,7 +67,7 @@ function daily(s: GameState, f: Faction, id: RisingId, r: RiseState): void {
   const g = roll(s, id, 'day');
   if (id === 'shogunate') {
     if (f.stance === 'war' && r.night === undefined && g.chance(NIGHT_RAID_DAILY)) {
-      const hoursTo = (NIGHT_RAID_HOUR - calendar(s.tick).hour + 24) % 24 || 24;
+      const hoursTo = (NIGHT_RAID_HOUR - calendarOf(s).hour + 24) % 24 || 24;
       r.night = s.tick + hoursTo * TICKS_PER_HOUR;
     }
     if (hostile(f) && s.tick - (r.lastDuel ?? -1e12) >= DUEL_GAP_DAYS * TICKS_PER_DAY && g.chance(DUEL_DAILY) && champion(s)) {

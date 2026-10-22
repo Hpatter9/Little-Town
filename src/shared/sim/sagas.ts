@@ -17,7 +17,7 @@ import { ITEM_BY_ID } from '../data/items';
 import { RAID_KIND_BY_ID } from '../data/raids';
 import { hashSeed, Rng } from '../rng';
 import { notify, setOutcome, type Expedition, type GameState, type Person, type Raid, type SagaRun } from './state';
-import { calendar, TICKS_PER_DAY, TICKS_PER_HOUR } from './time';
+import { TICKS_PER_DAY, TICKS_PER_HOUR, calendarOf } from './time';
 import { raidBudget, raidKindsFor, scheduleNextRaid, startRaid } from './raids';
 import { apply } from './events';
 import { isChild, adjust, opinion } from './social';
@@ -59,7 +59,7 @@ export function sagasHourly(s: GameState): void {
   if (s.tick % TICKS_PER_HOUR !== 0) return;
   for (const r of [...(s.sagas ?? [])]) drive(s, r);
   if (s.autopilot === false || (s.nextEventTick ?? 0) >= Number.MAX_SAFE_INTEGER) return; // (a town of tests: no sagas unless begun)
-  if (calendar(s.tick).hour !== SAGA_HOUR) return;
+  if (calendarOf(s).hour !== SAGA_HOUR) return;
   maybeBegin(s);
 }
 

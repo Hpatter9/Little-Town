@@ -61,8 +61,9 @@ export function stoodTick(s: GameState): void {
   for (const p of s.prompts) if (blocksTown(p)) p.stood = (p.stood ?? 0) + 1;
 }
 
-/** One tick of a fight on screen while the town holds: the calendar and the fight's own timers move, and the questions' clocks stand still. */
+/** One tick of a fight on screen while the town holds: the fight's own timers move (the calendar does not), and the questions' clocks stand still. */
 export function fightClock(s: GameState): void {
   s.tick++;
+  s.fightTicks = (s.fightTicks ?? 0) + 1; // (the day's clock stands still: time.ts `clockTick`)
   holdForFight(s);
 }

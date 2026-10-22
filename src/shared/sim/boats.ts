@@ -25,7 +25,7 @@ import { seaTown, swims } from './sea';
 import { catchFactor, fleetMost, noteCatch, squallShelter, squallSinks, washUp } from './seafaring';
 import { Rng as SeaRng, hashSeed } from '../rng';
 import { addStock, campCell, campXY, notify, type Boat, type Expedition, type GameState, type Person } from './state';
-import { calendar, TICKS_PER_HOUR } from './time';
+import { TICKS_PER_HOUR, calendarOf } from './time';
 
 /** How far the town will open its land looking for water for a boatyard (the planner's own furthest). */
 const OPEN_TO_WATER = 40;
@@ -113,7 +113,7 @@ export const sailsTo = (d: Destination) => !!d.byBoat || waterside(d.id);
 /** Each hour: the evening catch, the dawn's mending, and the town's plans for its boats. */
 export function boatsHourly(s: GameState, rng: Rng): void {
   if (s.tick % TICKS_PER_HOUR !== 0) return;
-  const { hour, season } = calendar(s.tick);
+  const { hour, season } = calendarOf(s);
   const yard = boatyardOf(s);
   if (hour === FISH_HOUR && (yard || seaTown(s))) fish(s, yard, season === 'winter', rng);
   if (hour === 6) mend(s);
@@ -205,7 +205,7 @@ export function seaHour(s: GameState, e: Expedition, members: Person[], rng: Rng
   const b = fleet(s).find((q) => q.id === e.boat);
   if (!b) return;
   const def = boatDef(b);
-  const { season } = calendar(s.tick);
+  const { season } = calendarOf(s);
   if (rng.chance(STORM_HOURLY[season])) {
     const share = STORM_HURT[0] + rng.next() * (STORM_HURT[1] - STORM_HURT[0]);
     // (an iron hull rides it out better)

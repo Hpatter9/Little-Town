@@ -15,7 +15,7 @@ import { layStreet, nearestStreet } from './buildings';
 import { findPath, idx, isPlannedRoad, isRoad, type Pt } from './land';
 import { notify, campCell, type GameState } from './state';
 import { paveSeconds, pave } from './streets';
-import { calendar, TICKS_PER_DAY, TICKS_PER_HOUR } from './time';
+import { TICKS_PER_DAY, TICKS_PER_HOUR, calendarOf } from './time';
 import type { Village } from './villages';
 
 /** The road's cells from the village (first) to the town (last), and how it stands. */
@@ -152,7 +152,7 @@ function retryable(s: GameState, r: VillageRoad): boolean {
 /** Hourly: villages with no road get one planned; once a day the village lays its end, and a finished road is told. */
 export function villageRoadHourly(s: GameState): void {
   if (s.tick % TICKS_PER_HOUR !== 0 || s.autopilot === false) return;
-  const hour = calendar(s.tick).hour;
+  const hour = calendarOf(s).hour;
   for (const v of s.villages ?? []) {
     if (v.below) continue;
     const r = v.road;

@@ -42,7 +42,7 @@ import { applyUpbringing, dynastyScandal } from './dynasty';
 import { adjust, enemiesOf, isChild } from './social';
 import type { Pt } from './land';
 import { campXY, notify, type Building, type GameState, type Person } from './state';
-import { calendar, TICKS_PER_DAY, TICKS_PER_HOUR } from './time';
+import { TICKS_PER_DAY, TICKS_PER_HOUR, calendarOf } from './time';
 
 export interface KinRecord {
   id: number;
@@ -182,7 +182,7 @@ export function apprentice(s: GameState, p: Person): Person | null {
 /** What a child should be doing now: lessons of a morning, at their master's side of an afternoon. */
 export function childTask(s: GameState, p: Person): { type: 'lesson'; building: number | null } | { type: 'apprentice'; master: number } | null {
   if (!isChild(p) || p.away !== null || s.raid) return null;
-  const h = calendar(s.tick).hour;
+  const h = calendarOf(s).hour;
   if (h >= LESSON_FROM && h < LESSON_UNTIL) return { type: 'lesson', building: lessonPlace(s)?.id ?? null };
   if (h >= APPRENTICE_FROM && h < APPRENTICE_UNTIL) {
     const m = apprentice(s, p);

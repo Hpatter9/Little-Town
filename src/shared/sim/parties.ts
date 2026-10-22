@@ -68,7 +68,7 @@ import { PULL_SAGA } from '../data/sagas';
 import { isChild, opinion } from './social';
 import { alarmRaised } from './people';
 import { earn, maxHp, notify, type Expedition, type GameState, type Person } from './state';
-import { calendar, TICKS_PER_HOUR } from './time';
+import { TICKS_PER_HOUR, calendarOf } from './time';
 
 /** Every destination on the board now (the world's, the places on the land, the rival packs' lairs). */
 export const boardDestinations = (s: GameState): Destination[] => [...DESTINATIONS, ...placeDestinations(s), ...packDestinations(s), ...sagaDestinations(s), ...huntDestinations(s), ...dragonDestinations(s), ...heartDestinations(s), ...enemyDestinations(s), ...villageDestinations(s), ...portalDestinations(s), ...underDestinations(s)];
@@ -305,7 +305,7 @@ export function proposeParty(s: GameState): PartyPlan | null {
 export function partiesHourly(s: GameState): void {
   // (not while the player is raising a party of their own: sim/muster.ts)
   if (s.tick % TICKS_PER_HOUR !== 0 || s.autopilot === false || s.gameOver || s.muster) return;
-  const h = calendar(s.tick).hour;
+  const h = calendarOf(s).hour;
   if (h < SET_OUT_FROM || h >= SET_OUT_UNTIL) return;
   if (s.lastParty != null && s.tick - s.lastParty < partyGapHours(s) * TICKS_PER_HOUR) return;
   const plan = proposeParty(s);

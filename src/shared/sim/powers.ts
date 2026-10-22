@@ -21,7 +21,7 @@ import { wardOf } from './rivals';
 import { aimedFoes, bestAim, inBattle } from './battle';
 import { townFull, addStock, campX, campXY, castSpellFx, makePerson, maxHp, notify, personFx, type GameState, type Person, type Raider, type SpellTarget } from './state';
 import { WORLD_WIDTH } from '../constants';
-import { calendar, TICK_HZ, TICKS_PER_HOUR } from './time';
+import { TICK_HZ, TICKS_PER_HOUR, calendarOf } from './time';
 import { housingCapacity, joinOrigin } from './townsfolk';
 
 export interface PowerDef {
@@ -50,7 +50,7 @@ const home = (s: GameState) => s.people.filter((p) => p.away === null);
 const founder = (s: GameState) => s.people.find((p) => p.id === s.mainId);
 const hurt = (s: GameState) => home(s).filter((p) => p.hp < maxHp(p) * 0.7 || p.downed);
 const night = (s: GameState) => {
-  const h = calendar(s.tick).hour;
+  const h = calendarOf(s).hour;
   return h >= 20 || h < 5;
 };
 

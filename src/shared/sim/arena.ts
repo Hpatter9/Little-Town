@@ -37,7 +37,7 @@ import { beastMight, beastTier, grown, ranchOf, type RanchBeast } from './ranch'
 import { isChild } from './social';
 import { earn, maxHp, meet, notify, type Expedition, type FightResult, type GameState, type Person } from './state';
 import { tellStory } from './telling';
-import { calendar, TICKS_PER_DAY, TICKS_PER_HOUR } from './time';
+import { calendar, TICKS_PER_DAY, TICKS_PER_HOUR, calendarOf } from './time';
 import { gainSkill } from './townsfolk';
 
 export interface Entrant {
@@ -142,7 +142,7 @@ export const arenaTrip = (s: GameState, id: number | undefined): Expedition | un
 
 export function arenaHourly(s: GameState): void {
   if (s.tick % TICKS_PER_HOUR !== 0 || s.autopilot === false || s.gameOver) return;
-  const hour = calendar(s.tick).hour;
+  const hour = calendarOf(s).hour;
   if (hour === CARD_HOUR - 1) buildArena(s);
   const built = arenaBuilt(s);
   if (!s.arena && !built) return;
@@ -272,7 +272,7 @@ export function postCard(s: GameState): ArenaCard | null {
     notify(s, `The arena's season opens: ${seasonName(key)}. ${SEASON_DAYS} days of bouts, and a crown at the end.`, true);
   }
   const rng = roll(s, 'card');
-  const d = calendar(s.tick).dayOfSeason;
+  const d = calendarOf(s).dayOfSeason;
   const beasts = ranchFighters(s);
   const people = townFighters(s);
   const beastDay = beasts.length > 0 && (d % 2 === 0 || !people.length);

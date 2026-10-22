@@ -59,7 +59,7 @@ import { researchMods, tidyPicks } from './research';
 import { chooseOffer, offerableTopics, offerOverdue } from './researchOffer';
 import { acceptVisitor, housingCapacity } from './townsfolk';
 import { tireless, eatersOf, foodDaysFor, addStock, campCell, poolSize, type Building, type GameState } from './state';
-import { calendar, TICKS_PER_HOUR } from './time';
+import { TICKS_PER_HOUR, calendarOf } from './time';
 import { LINE_ITEMS, lineOfDef, COIN_RESERVE, FARE, PIECE_RATE, saleValue, FARE_STOCK, furnishes, isShop, isTavern, PURSE_SCALE, tiersDrawn, travellerGoods, VENUE_CHAIN, venueOfDef, WARE_STOCK, WARES } from '../data/shop';
 import { WAGE_SHARE, wageBill } from './wages';
 import { attractiveness, decorPrice, redecorate, extend, extensionPrice, furnishValue, improve, levelPrice, SALE_GEAR, shopOf, spotFor, storeOf, tavernOf, venueKind, wouldFurnish } from './shop';
@@ -1105,7 +1105,7 @@ function upgradeRing(s: GameState, n: Needs): boolean {
  *  open field grows into an estate farm where it stands, if there's room). In winter, when nothing's in the ground
  *  anyway, or whenever more food is wanted. */
 function consolidateFields(s: GameState, n: Needs, plan: TownPlan, needFood = false): boolean {
-  if (!needFood && calendar(s.tick).season !== 'winter' && n.foodDays < 4) return false;
+  if (!needFood && calendarOf(s).season !== 'winter' && n.foodDays < 4) return false;
   const fallow = (b: Building) => b.status === 'done' && (b.crop?.stage ?? 'fallow') === 'fallow';
   for (const b of s.buildings) {
     const to = UPGRADES[b.def] && CROPS[b.def] ? BUILDING_BY_ID[UPGRADES[b.def]] : undefined;

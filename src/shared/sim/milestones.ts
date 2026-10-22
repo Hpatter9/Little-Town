@@ -5,7 +5,7 @@
 // not the days before. Off with the autopilot, like every new system.
 
 import { MILESTONE_BY_ID, HUNDRED_DAYS, type MilestoneId } from '../data/tiers';
-import { calendar } from './time';
+import { calendarOf } from './time';
 import { addJournal, type GameState } from './state';
 
 /** A news line and journal entry that does not take the town's next id (`nextId`): the ids of everyone born and
@@ -26,7 +26,7 @@ export const hasMilestone = (s: GameState, id: MilestoneId): boolean => !!s.mile
 /** Record a first, once. Returns whether it was new. */
 export function markMilestone(s: GameState, id: MilestoneId): boolean {
   if (s.autopilot === false || hasMilestone(s, id)) return false;
-  const day = calendar(s.tick).day;
+  const day = calendarOf(s).day;
   (s.milestones ??= []).push({ id, day });
   s.milestonesFrom ??= day;
   tell(s, `${MILESTONE_BY_ID[id].title}. ${MILESTONE_BY_ID[id].line}`, true);
@@ -36,7 +36,7 @@ export function markMilestone(s: GameState, id: MilestoneId): boolean {
 /** The firsts the state shows by itself, looked for once an hour. */
 export function milestonesHourly(s: GameState, founders: readonly number[]): void {
   if (s.autopilot === false) return;
-  s.milestonesFrom ??= calendar(s.tick).day;
+  s.milestonesFrom ??= calendarOf(s).day;
   const has = (id: MilestoneId) => hasMilestone(s, id);
   if (!has('wall') && s.ring?.done) markMilestone(s, 'wall');
   if (!has('child') && s.people.some((p) => (p.parents?.length ?? 0) > 0)) markMilestone(s, 'child');
@@ -45,7 +45,7 @@ export function milestonesHourly(s: GameState, founders: readonly number[]): voi
   if (!has('caravan') && s.caravan) markMilestone(s, 'caravan');
   if (!has('mythic') && (s.mythics?.length ?? 0) > 0) markMilestone(s, 'mythic');
   if (!has('unique') && (s.uniques?.length ?? 0) > 0) markMilestone(s, 'unique');
-  if (!has('day100') && calendar(s.tick).day >= HUNDRED_DAYS) markMilestone(s, 'day100');
+  if (!has('day100') && calendarOf(s).day >= HUNDRED_DAYS) markMilestone(s, 'day100');
   if (!has('village') && (s.villages?.length ?? 0) > 0) markMilestone(s, 'village');
   if (!has('generation') && founders.length && !founders.some((id) => s.people.some((p) => p.id === id))) markMilestone(s, 'generation');
 }

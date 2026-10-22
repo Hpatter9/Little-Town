@@ -27,7 +27,7 @@ import { raidBudget, startRaid } from './raids';
 import { strangerName } from './shop';
 import { makeStranger, strangerLook, strangerOrigin } from './strangers';
 import { campXY, dist, edgeXY, makePerson, notify, townFull, type Band, type GameState, type Person, type Traveller } from './state';
-import { calendar, TICK_HZ, TICKS_PER_DAY, TICKS_PER_HOUR } from './time';
+import { TICK_HZ, TICKS_PER_DAY, TICKS_PER_HOUR, calendarOf } from './time';
 import { eventPicture } from '../data/eventScenes';
 import { seaTown } from './sea';
 import { weatherAt } from './weather';
@@ -68,7 +68,7 @@ const spotOf = (b: Band, i: number): Pt => ({ x: b.at.x + ((i % 3) - 1) * 18, y:
 
 /** The next tick in the small hours (STRIKE_FROM to STRIKE_UNTIL), some way into them. */
 function nextStrike(s: GameState, rng: Rng): number {
-  const hour = calendar(s.tick).hour;
+  const hour = calendarOf(s).hour;
   const toNight = hour >= STRIKE_FROM || hour < STRIKE_UNTIL ? 0 : (STRIKE_FROM - hour + 24) % 24;
   return s.tick + toNight * TICKS_PER_HOUR + rng.int(0, 2) * TICKS_PER_HOUR + rng.int(0, TICKS_PER_HOUR - 1);
 }
@@ -279,7 +279,7 @@ export function strike(s: GameState, b: Band, rng: Rng, guard: Person | null): v
 /* ------------------------------------------------------------ refugees */
 
 function askRefugees(s: GameState, b: Band): void {
-  const cal = calendar(s.tick);
+  const cal = calendarOf(s);
   const members = membersOf(s, b);
   const n = members.length;
   const origin = members[0]?.origin;

@@ -14,7 +14,7 @@ import { levelOf, stageOf } from '../data/levels';
 import { GREAT_ENEMIES } from '../data/greatEnemy';
 import { BUILDING_BY_ID } from '../data/buildings';
 import { eventPicture } from '../data/eventScenes';
-import { calendar, DAYS_PER_SEASON, TICKS_PER_HOUR } from './time';
+import { calendar, DAYS_PER_SEASON, TICKS_PER_HOUR, calendarOf } from './time';
 import { weatherAt } from './weather';
 import { seaTown } from './sea';
 import { notify, type GameState, type Person, type Prompt } from './state';
@@ -85,7 +85,7 @@ export function recordFallen(s: GameState, p: Person, cause: string): void {
   const f: Fallen = {
     id: p.id,
     name: p.name,
-    day: calendar(s.tick).day,
+    day: calendarOf(s).day,
     cause,
     level: levelOf(p),
     calling: callingName(p, stageOf(p)),
@@ -117,7 +117,7 @@ const doneBuildings = (s: GameState) => s.buildings.filter((b) => b.status === '
 function startYear(s: GameState): void {
   s.yearStart = {
     tick: s.tick,
-    year: calendar(s.tick).year,
+    year: calendarOf(s).year,
     people: s.people.map((p) => p.id),
     felled: Object.fromEntries(s.people.map((p) => [p.id, p.felled ?? 0])),
     research: s.research.done.length,
@@ -164,7 +164,7 @@ export function annalsHourly(s: GameState): void {
   awardDeedTitles(s);
   awardCharacterTitles(s);
   if (!s.yearStart) return startYear(s);
-  const cal = calendar(s.tick);
+  const cal = calendarOf(s);
   if (cal.season !== 'winter' || cal.dayOfSeason !== CHRONICLE_DAY || cal.hour !== CHRONICLE_HOUR) return;
   if ((s.chronicles ?? []).some((c) => c.year === cal.year)) return;
   writeChronicle(s);
@@ -176,7 +176,7 @@ const some = (xs: string[], most: number) => (xs.length > most ? `${list(xs.slic
 /** The chronicle of the year past: written into `s.chronicles` and put to the player as a card with a picture. */
 export function writeChronicle(s: GameState): Chronicle {
   const y = s.yearStart!;
-  const cal = calendar(s.tick);
+  const cal = calendarOf(s);
   const lines: string[] = [];
   const was = new Set(y.people);
   const now = s.people;

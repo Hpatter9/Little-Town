@@ -4,7 +4,7 @@ import { BLOOD_FARM, BLOOD_KEEP, BLOOD_PER_FEED, BLOOD_PER_HEAD, BLOOD_PER_PRISO
 import { depositNear, storages } from './buildings';
 import { isChild } from './social';
 import { addStock, campXY, notify, type GameState } from './state';
-import { calendar, TICKS_PER_HOUR } from './time';
+import { TICKS_PER_HOUR, calendarOf, clockTick } from './time';
 
 /** A town of the Blood Court: it keeps the blood tithe from its founding. */
 export const bloodTown = (s: Pick<GameState, 'origin'>) => s.origin === 'vampire';
@@ -31,7 +31,7 @@ export function drinkBlood(s: GameState): boolean {
 /** Each dusk in a blood town: the thralls' tithe (while the store is under `BLOOD_KEEP`), the beasts' and the
  *  prisoners' blood go to the store. */
 export function bloodHourly(s: GameState): void {
-  if (!bloodTown(s) || s.tick % TICKS_PER_HOUR !== 0 || calendar(s.tick).hour !== TITHE_HOUR) return;
+  if (!bloodTown(s) || clockTick(s) % TICKS_PER_HOUR !== 0 || calendarOf(s).hour !== TITHE_HOUR) return;
   // Thralls are spared while the store holds enough (the Court bleeds its own only as far as it needs to).
   const thralls = bloodInStore(s) >= BLOOD_KEEP ? 0 : s.people.filter((p) => p.away === null && !isChild(p) && !p.monster && !p.machine).length;
   const heads = s.buildings.reduce((n, b) => n + (b.status === 'done' ? (b.herd?.head ?? 0) : 0), 0);

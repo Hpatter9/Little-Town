@@ -6,14 +6,14 @@ import { coin, dflt, gain, item, mod, mood, opt, rep, study, take, teach, bond, 
 import { FESTIVAL_EVENT_WEIGHT, festivalFor, wareId } from './festivals';
 import type { OriginId } from './origins';
 import type { GameState } from '../sim/state';
-import { calendar } from '../sim/time';
+import { calendarOf } from '../sim/time';
 
 /** A festival is being made ready, or is today (sim/festivals.ts `festivalSoon`, kept here so the data needn't load
  *  the sim). */
 const near = (s: GameState) => {
   const f = s.festival;
   if (!f || (f.phase !== 'prep' && f.phase !== 'day')) return false;
-  const c = calendar(s.tick);
+  const c = calendarOf(s);
   return f.key === `${c.year}:${c.season}`;
 };
 const ours = (...o: OriginId[]) => (s: GameState) => near(s) && o.includes(s.origin ?? 'settlers');

@@ -26,7 +26,7 @@ import { isGate, missingPieces, ringTown } from './ringWall';
 import type { RaidRecap } from './raidRecap';
 import { isChild } from './social';
 import { campXY, dist, notify, type GameState, type Person, type Raid } from './state';
-import { calendar, TICKS_PER_DAY, TICKS_PER_HOUR } from './time';
+import { TICKS_PER_DAY, TICKS_PER_HOUR, calendarOf } from './time';
 import { gainSkill } from './townsfolk';
 
 /** The watch hours: from this one to that one (the wall walk and the gate posts in people.ts keep the same). */
@@ -124,13 +124,13 @@ export function nightWatchHourly(s: GameState): void {
 /** Whether someone is on the roster (a townsperson taking the watch; the hired guards keep it by their own shift). */
 export const onRoster = (s: GameState, p: Person) => !!s.watch?.ids.includes(p.id);
 /** Whether someone on the roster is on watch now: in the watch hours, at home and on their feet. */
-export const onNightWatch = (s: GameState, p: Person) => onRoster(s, p) && p.away === null && !p.downed && watchHour(calendar(s.tick).hour);
+export const onNightWatch = (s: GameState, p: Person) => onRoster(s, p) && p.away === null && !p.downed && watchHour(calendarOf(s).hour);
 
 /* ------------------------------------------------------------ spotting */
 
 /** The watchmen near a point, on patrol in the watch hours. */
 export function watchNear(s: GameState, at: Pt): Person[] {
-  if (!watchHour(calendar(s.tick).hour)) return [];
+  if (!watchHour(calendarOf(s).hour)) return [];
   return s.people.filter((p) => p.away === null && !p.downed && p.task?.type === 'patrol' && dist(p, at) <= WATCH_SPOT_RANGE * CELL);
 }
 
@@ -216,7 +216,7 @@ function probeEntry(s: GameState, rng: Rng): { at: Pt; how: 'gate' | 'gap' | 'ed
 /** A probe (sim/raidOdds.ts) goes in at a way in. If a watchman is near and spots it, the few sneaks meet the watch there
  *  (a small raid begun at the gate) and the probe is over. True when it was met. */
 export function watchMeetsProbe(s: GameState, kindId: string, n: number): boolean {
-  if (s.autopilot === false || s.raid || !watchHour(calendar(s.tick).hour)) return false;
+  if (s.autopilot === false || s.raid || !watchHour(calendarOf(s).hour)) return false;
   const rng = watchRng(s, 'probe');
   const { at, how } = probeEntry(s, rng);
   const near = spotAt(s, at, rng);

@@ -11,7 +11,7 @@ import { adjust, isChild, opinion } from './social';
 import { blocOf, politicsOf } from './politics';
 import { founderOf } from './founder';
 import { notify, type GameState, type Person, type Prompt } from './state';
-import { calendar, TICKS_PER_DAY, TICKS_PER_HOUR } from './time';
+import { TICKS_PER_DAY, TICKS_PER_HOUR, calendarOf } from './time';
 
 const clamp = (n: number) => Math.max(0, Math.min(100, n));
 const grownHome = (s: GameState) => s.people.filter((p) => p.away === null && !p.downed && !isChild(p) && p.id !== s.mainId && !p.monster);
@@ -34,7 +34,7 @@ function favour(s: GameState, f: Person, p: Person, regard: number, morale: numb
 /** A dispute comes to the founder, now and then. */
 export function disputesHourly(s: GameState): void {
   if (s.tick % TICKS_PER_HOUR !== 0 || s.autopilot === false || s.gameOver || s.raid) return;
-  if (calendar(s.tick).hour !== DISPUTE_HOUR) return;
+  if (calendarOf(s).hour !== DISPUTE_HOUR) return;
   const f = founderOf(s);
   const folk = grownHome(s);
   if (!f || folk.length < DISPUTE_PEOPLE) return;

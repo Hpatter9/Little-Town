@@ -49,7 +49,7 @@ import { raidBudget, scheduleNextRaid, startRaid } from './raids';
 import { seaTown } from './sea';
 import { isChild } from './social';
 import { campCell, notify, type Building, type GameState, type Prompt, type Raid } from './state';
-import { calendar, TICKS_PER_DAY, TICKS_PER_HOUR } from './time';
+import { TICKS_PER_DAY, TICKS_PER_HOUR, calendarOf } from './time';
 import { weatherAt } from './weather';
 
 export interface GreatEnemyState {
@@ -117,7 +117,7 @@ const LOG_MOST = 24;
 const grownAtHome = (s: GameState) => s.people.filter((p) => p.away === null && !isChild(p)).length;
 
 function log(s: GameState, e: GreatEnemyState, text: string): void {
-  e.log.push({ day: calendar(s.tick).day, text });
+  e.log.push({ day: calendarOf(s).day, text });
   if (e.log.length > LOG_MOST) e.log.splice(0, e.log.length - LOG_MOST);
 }
 
@@ -160,7 +160,7 @@ export function enemyLegend(s: GameState): EnemyLegend | undefined {
  *  doings are done; the siege comes when warned. */
 export function greatEnemyHourly(s: GameState): void {
   if (s.tick % TICKS_PER_HOUR !== 0 || s.gameOver || s.autopilot === false) return;
-  const cal = calendar(s.tick);
+  const cal = calendarOf(s);
   if (!s.greatEnemy || s.greatEnemy.chosen < 0) {
     if (cal.day >= ENEMY_CHOSEN_DAY && cal.hour === ENEMY_HOUR) chooseEnemy(s);
     return;
@@ -396,7 +396,7 @@ function demand(s: GameState, e: GreatEnemyState): void {
   e.lastTribute = s.tick;
   const coins = tributeOf(e);
   const have = s.coins ?? 0;
-  const cal = calendar(s.tick);
+  const cal = calendarOf(s);
   const prompt: Prompt = {
     id: s.nextId++,
     kind: 'enemy',
@@ -658,7 +658,7 @@ function victory(s: GameState, e: GreatEnemyState, r: Raid | null, where: string
 
 function tell(s: GameState, e: GreatEnemyState, title: string, story: string, scene?: string): void {
   const d = enemyDef(e);
-  const cal = calendar(s.tick);
+  const cal = calendarOf(s);
   const prompt: Prompt = {
     id: s.nextId++,
     kind: 'debrief',

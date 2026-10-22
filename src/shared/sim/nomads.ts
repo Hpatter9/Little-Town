@@ -13,7 +13,7 @@ import { rulesOf } from '../data/origins';
 import { buildingCentre, canPlace, depthOf, footprint, footprints } from './buildings';
 import { CELL, cheb, groundAt, setGround, spiralSpot, type Pt } from './land';
 import { notify, type Building, type GameState } from './state';
-import { calendar, TICKS_PER_HOUR } from './time';
+import { calendar, TICKS_PER_HOUR, calendarOf } from './time';
 
 /** What goes on the wagons. */
 export const PORTABLE = new Set([
@@ -60,7 +60,7 @@ export function updateNomads(s: GameState): void {
   const settle = !!until && eraReached(s.era, until);
   const to = settle ? s.nomad.home : wantedCamp(s);
   // (they set out by day, so the tents are up again before dark)
-  const hour = calendar(s.tick).hour;
+  const hour = calendarOf(s).hour;
   if (!same(to, s.nomad.camp) && !s.raid && (settle || (hour >= SET_OUT[0] && hour < SET_OUT[1]))) moveCamp(s, to);
   if (settle) {
     s.nomad.settled = true;

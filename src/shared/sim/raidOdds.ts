@@ -383,7 +383,7 @@ function planProbe(s: GameState, r: Raid): void {
   const rng = sideRng(s, 'probe-plan');
   const burns = kind.goal === 'burn' || (!!kind.goals && 'burn' in kind.goals && (!('steal' in kind.goals) || (kind.goals.burn ?? 0) >= (kind.goals.steal ?? 0)));
   let at = s.tick - (s.tick % TICKS_PER_HOUR) + TICKS_PER_HOUR;
-  while (calendar(at).hour !== PROBE_HOUR) at += TICKS_PER_HOUR;
+  while (calendar(at - (s.fightTicks ?? 0)).hour !== PROBE_HOUR) at += TICKS_PER_HOUR;
   const b = bookOf(s);
   b.probes = (b.probes ?? 0) + 1;
   b.probe = { kind: r.kind, at, goal: burns ? 'burn' : 'steal', n: rng.int(PROBE_PARTY[0], PROBE_PARTY[1]) };
