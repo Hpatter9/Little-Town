@@ -86,6 +86,8 @@ export type Command =
   | { type: 'upgrade'; building: number }
   /** Take a caravan's offer. */
   | { type: 'trade'; offer: number }
+  /** Buy a rare input from the traders' stall, for the town's treasury or the founder's purse (sim/rareStall.ts). */
+  | { type: 'buyRare'; material: string; count: number; who: 'town' | 'founder' }
   /** Hand a building's operator role to the next candidate. */
   | { type: 'cycleOperator'; building: number }
   /** Let a prisoner go. */
@@ -283,6 +285,8 @@ export function parseCommand(raw: unknown): Command | null {
     }
     case 'trade':
       return Number.isInteger(c.offer) ? { type: 'trade', offer: c.offer as number } : null;
+    case 'buyRare':
+      return typeof c.material === 'string' && Number.isInteger(c.count) && (c.who === 'town' || c.who === 'founder') ? { type: 'buyRare', material: c.material, count: c.count as number, who: c.who } : null;
     case 'cycleOperator':
       return Number.isInteger(c.building) ? { type: 'cycleOperator', building: c.building as number } : null;
     case 'releasePrisoner':

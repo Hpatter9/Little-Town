@@ -15,7 +15,7 @@ const SWING_NAME = { boom: 'Boom', shortage: 'Shortage', glut: 'Glut', crash: 'C
 
 export const marketsKey = (s: Snapshot) => {
   const m = s.markets;
-  return m ? JSON.stringify([m.prices.map((p) => [p.m, p.price, p.change, p.swing]), m.swings, m.house, m.routes, m.log[0]]) : '';
+  return m ? JSON.stringify([s.rareStall, m.prices.map((p) => [p.m, p.price, p.change, p.swing]), m.swings, m.house, m.routes, m.log[0]]) : JSON.stringify(s.rareStall);
 };
 
 /** The Harbour tab's redraw key: everything renderHarbour shows. */
@@ -97,9 +97,31 @@ export function renderHarbour(s: Snapshot): HTMLElement[] {
   return out;
 }
 
+/** The traders' stall (sim/rareStall.ts): the rare inputs on offer this season, bought for the town or the founder. */
+function renderRareStall(s: Snapshot, bridge: Bridge | undefined): HTMLElement[] {
+  const r = s.rareStall;
+  const out: HTMLElement[] = [el('h2', '', 'Rare goods')];
+  if (!r.lines.length) {
+    out.push(el('div', 'hint', 'The traders have no silver, gems, heartwood, pelts or pearls this season. A market stall, a later age and trade with the powers of the realm bring more.'));
+    return out;
+  }
+  out.push(el('div', 'hint', `What the traders hold this season, at a high price and in small amounts (${r.links} trade ${r.links === 1 ? 'link' : 'links'}). The town pays from the treasury (${r.townCoins} coins)${r.founderCoins === null ? '' : `; the founder pays from their purse (${r.founderCoins})`}.`));
+  const grid = el('div', 'cards wide');
+  for (const l of r.lines) {
+    const c = el('div', 'card');
+    const top = el('div', 'card-top');
+    top.append(el('span', 'card-name', l.name), el('span', 'card-size', `${l.left} left · ${l.price} coins each`));
+    c.append(top, button(`Buy 1 for the town`, () => bridge?.command({ type: 'buyRare', material: l.m, count: 1, who: 'town' }), { disabled: r.townCoins < l.price, cls: 'small' }));
+    if (r.founderCoins !== null) c.append(button('Buy 1 for the founder', () => bridge?.command({ type: 'buyRare', material: l.m, count: 1, who: 'founder' }), { disabled: r.founderCoins < l.price, cls: 'small' }));
+    grid.append(c);
+  }
+  out.push(grid);
+  return out;
+}
+
 export function renderMarkets(s: Snapshot, bridge: Bridge | undefined): HTMLElement[] {
   const m = s.markets;
-  const out: HTMLElement[] = [el('h2', '', 'Prices')];
+  const out: HTMLElement[] = [...renderRareStall(s, bridge), el('h2', '', 'Prices')];
   if (!m) {
     out.push(el('div', 'hint', 'No market yet. Once the town opens a trading post or a market stall, its goods have prices that move with supply, distance and war, and its own trade house sends wagons to the powers of the realm.'));
     return out;

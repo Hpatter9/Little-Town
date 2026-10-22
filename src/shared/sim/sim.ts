@@ -146,6 +146,7 @@ import { seafaringHourly } from './seafaring';
 import { oddsHourly } from './raidOdds';
 import { voteSettlementName } from './settlementName';
 import { setFavourite } from './favourites';
+import { buyRare } from './rareStall';
 import { founderBuyShop, founderShopManager, founderShopPrice, founderShopStock } from './founderShops';
 import { founderApprentice, founderFeast, founderHaggle, founderMatch, founderVisitor } from './founderDealings';
 import { founderExplore, founderGive, founderGo, founderHeir, founderRest, founderTick, founderWork } from './founder';
@@ -509,6 +510,9 @@ export class Sim {
       }
       case 'trade':
         trade(s, c.offer, this.rng);
+        break;
+      case 'buyRare':
+        buyRare(s, c.material as Material, c.count, c.who);
         break;
       case 'cycleOperator':
         cycleOperator(s, c.building);

@@ -1485,6 +1485,8 @@ export interface GameState {
   intrigue?: import('./intrigue').IntrigueState;
   /** The trade economy: prices, booms and shortages, the trade house, its routes and wagons (sim/markets.ts). */
   market?: import('./markets').MarketState;
+  /** The traders' stall: the rare inputs bought this season, by season number (sim/rareStall.ts). */
+  rareSold?: { n: number; sold: Partial<Record<Material, number>> };
   /** A druid town's grove (sim/grove.ts). */
   grove?: import('./grove').GroveState;
   /** A fae town's Court and its bargains (sim/bargains.ts). */
