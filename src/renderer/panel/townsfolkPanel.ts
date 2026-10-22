@@ -8,6 +8,8 @@ import { guildsSection } from './guildPanel';
 import { arenaSection } from './arenaPanel';
 import { mapBeside, showOnMap } from './townOverview';
 import { hkDraw, hkLayers, hkWhoOf, onHkLoad } from '../art/hkFolk';
+import { paintPortrait } from '../art/folkPortrait';
+import { folkWho } from '../iso/folkWho';
 import { pieceLabel, plusOf, qualityOf } from '../../shared/data/quality';
 import { ITEM_BY_ID, SLOT_NAMES, SLOTS, type Slot } from '../../shared/data/items';
 import { ORIGIN_DEFS, type OriginId } from '../../shared/data/origins';
@@ -806,18 +808,22 @@ function picture(p: PersonView, s: Snapshot): HTMLCanvasElement | null {
   return c;
 }
 
-/** Their whole figure, `scale` times over. */
+/** Their whole figure, `scale` times over: their look on the map (art/folkPortrait.ts), the old picture while it loads. */
 function figure(p: PersonView, s: Snapshot, scale: number): HTMLElement {
   const c = el('canvas', 'pixel-figure');
   c.width = FRAME_SIZE * HK_RES;
   c.height = FRAME_SIZE * HK_RES;
   c.style.width = `${FRAME_SIZE * scale}px`;
   c.style.height = `${FRAME_SIZE * scale}px`;
-  const src = picture(p, s);
-  const g = c.getContext('2d')!;
+  c.style.imageRendering = 'pixelated';
+  paintPortrait(c, p, { mode: 'full', stand: (g, cv) => standIn(g, cv, picture(p, s)) });
+  return c;
+}
+
+/** The old picture, whole, as a stand-in while the iso look loads. */
+function standIn(g: CanvasRenderingContext2D, c: HTMLCanvasElement, src: HTMLCanvasElement | null): void {
   g.imageSmoothingEnabled = false;
   if (src) g.drawImage(src, 0, 0, c.width, c.height);
-  return c;
 }
 
 /** Their head and shoulders, for the list. */
@@ -828,18 +834,24 @@ export function face(p: PersonView, s: Snapshot): HTMLElement {
   refreshFace(c, p, s);
   return c;
 }
-/** What each face was drawn from, so it's drawn again only when the picture changes (their layers loaded, new gear). */
-const faceFrom = new WeakMap<HTMLCanvasElement, HTMLCanvasElement | null>();
+/** What each face was drawn from (their look and variant, and whether the old picture is standing in), so it's drawn
+ *  again only when that changes (new gear, the look arriving). */
+const faceFrom = new WeakMap<HTMLCanvasElement, string>();
 function refreshFace(c: HTMLCanvasElement, p: PersonView, s: Snapshot): void {
-  const src = picture(p, s);
-  if (faceFrom.has(c) && faceFrom.get(c) === src) return;
-  faceFrom.set(c, src);
-  // (the head sits about 40 pixels above the feet in a 64-pixel frame; the picture may be drawn finer than that)
-  const r = src ? src.width / FRAME_SIZE : 1;
-  const g = c.getContext('2d')!;
-  g.clearRect(0, 0, c.width, c.height);
-  g.imageSmoothingEnabled = false;
-  if (src) g.drawImage(src, (CENTRE_X - FACE / 2 + 1) * r, (FEET_Y - 52) * r, FACE * r, FACE * r, 0, 0, c.width, c.height);
+  const w = folkWho(p);
+  const key = `${w.path}#${w.variant}`;
+  if (faceFrom.get(c) === key) return;
+  faceFrom.set(c, key);
+  paintPortrait(c, p, {
+    mode: 'face',
+    stand: (g, cv) => {
+      // (the head sits about 40 pixels above the feet in a 64-pixel frame; the picture may be drawn finer than that)
+      const src = picture(p, s);
+      const r = src ? src.width / FRAME_SIZE : 1;
+      g.imageSmoothingEnabled = false;
+      if (src) g.drawImage(src, (CENTRE_X - FACE / 2 + 1) * r, (FEET_Y - 52) * r, FACE * r, FACE * r, 0, 0, cv.width, cv.height);
+    },
+  });
 }
 
 function visitorCard(v: VisitorView, s: Snapshot, bridge: Bridge | undefined): HTMLElement {

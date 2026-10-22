@@ -6,6 +6,7 @@
 import { CONQUEST } from '../../shared/data/conquest';
 import { readLegends } from '../legends';
 import { legendCard } from './legendsPanel';
+import { paintPortrait } from '../art/folkPortrait';
 import { hkDraw, hkLayers, hkWhoOfLook, onHkLoad } from '../art/hkFolk';
 import { FOUNDER_CLASS } from '../../shared/data/founderClasses';
 import type { Bridge } from '../../shared/ipc';
@@ -56,25 +57,30 @@ let lpcReady: Promise<void> | null = null;
  *  facing right. A founder with no calling, or until the sheet loads, is their LPC figure. */
 function drawFounderArt(art: HTMLCanvasElement, id: string, look: (typeof FOUNDERS)[OriginId][number]['look']): void {
   const g = art.getContext('2d')!;
-  // as the map will draw them: their Himeko look (art/hkFolk.ts) in their calling's dress; the plain old look only
-  // until the layers load, and never over them
+  // as the map will draw them: their isometric look (art/folkPortrait.ts), whole; the paper doll (art/hkFolk.ts) in their
+  // calling's dress, then the plain old look, only until it loads, and never over it
   const keys = hkLayers(hkWhoOfLook(FOUNDER_ID, look, { cls: FOUNDER_CLASS[id]?.base ?? null, founder: true }), { fighting: true, activity: 'idle' });
-  let drawn = false;
-  const hk = () => {
-    if (drawn) return true;
-    const c = document.createElement('canvas');
-    c.width = c.height = 64;
-    if (!hkDraw(c.getContext('2d')!, keys, 0, 0, 32, 61, 52)) return false;
-    drawn = true;
-    g.clearRect(0, 0, 64, 64);
-    g.drawImage(c, 0, 0);
-    return true;
-  };
-  hk();
-  if (drawn) return;
-  onHkLoad(hk);
-  void lpcReady!.then(() => {
-    if (!drawn) g.drawImage(lpcCanvas(look, 'walk', 0), 8, 6, 48, 48, 0, 0, 64, 64);
+  paintPortrait(art, { id: FOUNDER_ID, origin, look, gear: {} }, {
+    mode: 'full',
+    stand: () => {
+      let drawn = false;
+      const hk = () => {
+        if (drawn || art.dataset.folk) return true;
+        const c = document.createElement('canvas');
+        c.width = c.height = 64;
+        if (!hkDraw(c.getContext('2d')!, keys, 0, 0, 32, 61, 52)) return false;
+        drawn = true;
+        g.clearRect(0, 0, 64, 64);
+        g.drawImage(c, 0, 0);
+        return true;
+      };
+      hk();
+      if (drawn) return;
+      onHkLoad(hk);
+      void lpcReady!.then(() => {
+        if (!drawn && !art.dataset.folk) g.drawImage(lpcCanvas(look, 'walk', 0), 8, 6, 48, 48, 0, 0, 64, 64);
+      });
+    },
   });
 }
 

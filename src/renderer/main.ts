@@ -5,6 +5,7 @@ import { applyGivenNames } from './art/givenNames';
 import { guildsOf } from './art/guildMarks';
 import { withDeltas } from './deltaBridge';
 import { biomeById } from '../shared/data/biomes';
+import { folkKnow, paintPortrait } from './art/folkPortrait';
 import { hkCell, hkDraw, hkKnow, hkLayers, hkWhoOf, onHkLoad } from './art/hkFolk';
 import { fallenFace } from './art/fallenFace';
 import { SEAT_STAGE } from '../shared/data/seats';
@@ -2038,6 +2039,7 @@ async function start(): Promise<void> {
     pane.setDaylight(next.calendar.daylight);
     // (the phone page's feed borrows the town's pictures: a townsperson, or a building in the town's own style, as the
     // map draws it: art/buildingPicture.ts)
+    folkKnow(next.people);
     hkKnow(next.people); // (who's who, for the views that know someone only by id: the fight screen, the mine)
     (window as unknown as { __picture?: (p: { person?: number; building?: string; fallen?: number }) => HTMLCanvasElement | null }).__picture = (h) => {
       // (the dead, from the look their obituary keeps: art/fallenFace.ts)
@@ -2442,24 +2444,31 @@ async function start(): Promise<void> {
 
 start().catch((err) => console.error('strip failed to start', err));
 
-/** A townsperson's picture for the feed and event box: as the map draws them, in their Himeko
- *  look (art/hkFolk.ts), standing facing us. Until the layers load it holds their old look, and is painted over in
- *  place when they come (the cards keep the canvas they were given). */
+/** A townsperson's picture for the feed and event box: as the map draws them, in their isometric look
+ *  (art/folkPortrait.ts: the same look and colours as the map), standing facing us. Until it loads it holds their
+ *  paper-doll picture (art/hkFolk.ts, then the old look), and is painted over in place when it comes (the cards keep the
+ *  canvas they were given). */
 function personPicture(who: PersonView): HTMLCanvasElement {
   const hc = document.createElement('canvas');
   hc.width = hc.height = 64;
-  const g = hc.getContext('2d')!;
-  const keys = hkLayers(hkWhoOf(who), { fighting: false, activity: 'idle' });
-  const paint = () => {
-    const c = document.createElement('canvas');
-    c.width = c.height = 64;
-    if (!hkDraw(c.getContext('2d')!, keys, 0, 0, 32, 61, 50)) return false;
-    g.clearRect(0, 0, 64, 64);
-    g.drawImage(c, 0, 0);
-    return true;
-  };
-  if (paint()) return hc;
-  g.drawImage(textureCanvas(lpcFrame(who.look, 'walk', 0), 64, 64), 0, 0);
-  onHkLoad(paint);
+  paintPortrait(hc, who, {
+    mode: 'full',
+    stand: (g) => {
+      const keys = hkLayers(hkWhoOf(who), { fighting: false, activity: 'idle' });
+      const paint = () => {
+        const c = document.createElement('canvas');
+        c.width = c.height = 64;
+        if (!hkDraw(c.getContext('2d')!, keys, 0, 0, 32, 61, 50)) return false;
+        if (hc.dataset.folk) return true; // (the iso look is in already)
+        const h = hc.getContext('2d')!;
+        h.clearRect(0, 0, 64, 64);
+        h.drawImage(c, 0, 0);
+        return true;
+      };
+      if (paint()) return;
+      g.drawImage(textureCanvas(lpcFrame(who.look, 'walk', 0), 64, 64), 0, 0);
+      onHkLoad(paint);
+    },
+  });
   return hc;
 }
