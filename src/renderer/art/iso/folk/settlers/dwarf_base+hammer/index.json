@@ -1,0 +1,23 @@
+{
+ "look": "dwarf_base+hammer",
+ "people": "settlers",
+ "frame": [
+  136,
+  136
+ ],
+ "directions": [
+  "south",
+  "south-east",
+  "east",
+  "north-east",
+  "north",
+  "north-west",
+  "west",
+  "south-west"
+ ],
+ "animations": {
+  "hammer": {
+   "frames": 9
+  }
+ }
+}

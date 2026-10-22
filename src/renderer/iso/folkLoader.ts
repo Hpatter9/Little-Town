@@ -5,7 +5,7 @@
 // The base URL is relative to the page, like the himeko layers: the build must copy art/iso/folk to `iso/folk`
 // beside the page (see docs/notes/iso-folk.md).
 
-import { Texture } from 'pixi.js';
+import { Rectangle, Texture } from 'pixi.js';
 import { loadImage } from '../art/loadImage';
 import { FOLK_DIRS, type FolkAnim, type FolkDir } from './folkRules';
 import { recolour } from './folkTint';
@@ -49,19 +49,20 @@ async function build(path: string, variant: number): Promise<FolkSet | null> {
   if (!res.ok) return null;
   const index = (await res.json()) as FolkIndex;
   const tex = new Map<string, Texture>();
-  const jobs: Promise<void>[] = [];
-  const add = (key: string, url: string) =>
-    jobs.push(
-      loadImage(url).then(
-        (im) => void tex.set(key, toTexture(im, variant)),
-        () => undefined, // (a missing frame: that facing shows nothing rather than failing the look)
-      ),
-    );
   const dirs = index.directions ?? [...FOLK_DIRS];
-  for (const d of dirs) add(`stand/${d}/0`, `${base}/rotations/${d}.png`);
-  for (const [anim, info] of Object.entries(index.animations ?? {})) {
-    for (const d of dirs) for (let n = 0; n < (info?.frames ?? 0); n++) add(`${anim}/${d}/${n}`, `${base}/${anim}/${d}/${n}.png`);
-  }
+  const [w, h] = index.frame;
+  // (each animation is one sheet, a row a facing and a column a frame; rotations.png is one row, a frame a facing)
+  const cut = (url: string, keyOf: (col: number, row: number) => string, cols: number, rows: number) =>
+    loadImage(url).then(
+      (im) => {
+        const src = toTexture(im, variant).source;
+        for (let r = 0; r < rows; r++) for (let c = 0; c < cols; c++) tex.set(keyOf(c, r), new Texture({ source: src, frame: new Rectangle(c * w, r * h, w, h) }));
+      },
+      () => undefined, // (a missing sheet: that animation shows nothing rather than failing the look)
+    );
+  const jobs: Promise<void>[] = [cut(`${base}/rotations.png`, (c) => `stand/${dirs[c]}/0`, dirs.length, 1)];
+  for (const [anim, info] of Object.entries(index.animations ?? {}))
+    jobs.push(cut(`${base}/${anim}.png`, (c, r) => `${anim}/${dirs[r]}/${c}`, info?.frames ?? 0, dirs.length));
   await Promise.all(jobs);
   return {
     index,
