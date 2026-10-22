@@ -22,7 +22,7 @@ export function creatureCard(c: CreatureView): { title: string; lines: string[] 
   if (c.dead) return { title, lines: [`Dead: ${c.dead}.`] };
   const lines = [
     `${c.stage[0].toUpperCase()}${c.stage.slice(1)} · ${c.ageDays} day${c.ageDays === 1 ? '' : 's'} old · health ${c.hp}/${c.maxHp}`,
-    `${c.alignWord}: ${natureBar(c.align)}`,
+    `${c.alignWord} by nature (${natureBar(c.align)})`,
     `${MOODS[c.mood]} · ${c.asleep ? 'asleep' : (DOING[c.doing] ?? c.doing)}`,
     `Hunger ${c.hunger} · Rest ${c.rest} · Play ${c.play} (of 100)`,
   ];

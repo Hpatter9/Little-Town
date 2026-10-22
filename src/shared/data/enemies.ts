@@ -16,6 +16,7 @@ import { GROVE_ENEMIES } from './grove';
 import { LEGEND_ENEMIES } from './legends';
 import { DWELLERS, UNDERDARK_ENEMIES } from './underdark';
 import { PACK_SHEETS, type PackSheetId } from './packSheets';
+import { CREATURE_ENEMIES } from './creature';
 
 /** A Craftpix pack sheet (packSheets.ts) scaled to stand so many px tall. */
 const packSprite = (sheet: PackSheetId, height: number) => ({ sheet, block: 0, scale: +(height / PACK_SHEETS[sheet]).toFixed(2) });
@@ -257,6 +258,8 @@ export const ENEMIES: Readonly<Record<string, EnemyDef>> = {
   orc_archer: { id: 'orc_archer', name: 'Orc Archer', nature: 'person', hp: 55, damage: [6, 10], accuracy: 0.66, dodge: 0.08, interval: 1.6, ranged: true, loot: { arrows: 3 }, sprite: packSprite('hk_orc_archer', 60) },
   orc_brute: { id: 'orc_brute', name: 'Orc Brute', nature: 'person', hp: 140, damage: [11, 17], accuracy: 0.6, dodge: 0.02, interval: 1.9, ranged: false, loot: { hide: 2, bone: 2 }, sprite: packSprite('hk_orc_brute', 64) },
   order_crossbow: { id: 'order_crossbow', name: 'Order Crossbowman', hp: 55, damage: [6, 10], accuracy: 0.74, dodge: 0.1, interval: 1.6, ranged: true, loot: { arrows: 3 }, tint: 0xfff0d0, sprite: { people: 'soldier', weapon: 'bow' } },
+  // (the town's great creature on the raid board: data/creature.ts)
+  ...CREATURE_ENEMIES,
 };
 
 /** A group of enemies: id -> count. */

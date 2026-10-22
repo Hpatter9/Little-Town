@@ -39,7 +39,7 @@ export class MapCreature {
   }
 
   sync(v: CreatureView | null): void {
-    this.view = v && !v.dead ? v : null;
+    this.view = v && !v.dead && !v.fighting ? v : null;
     if (this.view && !this.placed) {
       this.x = this.view.x;
       this.y = this.view.y;

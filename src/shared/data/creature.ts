@@ -4,6 +4,7 @@
 // grows and is drawn.
 
 import { PACK_SHEETS } from './packSheets';
+import type { CreatureSheetId, EnemyDef } from './enemies';
 
 export type CreatureKind = 'ape' | 'wolf' | 'bear' | 'bull' | 'golem';
 export const CREATURE_KINDS: readonly CreatureKind[] = ['ape', 'wolf', 'bear', 'bull', 'golem'];
@@ -38,7 +39,7 @@ export interface CreatureKindDef {
   /** Its stand-in picture until its own art comes (art/iso/creature/<kind>/): a creature sheet, the block on it, and
    *  the scale that draws it a person's height (sim/creature.ts `drawScale` makes it bigger as it grows). Pale ones
    *  are picked, so the tint by its nature shows. */
-  look: { sheet: string; block: number; scale: number };
+  look: { sheet: CreatureSheetId; block: number; scale: number };
 }
 
 export const CREATURE_DEFS: Readonly<Record<CreatureKind, CreatureKindDef>> = {
@@ -144,6 +145,9 @@ export const STARVE_HP = 3;
 export const MEND_HP = 2;
 /** Food it eats from the stores in one go (in units of food value), and stone for a golem. */
 export const MEAL = 4;
+/** Hurt below this share of its health, it stays out of a raid; beaten down in one, it dies at this chance. */
+export const HIDE_HURT = 0.25;
+export const RAID_DEATH = 0.2;
 /** Hours it sleeps once it lies down (and when the player sends it to rest). */
 export const SLEEP_HOURS = 5;
 /** Below this a need is pressing (its mood turns), and neglected (its temper worsens) below `NEGLECT_AT`. */
@@ -174,3 +178,31 @@ export function creatureTint(align: number): number {
 export function alignWord(align: number): string {
   return align >= 60 ? 'Saintly' : align >= 25 ? 'Good' : align > -25 ? 'Torn' : align > -60 ? 'Cruel' : 'Wicked';
 }
+
+/** The beast as a unit on the raid board (`beast_<kind>`, merged into ENEMIES): drawn big, as it is at its biggest. A
+ *  raid sets its health and blow by its size (sim/creature.ts `creatureAllies`). */
+export const creatureUnit = (k: CreatureKind) => `beast_${k}`;
+/** How much bigger than its stand-in's person-height it is drawn on the board. */
+export const BOARD_SCALE = 1.8;
+export const CREATURE_ENEMIES: Record<string, EnemyDef> = Object.fromEntries(
+  CREATURE_KINDS.map((k) => {
+    const d = CREATURE_DEFS[k];
+    const def: EnemyDef = {
+      id: creatureUnit(k),
+      name: `Great ${d.name}`,
+      hp: d.hp,
+      damage: [Math.round(d.attack * 0.7), Math.round(d.attack * 1.2)],
+      accuracy: 0.76,
+      dodge: k === 'wolf' || k === 'ape' ? 0.14 : 0.04,
+      interval: k === 'golem' || k === 'bull' ? 1.6 : 1.2,
+      ranged: false,
+      loot: {},
+      nature: k === 'golem' ? 'machine' : 'beast',
+      armor: k === 'golem' ? 0.3 : k === 'bear' || k === 'bull' ? 0.12 : 0.05,
+      sprite: { sheet: d.look.sheet, block: d.look.block, scale: +(d.look.scale * BOARD_SCALE).toFixed(2) },
+    };
+    return [def.id, def];
+  }),
+);
+/** The kind a board unit is, or null. */
+export const unitKind = (id: string): CreatureKind | null => (CREATURE_KINDS.find((k) => creatureUnit(k) === id) ?? null);

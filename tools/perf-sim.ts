@@ -10,8 +10,10 @@ import { Sim } from '../src/shared/sim/sim';
 import { snapshot } from '../src/shared/sim/snapshot';
 import { SnapDiffer } from '../src/shared/snapDelta';
 import { TICKS_PER_DAY } from '../src/shared/sim/time';
+import { adoptCreature } from '../src/shared/sim/creature';
 
-// (SAVE=<file.json>: another save instead, e.g. tools/under-saves.mjs's; UNDER=1: with the Underdark's view open)
+// (SAVE=<file.json>: another save instead, e.g. tools/under-saves.mjs's; UNDER=1: with the Underdark's view open;
+// BEAST=wolf: with a great creature)
 const load = () => {
   const r = parseSave(process.env.SAVE ? readFileSync(process.env.SAVE, 'utf8') : gunzipSync(readFileSync('test/fixtures/late-town.json.gz')).toString('utf8'));
   if (!r.ok) throw new Error('the fixture would not load');
@@ -20,6 +22,7 @@ const load = () => {
 const N = Number(process.argv[2] ?? 3000);
 const s = load();
 if (process.env.UNDER) s.watchingUnder = true;
+if (process.env.BEAST) adoptCreature(s, process.env.BEAST as never); // (BEAST=wolf: with a great creature)
 const sim = new Sim(s);
 const differ = new SnapDiffer();
 let step = 0, snap = 0, diff = 0, clone = 0, bytes = 0, full = 0, fulls = 0, hitches = 0;

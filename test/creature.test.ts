@@ -6,7 +6,7 @@ import { ORIGINS } from '../src/shared/data/origins';
 import { DANGER_PACE } from '../src/shared/data/pace';
 import { TOPIC_BY_ID } from '../src/shared/data/research';
 import { Rng } from '../src/shared/rng';
-import { adoptCreature, chooseDeed, creatureArrives, creatureAttack, creatureHourly, creatureMaxHp, creatureTick, deedWeight, doDeed, moodOf, teachCreature, type CreatureState } from '../src/shared/sim/creature';
+import { adoptCreature, creatureAllies, creatureRaidOver, inRaid, chooseDeed, creatureArrives, creatureAttack, creatureHourly, creatureMaxHp, creatureTick, deedWeight, doDeed, moodOf, teachCreature, type CreatureState } from '../src/shared/sim/creature';
 import { cropOf } from '../src/shared/sim/farming';
 import { waitingOnFounder } from '../src/shared/sim/founderQuests';
 import { answerPrompt } from '../src/shared/sim/roadEvents';
@@ -18,6 +18,11 @@ import { campXY, makePerson, type GameState } from '../src/shared/sim/state';
 import { TICKS_PER_DAY, TICKS_PER_HOUR } from '../src/shared/sim/time';
 import { plainGame, put, row } from './helpers';
 import { totalStock } from '../src/shared/sim/buildings';
+import { creatureCard, natureBar } from '../src/renderer/map/creatureCard';
+import { ally } from '../src/shared/sim/classes';
+import { ENEMIES } from '../src/shared/data/enemies';
+import { creatureUnit } from '../src/shared/data/creature';
+import type { Raid } from '../src/shared/sim/state';
 
 function town(seed: string, people = 6): GameState {
   const s = plainGame(seed);
@@ -261,4 +266,63 @@ test('every kind is picked and drawn; an old save without a creature loads and r
   const back = parseSave(serialize(s, 0));
   assert.ok(back.ok);
   assert.equal(back.save.state.creature?.kind, 'golem');
+});
+
+const fakeRaid = (s: GameState): Raid => ({ id: s.nextId++, kind: 'wolves', side: 1, phase: 'active', arrivesTick: 0, leavesTick: 0, raiders: [], prompt: null }) as unknown as Raid;
+
+test('in a raid it fights as a big unit of the town\'s side, as strong as it is grown; hurt badly, it stays home', () => {
+  for (const k of CREATURE_KINDS) {
+    const e = ENEMIES[creatureUnit(k)];
+    assert.ok(e && !e.boss && 'sheet' in e.sprite, `${k} has a board unit`);
+  }
+  const { s, c } = beast('beast-raid', 'bear');
+  s.autopilot = true;
+  c.size = 0.8;
+  c.hp = creatureMaxHp(c);
+  const raid = fakeRaid(s);
+  s.raid = raid;
+  assert.ok(creatureAllies(s, raid, (k) => ally(s, k, 0, 1)));
+  const u = raid.raiders[0];
+  assert.ok(u.ally && u.creature && u.kind === creatureUnit('bear'));
+  assert.equal(u.maxHp, creatureMaxHp(c));
+  assert.ok((u.might ?? 0) > 0.8, 'grown: strong');
+  assert.ok(inRaid(s) && snapshot(s).creature!.fighting, 'drawn in the raid, not on its own');
+  // (it comes home with the health the fight left it, and the fight is a deed asked about)
+  u.hp = Math.round(u.maxHp / 2);
+  const align = c.align;
+  creatureRaidOver(s, raid);
+  assert.equal(c.hp, u.hp);
+  assert.ok(c.align > align && c.ask?.deed === 'fight');
+  // (beaten down: dead, or home badly hurt and afraid)
+  let died = 0;
+  for (let i = 0; i < 40; i++) {
+    const b = beast(`beast-raid-${i % 4}`, 'wolf');
+    b.s.autopilot = true;
+    b.s.tick += i * TICKS_PER_HOUR;
+    const r = fakeRaid(b.s);
+    creatureAllies(b.s, r, (k) => ally(b.s, k, 0, 1));
+    r.raiders[0].down = true;
+    r.raiders[0].hp = 0;
+    creatureRaidOver(b.s, r);
+    if (b.c.dead) died++;
+    else assert.ok(b.c.hp > 0 && b.c.hp < creatureMaxHp(b.c) / 2 && b.c.fear >= 40);
+  }
+  assert.ok(died > 0 && died < 20, `it can die in a raid, but rarely (${died} of 40)`);
+  // (too hurt to fight)
+  const h = beast('beast-raid-hurt', 'golem');
+  h.s.autopilot = true;
+  h.c.hp = 1;
+  assert.ok(!creatureAllies(h.s, fakeRaid(h.s), (k) => ally(h.s, k, 0, 1)));
+});
+
+test('its card tells its nature on a bar from evil to good, its needs, and what it has learned', () => {
+  assert.equal(natureBar(-100), `Evil ◆${'▬'.repeat(10)} Good`);
+  assert.equal(natureBar(100), `Evil ${'▬'.repeat(10)}◆ Good`);
+  const { s, c } = beast('beast-card', 'golem');
+  c.weights = { build: 1, steal: -1 };
+  doDeed(s, c, 'build', new Rng(1));
+  const card = creatureCard(snapshot(s).creature!);
+  assert.match(card.title, /the Golem$/);
+  assert.ok(card.lines.some((l) => /Learned to like: building/.test(l)) && card.lines.some((l) => /shun: raiding the stores/.test(l)));
+  assert.ok(card.lines.some((l) => /Praise or scold it\?/.test(l)));
 });

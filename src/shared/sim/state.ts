@@ -344,6 +344,8 @@ export interface Raider {
   guardian?: number;
   /** One of the ranch's beasts let out to guard the town (sim/ranch.ts), by its id. */
   ranch?: number;
+  /** The town's great creature fighting for it (sim/creature.ts `creatureAllies`). */
+  creature?: boolean;
   /** (a fallen raider a necromancer has already looked at) */
   raiseChecked?: boolean;
   /** Epic bosses: raging, called for help, blows struck, trophy handed over. */

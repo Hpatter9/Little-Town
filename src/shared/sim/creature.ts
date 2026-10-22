@@ -15,7 +15,7 @@
 // (`sizeShare`). Starved, or beaten in a raid, it can die. Every roll is from its own side stream; the player's
 // commands (feed, rest, praise, scold) work with the autopilot off too.
 
-import { ASK_GAP_HOURS, ASK_HOURS, BORN_SIZE, CREATURE_SAGA, CREATURE_TOPIC, CREATURE_DEEDS, CREATURE_DEFS, GROW_PACED_DAYS, LEARN_MOST, LEARN_STEP, MEAL, MEND_HP, NEED_LOW, NEGLECT_AT, SLEEP_HOURS, STARVE_HP, alignWord, creatureTint, drawScale, sizeShare, sizeStage, type CreatureDeed, type CreatureKind, type CreatureMood } from '../data/creature';
+import { ASK_GAP_HOURS, ASK_HOURS, BORN_SIZE, HIDE_HURT, RAID_DEATH, creatureUnit, CREATURE_SAGA, CREATURE_TOPIC, CREATURE_DEEDS, CREATURE_DEFS, GROW_PACED_DAYS, LEARN_MOST, LEARN_STEP, MEAL, MEND_HP, NEED_LOW, NEGLECT_AT, SLEEP_HOURS, STARVE_HP, alignWord, creatureTint, drawScale, sizeShare, sizeStage, type CreatureDeed, type CreatureKind, type CreatureMood } from '../data/creature';
 import { DANGER_PACE } from '../data/pace';
 import { FOOD_VALUE } from '../data/people';
 import type { Material } from '../data/materials';
@@ -27,7 +27,7 @@ import { killPerson } from './health';
 import { CELL, type Pt } from './land';
 import { beginSaga } from './sagas';
 import { isChild } from './social';
-import { campXY, maxHp, notify, type GameState } from './state';
+import { campXY, maxHp, notify, type GameState, type Raid, type Raider } from './state';
 import { TICKS_PER_DAY, TICKS_PER_HOUR, calendarOf } from './time';
 import { walk, type Walker } from './walk';
 
@@ -117,7 +117,7 @@ export function adoptCreature(s: GameState, kind: CreatureKind): CreatureState {
 export function creatureTick(s: GameState): void {
   const c = creatureOf(s);
   if (!c) return;
-  if (c.goal && c.doing !== 'sleep') walk(s, c, c.goal, c.size > 0.6 ? 4.2 : 4.8, undefined, s.tick);
+  if (c.goal && c.doing !== 'sleep' && !inRaid(s)) walk(s, c, c.goal, c.size > 0.6 ? 4.2 : 4.8, undefined, s.tick);
   if (s.tick % TICKS_PER_HOUR !== 0) return;
   if (c.ask && s.tick - c.ask.tick >= ASK_HOURS * TICKS_PER_HOUR) c.ask = undefined; // (unanswered: neither)
   if (s.autopilot === false || s.gameOver) return;
@@ -129,8 +129,9 @@ export function creatureHourly(s: GameState, c: CreatureState): void {
   needsHour(s, c);
   if (c.dead) return;
   if (s.tick < c.until && c.doing === 'sleep') return; // (asleep: let it be)
+  if (inRaid(s)) return; // (it is fighting: `creatureRaidOver` tells of it)
   const rng = rngOf(s, 1);
-  const deed = s.raid?.phase === 'active' ? 'fight' : chooseDeed(s, c, rng);
+  const deed = chooseDeed(s, c, rng);
   // (a deed waiting on an answer is left to stand; the next is asked about only after a while)
   const ask = !c.ask && s.tick - (c.asked ?? -Infinity) >= ASK_GAP_HOURS * TICKS_PER_HOUR;
   doDeed(s, c, deed, rng, ask);
@@ -364,13 +365,46 @@ function creatureDies(s: GameState, c: CreatureState, cause: string): void {
   notify(s, `${c.name} the ${def(c).name} is dead: ${cause}.`, true);
 }
 
-/** It is hurt (in a raid): it may die. */
-export function hurtCreature(s: GameState, n: number, cause: string): void {
+/* ------------------------------------------------------------ raids */
+
+/** Its unit in the raid under way, if it is fighting there. */
+const unitOf = (s: GameState): Raider | undefined => s.raid?.raiders.find((rd) => rd.creature);
+/** Whether it is out fighting in a raid now (the map leaves it to the raid's own drawing). */
+export const inRaid = (s: GameState) => !!unitOf(s) && s.raid?.phase !== 'warning';
+
+/** A raid comes: it goes out to fight as a big unit, as strong as it is grown (from raids.ts startRaid), unless it is
+ *  too badly hurt (autopilot only). */
+export function creatureAllies(s: GameState, raid: Raid, make: (kind: string) => Raider): boolean {
   const c = creatureOf(s);
-  if (!c) return;
-  c.hp -= n;
-  c.fear = clamp(c.fear + n / 2);
-  if (c.hp <= 0) creatureDies(s, c, cause);
+  if (!c || s.autopilot === false || c.hp < creatureMaxHp(c) * HIDE_HURT) return false;
+  const a = make(creatureUnit(c.kind));
+  const k = sizeShare(c.size);
+  a.maxHp = creatureMaxHp(c);
+  a.hp = Math.max(1, Math.round(c.hp));
+  a.might = k;
+  a.creature = true;
+  raid.raiders.push(a);
+  notify(s, `${c.name} the ${def(c).name} goes out to meet the raiders.`);
+  return true;
+}
+
+/** A raid over (from raids.ts endRaid): its health as the fight left it; beaten down, it may die (`RAID_DEATH`), else it
+ *  limps home. A fight is a deed (it is braver and better for it), and the player is asked about it. */
+export function creatureRaidOver(s: GameState, raid: Raid): void {
+  const c = creatureOf(s);
+  const a = raid.raiders.find((rd) => rd.creature);
+  if (!c || !a) return;
+  const rng = rngOf(s, 2);
+  if (a.down || a.hp <= 0) {
+    if (rng.chance(RAID_DEATH)) return creatureDies(s, c, 'killed fighting the raiders');
+    c.hp = Math.max(1, Math.round(creatureMaxHp(c) * 0.15));
+    c.fear = clamp(c.fear + 40);
+    notify(s, `${c.name} the ${def(c).name} was beaten down by the raiders, and limps home.`, true);
+  } else c.hp = Math.max(1, Math.min(creatureMaxHp(c), a.hp));
+  c.x = a.x;
+  c.y = a.y;
+  c.path = undefined;
+  doDeed(s, c, 'fight', rng, !c.ask);
 }
 
 /* ------------------------------------------------------------ the player's part */
@@ -444,6 +478,8 @@ export interface CreatureView {
   ageDays: number;
   doing: CreatureDeed;
   asleep: boolean;
+  /** Out fighting in a raid (drawn there, as a raider of the town's side). */
+  fighting: boolean;
   /** The deeds it has learned to like and to shun, most first. */
   liked: string[];
   shunned: string[];
@@ -469,7 +505,7 @@ export function creatureView(s: GameState): CreatureView | null {
     align: Math.round(c.align), alignWord: alignWord(c.align), mood: moodOf(c),
     hunger: Math.round(c.hunger), rest: Math.round(c.rest), play: Math.round(c.play),
     hp: Math.max(0, Math.round(c.hp)), maxHp: creatureMaxHp(c), ageDays: Math.floor((s.tick - c.born) / TICKS_PER_DAY),
-    doing: c.doing, asleep: c.doing === 'sleep' && s.tick < c.until,
+    doing: c.doing, asleep: c.doing === 'sleep' && s.tick < c.until, fighting: inRaid(s),
     liked: learned.filter(([, w]) => w > 0).sort((a, b) => b[1] - a[1]).slice(0, 3).map(([d]) => DEED_NAMES[d]),
     shunned: learned.filter(([, w]) => w < 0).sort((a, b) => a[1] - b[1]).slice(0, 3).map(([d]) => DEED_NAMES[d]),
     ask: c.ask ? { id: c.ask.id, text: c.ask.text } : null,
