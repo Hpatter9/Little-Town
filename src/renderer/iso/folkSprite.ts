@@ -7,7 +7,7 @@ import { Container, Sprite, type Texture } from 'pixi.js';
 import { ITEM_BY_ID } from '../../shared/data/items';
 import { loadFolkSet, type FolkSet } from './folkLoader';
 import {
-  armedSuffix, facingFromVector, frameAt, isFighting, lookPath, pickLook, play, wantedAnim, type FolkDir, type FolkPlay, type FolkState,
+  armedSuffix, dressOf, facingFromVector, frameAt, isFighting, lookPath, pickLook, play, wantedAnim, type FolkDir, type FolkPlay, type FolkState,
 } from './folkRules';
 import { variantOf } from './folkTint';
 
@@ -61,7 +61,8 @@ export class FolkSprite extends Container {
     const weapon = st.gear.weapon ? ITEM_BY_ID[st.gear.weapon] : undefined;
     const family = weapon?.family;
     const suffix = armedSuffix(st, family, isFighting(st));
-    const pick = pickLook(st);
+    const body = st.gear.body ? ITEM_BY_ID[st.gear.body] : undefined;
+    const pick = pickLook(st, undefined, dressOf(body?.weight));
     const bare = lookPath(pick, null);
     const wanted = lookPath(pick, suffix);
     const variant = variantOf(st.id);

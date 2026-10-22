@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { FOLK_DIRS, armedSuffix, facingFromVector, facingToward, frameAt, idHash, lookPath, pickLook, play, wantedAnim, type FolkAnim, type FolkState } from '../src/renderer/iso/folkRules';
+import { FOLK_DIRS, armedSuffix, facingFromVector, facingToward, frameAt, idHash, lookPath, dressOf, pickLook, play, wantedAnim, type FolkAnim, type FolkState } from '../src/renderer/iso/folkRules';
 import { VARIANTS, hslToRgb, recolour, rgbToHsl, variantOf } from '../src/renderer/iso/folkTint';
 
 const st = (o: Partial<FolkState> = {}): FolkState => ({
@@ -96,4 +96,16 @@ test('recolouring turns clothes, shades skin, leaves outlines and clear pixels',
   assert.ok(h < 40 || h > 350); // skin keeps its hue
   assert.deepEqual(Array.from(px.slice(8)), before.slice(8)); // outline and clear pixel untouched
   assert.ok(Array.from({ length: 100 }, (_, i) => variantOf(i)).every((v) => v >= 0 && v < VARIANTS));
+});
+
+test('dwarves wear dwarf looks, armour picks plate, and the rest wear human ones', () => {
+  const looks = { settlers: ['woman_base', 'woman_plate', 'man_base', 'man_plate', 'dwarf_base', 'dwarf_plate'] };
+  for (let i = 0; i < 20; i++) {
+    assert.ok(pickLook(st({ id: i, origin: 'dwarves' as never }), looks).look.startsWith('dwarf_'));
+    assert.ok(!pickLook(st({ id: i }), looks).look.startsWith('dwarf_'));
+  }
+  assert.equal(pickLook(st({ id: 3, look: { gender: 'm', outfit: 'x' } }), looks, 'plate').look, 'man_plate');
+  assert.equal(pickLook(st({ id: 3, origin: 'dwarves' as never }), looks, 'plate').look, 'dwarf_plate');
+  assert.equal(dressOf('heavy'), 'plate');
+  assert.equal(dressOf(undefined), 'base');
 });
