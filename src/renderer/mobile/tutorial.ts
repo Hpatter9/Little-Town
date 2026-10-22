@@ -29,6 +29,7 @@ export function createTutorial({ bridge, strip, zoom }: Deps): { start: () => vo
   root.id = 'tutorial';
   root.hidden = true;
   const veil = el('div', 'tut-veil'); // (up while a step is being read: it is what holds the town)
+  veil.hidden = true; // (and only then: a veil left showing in the hidden root once held every new town)
   const ring = el('div', 'tut-ring');
   const card = el('div', 'tut-card');
   const count = el('div', 'tut-count');
