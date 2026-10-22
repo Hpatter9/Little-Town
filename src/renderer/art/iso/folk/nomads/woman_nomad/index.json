@@ -24,6 +24,9 @@
   },
   "attack_1h": {
    "frames": 6
+  },
+  "death": {
+   "frames": 7
   }
  }
 }

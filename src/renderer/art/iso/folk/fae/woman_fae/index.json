@@ -16,6 +16,9 @@
   "south-west"
  ],
  "animations": {
+  "death": {
+   "frames": 7
+  },
   "cast_1h": {
    "frames": 6
   },

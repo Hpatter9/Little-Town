@@ -22,6 +22,9 @@
   "cast_1h": {
    "frames": 6
   },
+  "death": {
+   "frames": 7
+  },
   "idle": {
    "frames": 4
   }

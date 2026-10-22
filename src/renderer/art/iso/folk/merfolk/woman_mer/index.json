@@ -16,6 +16,9 @@
   "south-west"
  ],
  "animations": {
+  "death": {
+   "frames": 7
+  },
   "walk": {
    "frames": 6
   },
