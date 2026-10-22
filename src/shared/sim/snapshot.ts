@@ -32,6 +32,7 @@ import { creedLine, religionView, type ReligionView } from './religion';
 import { disasterView, type DisasterView } from './disasters';
 import { worldView, type WorldView } from './worldLife';
 import { marketView, type MarketView } from './markets';
+import { stallView, tradeLinks, type StallLine } from './rareStall';
 import { empireView, type EmpireView } from './tradeEmpire';
 import { heritageView, type HeritageView } from './heritage';
 import { cellsOf } from './prisoners';
@@ -1132,6 +1133,8 @@ export interface Snapshot {
   arena: ArenaView | null;
   /** The trade economy: prices, booms and shortages, the trade house and its routes (sim/markets.ts). */
   markets: MarketView | null;
+  /** The traders' stall: the rare inputs on offer, and what each purse could buy (sim/rareStall.ts). */
+  rareStall: { lines: StallLine[]; links: number; townCoins: number; founderCoins: number | null };
   /** The trade empire: posts, caravans, deals, safety bought (sim/tradeEmpire.ts), for the Market menu's Trade empire tab. */
   empire: EmpireView | null;
   /** A raid being skipped to its recap, and whether every raid is (sim/raidSkip.ts). */
@@ -1609,6 +1612,7 @@ export function snapshot(s: GameState): Snapshot {
     ranchPens: slow(s, 'ranchPens', () => (s.ranch?.beasts ?? []).map((b) => ({ id: b.id, kind: b.kind, ...beastHome(s, b) }))),
     arena: slow(s, 'arena', () => arenaView(s)),
     markets: slow(s, 'markets', () => marketView(s)),
+    rareStall: slow(s, 'rareStall', () => ({ lines: stallView(s), links: tradeLinks(s), townCoins: Math.floor(s.coins ?? 0), founderCoins: founderOf(s) ? Math.floor(founderOf(s)!.coins ?? 0) : null })),
     empire: slow(s, 'empire', () => empireView(s)),
     raidSkipping: !!s.raidSkip && !!s.raid,
     skipRaids: !!s.skipRaids,
