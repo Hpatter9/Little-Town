@@ -60,15 +60,24 @@ async function build(path: string, variant: number): Promise<FolkSet | null> {
       },
       () => undefined, // (a missing sheet: that animation shows nothing rather than failing the look)
     );
-  const jobs: Promise<void>[] = [cut(`${base}/rotations.png`, (c) => `stand/${dirs[c]}/0`, dirs.length, 1)];
-  for (const [anim, info] of Object.entries(index.animations ?? {}))
-    jobs.push(cut(`${base}/${anim}.png`, (c, r) => `${anim}/${dirs[r]}/${c}`, info?.frames ?? 0, dirs.length));
-  await Promise.all(jobs);
+  // (only the still rotations load now: an animation's sheet loads, and is recoloured, the first time someone plays it.
+  // Each sheet is a megapixel or so, and a town's looks times their colour variants made hundreds of them at the start)
+  await cut(`${base}/rotations.png`, (c) => `stand/${dirs[c]}/0`, dirs.length, 1);
+  const asked = new Set<string>();
+  const ask = (anim: string): void => {
+    if (asked.has(anim)) return;
+    asked.add(anim);
+    const info = index.animations?.[anim as FolkAnim];
+    if (info) void cut(`${base}/${anim}.png`, (c, r) => `${anim}/${dirs[r]}/${c}`, info.frames ?? 0, dirs.length);
+  };
   return {
     index,
     has: (a) => a === 'stand' || !!index.animations?.[a],
     count: (a) => (a === 'stand' ? 1 : (index.animations?.[a]?.frames ?? 0)),
-    texture: (a, d, n) => tex.get(`${a}/${d}/${a === 'stand' ? 0 : n}`) ?? null,
+    texture: (a, d, n) => {
+      if (a !== 'stand') ask(a);
+      return tex.get(`${a}/${d}/${a === 'stand' ? 0 : n}`) ?? null;
+    },
   };
 }
 
