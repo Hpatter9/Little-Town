@@ -1,6 +1,7 @@
 // Drives the sim from real time, independent of any window's frame rate: in the desktop app's main process,
 // and on the phone (web) version in the page itself.
 
+import { holdOf } from './sim/popups';
 import type { Command } from './sim/commands';
 import { battleSpeedNow } from './sim/battle';
 import { MAX_TICKS_PER_ADVANCE, Sim } from './sim/sim';
@@ -37,6 +38,9 @@ export class GameLoop {
   /** The clock is held (the phone's loading screen is up: mobile/loading.ts): no live time passes, so nothing happens
    *  unseen. */
   held = false;
+  /** A card only the page knows of is up (a reveal, the event box's outcome, a recap: renderer/mobile/popupHold.ts): the
+   *  town stands still, unless a fight is on screen, which plays on. */
+  cardsUp = false;
 
   start(): void {
     this.last = performance.now();
@@ -70,7 +74,7 @@ export class GameLoop {
     }
     const now = performance.now();
     // (a raid being skipped to its recap runs flat out, a slice a frame: sim/raidSkip.ts)
-    if (this.sim.state.raidSkip && this.sim.state.raid && !this.sim.state.paused && this.speed > 0) {
+    if (this.sim.state.raidSkip && this.sim.state.raid && !this.sim.state.paused && !holdOf(this.sim.state) && !this.cardsUp && this.speed > 0) {
       const until = now + SKIP_SLICE_MS;
       while (this.sim.state.raid && performance.now() < until) this.sim.step();
       this.last = performance.now();
@@ -81,6 +85,8 @@ export class GameLoop {
     const fast = this.speed * battleSpeedNow(this.sim.state);
     const ms = (now - this.last) * fast;
     this.last = now;
-    if (this.sim.advance(ms, MAX_TICKS_PER_ADVANCE * fast, FRAME_BUDGET_MS) > 0) this.onTicks(this.snapshot());
+    // (a pop-up up holds the town, a fight on screen plays alone: sim/popups.ts; the page's cards hold too: `cardsUp`)
+    const hold = holdOf(this.sim.state) ?? (this.cardsUp ? 'popup' : null);
+    if (this.sim.advance(ms, MAX_TICKS_PER_ADVANCE * fast, FRAME_BUDGET_MS, hold) > 0) this.onTicks(this.snapshot());
   }
 }

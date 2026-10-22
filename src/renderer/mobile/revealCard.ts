@@ -21,6 +21,7 @@ import { stockIcon } from '../art/materialIcons';
 import { REVEAL_SOUND } from '../sfx';
 import { icon } from '../ui/icon';
 import { reducedMotion } from '../ui/motion';
+import { holdWhileUp } from './popupHold';
 import { freshReveals, haulOrder, revealsOf, uniqueLore, type HaulLine, type RevealTone, type RevealWords } from './reveals';
 
 export type { RevealTone } from './reveals';
@@ -108,6 +109,7 @@ function draw(card: RevealCard): void {
     box.id = 'reveal-card';
     box.setAttribute('role', 'dialog');
     document.body.append(box);
+    holdWhileUp(box); // (a card up holds the town: popupHold.ts)
   }
   const root = box;
   const inner = document.createElement('div');
@@ -167,6 +169,16 @@ function draw(card: RevealCard): void {
     }
     close();
   };
+  // (the corner ✕ shuts it at once, a chest half open or not)
+  const x = el('button', 'reveal-x', '✕');
+  x.title = 'Close';
+  x.setAttribute('aria-label', 'Close');
+  x.addEventListener('click', (ev) => {
+    ev.stopPropagation();
+    rest = null;
+    close();
+  });
+  root.append(x);
 }
 
 /** Lay a haul out line by line, the best last after a pause; returns what lays out the rest at once (true: it did). */

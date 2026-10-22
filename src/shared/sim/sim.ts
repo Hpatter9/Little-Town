@@ -36,6 +36,7 @@ import { sagasHourly } from './sagas';
 import { huntsHourly } from './hunts';
 import { dragonTick } from './dragon';
 import { holdForFight } from './raidWait';
+import { fightClock, openPrompt, parkPrompt, stoodTick, type Hold } from './popups';
 import { leadQuest, waitingOnFounder } from './founderQuests';
 import { stewardTick } from './steward';
 import { storyHourly } from './story';
@@ -169,7 +170,7 @@ export class Sim {
   }
 
   /** Advance by `ms` of real time. Runs whole ticks and carries the remainder. Returns ticks stepped. */
-  advance(ms: number, maxTicks = MAX_TICKS_PER_ADVANCE, budgetMs = Infinity): number {
+  advance(ms: number, maxTicks = MAX_TICKS_PER_ADVANCE, budgetMs = Infinity, hold: Hold = null): number {
     this.carryMs += Math.max(0, ms);
     // (a wall-clock budget: ticks that don't fit stay owed and are caught up over the next calls, up to maxTicks' worth)
     const until = budgetMs === Infinity ? Infinity : performance.now() + budgetMs;
@@ -180,7 +181,7 @@ export class Sim {
         return n;
       }
       this.carryMs -= TICK_MS;
-      this.step();
+      this.step(hold);
       n++;
     }
     if (n === maxTicks) this.carryMs = Math.min(this.carryMs, TICK_MS);
@@ -188,7 +189,7 @@ export class Sim {
   }
 
   /** One tick: apply queued commands, then (unless paused) run every system once, in a fixed order. */
-  step(): void {
+  step(hold: Hold = null): void {
     const s = this.state;
     if (s.gameOver) {
       // the story is over; only a new game continues (but the report of how it ended can still be put away)
@@ -198,7 +199,11 @@ export class Sim {
     for (const c of this.pending) this.apply(c);
     skipRaidsTick(s); // (a town set to skip its raids: sim/raidSkip.ts)
     this.pending = [];
-    if (s.paused || waitingOnFounder(s)) return; // (a road question for the founder holds the game until it is answered)
+    if (s.paused) return;
+    // (a pop-up is up: sim/popups.ts. The town stands still; a fight on screen plays on.)
+    if (hold === 'popup') return stoodTick(s);
+    if (hold === 'fight') return this.fightStep();
+    if (waitingOnFounder(s)) return; // (a road question for the founder holds the game until it is answered)
 
     s.tick++;
     voteSettlementName(s);
@@ -353,6 +358,26 @@ export class Sim {
     keepOffer(s); // (the three topics on offer: sim/researchOffer.ts)
     runPlanner(s);
 
+    s.rngState = this.rng.state;
+  }
+
+  /** One tick of a fight on screen while the town holds: only the fight (a raid's battle, or the party's, skirmish's or
+   *  bout's being watched) plays. The people, needs, work, weather and every other system stand still. */
+  private fightStep(): void {
+    const s = this.state;
+    fightClock(s);
+    fightSpeedTick(s);
+    // (the defenders on the trail still walk to their spots: the set-up waits until they stand there, battle.ts)
+    const ctx = newTickContext();
+    const defenders = new Set<number>();
+    for (const u of s.raid?.battle?.units ?? []) if (u.person !== undefined) defenders.add(u.person);
+    for (const p of s.people) if (defenders.has(p.id) && p.away === null) updatePerson(s, p, this.rng, ctx);
+    if (s.raid) updateRaid(s, this.rng);
+    if (s.watching !== undefined) {
+      updateExpeditions(s, this.rng);
+      roamersTick(s);
+      arenaTick(s);
+    }
     s.rngState = this.rng.state;
   }
 
@@ -653,6 +678,12 @@ export class Sim {
         break;
       case 'answerPrompt':
         answerPrompt(s, c.prompt, c.option, this.rng);
+        break;
+      case 'parkPrompt':
+        parkPrompt(s, c.prompt);
+        break;
+      case 'openPrompt':
+        openPrompt(s, c.prompt);
         break;
       case 'recallExpedition':
         recallExpedition(s, c.expedition);

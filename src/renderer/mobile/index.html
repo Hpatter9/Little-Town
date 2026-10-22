@@ -1039,6 +1039,67 @@
       #event-sheet[hidden] {
         display: none;
       }
+      /* the corner ✕ on a pop-up: a thumb's size (the choice stays waiting behind the choices button; popupHold.ts) */
+      .event-x,
+      #reveal-card .reveal-x,
+      #raid-recap .rr-x {
+        position: absolute;
+        top: calc(env(safe-area-inset-top) + 6px);
+        right: calc(env(safe-area-inset-right) + 6px);
+        z-index: 3;
+        width: 44px;
+        height: 44px;
+        padding: 0;
+        border-radius: 50%;
+        border: 2px solid #e8c88a;
+        background: rgba(22, 17, 12, 0.85);
+        color: #f0e4c8;
+        font: inherit;
+        font-size: 20px;
+        line-height: 1;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.7);
+      }
+      #event-sheet .event-x {
+        position: fixed;
+      }
+      .event-hold {
+        margin: 10px 0 0;
+        padding: 8px 10px;
+        border: 1px solid #c79a55;
+        border-radius: 6px;
+        background: rgba(199, 154, 85, 0.15);
+        font-size: 13px;
+      }
+      /* the choices waiting behind a closed card (mobile/waitingChoices.ts), under the news bubble */
+      #choices-bubble {
+        position: fixed;
+        left: calc(env(safe-area-inset-left) + 8px);
+        top: calc(env(safe-area-inset-top) + 118px);
+        z-index: 5;
+        min-width: 44px;
+        height: 38px;
+        padding: 0 10px;
+        border-radius: 19px;
+        border: 2px solid #ffe08a;
+        background: #b8882a;
+        color: #fff;
+        font: inherit;
+        font-size: 13px;
+        font-weight: bold;
+        box-shadow: 0 2px 10px rgba(0, 0, 0, 0.7);
+      }
+      #choices-bubble[hidden] {
+        display: none;
+      }
+      #choices-bubble.holding {
+        background: #a83224;
+        border-color: #ffb0a0;
+      }
+      @media (orientation: landscape) and (max-height: 560px) {
+        #choices-bubble {
+          top: calc(env(safe-area-inset-top) + var(--tabs-h) + 102px);
+        }
+      }
       .event-art {
         position: relative;
         width: 100%;
