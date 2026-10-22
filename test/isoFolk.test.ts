@@ -116,5 +116,7 @@ test("a people with its own cast wears it, by sex", () => {
   assert.equal(orc(3, 'f').people, 'orcs');
   assert.equal(orc(3, 'f').look, 'woman_orc');
   for (let id = 1; id < 20; id++) assert.ok(orc(id, 'm').look.startsWith('man_'));
-  assert.equal(pickLook({ id: 3, origin: 'fae', look: { gender: 'f', outfit: 'base' } as never }).people, 'settlers');
+  assert.equal(pickLook({ id: 3, origin: 'nomads', look: { gender: 'f', outfit: 'base' } as never }).people, 'settlers');
+  // (a lich with only its spell fights by casting it)
+  assert.equal(play('attack_1h', (a) => a === 'cast_1h' || a === 'idle').anim, 'cast_1h');
 });

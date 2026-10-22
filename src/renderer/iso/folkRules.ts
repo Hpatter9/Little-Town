@@ -66,8 +66,9 @@ const FALLBACK: Record<FolkAnim, FolkAnim[]> = {
   // (a look with no tools, a people's own cast, idles at its work rather than punching the tree)
   chop: ['hammer', 'idle', 'stand'],
   hammer: ['chop', 'idle', 'stand'],
-  attack_1h: ['attack_2h', 'chop', 'hammer', 'idle', 'stand'],
-  attack_2h: ['attack_1h', 'chop', 'hammer', 'idle', 'stand'],
+  // (a casting people's cast fights with its thrown spell)
+  attack_1h: ['attack_2h', 'chop', 'hammer', 'cast_1h', 'idle', 'stand'],
+  attack_2h: ['attack_1h', 'chop', 'hammer', 'cast_1h', 'idle', 'stand'],
   attack_bow: ['attack_1h', 'idle', 'stand'],
 };
 
@@ -130,6 +131,8 @@ export const FOLK_LOOKS: Record<string, readonly string[]> = {
   settlers: ['woman_base', 'woman_leather', 'woman_plate', 'man_base', 'man_leather', 'man_plate', 'dwarf_base', 'dwarf_apron', 'dwarf_plate'],
   // (the peoples' own casts: walk, idle, death and an attack (a punch, or a thrown spell), no armed looks)
   orcs: ['man_brute', 'woman_orc', 'man_shaman'],
+  lich: ['man_lord', 'woman_ghoul', 'man_skeleton'],
+  druid: ['man_elder', 'woman_druid', 'man_warden'],
 };
 
 /** The base look's dress by what they wear: plate for heavy body armour, leather for light or medium, base otherwise. */
