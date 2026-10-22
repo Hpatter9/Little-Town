@@ -63,8 +63,9 @@ const FALLBACK: Record<FolkAnim, FolkAnim[]> = {
   hurt: ['idle', 'stand'],
   cast_1h: ['cast_2h', 'attack_1h', 'idle', 'stand'],
   cast_2h: ['cast_1h', 'attack_2h', 'idle', 'stand'],
-  chop: ['hammer', 'attack_1h', 'idle', 'stand'],
-  hammer: ['chop', 'attack_1h', 'idle', 'stand'],
+  // (a look with no tools, a people's own cast, idles at its work rather than punching the tree)
+  chop: ['hammer', 'idle', 'stand'],
+  hammer: ['chop', 'idle', 'stand'],
   attack_1h: ['attack_2h', 'chop', 'hammer', 'idle', 'stand'],
   attack_2h: ['attack_1h', 'chop', 'hammer', 'idle', 'stand'],
   attack_bow: ['attack_1h', 'idle', 'stand'],
@@ -127,6 +128,8 @@ export function play(wanted: FolkAnim, has: (a: FolkAnim) => boolean): FolkPlay 
 /** The base looks drawn so far, per people (folder names under art/iso/folk/). Add a look here as its art arrives. */
 export const FOLK_LOOKS: Record<string, readonly string[]> = {
   settlers: ['woman_base', 'woman_leather', 'woman_plate', 'man_base', 'man_leather', 'man_plate', 'dwarf_base', 'dwarf_apron', 'dwarf_plate'],
+  // (the peoples' own casts: walk, idle, death and an attack (a punch, or a thrown spell), no armed looks)
+  orcs: ['man_brute', 'woman_orc', 'man_shaman'],
 };
 
 /** The base look's dress by what they wear: plate for heavy body armour, leather for light or medium, base otherwise. */

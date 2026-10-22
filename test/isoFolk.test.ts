@@ -45,6 +45,7 @@ test('a look without an animation falls back sensibly', () => {
   assert.equal(play('run', only('walk', 'run')).rate, 1);
   assert.equal(play('chop', only('hammer')).anim, 'hammer');
   assert.equal(play('hammer', only()).anim, 'stand');
+  assert.equal(play('chop', only('attack_1h', 'idle')).anim, 'idle'); // (a cast with no tools idles at work, not punching)
   assert.equal(play('death', only('hurt')).anim, 'hurt');
   assert.equal(play('death', only('death')).loop, false);
   assert.equal(play('walk', only('walk')).loop, true);
@@ -108,4 +109,12 @@ test('dwarves wear dwarf looks, armour picks plate, and the rest wear human ones
   assert.equal(pickLook(st({ id: 3, origin: 'dwarves' as never }), looks, 'plate').look, 'dwarf_plate');
   assert.equal(dressOf('heavy'), 'plate');
   assert.equal(dressOf(undefined), 'base');
+});
+
+test("a people with its own cast wears it, by sex", () => {
+  const orc = (id: number, gender: 'f' | 'm') => pickLook({ id, origin: 'orcs', look: { gender, outfit: 'base' } as never });
+  assert.equal(orc(3, 'f').people, 'orcs');
+  assert.equal(orc(3, 'f').look, 'woman_orc');
+  for (let id = 1; id < 20; id++) assert.ok(orc(id, 'm').look.startsWith('man_'));
+  assert.equal(pickLook({ id: 3, origin: 'fae', look: { gender: 'f', outfit: 'base' } as never }).people, 'settlers');
 });
