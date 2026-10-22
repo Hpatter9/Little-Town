@@ -59,6 +59,7 @@ import { freeStation, modifiers, researchMods, researchStations, studyingAt, tid
 import { isSeat } from '../data/seats';
 import { holderOf, holds, jobOf as heldJob } from './operators';
 import { HOLDER_EDGE } from '../data/operators';
+import { fellHeartwood } from './chains';
 import { tireless, remember, addStock, campXY, cellXY, dist, BUILD_MULTIPLIER, carryCapacity, notify, RESEARCH_MULTIPLIER, poolSize, buildingById, type Building, type GameState, type Person, type Raider, type Task } from './state';
 import { calendar, TICK_HZ, TICKS_PER_HOUR } from './time';
 import { stabilize } from './health';
@@ -1033,6 +1034,7 @@ function gatherUnit(s: GameState, p: Person, tileIndex: number, rng: Rng): void 
   }
   addStock(pool, pick, -1);
   addStock(p.carrying, pick, 1);
+  if (pick === 'wood') fellHeartwood(s, p); // (now and then an old tree's heartwood: sim/chains.ts)
   gainSkill(p, 'gathering', GATHER_XP);
 
   if (poolSize(pool) === 0) {

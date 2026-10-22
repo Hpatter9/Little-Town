@@ -6,7 +6,9 @@ import { PART_IDS, partsOf, RARE_SET } from '../data/chains';
 import { ITEM_BY_ID, ITEMS, type ItemDef } from '../data/items';
 import type { Material, Stock } from '../data/materials';
 import { itemUnlocked, stationFor } from './crafting';
-import type { GameState } from './state';
+import type { ExpeditionType } from '../data/expeditions';
+import { hashSeed, Rng } from '../rng';
+import { addStock, notify, type Expedition, type GameState, type Person } from './state';
 
 /** Parts go no deeper than this (a part of a part of a part). */
 const MAX_DEPTH = 4;
@@ -89,3 +91,40 @@ export function partStationWishes(s: GameState): { def: string; why: string }[] 
   return out;
 }
 let wished: { s: GameState; key: string; out: { def: string; why: string }[] } | null = null;
+
+/* ------------------------------------------------------------ rare inputs from the land and from quests */
+
+/** The chance a unit of wood felled from the Medieval age on comes with heartwood (an old tree's core). */
+export const HEARTWOOD_CHANCE = 1 / 80;
+
+/** Felling: now and then the tree is an old one, with heartwood at its core (on the chains' own stream). */
+export function fellHeartwood(s: GameState, p: Person): void {
+  if (!s.autopilot || s.era === 'neolithic') return;
+  if (!new Rng(hashSeed(`${s.seed}:heartwood:${s.tick}:${p.id}`)).chance(HEARTWOOD_CHANCE)) return;
+  addStock(p.carrying, 'heartwood', 1);
+  notify(s, `${p.name} felled an old tree with heartwood at its core.`);
+}
+
+/** What a party may bring home besides its loot, by the kind of trip: the chance, and the rare inputs it may be. A
+ *  trade trip brings what it buys (data/minerals.ts) instead. */
+export const RARE_FINDS: Partial<Record<ExpeditionType, [number, Partial<Record<Material, number>>]>> = {
+  gather: [0.1, { heartwood: 3, silver: 1 }],
+  hunt: [0.25, { thick_pelt: 3, heartwood: 1 }],
+  scout: [0.1, { heartwood: 1, silver: 1, gems: 1 }],
+  rescue: [0.15, { silver: 2, gems: 1 }],
+  salvage: [0.3, { silver: 2, gems: 1, heartwood: 1 }],
+  clear: [0.4, { silver: 2, gems: 1, thick_pelt: 1 }],
+  delve: [0.5, { gems: 2, silver: 2, thick_pelt: 1 }],
+  legendary: [0.8, { gems: 2, silver: 1, heartwood: 1, pearls: 1 }],
+};
+
+/** A party home from a quest (not recalled): maybe a rare input in its loot (two from a legendary trip or a cleared
+ *  delve), from the Medieval age on. Rolled on the chains' own stream. */
+export function rareFind(s: GameState, e: Expedition, type: ExpeditionType): void {
+  const find = RARE_FINDS[type];
+  if (!find || !s.autopilot || s.era === 'neolithic' || e.recalled) return;
+  const rng = new Rng(hashSeed(`${s.seed}:rarefind:${s.tick}:${e.id}`));
+  if (!rng.chance(find[0])) return;
+  const n = type === 'legendary' || (type === 'delve' && e.cleared) ? 2 : 1;
+  for (let k = 0; k < n; k++) addStock(e.loot, rng.weighted(find[1] as Record<Material, number>), 1);
+}

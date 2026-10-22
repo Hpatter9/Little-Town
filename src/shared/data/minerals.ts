@@ -51,9 +51,9 @@ export const MINERAL_BUILDINGS: readonly BuildingDef[] = [
 /** What each region's markets sell to a trade caravan (its loot odds), and what the trip costs in coins. */
 const REGION_MINERALS: Record<string, { loot: Partial<Record<Material, number>>; coins: number; market: string }> = {
   heartland: { loot: { copper_ore: 4, tin_ore: 3, iron_ore: 1 }, coins: 30, market: 'the Crossroads Market' },
-  westwood: { loot: { tin_ore: 4, copper_ore: 2, herbs: 1 }, coins: 40, market: 'the woodsmen’s camps' },
+  westwood: { loot: { tin_ore: 4, copper_ore: 2, herbs: 1, heartwood: 1 }, coins: 40, market: 'the woodsmen’s camps' },
   northern_crags: { loot: { silver_ore: 3, copper_ore: 3, tin_ore: 2, sulphur: 1 }, coins: 60, market: 'the miners of the crags' },
-  eastwood: { loot: { copper_ore: 4, sulphur: 2, tin_ore: 1 }, coins: 45, market: 'the eastern fair' },
+  eastwood: { loot: { copper_ore: 4, sulphur: 2, tin_ore: 1, heartwood: 1 }, coins: 45, market: 'the eastern fair' },
   southern_ridges: { loot: { sulphur: 4, tin_ore: 2, silver_ore: 1 }, coins: 55, market: 'the ridge quarries' },
   southern_isle: { loot: { silver_ore: 3, copper: 2, pearls: 1 }, coins: 80, market: 'the island traders' },
   the_sea: { loot: { silver: 2, bronze: 2, pearls: 1 }, coins: 100, market: 'the wreckers’ market' },

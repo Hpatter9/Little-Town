@@ -88,14 +88,14 @@ export const CARAVAN_GOODS: Partial<Record<Era, Material[]>> = {
 export const FACTION_GOODS: Partial<Record<OriginId, Material[]>> = {
   settlers: ['grain', 'bread', 'cloth', 'copper_ore'],
   lich: ['bone', 'silver_ore', 'herbs'],
-  druid: ['herbs', 'wood', 'fruit', 'tin_ore'],
+  druid: ['herbs', 'wood', 'fruit', 'tin_ore', 'heartwood'],
   vampire: ['cloth', 'leather', 'silver'],
-  werewolf: ['hide', 'meat', 'bone'],
+  werewolf: ['hide', 'meat', 'bone', 'thick_pelt'],
   robot: ['copper', 'tin_ore', 'sulphur'],
   dwarves: ['iron_ore', 'copper_ore', 'tin_ore', 'gold', 'gems'],
   merfolk: ['fish', 'kelp', 'pearls'],
-  nomads: ['hide', 'wool', 'milk', 'meat'],
-  fae: ['herbs', 'fruit', 'silver_ore'],
+  nomads: ['hide', 'wool', 'milk', 'meat', 'thick_pelt'],
+  fae: ['herbs', 'fruit', 'silver_ore', 'heartwood'],
   alchemists: ['sulphur', 'glass', 'herbs', 'copper'],
   knights: ['iron', 'bronze', 'bricks'],
 };

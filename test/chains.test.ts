@@ -3,13 +3,15 @@ import { test } from 'node:test';
 import { ageOf, PART_IDS, PARTS, partsOf, RARE_SET } from '../src/shared/data/chains';
 import { ITEM_BY_ID, ITEMS, STATIONS } from '../src/shared/data/items';
 import { MATERIALS } from '../src/shared/data/materials';
-import { chainCost, chainMakeable, nextStep } from '../src/shared/sim/chains';
+import { chainCost, chainMakeable, fellHeartwood, HEARTWOOD_CHANCE, nextStep, rareFind } from '../src/shared/sim/chains';
+import { TRADE_DESTINATIONS } from '../src/shared/data/minerals';
+import { FACTION_GOODS } from '../src/shared/data/trade';
 import { pulledGrade, TOOL_HOURS, wearTools } from '../src/shared/sim/crafting';
 import { totalStock } from '../src/shared/sim/buildings';
 import { runPlanner } from '../src/shared/sim/planner';
 import { parseSave, serialize } from '../src/shared/sim/save';
 import { Sim } from '../src/shared/sim/sim';
-import { type Building, type CraftOrder, type GameState } from '../src/shared/sim/state';
+import { type Building, type CraftOrder, type Expedition, type GameState } from '../src/shared/sim/state';
 import { TICK_HZ } from '../src/shared/sim/time';
 import { plainGame, priorities, row } from './helpers';
 
@@ -155,4 +157,38 @@ test('an old save with an order whose recipe gained parts still loads and plays 
   const again = new Sim(back.save.state);
   for (let t = 0; t < 30 * TICK_HZ; t++) again.step();
   assert.equal(again.state.crafting[0]?.item, 'iron_axe', 'the order waits for its blade');
+});
+
+test('rare inputs come from the land, from quests and from trade', () => {
+  // the land: felling old trees now and then gives heartwood (from the Medieval age, with the town running itself)
+  const s = plainGame('rarefinds');
+  const p = s.people[0];
+  fellHeartwood(s, p);
+  s.autopilot = true;
+  s.era = 'medieval';
+  let felled = 0;
+  for (let t = 0; t < 4000; t++) {
+    s.tick = t;
+    p.carrying = {};
+    fellHeartwood(s, p);
+    felled += p.carrying.heartwood ?? 0;
+  }
+  assert.ok(felled > 4000 * HEARTWOOD_CHANCE * 0.5 && felled < 4000 * HEARTWOOD_CHANCE * 2, `heartwood felled ${felled} times in 4000`);
+  // quests: a party home from a legendary trip often brings a rare input; a recalled one never does
+  const e = { id: 1, loot: {}, recalled: false } as unknown as Expedition;
+  let found = 0;
+  for (let t = 0; t < 200; t++) {
+    s.tick = t;
+    e.loot = {};
+    rareFind(s, e, 'legendary');
+    if (Object.keys(e.loot).some((m) => RARE_SET.has(m as never))) found++;
+  }
+  assert.ok(found > 120, `legendary trips found something ${found} times in 200`);
+  e.recalled = true;
+  e.loot = {};
+  rareFind(s, e, 'legendary');
+  assert.deepEqual(e.loot, {});
+  // trade: the woods' markets sell heartwood, the werewolves' caravans thick pelts
+  assert.ok(TRADE_DESTINATIONS.some((d) => d.loot.heartwood));
+  assert.ok(FACTION_GOODS.werewolf?.includes('thick_pelt'));
 });
