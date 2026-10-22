@@ -178,6 +178,10 @@ Grep the file and constant names too: most systems were changed again in later s
 - **The land and walking:** `sim/land.ts` (`LandMap`, `makeLand`, `findPath`), `sim/landRegions.ts` (named regions,
   192x192), `sim/walk.ts`, `sim/regrow.ts`, footpath wear. H: "Phases 1 and 2", "The wide land", "Footpaths",
   "The wild grows back".
+- **Fog of war:** `sim/fog.ts` (sight ranges, explored land saved, packed), the iso and top-down fog layers, the
+  minimap. H: "Fog of war".
+- **Pop-ups hold the town:** one `holdOf` (`shared/simHost.ts`, `shared/gameLoop.ts`, `sim/sim.ts`): events, fights
+  (only the battle steps), recaps; a ✕ on each; choices closed unanswered wait behind the ❓ button. H: "Pop-ups hold".
 - **Biomes:** `data/biomes.ts` (ten lands), `map/groundArt.ts` (`BIOME_LOOKS`). H: "Ten lands".
 - **The planner (the self-running town):** `sim/planner.ts` (research, gathering, building, crafting, `findSpot`,
   `openLand`), `sim/pins.ts` (the player's building wishes), `sim/research.ts` (`pickResearch`). H: "Phase 1",
@@ -323,7 +327,7 @@ Grep the file and constant names too: most systems were changed again in later s
 - **Menus:** `panel/panel.ts` (redraw keys, `pressing`), `panel/subtabs.ts` (`GROUPS`), `panel/details.ts`, the
   `panel/*Panel.ts` files, `shared/ipc.ts` (`PANELS`). H: "The menus redone", "Every menu in sub-tabs", "Tap for more".
 - **The phone page:** `mobile/mobile.ts` (layout, zoom, pinch), `mobile/notices.ts` (the news bubble),
-  `mobile/eventSheet.ts` (the event box), `mobile/tips.ts`. H: "The news bubble", "Smooth zoom", "Events told in
+  `mobile/eventSheet.ts` (the event box), `mobile/tips.ts`, `mobile/storesReadout.ts` (coins and materials, top right). H: "The news bubble", "Smooth zoom", "Events told in
   full", "The first hour".
 - **Sound:** `ambience.ts`, `ambienceMix.ts`, `sfx.ts`, `music.ts`, `musicScore.ts`, `musicGen.ts`, `musicMood.ts`,
   `soundZones.ts`, `audioGate.ts`, `volume.ts`. H: "The soundscape", "Music, sound and real light", "Sounds that
@@ -332,7 +336,8 @@ Grep the file and constant names too: most systems were changed again in later s
   `iso/isoTown.ts`, `iso/isoLight.ts`, `iso/isoCastle.ts` + `isoCastleView.ts`, `iso/folk*.ts` (townsfolk, each
   people's own cast), `tactics/isoBoard.ts`; art in `art/iso/` (kits, castles, folk; PixelLab). H: "The isometric view, begun",
   "The iso town, filled in", "The isometric art", "Isometric townsfolk", "Night, doors", "The castle and the hold in
-  the isometric view", "The raid board in the isometric look".
+  the isometric view", "The raid board in the isometric look", "Map layers in the isometric view", "festivals",
+  "The peoples' own casts", "made the default".
 
 **Tests and tools**
 - `test/helpers.ts` (`plainGame`, land helpers), `test.mjs` (the runner: parallel, slowest first, slow files split

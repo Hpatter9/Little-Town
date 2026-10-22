@@ -9080,3 +9080,255 @@ A tidy of the menus, wording and layout only. No sim rules changed.
 - **War** (`panel/warPanel.ts`): shorter map and campaign hints; dropped "the town picks no targets". Its four tabs are unchanged.
 - **Chronicle** (`panel/journalPanel.ts`): eleven filter pills became four tabs (Events, People, Town, Library), each with a small second row of filters (Events: All, Key events, Deaths; People: Heroes, Milestones, Legends; Town: Festivals, Culture, Shelf; Library: Bestiary, Scenes). The bottom bar still says "Annals" on the phone because "Chronicle" is cut off at 393px wide.
 - **The event box** (`mobile/eventSheet.ts`, `mobile/index.html`): the telling shows its first paragraph, with a "Read on" button (`.event-more`) for the rest. "Evolution" comments now say promotion. The option labels come from the event data and are unchanged.
+
+## Map layers in the isometric view
+
+Builds on "The isometric view, begun", "The iso town, filled in" and "Night, doors..." (`docs/notes/iso-view.md`, `iso-town-details.md`, `iso-lights-doors.md`). Still behind the Settings switch; the simulation is untouched.
+
+- **Creatures and bands:** the top-down layers that draw into a container as top-level sprites in world px now draw into the iso view's `things` (`const lay` in `main.ts`; `MapPeople` already did): raiders, roaming bands and the ranch's beasts (`MapRaiders`), `MapHerds`, `MapBirds`, `MapButterflies`, `MapWildlife`, `MapCritters`, `MapPets` and `MapTownLife`. `IsoView.placeLoose` moves each onto the diamonds and sorts it, so it now runs after every layer has rendered (once, at the end of the frame's renders, not straight after `people.render`). Their culling still reads `map.view`, which is the iso view's `lightView()` box (it covers the screen), so only what is on screen is drawn.
+- **Effects over everything:** the map's `over` container (ash, flood spray, spells, confetti, the juice's world, snowballs) is laid on the diamonds in `IsoView.overFlat` (the same `worldMatrix` as `flat`, above the things, under the light layer). Disasters (`MapDisaster`: floods, wildfire and ash) draw into `map.under` (already in `flat`) and `over`, so they now show. Effects there are squashed with the ground (flat), which suits ash, spray and ground marks better than tall things.
+- **Fire:** a building with `fire` (0..1 burned) is tinted `0xff9060` (`isoView.ts`, the sprite's key includes whether it burns) and gets 2 to 6 flame glows (`setFlames`, `DrawnBuilding.flames`), more as it burns, flickering in `animate`.
+- **Minimap:** it works in world px, so a tap (`onLook`) centres the iso camera through `MapCamera.project`. Its view frame is now the screen's real patch of land: `IsoView.viewQuad()` (four corners in world px) passed as `MiniDots.quad`, drawn as a slanted quad instead of a box. Checked: a tap on the minimap moved the iso camera.
+- **Left for later:** festivals (`map.festival`: bunting, tables, fireworks), the stockpile, felling, chores (wells, washing, harvest) and market stalls still draw into the hidden top-down map: their art is placed on top-down building sprites. Fire's smoke, and wildfire art over burning buildings, are not drawn. Raiders in the tactics battle already use the iso board.
+
+## The settlers' townsfolk art (PixelLab), and folk sheets
+
+The settlers' iso townsfolk are drawn: 9 looks (a man, a woman and a dwarf, each plain, in leather or an apron, and in
+plate), made with PixelLab from the project's own front views, each turned to 8 directions with `walk`, `run`, `idle`,
+`death`, `hurt` and `cast_1h`. Each look also has six armed looks (`+axe`, `+hammer`, `+sword`, `+bow`, `+greatsword`,
+`+staff`), the weapon edited into the front view, then turned, each with its own move (`chop`, `hammer`, `attack_1h`,
+`attack_bow`, `attack_2h`, `cast_2h`, 9 frames). 63 folders in `src/renderer/art/iso/folk/settlers/`, 8.8 MB.
+
+The layout changed from a file per frame to a sheet per animation (`<anim>.png`: a row per direction, a column per
+frame; `rotations.png`: one row): 234 files instead of about 7,000, and half the bytes, for the phone's offline cache.
+`iso/folkLoader.ts` cuts the sheets into frame textures (`cut`, `Rectangle` frames on one source); its `FolkSet` is
+unchanged, so `folkSprite.ts` and `folkRules.ts` don't change. Every frame of a look, and of its armed looks, sits
+centred on one canvas 24px wider each side than the turned figure (PixelLab draws an armed move on a canvas up to 48px
+bigger, centred), so the feet (the sprite's anchor, bottom centre) stay put when the look changes. The layout is in `src/renderer/art/iso/README.md`.
+
+Not yet wired into the iso view (the folk still draw the old way there); that's the next task. The other peoples'
+casts (3 looks each, `walk`, `idle`, an attack (a punch, or a thrown spell for the casting peoples) and `death`) are
+being made the same way.
+
+## Isometric townsfolk, wired in
+
+In the isometric view (`littletown.iso`) the townsfolk are now drawn with the PixelLab looks (`iso/folkSprite.ts`)
+instead of the top-down figures. Changes `docs/HISTORY.md` "Isometric townsfolk (new, not yet wired in)": it is wired now.
+
+- `map/mapPeople.ts`: `isoFolk` (set by `main.ts` when the iso view is on). Each frame, for a person who is not
+  indoors, swimming, a werewolf in its form, in a people's combat form or in a beast shape, `render` makes (once) a
+  `FolkSprite` (`Drawn.folk`) in the same layer, puts it where the top-down sprite stood (`FOLK_SCALE` 0.55 times the
+  person's size) with the same `zIndex`, calls `update(view, x, y, seconds, dt)` and hides the old sprite and its
+  harm marks. The iso view's `placeLoose` then carries it onto the diamonds like any loose child, so sorting among
+  buildings, tapping (`personAt` works on world px), shadows, rings, bubbles and the founder marker are unchanged.
+  Off the iso view nothing changes (`isoFolk` false).
+- `iso/folkRules.ts`: `FOLK_LOOKS.settlers` lists the nine looks. `dressOf(weight)` gives `plate` (heavy body
+  armour), `leather` (light or medium) or `base`; `pickLook(st, looks, dress)` picks by that dress and the person's sex,
+  stable by id. Dwarves (`origin` `dwarves`) get the `dwarf_*` looks, everyone else the human ones. A people with no
+  folder of its own uses `settlers`. Colour variety is `folkTint.variantOf(id)`, baked once per look.
+- `iso/folkSprite.ts`: reads the body armour's weight for the dress.
+- `build.mjs`: copies `art/iso/folk` to `out/renderer/iso/folk` (the web build copies `iso/` whole; the service worker
+  already fetches `iso/` in the background).
+- Test: `test/isoFolk.test.ts` (dwarf looks, plate, stable pick).
+
+Checked in a phone-size preview (12-day settlers town): figures draw, walk and face the right way. The software
+renderer used for previews is too slow to give a true frame rate; the cost per person is one sprite and a texture swap.
+
+## Fog of war
+
+The land is black until someone sees it, grey once seen and left, clear while in sight. Phone first; iso is the main view.
+
+**Sight (sim).** `data/sight.ts` holds every number: townsfolk see `SIGHT_BASE` 8 cells (+1 the founder, +1..4 for rangers, hunters, archers and the like via `SIGHT_CLASS`, -2 at night but never under `SIGHT_LEAST` 4); a finished building sees `SIGHT_BUILDING` 4, a ring-wall piece 2, and a watchtower, any gate or the seat `SIGHT_TALL` 12, so the town is never fogged. People away on an expedition see nothing here.
+
+**Explored land (sim, saved).** `sim/fog.ts`. `GameState.explored?: string`, one character a cell ('1' seen), like `land.wear`. `fogTick` runs in `sim.ts` every `FOG_EVERY` 5 ticks (it is a rule of the world: it runs with the autopilot off too). A town with no `explored` (new, or an older save) starts with `START_EXPLORED` 16 cells round the camp plus everything its people and buildings see. The save packs it as bits in base 64 (`packedExplored`, about 6 KB, like `packedPools`); `parseSave` unpacks it. No save version bump. Byte arrays are cached per state in a `WeakMap`, and rebuilt if `explored` is replaced (a loaded save).
+
+**What is in sight now** is worked out in the same pass and put in the snapshot as `sight` (a string like `explored`; `explored` is in the snapshot too). I chose the sim over the renderer because the sim already has every person's class and the night, and one pass over disks is cheaper than the renderer redoing it from the snapshot; both are plain strings, so the phone worker's diff compares them cheaply (primitives). `snapshot()` starts the fog if it isn't started (idempotent, deterministic).
+
+**Drawing.** `map/fogLayer.ts` (+ pure `map/fogRules.ts`): one sprite the size of the land, painted from a pixel-a-cell canvas, stretched with linear filtering, 3x3-blurred for soft edges, eased toward its target and painted again at most every 110 ms and only while the fog moves. Black is opaque; seen-and-left is a cold grey veil (`GREY_ALPHA` 0.6, `GREY_RGB`) with a cloudy noise texture, which mutes the land and buildings as last seen. It goes in `iso.lightLayer` (already on the diamonds, over the world) with no change to `isoView.ts`, or in `map.world` for the top-down map. The minimap draws the same canvas over its ground (`Minimap.fog`). Raiders, roaming bands, strangers, travellers and couriers outside sight are filtered out in `main.ts` (`inSightOnly`); wildlife hides itself through `MapWildlife.seen`. Ambient bees, crows and birds are not hidden.
+
+**Old dimming.** The ground art's own fog of the land beyond `land.open` (`visibility()` in `groundArt.ts`) is untouched and shows under this one.
+
+**Later, the owner's choice.** Fog changes nothing else. It could limit building to explored land, make the planner and the order menu pick spots only in explored land, have raids and quests start beyond the sight, make scouting and watchtowers matter, or reveal land for expeditions.
+
+Test: `test/fog.test.ts`.
+
+## Iso pictures in the menus and cards
+
+With the isometric view on (`littletown.iso`), the build menu, In town, the info cards and the phone's tap card show the
+kit piece the map draws for that building and people, not the top-down picture. Off the iso view nothing changes.
+
+- `art/isoPicture.ts` (`isoPicture(defId, origin, theme, boxW, boxH)`): the piece is `pieceFor(kitOf(kitNameFor(...)), defId)`
+  (iso/isoKits.ts, so fields show the kit's field tile and walls/gates their run/gate piece), loaded by URL
+  (`kitUrl`, once each, through `loadImage`), cropped to its visible pixels, scaled whole pixels up (never smoothed) to fit
+  the box, and cached per (kit, piece, box). Null until the image is in.
+- `main.ts` `__picture({ building })` (the strip's hook that `panel/structure.ts` `thumb()` and the phone's `cardArt` use)
+  returns the iso picture when iso is on; until its image has arrived it returns an unsettled copy of the old picture,
+  so `thumb()` asks again (it retries, and keeps only settled pictures). Box sizes are unchanged.
+- Not done: the seat/castle/hold pieces (iso/isoCastle.ts) are not used: a seat shows its kit's longhouse, as the map draws it.
+  The desktop's own-window menu (no strip beside it) still draws the old pictures.
+
+## Festivals, work and fire's smoke in the isometric view
+
+Finishes the "Left for later" list of "Map layers in the isometric view" (`docs/notes/iso-map-layers.md`). Settings' "Isometric view" (`littletown.iso`) only; the simulation and the top-down map are as they were (each layer keeps its old path when no `useIso` is called).
+
+- **Loose pieces on the diamonds:** the layers that drew top-level sprites in world px into the hidden map's `things` now draw into the iso view's `things` (`const lay` in `main.ts`), where `IsoView.placeLoose` puts each on its diamond and sorts it: `MapMarket` (stalls; the stallholder's cry is lifted by its `pivot`, and the stalls' world spots are kept in `spots` since the container's own position is moved), `MapStockpile` (heaps), the haystacks and washing lines of `MapChores`, the stumps and rubble of `MapFelling`, and the poles, table, props and bonfire of `MapFestival`.
+- **The stockpile's own picture:** `IsoView.artHidden` (a set of building ids, in the sprite's key) hides a kit piece when something else shows it; `MapStockpile` is given it in place of the map's `artHidden`. `buildingAt` still finds a hidden piece, so the stockpile can be tapped. `stockpile.sync` now runs before `iso.syncBuildings` in `main.ts`.
+- **Pieces that move in px get a stage:** `MapFelling` (falling tree or rock, leaves, chips, dust) and `MapChores` (the sown seed, the well's bucket and rope) work their motion out in px, which `placeLoose` would undo. In the iso view each fall, throw or well gets a `Container` loose at its foot (world px, so `placeLoose` puts it on the diamonds) and its pieces move in screen px about it; a stage with nothing left is destroyed. The bucket hangs `WELL_HEIGHT` px up its stage. Felling still uses the top-down tree picture the map gave it (`map.onFelled`), not the kit's.
+- **Festival:** `MapFestival.useIso(things)` moves the confetti and fireworks figures into `things` (loose, at the ring's middle, drawn in screen px about it) and the bunting strings are drawn in iso px about the point between two poles (`drawString`, `sc`). The lights layer isn't there, so lanterns, candles, the bonfire's glow and the firework blooms are additive glows loose in `things` (`addGlow`: the sprite's anchor lifts it), their alpha times `MapFestival.glowK` (the map's `lights.alpha`, set by `MapView` each frame).
+- **Upright effects:** `IsoView.screenFx` (above the things, below the light, in iso px; `isoOf` puts a world point on it, `topOf(id)` gives the top of a building's picture) now holds `MapGains` (+3 floating up, the flag when a building is finished, flying from `topOf`), `SmokeColumns` (a burning building's smoke, from `ISO_LIFT` px over its middle, so it climbs straight up) and `WorkFx` (sparks, steam, sawdust, builders' dust: each mote starts from the building's door on the screen; the forge's glow goes in `IsoView.glow`, which `setNight` already dims). Each has `useIso(...)`, called in `main.ts`.
+- **Left for later:** the wildfire art over a burning building is still the map's; the felled tree's picture is the top-down one; the festival's poles and bunting are small next to the kit buildings (the top-down sizes).
+- Checked in a phone-size preview, upright (393x852) and sideways (852x393): the festival ring with bunting, bonfire and table; smoke from a burning building; a stockpile's heaps, floating gains, the finished-building flag, forge glows and motes, falls and the well's bucket and seed (counted on the screen's layers as well).
+
+## Lights on their torches (isometric view)
+
+The owner saw lights floating in town. Cause: in the isometric view (`littletown.iso`) `IsoView.setLamps` drew a flame
+glow at each lit street light, but the lamp itself (`StreetLamps`, `map/streetLamps.ts`) is a top-down prop put in the
+hidden top-down `things` layer, so in iso only the glow was seen, with no torch or lantern post under it. The sim's
+light sources are unchanged: every one of them really is a lamp (a torch on a stake, the lantern post, a gas lamp...).
+
+- `IsoView.setLamps(lights, era)` (`iso/isoView.ts`) now takes every street light (lit or not, `room === null`) and the
+  age, stands a post for each among the things (the top-down look: `LAMP_LOOK` in `map/lampRules.ts`, a torch on a stake
+  for the Stone Age and the Village pack's `v_lamp.png` post after, tinted by age), depth-sorted with the buildings, and
+  adds the glow only for a lit one, 26 px up at the post's head. A post that has no picture yet falls back to the stake;
+  it is redrawn when the picture arrives. An unlit lamp stands dark; when a light goes (its id leaves the list) its post
+  and glow go with it.
+- `main.ts` passes `next.lights.lights.filter((l) => l.room === null)` and `next.era`.
+- Windows' glows (`windowSpots`) are on the building's own faces and the fires' glows are on drawn buildings; unchanged.
+
+## Stores readout and the home button moved
+
+The phone page's top right now shows a small readout of the town's coins and main materials, and the "back to the town"
+button moved to the bottom left so it no longer sits where the fading notices appear (they stay at the bottom right).
+
+- `renderer/mobile/storesReadout.ts` (`startStoresReadout`) builds the `#stores-readout` button from the snapshot's
+  `stock` and `coins`; it redraws only when a figure changes. A tap sets `littletown.subtab.build` to `Stores` and opens
+  the Town menu. It hides while a menu, a battle, a scene or an event card is open. CSS is in `mobile/index.html`.
+- `renderer/mobile/storesPick.ts` (`readoutItems`, `short`) is the pure part: coins (once above 0), wood, stone, food
+  (the edible materials summed), then up to two of the stage's materials the town holds (`STAGE`: iron, lumber, cloth,
+  bricks, leather...), most plentiful first; five at most. Icons come from `art/materialIcons.ts` (`stockIcon`); coins are a
+  CSS gold disc and food borrows the berries' icon. Test: `test/storesReadout.test.ts`.
+- `#centre-town` (`renderer/main.ts`, CSS in `renderer/index.html`) is at `left: 8px` rather than right.
+- No pickaxe button exists on this branch of main (the land-clearing and Surface/Underground controls are not in the
+  phone page's code), so there was nothing to move; the underground "into the Underdark" action is a tap card.
+- (At the merge) the land-clearing ⛏ button (`#clear-land`, `renderer/index.html`) moved to the left too, above the home
+  button, so the notices at the bottom right are clear.
+
+## Pop-ups hold the town
+
+The owner's ask: the game pauses on any pop-up, such as events or fights. The "is a pop-up open" logic is in one place,
+`sim/popups.ts` (`holdOf`), plus a small registry for cards only the page knows of (`mobile/popupHold.ts`). This extends
+"A fight on screen holds the game" (`fightOnScreen`, `holdForFight`, HISTORY.md) and the loading screen's `held`.
+
+**In the sim (`src/shared/sim/popups.ts`)**
+- `holdOf(s)` returns `'fight'` (a raid's battle or tactics board, or a watched party/skirmish/bout fight, i.e.
+  `fightOnScreen`), `'popup'` (a question for the player is up) or `null`. Nothing when `paused` or `gameOver`.
+- `blocksTown(prompt)`: every question except the raid's own (its clock runs with the fight) and the gate's (the town is
+  already paused for it), and except one that has already held the town `POPUP_MOST_TICKS` (6000, ten real minutes).
+  That is the way out for a question nobody answers: `Prompt.stood` counts the held ticks, and past the cap the town goes
+  on and the question's own clock times it out as ever.
+- `EVENT_BOX_KINDS` is the list of questions that open the event box; the box (`mobile/eventSheet.ts`) and the strip's
+  small card (`main.ts`) both read it now, instead of two copies of a long `||` chain.
+- `Sim.step(hold)` / `Sim.advance(..., hold)`. With `'popup'` the tick applies the queued commands (so the answer lands) and
+  nothing else, and counts `stood`. With `'fight'` it runs `fightStep`. With `null` it is the town as ever. The hold is a
+  parameter, so headless runs (tests, time away, `holdForEvent`) play exactly as before.
+- `GameLoop.pump` asks `holdOf` every frame, so a hold clears the moment its question is answered, skipped, timed out or
+  removed. Nothing is stored that could stick. A raid being skipped (`raidSkip`) does not run flat out over a question.
+
+**Fights: the town holds, the fight plays** (`Sim.fightStep`). The raid battle and the watched fights run on the town's
+`s.tick`, so the tick still advances while a fight is on screen. What runs in a fight tick: `fightClock` (tick +1, the
+questions' clocks held), `fightSpeedTick`, the defenders on the trail (they still walk to their spots, because the
+set-up waits until they stand there), `updateRaid`, and for a watched party/skirmish/bout `updateExpeditions`,
+`roamersTick`, `arenaTick`. Everything else stands still: the other townsfolk's needs, work and walking, the hourly
+systems, farming, other raids and events, weather. Two honest limits: the calendar (time of day) moves with the fight's
+ticks, since `calendar(s.tick)` is read in some 200 places and a separate fight clock would mean rewriting them; and a
+watched party's trip and the other parties go on, since they run in the same `updateExpeditions` as the fight. Mine, Deep
+and portal views are watches of a party or delve, not fights stepped on their own, so they follow the party rule.
+
+**On the page (`src/renderer/mobile/popupHold.ts`)**
+- `holdWhileUp(el)` registers a card's element once. It holds the town while the element is in the page and not hidden,
+  checked every 250 ms, so closing, hiding or removing it releases the hold with no call to remember. One unbroken hold
+  is cut at ten minutes (`MOST_MS`). A card in the strip's document (the raid recap) is read through
+  `window.__cardUp`, and the page is the only one that tells the host.
+- `Bridge.holdCards(on)` becomes `{ t: 'cards', on }` for the host (`shared/simHost.ts`), which sets `GameLoop.cardsUp`:
+  the loop steps with `'popup'` (a fight on screen still wins and plays).
+- Registered: the event box (`eventSheet.ts`, including its page of "what came of it"), reveal cards (`revealCard.ts`:
+  rare things, a haul, favourites' obituaries and milestones all go through it), and the raid recap (`battle/raidRecap.ts`).
+
+**What holds the town now:** every sim question except the raid's and the gate's (events, fateful and secret events,
+sagas, road events, debriefs, envoys, the dragon, evolutions, refugees, villages, council/trial/revolt, a people's
+"ways", the Great Enemy, strangers, rites, thirst, visitors; disputes, duels, deals and naming come through these);
+a cutscene (it already paused the sim: `s.paused`); the event box's outcome page; reveal cards; the raid recap; and the
+fights above. The founder's death is `gameOver` (the sim stands still); the heir choice is a new-game card, so no town is
+running. Not held: the news bubble, tips and toasts.
+
+**Tests:** `test/popups.test.ts` (a question stops the clock and answering restarts it; the ten-minute limit; the raid's
+own question does not hold; a raid battle plays through its set-up while an idle townsperson's needs and place stand still).
+Checked in a phone-size preview (393x852): the clock stood still with an event up and ran on after the answer.
+
+**Close buttons, and choices that wait** (the owner's addition)
+- Every pop-up has a corner ✕ (44 px): the event box (`.event-x`), reveal cards (`.reveal-x`), the raid recap and the "While you
+  were away" card (`.rr-x`), the strip's small question card (`.prompt-x`). Closing releases the hold (the registry reads the element).
+- A choice closed unanswered is **parked**: `Prompt.parked`, commands `parkPrompt` / `openPrompt` (`sim/popups.ts`). A parked
+  choice no longer holds the town; its clock is cut to `PARK_WAIT_TICKS` (6 game hours) if longer, and `expirePrompts` then
+  answers it with its default (the same pick as ever), which removes it and its button. Not parkable (`canPark`): the raid's own
+  question, the gate's, and a debrief (closing that is reading it).
+- The button: `mobile/waitingChoices.ts` (`#choices-bubble`, "❓ N", under the news bubble) opens the oldest parked choice
+  (`openPrompt`). The desktop strip has its own small "N choices waiting" button (`overlayUi.ts`, `PromptCard.waiting`).
+  `PromptView.parked` / `waits` carry it to the renderer.
+- **Founder choices:** a question with `Prompt.waits` (founder quests, disputes, duels, deals: main's `waitingOnFounder`) holds the town until answered even when closed, never times out, and the card says so
+  ("The town waits for your answer"); its button is red. Nothing in main sets it yet: the founder-led quests (not on main) should set
+  it on their questions. There is no heir-choice question on main (the founder's death with no heir is `gameOver`), so nothing to do there.
+- Tests: park/open/auto-resolve/waits/not-parkable in `test/popups.test.ts`. Phone preview (393x852, 852x393): the ✕ closes the box, the clock runs
+  on, the "❓ 1" button reopens it, and the clock stands still while the box is up.
+
+## The peoples' own casts begin: the orcs
+
+The first of the peoples' own iso casts: `src/renderer/art/iso/folk/orcs/` holds three looks, `man_brute`,
+`woman_orc` and `man_shaman` (PixelLab: a settler front view edited into the people's dress, turned to 8 directions),
+each with `walk`, `idle`, `death` and `attack_1h` (a punch: PixelLab's mannequin has no weapon template). The casting
+peoples (liches, druids, fae, alchemists) will get a thrown spell as `cast_1h` instead.
+
+- `iso/folkRules.ts`: `FOLK_LOOKS.orcs`. Look names start `man_`/`woman_` so `pickLook` matches them to the person's
+  sex. A people's cast has no armed looks: `<look>+axe` is missing, so the bare look is used.
+- `FALLBACK`: `chop` and `hammer` no longer fall back to `attack_1h` (a cast with no tools idles at its work rather
+  than punching the tree).
+- Test: `test/isoFolk.test.ts` (a people's cast by sex; the chore fallback).
+- The other ten peoples (3 looks each) follow as their animations finish; the coordinator's `assemble_folk.py` lays
+  them out with the same names (`RENAME`).
+
+## The liches' and druids' own iso casts
+
+`src/renderer/art/iso/folk/lich/` (`man_lord`, `woman_ghoul`, `man_skeleton`) and `folk/druid/` (`man_elder`,
+`woman_druid`, `man_warden`), each with `walk`, `idle`, `death` and `cast_1h` (a thrown spell), laid out like the orcs
+(docs/notes/iso-folk-orcs.md) and listed in `FOLK_LOOKS` (`iso/folkRules.ts`). A fight's `attack_1h`/`attack_2h` now
+falls back to `cast_1h` before idling, so the casting peoples fight with their spell. Test: `test/isoFolk.test.ts`.
+
+## The Blood Court's and the Moon Pack's own iso casts
+
+`src/renderer/art/iso/folk/vampire/` (`man_lord`, `woman_lady`, `man_thrall`) and `folk/werewolf/` (`man_hunter`,
+`woman_huntress`, `man_beast`), each with `walk`, `idle`, `death` and `attack_1h` (a punch), laid out like the orcs
+(docs/notes/iso-folk-orcs.md) and listed in `FOLK_LOOKS` (`iso/folkRules.ts`). The Moon Pack's `man_beast` (the
+wolf-headed form) is left out of the everyday looks: it's there for drawing a werewolf in its form in the iso view
+later (`map/mapPeople.ts` still draws the form the old way).
+
+## The last six peoples' own iso casts
+
+`src/renderer/art/iso/folk/robot/` (`man_worker`, `man_guard`, `woman_android`), `merfolk/` (`man_mer`, `woman_mer`,
+`man_fisher`), `nomads/` (`man_rider`, `woman_nomad`, `man_herder`), `fae/` (`man_fae`, `woman_fae`, `man_sprite`),
+`alchemists/` (`man_master`, `woman_alchemist`, `man_apprentice`) and `knights/` (`man_knight`, `woman_knight`,
+`man_squire`), laid out like the orcs (docs/notes/iso-folk-orcs.md) and listed in `FOLK_LOOKS` (`iso/folkRules.ts`).
+Every people (the dwarves wear the settlers' dwarf looks) now has its own cast.
+
+All have `walk`, `idle` and their attack (`attack_1h`, a punch; `cast_1h`, a thrown spell, for the fae and alchemists).
+The month's PixelLab generations ran out before the deaths: only the machines and `merfolk/man_mer` have `death`; the
+rest have no `hurt` either, so `iso/folkSprite.ts` lays the standing figure on its side (`sprite.rotation`) for a
+look with no death drawn. The missing deaths (16 looks x 8 directions, about 220
+generations) can be made after the allowance resets (Nov 21) with the coordinator's `pl_people.py` (`MOVES_ONLY=death`)
+and laid in with `assemble_folk.py`.
+
+## The isometric view made the default
+
+The owner's ask: iso is the default view. `iso/isoSetting.ts`: `isoViewOn()` is on unless `littletown.iso` is `'0'`;
+a one-time `littletown.isoDefault` flag moves every phone over once (one that had chosen the top-down view too), after
+which the player's own choice in Settings stands. The ☰ menu's switch reads "Isometric view" (no longer "in
+progress"). The top-down view stays in the code, behind the switch, until the owner says to remove it.
