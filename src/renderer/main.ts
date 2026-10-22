@@ -182,6 +182,7 @@ import { loadStills } from './art/stills';
 import { loadLpc, loadLpcFaces, lpcFrame } from './art/lpc/lpc';
 import { topDownArt } from './art/topDown';
 import { buildingPicture } from './art/buildingPicture';
+import { isoPicture } from './art/isoPicture';
 import { pickCovered } from './map/packBuildings';
 import { airFor } from './town/ambientView';
 import { textureCanvas } from './art/pixelArt';
@@ -2013,7 +2014,20 @@ async function start(): Promise<void> {
       if (gone) return fallenFace(gone, 64);
       const who = h.person != null ? next.people.find((p) => p.id === h.person) : undefined;
       if (who) return personPicture(who);
-      if (h.building && BUILDING_BY_ID[h.building]) return buildingPicture(h.building, buildStyle || 'town', 96, 64);
+      if (h.building && BUILDING_BY_ID[h.building]) {
+        const old = buildingPicture(h.building, buildStyle || 'town', 96, 64);
+        if (!isoViewOn()) return old;
+        // (the isometric view: the kit piece the map draws; until its image is in, a copy of the old picture that the
+        // menu asks for again, not keeps)
+        const iso = isoPicture(h.building, next.origin.id, next.theme, 96, 64);
+        if (iso) return iso;
+        if (!old) return null;
+        const copy = document.createElement('canvas');
+        copy.width = old.width;
+        copy.height = old.height;
+        copy.getContext('2d')!.drawImage(old, 0, 0);
+        return copy;
+      }
       return null;
     };
     const q = next.prompts[0];
