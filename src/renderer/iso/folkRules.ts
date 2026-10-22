@@ -133,6 +133,9 @@ export const FOLK_LOOKS: Record<string, readonly string[]> = {
   orcs: ['man_brute', 'woman_orc', 'man_shaman'],
   lich: ['man_lord', 'woman_ghoul', 'man_skeleton'],
   druid: ['man_elder', 'woman_druid', 'man_warden'],
+  vampire: ['man_lord', 'woman_lady', 'man_thrall'],
+  // (the Moon Pack's `man_beast` is the wolf form, kept for when a werewolf turns: not an everyday look)
+  werewolf: ['man_hunter', 'woman_huntress'],
 };
 
 /** The base look's dress by what they wear: plate for heavy body armour, leather for light or medium, base otherwise. */

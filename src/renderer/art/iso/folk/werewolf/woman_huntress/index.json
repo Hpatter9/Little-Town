@@ -1,0 +1,32 @@
+{
+ "look": "woman_huntress",
+ "people": "werewolf",
+ "frame": [
+  148,
+  148
+ ],
+ "directions": [
+  "south",
+  "south-east",
+  "east",
+  "north-east",
+  "north",
+  "north-west",
+  "west",
+  "south-west"
+ ],
+ "animations": {
+  "walk": {
+   "frames": 6
+  },
+  "death": {
+   "frames": 7
+  },
+  "attack_1h": {
+   "frames": 6
+  },
+  "idle": {
+   "frames": 4
+  }
+ }
+}
