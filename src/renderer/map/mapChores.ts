@@ -19,9 +19,13 @@ import { coveredCells, hasLaundry, hayStacks, laundryOut, laundryPieces, sowThro
 const SEEDS_MOST = 90;
 /** How near (px) to a well someone drawing water must stand for its bucket to rise. */
 const WELL_NEAR = 1.6 * CELL;
+/** How high (px) the bucket hangs over the well's front edge in the iso view. */
+const WELL_HEIGHT = 30;
 
 interface Seed {
   s: Sprite;
+  /** In the iso view, the stage its throw is on (screen px about the thrower's feet; see `MapChores.iso`). */
+  box: Container | null;
   vx: number;
   vy: number;
   floor: number;
@@ -39,14 +43,26 @@ export class MapChores {
   private readonly seeds: Seed[] = [];
   private readonly throwing = new Map<number, boolean>();
   private sowers: PersonView[] = [];
-  private readonly buckets = new Map<number, { s: Sprite; rope: Graphics; x: number; top: number }>();
+  private readonly buckets = new Map<number, { s: Sprite; rope: Graphics; x: number; top: number; box: Container | null }>();
   private drawers: { well: number; x: number; top: number }[] = [];
   private readonly lines = new Map<number, Line>();
 
-  constructor(private readonly things: Container) {
+  /** The iso view's sorted `things` (when set, the seed and the bucket are drawn in screen px about a loose stage, as
+   *  `MapFelling` does, since their motion is worked out in px and the iso view moves only what is placed in world px). */
+  private iso = false;
+  private readonly stages = new Set<Container>();
+
+  constructor(private things: Container) {
     choresTex(() => {
       for (const h of this.hay.values()) h.key = '';
     });
+  }
+
+  /** Draw in the iso view's `things` instead of the top-down map's. */
+  useIso(things: Container): void {
+    this.things = things;
+    this.iso = true;
+    for (const h of this.hay.values()) h.key = '';
   }
 
   /** The fields, the wells, the homes and who's at what (per snapshot). */
@@ -102,16 +118,24 @@ export class MapChores {
       if (!this.drawers.some((d) => d.well === id)) {
         b.s.destroy();
         b.rope.destroy();
+        b.box?.destroy();
         this.buckets.delete(id);
       }
     if (tex.bucket)
       for (const d of this.drawers) {
         if (this.buckets.has(d.well)) continue;
-        const rope = this.things.addChild(new Graphics());
-        const s = this.things.addChild(new Sprite(tex.bucket));
+        // (iso: the rope and bucket hang about the well's front edge, on a stage loose there)
+        const box = this.iso ? this.things.addChild(new Container()) : null;
+        if (box) {
+          box.position.set(d.x, d.top + 24);
+          box.zIndex = d.top + 24;
+        }
+        const host = box ?? this.things;
+        const rope = host.addChild(new Graphics());
+        const s = host.addChild(new Sprite(tex.bucket));
         s.anchor.set(0.5, 0);
         s.scale.set(0.7);
-        this.buckets.set(d.well, { s, rope, x: d.x, top: d.top });
+        this.buckets.set(d.well, { s, rope, x: d.x, top: d.top, box });
       }
     // the washing out by the homes
     const out = laundryOut(o.weather, o.season, o.daylight);
@@ -169,14 +193,24 @@ export class MapChores {
       if (on && !this.throwing.get(p.id)) {
         const r = Math.random;
         const n = calm ? 2 : 6;
+        const sx = p.x + p.dir * 6;
+        let box: Container | null = null;
+        if (this.iso) {
+          box = this.things.addChild(new Container());
+          box.position.set(sx, p.y);
+          box.zIndex = p.y + 1;
+          this.stages.add(box);
+        }
+        const ox = box ? sx : 0;
+        const oy = box ? p.y : 0;
         for (let j = 0; j < n && this.seeds.length < SEEDS_MOST; j++) {
-          const s = this.things.addChild(new Sprite(Texture.WHITE));
+          const s = (box ?? this.things).addChild(new Sprite(Texture.WHITE));
           s.tint = r() < 0.5 ? 0xe8d8a0 : 0xc8b070;
           s.width = s.height = 1;
           s.anchor.set(0.5);
-          s.position.set(p.x + p.dir * 6, p.y - 20);
+          s.position.set(sx - ox, p.y - 20 - oy);
           s.zIndex = p.y + 1;
-          this.seeds.push({ s, vx: p.dir * (20 + r() * 30) + (r() - 0.5) * 16, vy: -20 - r() * 20, floor: p.y + 2 + (r() - 0.5) * 10, age: 0 });
+          this.seeds.push({ s, box, vx: p.dir * (20 + r() * 30) + (r() - 0.5) * 16, vy: -20 - r() * 20, floor: p.y + 2 + (r() - 0.5) * 10 - oy, age: 0 });
         }
       }
       this.throwing.set(p.id, on);
@@ -194,15 +228,25 @@ export class MapChores {
         this.seeds.splice(i, 1);
       }
     }
+    for (const box of this.stages)
+      if (!box.children.length) {
+        box.destroy();
+        this.stages.delete(box);
+      }
     // the bucket wound up the well and lowered again, swinging on its rope
     for (const [id, b] of this.buckets) {
       const k = (Math.sin(now / 900 + id) + 1) / 2;
-      const y = b.top + k * 10;
+      // (iso: about the stage, up the well's wall; the same swing)
+      const bx = b.box ? 0 : b.x;
+      const top = b.box ? -WELL_HEIGHT : b.top;
+      const y = top + k * 10;
       const sway = calm ? 0 : Math.sin(now / 260 + id) * 1.2;
-      b.s.position.set(Math.round(b.x + sway), Math.round(y));
-      b.s.zIndex = b.top + 31;
-      b.rope.clear().moveTo(b.x, b.top - 6).lineTo(b.x + sway, y + 1).stroke({ color: 0x8a6a48, width: 1 });
-      b.rope.zIndex = b.top + 30.9;
+      b.s.position.set(Math.round(bx + sway), Math.round(y));
+      b.rope.clear().moveTo(bx, top - 6).lineTo(bx + sway, y + 1).stroke({ color: 0x8a6a48, width: 1 });
+      if (!b.box) {
+        b.s.zIndex = b.top + 31;
+        b.rope.zIndex = b.top + 30.9;
+      }
     }
     // the washing flapping in the wind
     const gust = 0.25 + Math.abs(wind) * 0.6;

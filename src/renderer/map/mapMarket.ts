@@ -22,6 +22,8 @@ const CRY_EVERY = 5;
 export class MapMarket {
   private tex: Record<string, Texture> = {};
   private readonly stalls: Container[] = [];
+  /** Where each stall stands (world px): the container's own position is moved onto the diamonds in the iso view. */
+  private readonly spots: { x: number; y: number }[] = [];
   private at: { x: number; y: number } | null = null;
   private cry: Container | null = null;
   private cryT = 0;
@@ -47,6 +49,7 @@ export class MapMarket {
     if (square && this.at && square.x === this.at.x && square.y === this.at.y && this.stalls.length) return;
     for (const s of this.stalls) s.destroy({ children: true });
     this.stalls.length = 0;
+    this.spots.length = 0;
     this.cry?.destroy({ children: true });
     this.cry = null;
     this.at = square;
@@ -69,6 +72,7 @@ export class MapMarket {
       c.position.set(x, y);
       c.zIndex = y + 6;
       this.stalls.push(c);
+      this.spots.push({ x, y });
     }
   }
 
@@ -81,9 +85,11 @@ export class MapMarket {
     this.cry?.destroy({ children: true });
     this.cry = null;
     if ((this.cryN++ & 1) === 1) return; // (a quiet spell between cries)
-    const st = this.stalls[this.cryN % this.stalls.length];
+    const st = this.spots[this.cryN % this.spots.length];
     this.cry = this.layer.addChild(makeBubble(CRIES[this.cryN % CRIES.length]));
-    this.cry.position.set(st.x, st.y - 52);
+    // (lifted by its pivot, so it stands above the stall in the iso view too, where a ground point is moved to a diamond)
+    this.cry.position.set(st.x, st.y);
+    this.cry.pivot.set(0, 52);
     this.cry.zIndex = 1e7;
   }
 }
