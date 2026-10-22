@@ -1,0 +1,29 @@
+{
+ "look": "man_knight",
+ "people": "knights",
+ "frame": [
+  156,
+  156
+ ],
+ "directions": [
+  "south",
+  "south-east",
+  "east",
+  "north-east",
+  "north",
+  "north-west",
+  "west",
+  "south-west"
+ ],
+ "animations": {
+  "attack_1h": {
+   "frames": 6
+  },
+  "walk": {
+   "frames": 6
+  },
+  "idle": {
+   "frames": 4
+  }
+ }
+}

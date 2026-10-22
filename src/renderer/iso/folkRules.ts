@@ -136,6 +136,12 @@ export const FOLK_LOOKS: Record<string, readonly string[]> = {
   vampire: ['man_lord', 'woman_lady', 'man_thrall'],
   // (the Moon Pack's `man_beast` is the wolf form, kept for when a werewolf turns: not an everyday look)
   werewolf: ['man_hunter', 'woman_huntress'],
+  robot: ['man_worker', 'man_guard', 'woman_android'],
+  merfolk: ['man_mer', 'woman_mer', 'man_fisher'],
+  nomads: ['man_rider', 'woman_nomad', 'man_herder'],
+  fae: ['man_fae', 'woman_fae', 'man_sprite'],
+  alchemists: ['man_master', 'woman_alchemist', 'man_apprentice'],
+  knights: ['man_knight', 'woman_knight', 'man_squire'],
 };
 
 /** The base look's dress by what they wear: plate for heavy body armour, leather for light or medium, base otherwise. */

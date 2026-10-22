@@ -1,0 +1,32 @@
+{
+ "look": "woman_android",
+ "people": "robot",
+ "frame": [
+  148,
+  148
+ ],
+ "directions": [
+  "south",
+  "south-east",
+  "east",
+  "north-east",
+  "north",
+  "north-west",
+  "west",
+  "south-west"
+ ],
+ "animations": {
+  "idle": {
+   "frames": 4
+  },
+  "attack_1h": {
+   "frames": 6
+  },
+  "death": {
+   "frames": 7
+  },
+  "walk": {
+   "frames": 6
+  }
+ }
+}

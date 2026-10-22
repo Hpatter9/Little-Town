@@ -1,0 +1,29 @@
+{
+ "look": "man_apprentice",
+ "people": "alchemists",
+ "frame": [
+  152,
+  152
+ ],
+ "directions": [
+  "south",
+  "south-east",
+  "east",
+  "north-east",
+  "north",
+  "north-west",
+  "west",
+  "south-west"
+ ],
+ "animations": {
+  "idle": {
+   "frames": 4
+  },
+  "cast_1h": {
+   "frames": 6
+  },
+  "walk": {
+   "frames": 6
+  }
+ }
+}

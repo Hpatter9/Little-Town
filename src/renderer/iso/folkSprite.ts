@@ -74,7 +74,10 @@ export class FolkSprite extends Container {
       this.sprite.visible = false;
       return;
     }
-    const p: FolkPlay & { rate: number } = play(wantedAnim(st, this.speed, family), (a) => set.has(a));
+    const want = wantedAnim(st, this.speed, family);
+    const p: FolkPlay & { rate: number } = play(want, (a) => set.has(a));
+    // (a look with no death drawn yet lies its standing figure down rather than standing over its own fall)
+    this.sprite.rotation = want === 'death' && p.anim !== 'death' && p.anim !== 'hurt' ? -Math.PI / 2 : 0;
     const key = `${this.path}|${p.anim}`;
     if (key !== this.anim) {
       this.anim = key;
