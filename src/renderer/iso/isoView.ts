@@ -19,7 +19,7 @@ import type { Era } from '../../shared/data/eras';
 import { loadImage } from '../art/loadImage';
 import { BUILDING_BY_ID } from '../../shared/data/buildings';
 import { cellHash, gateFlip, propFor, sceneryFor, wallMaskAt, wallPieceFor, wallShape } from './isoTown';
-import { fitted, groundTile, kitOf, kitUrl, pieceFor, roleOf, ISO_ART, type Kit } from './isoKits';
+import { fitted, groundTile, kitOf, kitUrl, liesAlongY, pieceFor, roleOf, ISO_ART, type Kit } from './isoKits';
 import { IsoCastleView, type CastleIn } from './isoCastleView';
 import { anyoneNear, doorSpot, gateSpan, hasWindows, lightBox, swing, windowSpots, worldMatrix } from './isoLight';
 import { cellsInView, footBase, footDepth, footWidth, isoBounds, isoOrigin, isoToWorld, ISO_TH, ISO_TW, standingDepth, tileToIso, worldToIso, type Rect } from './isoMath';
@@ -311,14 +311,15 @@ export class IsoView {
       if ('role' in role && (role.role === 'wall_run' || role.role === 'gate') && land) {
         const ids = [...this.kit.pieces.keys()];
         if (role.role === 'gate') {
-          flip = gateFlip(foot);
           piece = wallPieceFor(ids, 'gate', b.def) ?? piece;
+          flip = gateFlip(foot) !== liesAlongY(this.kit.name, piece);
         } else {
-          // (a one-cell wall joins the walls beside it: a run along x or y, or a corner)
+          // (a one-cell wall joins the walls beside it: a run along x or y, or a corner; a run drawn lying along y is
+          // mirrored to lie along x)
           const m = wallMaskAt(isWall, foot.x, foot.y);
           const shape = wallShape(m);
-          flip = shape.flip;
           piece = wallPieceFor(ids, shape.part, b.def) ?? piece;
+          flip = shape.part === 'run' ? shape.flip !== liesAlongY(this.kit.name, piece) : shape.flip;
         }
       }
       const tex = this.texOf(piece);

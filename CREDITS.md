@@ -139,6 +139,15 @@ The trees, bushes, rocks, mushrooms, crystals, bones, idols, corals and shells s
 Rocky Area Objects, Forest Objects, Top-Down Cave Objects, Top-Down Seabed Objects and Fields Tileset (tower defence)
 packs.
 
+## Craftpix nature bits (the raid board's dressing)
+
+The grass tufts, reeds, flowers, stumps, fallen trunk, mushrooms, fern, pebbles, dry shrubs, thorns, bones, dragon's
+skeleton, broken pillars and ruined arch, sand mounds, ice floes, snowy rock and old man's statue the raid boards are
+dressed with in the isometric look (`src/renderer/art/iso/kits/wild/`, copied and trimmed by
+`tools/compose-board-wild.py`; its `index.json` names each one's source) are from **Craftpix.net**'s free Forest
+Objects, Rocky Area Objects, Undead Tileset, Rocks Pixel Art and Fields Tileset (tower defence) packs. The mill there is
+the town's windmill from the Summer top-down set (credited below).
+
 ## Craftpix trees, bushes, rocks and clouds (the town)
 
 The town's trees, bushes and rocks and the sky's clouds (`src/renderer/art/scenery/`, built by

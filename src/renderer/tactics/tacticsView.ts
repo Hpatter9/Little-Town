@@ -37,6 +37,9 @@ import { uiPlate } from '../ui/pixiFrame';
 import { isoViewOn } from '../iso/isoSetting';
 import type { TileLook } from '../../shared/sim/raidBoards';
 import { IsoBoardArt } from './isoBoard';
+import { ALONG_Y, liesAlongY } from '../iso/isoKits';
+import { DECOR_ART, DECOR_TALL, cellRoll, floraOf, generatedDecor, isRunPiece, joinOf, pickOf, runParts, type RunPart } from './boardDress';
+import type { DecorKind } from '../../shared/sim/raidBoards';
 
 /** A tile's diamond (px), and a step of height. */
 /** How long the board's camera takes to glide most of the way to the unit whose turn it is (ms). */
@@ -49,6 +52,8 @@ const FOOT = 10;
 /** How tall the town's wall and its gate stand on the board (px). */
 const WALL_TALL = 30;
 const GATE_TALL = 44;
+/** How wide a hand-made board's prop is drawn (tiles; the rest 0.85): a hut, a mill, a ruined arch, a wagon stand bigger. */
+const PROP_WIDE: Record<string, number> = { cottage: 1.25, 'wild/mill': 1.5, 'wild/ruin_1': 1.05, 'nomads/covered_wagon': 1.1, 'dwarves/boulders': 0.95, well: 0.8 };
 /** A sim tick (ms). */
 const TICK = 100;
 
@@ -227,7 +232,7 @@ export class TacticsScene {
       t.tiles.filter((x) => x.bld !== undefined && this.map.buildingPicture(x.bld)).length +
       t.tiles.filter((x) => x.wall && this.map.wallPicture(x.wall, x.gate ? 2 : 1, x.lx * 7 + x.ly, x.gate ? undefined : 'h')).length +
       t.tiles.filter((x) => (x.block === 'rock' || x.bush) && this.map.propKind(x.block === 'rock' ? 'rock' : 'bush', x.lx, x.ly)).length;
-    const key = `${t.w}x${t.h}:${t.tiles[0].lx},${t.tiles[0].ly}:${t.side}:${t.tiles.map((x) => x.h).join('')}:${t.tiles.map((x) => (x.hill ? x.hill[1] : x.log ? 'l' : x.art ? 'w' : x.tree ? 't' : x.g[0]) + (x.look?.[0] ?? '') + (x.prop?.[0] ?? '')).join('')}:${pics}${this.iso ? `:${this.iso.kit.name}${this.iso.arrived}` : ''}`;
+    const key = `${t.w}x${t.h}:${t.tiles[0].lx},${t.tiles[0].ly}:${t.side}:${t.tiles.map((x) => x.h).join('')}:${t.tiles.map((x) => (x.hill ? x.hill[1] : x.log ? 'l' : x.art ? 'w' : x.tree ? 't' : x.g[0]) + (x.look?.[0] ?? '') + (x.prop?.[0] ?? '')).join('')}:${pics}${this.iso ? `:${this.iso.kit.name}${this.iso.arrived}:${t.biome}:${t.season}:${t.board ?? ''}:${t.tiles.map((x) => x.decor?.[0] ?? '').join('')}` : ''}`;
     if (key !== this.key || this.tiles.length === 0) this.build(t, key);
     this.life.track(t);
     // the townsfolk and the raiders, each on their tile
@@ -278,6 +283,7 @@ export class TacticsScene {
     this.key = key;
     this.life.reset();
     let missing = false;
+    const flora = floraOf(t.biome, t.season);
     for (let v = 0; v < t.h; v++)
       for (let u = 0; u < t.w; u++) {
         const tile = t.tiles[v * t.w + u];
@@ -295,7 +301,20 @@ export class TacticsScene {
         const mark = new Graphics();
         c.addChild(mark);
         // a tree on the woods (the map's own)
-        if (tile.tree) {
+        if (tile.tree && this.iso) {
+          // (in the iso look, the land's own trees from the kits, several kinds, as the iso town has them)
+          const tt = this.iso.art(pickOf(flora.tree, tile.lx, tile.ly, 1));
+          if (tt) {
+            const s = new Sprite(tt);
+            s.anchor.set(0.5, 0.95);
+            const [x, y] = this.at(u, v, h);
+            s.position.set(x + (cellRoll(tile.lx, tile.ly, 2) - 0.5) * 8, y + 2);
+            const k = Math.min((TW * (0.72 + cellRoll(tile.lx, tile.ly, 3) * 0.2)) / tt.width, (TH * 2.8) / tt.height);
+            s.scale.set(cellRoll(tile.lx, tile.ly, 4) < 0.5 ? -k : k, k);
+            c.addChild(s);
+            this.life.sway(s);
+          } else missing = true;
+        } else if (tile.tree) {
           const tt = this.map.propOf(tile.lx, tile.ly) ?? this.map.propKind('tree', tile.lx, tile.ly);
           if (tt) {
             const s = new Sprite(tt);
@@ -310,16 +329,35 @@ export class TacticsScene {
         // a hand-made board's prop in the iso look: the kit's cart, barrels, fence, fallen wall...
         const prop = tile.prop && this.iso ? this.iso.prop(tile.prop) : null;
         if (tile.prop && this.iso && !prop) missing = true;
-        if (prop) {
+        if (prop && isRunPiece(tile.prop!)) {
+          // (a fence or a fallen wall lies along its run: joined to the same piece either side, a half toward each at a
+          // corner; a stretch of wall on its own lies down the board like the town's, a fence across it)
+          const [x, y] = this.at(u, v, h);
+          const kp = tile.prop!.includes('/') ? tile.prop! : `settlers/${tile.prop}`;
+          const parts = runParts(joinOf(t.w, t.h, u, v, (a, b) => t.tiles[b * t.w + a].prop === tile.prop), /_run$/.test(kp) ? 'v' : 'u', ALONG_Y.has(kp) ? 'v' : 'u');
+          for (const part of parts) c.addChild(this.runSprite(prop, part, x, y + TH / 2, TW));
+        } else if (prop) {
           const s = new Sprite(prop);
           s.anchor.set(0.5, 0.85);
           const [x, y] = this.at(u, v, h);
           s.position.set(x, y + 2);
-          s.scale.set(Math.min((TW * (tile.prop === 'stone_wall_run' ? 1.1 : 0.85)) / prop.width, (TH * 2.6) / prop.height));
+          s.scale.set(Math.min((TW * (PROP_WIDE[tile.prop!] ?? 0.85)) / prop.width, (TH * 2.6 * Math.max(1, PROP_WIDE[tile.prop!] ?? 1)) / prop.height));
           c.addChild(s);
         }
         // a fallen log (the wild set's own)
-        else if (tile.log) {
+        else if (tile.log && this.iso) {
+          // (in the iso look, the packs' fallen trunk, lying either way)
+          const lt = this.iso.art('wild/branch');
+          if (lt) {
+            const s = new Sprite(lt);
+            s.anchor.set(0.5, 0.75);
+            const [x, y] = this.at(u, v, h);
+            s.position.set(x, y + 2);
+            const k = (TW * 0.85) / lt.width;
+            s.scale.set(cellRoll(tile.lx, tile.ly, 7) < 0.5 ? -k : k, k);
+            c.addChild(s);
+          } else missing = true;
+        } else if (tile.log) {
           const lt = logTexture(tile.lx, tile.ly);
           if (lt) {
             const s = new Sprite(lt);
@@ -343,6 +381,9 @@ export class TacticsScene {
             c.addChild(s);
           }
         }
+        // the dressing: a hand-made board's own (drawn in LDtk), a little strewn over a generated one's open ground
+        const decor = this.iso ? (tile.decor ?? (t.board ? undefined : this.strewn(t, u, v))) : undefined;
+        if (decor && !this.dress(c, decor, tile, u, v, h)) missing = true;
         const [, y] = this.at(u, v, h);
         c.zIndex = y - 1;
         this.board.addChild(c);
@@ -359,8 +400,11 @@ export class TacticsScene {
           const above = t.tiles[(v - 1) * t.w + u];
           if (v > 0 && above?.gate) continue;
           if (this.iso) {
+            // (the gate lies along the wall, down the board's column: mirrored where the kit drew it along x)
             const [x2, y2] = this.at(u, v + 1, tile.h);
-            this.isoPiece(this.iso.piece(tile.wall), (x + x2) / 2, (y + y2) / 2 + TH / 2, TW * 1.3, (y + y2) / 2 + TH / 2);
+            const gate = this.iso.piece(tile.wall);
+            const sp = this.isoPiece(gate, (x + x2) / 2, (y + y2) / 2 + TH / 2, TW * 1.3, (y + y2) / 2 + TH / 2);
+            if (sp && !liesAlongY(this.iso.kit.name, gate)) sp.scale.x = -sp.scale.x;
             continue;
           }
           const pic = this.map.wallPicture(tile.wall, 2, tile.lx * 7 + tile.ly);
@@ -370,7 +414,17 @@ export class TacticsScene {
           continue;
         }
         if (this.iso) {
-          this.isoPiece(this.iso.piece(tile.wall), x, y + TH / 2, TW, y + 2);
+          // (the wall runs down the board's column: each piece lies along it, joined to the wall and gate either side)
+          const run = this.iso.piece(tile.wall);
+          const tex = this.iso.texture(run);
+          const parts = runParts(joinOf(t.w, t.h, u, v, (a, b) => !!t.tiles[b * t.w + a].wall), 'v', liesAlongY(this.iso.kit.name, run) ? 'v' : 'u');
+          if (tex)
+            for (const part of parts) {
+              const sp = this.runSprite(tex, part, x, y + TH / 2, TW);
+              sp.zIndex = y + 2;
+              this.board.addChild(sp);
+              this.pictures.push(sp);
+            }
           const def = tile.bld !== undefined ? this.defs.get(tile.bld) : undefined;
           if (def) this.isoPiece(this.iso.piece(def), x, y + TH / 2, TW * 0.9, y + 3);
           continue;
@@ -393,6 +447,23 @@ export class TacticsScene {
         const tile = t.tiles[v * t.w + u];
         const kind = tile.block === 'rock' && !(tile.prop && this.iso) ? 'rock' : tile.bush ? 'bush' : null;
         if (!kind) continue;
+        if (this.iso) {
+          // (in the iso look, the land's own rocks and bushes from the kits)
+          const kt = this.iso.art(pickOf(kind === 'rock' ? flora.rock : flora.bush, tile.lx, tile.ly, 5));
+          if (!kt) {
+            missing = true;
+            continue;
+          }
+          const [x, y] = this.at(u, v, tile.h);
+          const sp = new Sprite(kt);
+          sp.anchor.set(0.5, 0.85);
+          const k = Math.min((TW * (kind === 'rock' ? 0.85 : 0.7)) / kt.width, (TH * 2.2) / kt.height);
+          sp.scale.set(cellRoll(tile.lx, tile.ly, 6) < 0.5 ? -k : k, k);
+          sp.position.set(x, y + 2);
+          this.tiles[v * t.w + u].c.addChild(sp);
+          if (kind === 'bush') this.life.sway(sp, 0.04);
+          continue;
+        }
         const tex = this.map.propKind(kind, tile.lx, tile.ly);
         if (!tex) continue;
         const [x, y] = this.at(u, v, tile.h);
@@ -408,9 +479,77 @@ export class TacticsScene {
   }
 
   /** A kit piece stood on the board (the iso look): its foot at (x, y), `wide` px across, sorted by `z`. */
-  private isoPiece(piece: string, x: number, y: number, wide: number, z: number): void {
+  private isoPiece(piece: string, x: number, y: number, wide: number, z: number): Sprite | null {
     const tex = this.iso?.texture(piece);
-    if (tex) this.picture({ tex, w: tex.width, h: tex.height }, x, y, wide, z);
+    return tex ? this.picture({ tex, w: tex.width, h: tex.height }, x, y, wide, z) : null;
+  }
+
+  /** A wall or fence piece (or half of one) of a run, its foot at the tile's front corner (x, y), the whole piece `wide`
+   *  px across (boardDress.ts `runParts`). */
+  private runSprite(tex: Texture, part: RunPart, x: number, y: number, wide: number): Sprite {
+    const k = wide / Math.max(1, tex.width);
+    const sp = new Sprite(part.half ? this.iso!.half(tex, part.half) : tex);
+    sp.anchor.set(part.half === 'a' ? 1 : part.half === 'b' ? 0 : 0.5, 1);
+    sp.scale.set(part.flip ? -k : k, k);
+    sp.position.set(x, y);
+    return sp;
+  }
+
+  /** A generated board's dressing on a tile (boardDress.ts `generatedDecor`), by the water and the trees beside it. */
+  private strewn(t: TacticsView, u: number, v: number): DecorKind | undefined {
+    let wet = false;
+    let trees = false;
+    for (const [du, dv] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+      const n = u + du >= 0 && v + dv >= 0 && u + du < t.w && v + dv < t.h ? t.tiles[(v + dv) * t.w + u + du] : null;
+      if (!n) continue;
+      if (n.g === 'water' || n.g === 'shallows') wet = true;
+      if (n.tree) trees = true;
+    }
+    return generatedDecor(t.tiles[v * t.w + u], t.biome, wet, trees, t.season);
+  }
+
+  /** The dressing drawn on its tile (false: its picture hasn't loaded yet). Low, and the tall bits kept short, so it
+   *  never hides a fighter; a drift is painted (no pack has one). */
+  private dress(c: Container, kind: DecorKind, tile: TacTile, u: number, v: number, h: number): boolean {
+    const [x, y] = this.at(u, v, h);
+    const art = DECOR_ART[kind];
+    if (kind === 'drift') {
+      // (a heap of snow banked by the wind: a blue shadow on its lee, two or three lumps, the light on their tops)
+      const g = new Graphics();
+      const w = TW * art.wide * (0.75 + cellRoll(tile.lx, tile.ly, 8) * 0.4);
+      const cx = x + (cellRoll(tile.lx, tile.ly, 9) - 0.5) * TW * 0.2;
+      const lumps = 2 + Math.floor(cellRoll(tile.lx, tile.ly, 11) * 2);
+      g.ellipse(cx + 3, y + 3, w / 2, w / 5).fill({ color: 0x6f8cb0, alpha: 0.45 });
+      for (let i = 0; i < lumps; i++) {
+        const f = lumps === 1 ? 0 : i / (lumps - 1) - 0.5;
+        const r = (w / 2) * (0.55 + cellRoll(tile.lx, tile.ly, 12 + i) * 0.3);
+        const lx = cx + f * w * 0.5;
+        const ly = y - Math.abs(f) * 2;
+        g.ellipse(lx, ly, r, r * 0.42).fill({ color: 0xc6d6ea });
+        g.ellipse(lx - r * 0.12, ly - r * 0.1, r * 0.82, r * 0.32).fill({ color: 0xeef3fa });
+        g.ellipse(lx - r * 0.3, ly - r * 0.2, r * 0.35, r * 0.12).fill({ color: 0xffffff });
+      }
+      c.addChild(g);
+      return true;
+    }
+    const n = art.count ?? 1;
+    for (let i = 0; i < n; i++) {
+      const tex = this.iso!.art(pickOf(art.pieces, tile.lx, tile.ly, 10 + i));
+      if (!tex) return false;
+      const sp = new Sprite(tex);
+      sp.anchor.set(0.5, 0.9);
+      // (strewn within the diamond: one near the middle, several spread over it)
+      const spread = n > 1 ? 0.55 : 0.18;
+      const a = cellRoll(tile.lx, tile.ly, 20 + i) - 0.5;
+      const b = cellRoll(tile.lx, tile.ly, 30 + i) - 0.5;
+      sp.position.set(x + (a - b) * TW * spread * 0.5, y + (a + b) * TH * spread * 0.5);
+      let k = (TW * art.wide * (0.85 + cellRoll(tile.lx, tile.ly, 40 + i) * 0.3)) / tex.width;
+      if (DECOR_TALL.has(kind)) k = Math.min(k, (TH * 0.95) / tex.height);
+      sp.scale.set(cellRoll(tile.lx, tile.ly, 50 + i) < 0.5 ? -k : k, k);
+      c.addChild(sp);
+      if (kind === 'reeds' || kind === 'tallgrass') this.life.sway(sp, 0.05);
+    }
+    return true;
   }
 
   /** A picture stood on the board: its foot at (x, y), `wide` px across, sorted by `z`. */

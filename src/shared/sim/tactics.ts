@@ -26,7 +26,7 @@ import { Rng, hashSeed, mixSeed } from '../rng';
 import { raiderDrinks } from './kit';
 import { aimOf, canPay, held, kitOf, takeTurn, tickStatuses, useAction, type Arena, type Combatant, type Kit, type KitAction, type Statuses } from './actions';
 import { boardOk, canStep, coverChance, easeRelief, layTerrain, sightClear } from './tacticsTerrain';
-import { boardGround, pickBoard, THING_PIECE, type RaidBoardDef, type TileLook } from './raidBoards';
+import { boardGround, pickBoard, THING_PIECE, type DecorKind, type RaidBoardDef, type TileLook } from './raidBoards';
 import { aimTiles, areaLabel, areaOf, areaTiles, spreads, SPREAD_POWER, type TacArea, type Tile } from './tacticsArea';
 import { attributesOf } from './attributes';
 import { hasMana, manaMax, manaNow, manaTurn, setMana } from './mana';
@@ -86,6 +86,9 @@ export interface TacTile {
    *  standing on it (a cart, barrels, a fence, a stretch of fallen wall). */
   look?: TileLook;
   prop?: string;
+  /** A hand-made board's dressing (sim/raidBoards.ts `DECOR_KINDS`): grass, reeds, a stump, a drift... for the drawing
+   *  only. */
+  decor?: DecorKind;
 }
 
 export interface TacUnit {
@@ -423,6 +426,10 @@ export function makeHandBoard(s: GameState, side: -1 | 1, def: RaidBoardDef, sal
     const piece = THING_PIECE[what];
     if (piece && (tile.log || tile.block)) tile.prop = piece;
   }
+  for (const [u, v, what] of def.decor) {
+    const tile = tileAt(b, u, v);
+    if (tile) tile.decor = what;
+  }
   dressBoard(s, b, along, trapsOf(s), hashSeed(s.seed), salt);
   return { ...b, board: def.name, deploy, entries };
 }
@@ -485,6 +492,7 @@ function dressBoard(s: GameState, b: Pick<Tactics, 'w' | 'h' | 'tiles'>, along: 
     delete tile.tree;
     delete tile.bush;
     delete tile.trap;
+    delete tile.decor;
     if (tile.block === 'rock') delete tile.block;
     if (gates.has(v)) {
       tile.gate = true;
@@ -1841,6 +1849,8 @@ export interface TacticsView {
   biome: string;
   /** The battle's speed (1, 2, 3). */
   speed: number;
+  /** A hand-made board's name (sim/raidBoards.ts; none: cut from the land): the drawing dresses only the others. */
+  board?: string;
 }
 
 export function tacticsView(s: GameState): TacticsView | null {
@@ -1970,6 +1980,7 @@ export function tacticsView(s: GameState): TacticsView | null {
     weather: w,
     biome: s.biome ?? 'forest',
     speed: s.battleSpeed ?? 1,
+    ...(t.board ? { board: t.board } : {}),
   };
 }
 

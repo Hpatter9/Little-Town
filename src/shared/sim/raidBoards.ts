@@ -46,13 +46,35 @@ export const GROUND_BY_CH: Readonly<Record<string, (typeof BOARD_GROUNDS)[number
 /** What stands on a tile: cover (stood in or behind), props (nobody crosses them), the town's deploy spots (its front
  *  and back lines) and the raiders' ways in. */
 export const COVER_KINDS = ['tree', 'bush', 'log', 'fence', 'hay'] as const;
-export const PROP_KINDS = ['rock', 'ruin', 'cart', 'barrels', 'crates', 'woodpile', 'well'] as const;
+export const PROP_KINDS = ['rock', 'ruin', 'cart', 'barrels', 'crates', 'woodpile', 'well', 'ruins', 'boulder', 'statue', 'wagon', 'campfire', 'hut', 'mill'] as const;
 export type CoverKind = (typeof COVER_KINDS)[number];
 export type PropKind = (typeof PROP_KINDS)[number];
 export type BoardThing = CoverKind | PropKind | 'front' | 'back' | 'way1' | 'way2' | 'way3';
 
-/** The iso kit's piece drawn for a prop or a low cover (the rest are drawn as the generated boards' are). */
-export const THING_PIECE: Partial<Record<BoardThing, string>> = { fence: 'fence', hay: 'hay_bales', ruin: 'stone_wall_run', cart: 'cart', barrels: 'barrels', crates: 'crates', woodpile: 'woodpile', well: 'well' };
+/** The iso kit's piece drawn for a prop or a low cover (the rest are drawn as the generated boards' are): the settlers'
+ *  kit's, or `kit/piece` for another kit's (`wild/` is the packs' sprites the boards are dressed with). */
+export const THING_PIECE: Partial<Record<BoardThing, string>> = {
+  fence: 'fence',
+  hay: 'hay_bales',
+  ruin: 'stone_wall_run',
+  cart: 'cart',
+  barrels: 'barrels',
+  crates: 'crates',
+  woodpile: 'woodpile',
+  well: 'well',
+  ruins: 'wild/ruin_1',
+  boulder: 'dwarves/boulders',
+  statue: 'wild/statue',
+  wagon: 'nomads/covered_wagon',
+  campfire: 'campfire',
+  hut: 'cottage',
+  mill: 'wild/mill',
+};
+
+/** What a hand-made board is dressed with that has no bearing on the fight (the owner's ask: boards that look like
+ *  places): nobody is slowed, stopped or hidden by it, and it's drawn low enough not to hide anyone standing there. */
+export const DECOR_KINDS = ['grass', 'tallgrass', 'reeds', 'flowers', 'stump', 'branch', 'mushrooms', 'fern', 'pebbles', 'shrub', 'thorns', 'bones', 'skeleton', 'pillar', 'dune', 'drift', 'floe', 'snowrock'] as const;
+export type DecorKind = (typeof DECOR_KINDS)[number];
 
 export interface RaidBoardDef {
   /** The LDtk level's identifier. */
@@ -70,6 +92,8 @@ export interface RaidBoardDef {
   height: string[];
   /** [u, v, what]. */
   things: [number, number, BoardThing][];
+  /** [u, v, what]: the dressing (none of it in the rules). */
+  decor: [number, number, DecorKind][];
 }
 
 /** The boards a raid may be fought on: the town's land among the board's, the raid's kind allowed, the size the raid
@@ -82,12 +106,13 @@ export function boardsFor(s: GameState, r: Raid, w: number, h: number): RaidBoar
 }
 
 /** For previews only (the `__raidBoard(id)` console hook, shared/simHost.ts): every raid's board this one, whatever
- *  the land and the dice. Never set in play. */
+ *  the land and the dice ('land': always the land's own). Never set in play. */
 export const boardPreview: { id?: string } = {};
 
 /** The hand-made board this raid is fought on, or null for the land's own (`HAND_BOARD_SHARE` of the raids that have
  *  one to fit; the pick is the 'raidBoard' side stream's, by the town's seed and the tick the battle starts). */
 export function pickBoard(s: GameState, r: Raid, w: number, h: number): RaidBoardDef | null {
+  if (boardPreview.id === 'land') return null;
   const shown = boardPreview.id && !r.chase ? RAID_BOARDS.find((b) => b.id === boardPreview.id && b.w === w && b.h === h) : undefined;
   if (shown) return shown;
   const fit = boardsFor(s, r, w, h);

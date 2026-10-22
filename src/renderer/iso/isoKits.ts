@@ -87,6 +87,26 @@ export function kitOf(name: string): Kit {
   return kit;
 }
 
+/** The wall, gate and fence pieces drawn lying along y (up-right on the screen) where the rest of the kits' runs lie
+ *  along x (down-right), measured from the pictures: drawn along x they're mirrored, and along y as they are. */
+export const ALONG_Y: ReadonlySet<string> = new Set([
+  'settlers/stone_wall_run',
+  'settlers/stone_gate',
+  'knights/stone_wall_run',
+  'settlers/fence',
+  'bloodcourt/iron_fence',
+  'druids/wattle_fence',
+  'druids/wattle_fence_b',
+  'fae/twig_fence',
+  'knights/iron_fence',
+  'merfolk/net_fence',
+  'moonpack/bone_fence',
+  'nomads/rope_fence',
+  'orcs/stake_fence',
+]);
+/** Whether a kit's piece lies along y (`ALONG_Y`). */
+export const liesAlongY = (kit: string, piece: string): boolean => ALONG_Y.has(`${kit}/${piece}`);
+
 /** Where a kit's piece is served (beside the strip page: build.mjs copies the folder). */
 export const kitUrl = (kit: string, piece: string): string => `iso/kits/${kit}/${piece}.png`;
 
