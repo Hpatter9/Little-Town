@@ -280,6 +280,7 @@ export function mobileBridge(): Bridge {
     command: (c) => send({ t: 'command', c }),
     // (the loading screen has gone: the clock runs)
     release: () => send({ t: 'hold', on: false }),
+    holdCards: (on) => send({ t: 'cards', on }),
     // (back to the main menu: the clock held, the town saved first)
     suspend: async () => {
       send({ t: 'hold', on: true });

@@ -161,5 +161,5 @@ export function answerPrompt(s: GameState, id: number, option: number, rng: Rng)
 
 /** Unanswered questions time out to their default. */
 export function expirePrompts(s: GameState, rng: Rng): void {
-  for (const p of [...s.prompts]) if (s.tick >= p.expiresTick) answerPrompt(s, p.id, p.defaultOption, rng);
+  for (const p of [...s.prompts]) if (!p.waits && s.tick >= p.expiresTick) answerPrompt(s, p.id, p.defaultOption, rng);
 }
