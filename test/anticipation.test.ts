@@ -5,7 +5,7 @@ import { addCalendarSource, omensFor, upcoming, CALENDAR_DAYS } from '../src/sha
 import { foreshadow, hintCandidates, RAID_SEEN_HOURS, whenWords } from '../src/shared/sim/foreshadow';
 import { serialize } from '../src/shared/sim/save';
 import { maxHp, type GameState, type Person } from '../src/shared/sim/state';
-import { calendar, DAYS_PER_SEASON, TICKS_PER_DAY, TICKS_PER_HOUR } from '../src/shared/sim/time';
+import { calendar, DAYS_PER_SEASON, TICKS_PER_DAY, TICKS_PER_HOUR, calendarOf } from '../src/shared/sim/time';
 import { plainGame } from './helpers';
 
 function town(seed: string, n = 3): GameState {
@@ -21,7 +21,7 @@ function town(seed: string, n = 3): GameState {
 }
 /** On to a day of the season at an hour (the clock only). */
 function at(s: GameState, dayOfSeason: number, hour: number) {
-  while (!(calendar(s.tick).dayOfSeason === dayOfSeason && calendar(s.tick).hour === hour)) s.tick += TICKS_PER_HOUR;
+  while (!(calendarOf(s).dayOfSeason === dayOfSeason && calendarOf(s).hour === hour)) s.tick += TICKS_PER_HOUR;
 }
 const party = (s: GameState, phase: 'out' | 'back', hoursLeft: number) =>
   s.expeditions.push({ id: s.nextId++, dest: 'nowhere', members: [s.people[1].id], leader: s.people[1].id, phase, elapsed: 0, outTicks: 1, workTicks: 1, backTicks: hoursLeft * TICKS_PER_HOUR, battle: null } as never);
@@ -73,7 +73,7 @@ test('a party on its way home, the festival, the season turning and thin stores'
   const kinds = hintCandidates(s);
   const p = kinds.find((h) => h.kind === 'party');
   assert.ok(p?.text.startsWith(`${s.people[1].name}'s party should be home`), String(p?.text));
-  assert.equal(kinds.find((h) => h.kind === 'festival')?.text, `${festivalFor(s.origin, calendar(s.tick).season).name} is tomorrow.`);
+  assert.equal(kinds.find((h) => h.kind === 'festival')?.text, `${festivalFor(s.origin, calendarOf(s).season).name} is tomorrow.`);
   assert.ok(kinds.some((h) => h.kind === 'stores'), 'nothing in store');
   assert.ok(!kinds.some((h) => h.kind === 'season'));
   at(s, DAYS_PER_SEASON, 9);

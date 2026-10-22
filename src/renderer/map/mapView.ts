@@ -428,6 +428,7 @@ export class MapView {
       const s = c.sprite;
       s.renderable = s.x + side > x0 && s.x < x1 && s.y + side > y0 && s.y < y1;
     }
+    if (!this.world.visible) return; // (the isometric view stands in: nothing here is seen, so nothing is culled)
     this.paintDue(PAN_BUDGET_MS);
     for (const t of this.things.children) {
       // (anything standing on the map is at most a few cells wide and some taller than wide, but for the keep's walls)
@@ -504,6 +505,15 @@ export class MapView {
     // keying every chunk cell by cell)
     const sig = `${land.version}|${land.open}|${land.camp.x},${land.camp.y}|${season}|${biome}|${era}|${!!td}|${this.blighted()}|${this.chunks.size}|${groundArtReady()}|${this.calm}|${this.propTex.size}`;
     if (sig === this.landSig && (land.wear === this.landWear || performance.now() < this.nextWearPaint)) return;
+    // (the isometric view draws its own ground and hides this world: no chunk is painted for nobody to see; the props
+    // stay, for the falling leaves and the sway's positions)
+    if (!this.world.visible) {
+      this.landSig = sig;
+      this.landWear = land.wear;
+      this.syncProps(land, season, biome);
+      this.drawMarks();
+      return;
+    }
     const cols = Math.ceil(land.w / CHUNK);
     const rows = Math.ceil(land.h / CHUNK);
     const reach = land.open + FOG_BAND + CHUNK;
@@ -861,7 +871,7 @@ export class MapView {
    *  everyone about; the buildings' fronts are added here. */
   seeThrough(points: { x: number; y: number }[]): void {
     const land = this.land;
-    if (!land) return;
+    if (!land || !this.world.visible) return; // (the isometric view draws its own trees and buildings)
     // (a castle's tall walls: see-through where someone stands behind them, so the rooms stay in view)
     for (const sp of this.castle?.walls ?? []) {
       // (a run along the top of a cell hides what stands north of its foot; a run down a column, only what stands in
@@ -1385,6 +1395,7 @@ export class MapView {
   /** The trees and bushes in view lean with the wind, each on its own beat, and gusts run across the woods from the west
    *  as a wave (the crown moves, the foot stays: the sprite's anchor is at its foot). */
   private sway(): void {
+    if (!this.world.visible) return; // (hidden under the isometric view)
     const t = this.windT;
     const wind = this.calm ? 0 : this.wind();
     for (const p of this.props.values()) {

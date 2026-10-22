@@ -16,7 +16,7 @@ import { faithOf, godOf } from './faith';
 import { isChild } from './social';
 import { spawnBand } from './bands';
 import { campXY, earn, eatersOf, notify, tireless, type GameState } from './state';
-import { calendar, DAYS_PER_SEASON, SEASONS, TICKS_PER_HOUR, type Season } from './time';
+import { DAYS_PER_SEASON, SEASONS, TICKS_PER_HOUR, type Season, calendarOf } from './time';
 
 export type FestivalPhase = 'prep' | 'day' | 'held' | 'done';
 export type FestivalOutcome = 'held' | 'poor' | 'skipped' | 'missed';
@@ -49,9 +49,9 @@ export interface FestivalLogEntry {
 const LOG_MOST = 16;
 
 /** The town's festival this season. */
-export const thisFestival = (s: GameState): FestivalDef => festivalFor(s.origin, calendar(s.tick).season);
+export const thisFestival = (s: GameState): FestivalDef => festivalFor(s.origin, calendarOf(s).season);
 const keyOf = (s: GameState) => {
-  const c = calendar(s.tick);
+  const c = calendarOf(s);
   return `${c.year}:${c.season}`;
 };
 
@@ -87,7 +87,7 @@ function dropOrders(s: GameState, f: FestivalDef): void {
 }
 
 function log(s: GameState, f: FestivalDef, outcome: FestivalOutcome, ready: number, coins: number): void {
-  const year = calendar(s.tick).year;
+  const year = calendarOf(s).year;
   const l = (s.festivalLog ??= []);
   l.push({ id: f.id, year, outcome, ready, coins, tick: s.tick });
   if (l.length > LOG_MOST) l.splice(0, l.length - LOG_MOST);
@@ -102,7 +102,7 @@ function favour(s: GameState, f: FestivalDef, by: number): void {
 /** Once an hour (from sim.ts): the making ready, the visitors, the festival itself. */
 export function festivalsHourly(s: GameState): void {
   if (s.tick % TICKS_PER_HOUR !== 0 || s.gameOver || s.autopilot === false) return;
-  const cal = calendar(s.tick);
+  const cal = calendarOf(s);
   const f = thisFestival(s);
   const key = keyOf(s);
   let run = s.festival;
@@ -228,7 +228,7 @@ export interface FestivalsView {
 
 /** For the snapshot: the year's calendar and what's next. */
 export function festivalsView(s: GameState): FestivalsView {
-  const cal = calendar(s.tick);
+  const cal = calendarOf(s);
   const origin = s.origin ?? 'settlers';
   const lastOf = (id: string) => [...(s.festivalLog ?? [])].reverse().find((e) => e.id === id);
   const rows = FESTIVALS.filter((f) => f.origin === origin).map((f): FestivalCalendarRow => {

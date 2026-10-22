@@ -9,7 +9,7 @@ import type { Rng } from '../rng';
 import { killPerson } from './health';
 import { isChild } from './social';
 import { tireless, type GameState, type Person } from './state';
-import { calendar, TICKS_PER_DAY, TICKS_PER_HOUR } from './time';
+import { TICKS_PER_DAY, TICKS_PER_HOUR, calendarOf, clockTick } from './time';
 
 type AgeState = Pick<GameState, 'tick' | 'lich' | 'mainId' | 'origin'>;
 
@@ -76,7 +76,7 @@ export function ageLine(s: AgeState, p: Person): string {
 
 /** Once a day, in the small hours: the old may die in their sleep. */
 export function ageingHourly(s: GameState, rng: Rng): void {
-  if (s.tick % TICKS_PER_HOUR !== 0 || calendar(s.tick).hour !== 3) return;
+  if (clockTick(s) % TICKS_PER_HOUR !== 0 || calendarOf(s).hour !== 3) return;
   for (const p of [...s.people]) {
     if (!ages(s, p)) continue;
     const life = lifespanOf(s, p);

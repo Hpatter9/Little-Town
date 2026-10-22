@@ -15,7 +15,7 @@ import { FOOD_VALUE } from '../data/people';
 import { MARRY, MAX_CHILDREN } from '../data/social';
 import { totalStock } from './buildings';
 import { tireless, type GameState, type Person } from './state';
-import { calendar, DAYS_PER_SEASON, SEASONS, TICKS_PER_DAY, TICKS_PER_HOUR } from './time';
+import { DAYS_PER_SEASON, SEASONS, TICKS_PER_DAY, TICKS_PER_HOUR, calendarOf } from './time';
 
 export type HintKind = 'raid' | 'party' | 'birth' | 'wedding' | 'trial' | 'dweller' | 'envoy' | 'season' | 'festival' | 'sickness' | 'stores' | 'caravan';
 
@@ -72,7 +72,7 @@ export function hintCandidates(s: GameState): (Hint & { voiced: boolean })[] {
   if (s.autopilot === false || s.gameOver) return [];
   const out: (Hint & { voiced: boolean })[] = [];
   const add = (h: Hint, voiced = rollFor(s, h.key).next() < VOICED || h.sure >= 1) => out.push({ ...h, voiced });
-  const cal = calendar(s.tick);
+  const cal = calendarOf(s);
   const hoursTo = (tick: number) => Math.max(0, (tick - s.tick) / TICKS_PER_HOUR);
 
   // a raid near: campfires seen (and now and then campfires with nobody behind them)

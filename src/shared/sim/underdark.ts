@@ -35,7 +35,7 @@ import { raidBudget, startRaid } from './raids';
 import { askWays } from './telling';
 import { foundVillage, pickSettlers, villageById } from './villages';
 import { addStock, earn, maxHp, notify, type Building, type GameState, type Person, type Prompt } from './state';
-import { calendar, paceDay, TICKS_PER_DAY, TICKS_PER_HOUR } from './time';
+import { paceDay, TICKS_PER_DAY, TICKS_PER_HOUR, calendarOf } from './time';
 import { closeCall } from './closeCalls';
 
 export interface UnderSite {
@@ -534,7 +534,7 @@ export function underdarkHourly(s: GameState): void {
   explore(s, u, r);
   depthsHourly(s, u, r);
   searchHome(s, u, r);
-  const hour = calendar(s.tick).hour;
+  const hour = calendarOf(s).hour;
   if (hour === 6) {
     underDawn(s, u, r);
     deepDawn(s, u);
@@ -1279,7 +1279,7 @@ export function underHome(s: GameState, dest: string, cleared: boolean, at: { x:
 /** A big enough town, with the fungus and the water found below, sends some of its people down to found a village
  *  there (once). */
 function underVillage(s: GameState, u: Underdark): void {
-  if (u.village !== undefined || calendar(s.tick).day < UNDER_VILLAGE_DAY) return;
+  if (u.village !== undefined || calendarOf(s).day < UNDER_VILLAGE_DAY) return;
   const dwarves = s.origin === 'dwarves';
   if (s.people.length < (dwarves ? UNDER_VILLAGE_PEOPLE_DWARVES : UNDER_VILLAGE_PEOPLE)) return;
   const has = (k: UnderSiteKind) => u.sites.some((x) => x.kind === k && u.found.includes(x.id));
@@ -1613,7 +1613,7 @@ export function underView(s: GameState): UnderView | null {
   const raid = s.raid;
   const rising = !!raid && UNDER_RAID_KINDS.has(raid.kind);
   const work = below(s, u);
-  const base = { w: UD_W, h: UD_H, depth, depths, miners: work.length, workers: work.slice(0, 6).map(folkOf), flooded: u.floodUntil !== undefined && s.tick < u.floodUntil, through: u.through !== undefined, finds: u.finds.slice(-5), marks: recent, tick: s.tick, hour: calendar(s.tick).hour, rising };
+  const base = { w: UD_W, h: UD_H, depth, depths, miners: work.length, workers: work.slice(0, 6).map(folkOf), flooded: u.floodUntil !== undefined && s.tick < u.floodUntil, through: u.through !== undefined, finds: u.finds.slice(-5), marks: recent, tick: s.tick, hour: calendarOf(s).hour, rising };
   const outline = (cells: string, seen: string, net: Uint8Array) => {
     let out = '';
     for (let i = 0; i < cells.length; i++) out += seen[i] === '1' ? cells[i] : net[i] ? ',' : '?';

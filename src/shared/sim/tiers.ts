@@ -14,7 +14,7 @@ import { SEAT_STAGE } from '../data/seats';
 import { isRingPiece, ringTown } from './ringWall';
 import { lineGroups } from './lineage';
 import { milestonesHourly, tell } from './milestones';
-import { calendar, TICKS_PER_HOUR } from './time';
+import { TICKS_PER_HOUR, calendarOf } from './time';
 import type { GameState } from './state';
 
 export interface RankChange {
@@ -59,7 +59,7 @@ const seatStage = (s: GameState): number => {
 export function meetsTier(s: GameState, tier: number, share = 1): boolean {
   const r = TIER_RULES[tier];
   if (!r) return false;
-  const day = calendar(s.tick).day;
+  const day = calendarOf(s).day;
   const walled = ringTown(s) ? !!s.ring?.done : false;
   const extra = r.wall && !ringTown(s) ? NO_RING_EXTRA : 0;
   if (s.people.length < Math.ceil(r.pop * share)) return false;
@@ -106,7 +106,7 @@ function founderMemory(s: GameState, r: Rank, kind: 'rise' | 'fall', tier: numbe
 /** Hourly (from sim.ts): look for the firsts, the rung and the generation. */
 export function tiersHourly(s: GameState): void {
   if (s.tick % TICKS_PER_HOUR !== 0 || s.autopilot === false || s.gameOver) return;
-  const day = calendar(s.tick).day;
+  const day = calendarOf(s).day;
   let r = s.rank;
   if (!r) {
     const main = s.people.find((p) => p.id === s.mainId);

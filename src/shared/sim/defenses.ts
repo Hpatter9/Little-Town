@@ -7,7 +7,7 @@ import type { BuildingDef } from '../data/buildings';
 import type { Rng } from '../rng';
 import { fogAim, wardOf } from './rivals';
 import type { GameState, Raider } from './state';
-import { calendar, TICK_HZ } from './time';
+import { TICK_HZ, calendarOf } from './time';
 
 type Defense = BuildingDef['defense'] & object;
 
@@ -24,7 +24,7 @@ export function fireAt(s: GameState, rng: Rng, d: Defense, target: Raider, near:
   const out: Volley = { struck: [], hit: false };
   if (rng.next() >= d.accuracy - fogAim(s) - ENEMIES[target.kind].dodge / 2) return out;
   out.hit = true;
-  const h = calendar(s.tick).hour;
+  const h = calendarOf(s).hour;
   const night = d.night && (h >= 20 || h < 5) ? d.night : 1;
   const base = rng.int(d.damage[0], d.damage[1]) * wardOf(s) * night;
   const strike = (rd: Raider, dmg: number) => {

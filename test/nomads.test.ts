@@ -7,7 +7,7 @@ import { RAID_KIND_BY_ID } from '../src/shared/data/raids';
 import { Sim } from '../src/shared/sim/sim';
 import { snapshot } from '../src/shared/sim/snapshot';
 import { campXY, newGame } from '../src/shared/sim/state';
-import { calendar, TICKS_PER_DAY, TICKS_PER_HOUR } from '../src/shared/sim/time';
+import { TICKS_PER_DAY, TICKS_PER_HOUR, calendarOf } from '../src/shared/sim/time';
 import { Rng } from '../src/shared/rng';
 import { cheb, type Pt } from '../src/shared/sim/land';
 import { put } from './helpers';
@@ -34,13 +34,13 @@ test('the camp moves with the seasons: tents go on the wagons, rooted things sta
   const kiln = put(s, 'kiln', n.home.x - 6, n.home.y + 2);
   const tent = put(s, 'hide_tent', n.home.x + 4, n.home.y + 2);
   s.autopilot = false;
-  while (calendar(s.tick).season !== 'summer' && !s.gameOver) sim.step();
+  while (calendarOf(s).season !== 'summer' && !s.gameOver) sim.step();
   // (they set out by day: not in the small hours)
   for (let i = 0; i < 3 * TICKS_PER_HOUR; i++) sim.step();
   assert.ok(same(n.camp, n.home), 'waiting for first light');
-  while (same(n.camp, n.home) && calendar(s.tick).season === 'summer' && !s.gameOver) sim.step();
+  while (same(n.camp, n.home) && calendarOf(s).season === 'summer' && !s.gameOver) sim.step();
   assert.ok(same(n.camp, n.pasture), 'at the summer pasture');
-  const hour = calendar(s.tick).hour;
+  const hour = calendarOf(s).hour;
   assert.ok(hour >= 7 && hour < 16, `set out by day (${hour})`);
   assert.deepEqual([kiln.tile, kiln.row], [n.home.x - 6, n.home.y + 2], 'the kiln stayed');
   assert.ok(cheb({ x: tent.tile, y: tent.row }, { x: n.pasture.x + 4, y: n.pasture.y + 2 }) <= 14, `the tent went too (${tent.tile}, ${tent.row})`);
@@ -50,8 +50,8 @@ test('the camp moves with the seasons: tents go on the wagons, rooted things sta
   const fire = s.buildings.find((b) => b.def === 'campfire')!;
   assert.ok(cheb({ x: fire.tile, y: fire.row }, n.pasture) <= 14 && fire.status === 'done', 'the fire lit again at once');
   assert.ok(snapshot(s).nomad?.site === 'pasture');
-  while (calendar(s.tick).season !== 'winter' && !s.gameOver) sim.step();
-  while (!same(n.camp, n.home) && calendar(s.tick).season === 'winter' && !s.gameOver) sim.step();
+  while (calendarOf(s).season !== 'winter' && !s.gameOver) sim.step();
+  while (!same(n.camp, n.home) && calendarOf(s).season === 'winter' && !s.gameOver) sim.step();
   assert.equal(s.gameOver, null, 'the tribe lives');
   assert.ok(same(n.camp, n.home), 'home for the winter');
 });

@@ -32,7 +32,7 @@ import { depositNear } from './buildings';
 import { becomeMonster, fullMoon, moonPhaseOf, FULL_MOON_PHASE } from './monsters';
 import { isChild } from './social';
 import { townFull, campXY, makePerson, maxHp, notify, type Expedition, type GameState, type Person, type Raid } from './state';
-import { calendar, TICKS_PER_DAY, TICKS_PER_HOUR } from './time';
+import { TICKS_PER_DAY, TICKS_PER_HOUR, calendarOf } from './time';
 
 export interface PackState {
   /** The pack's name in the hills. */
@@ -85,7 +85,7 @@ export function gainRenown(s: GameState, n: number, why: string): void {
  *  the hunt at its height. `send` runs the hunt out (sim/expeditions.ts sendExpedition); `raid` starts a rival's raid. */
 export function packHourly(s: GameState, rng: Rng, send: (dest: string, members: number[]) => Expedition | null, raid: (kind: string, budget: number) => void): void {
   if (!packOn(s) || s.gameOver || s.tick % TICKS_PER_HOUR !== 0) return;
-  const c = calendar(s.tick);
+  const c = calendarOf(s);
   const p = packState(s);
   if (c.hour === 6 && p.grounds > 0) {
     depositNear(s, campXY(s), { meat: GROUNDS_YIELD.meat * p.grounds, hide: GROUNDS_YIELD.hide * p.grounds });
@@ -225,7 +225,7 @@ export function packView(s: GameState): PackView | null {
     grounds: p.grounds,
     beast: p.beast === 'slain' ? 'slain' : beastDue(s) ? 'due' : 'far',
     packs: RIVAL_PACKS.map((d) => ({ id: d.id, name: d.name, alpha: d.alpha, broken: p.broken.includes(d.id) })),
-    moon: moonPhaseOf(calendar(s.tick).day),
+    moon: moonPhaseOf(calendarOf(s).day),
   };
 }
 

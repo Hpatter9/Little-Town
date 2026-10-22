@@ -6,7 +6,7 @@
 // the sim reads any of it: the item card (panel/itemCard.ts) shows it. Kept on the optional `GameState.uniqueLog`; a
 // unique found before there was a log has none ("Forged before the chronicles").
 import type { GameState, Person } from './state';
-import { calendar } from './time';
+import { calendarOf } from './time';
 
 /** One who bore it, and the day they took it up. */
 export interface UniqueBearer {
@@ -36,7 +36,7 @@ export interface UniqueRecord {
   gone?: { day: number; how: string; with?: string };
 }
 
-const dayNow = (s: GameState): number => calendar(s.tick).day;
+const dayNow = (s: GameState): number => calendarOf(s).day;
 const on = (s: GameState): boolean => s.autopilot !== false;
 const logOf = (s: GameState) => (s.uniqueLog ??= {});
 

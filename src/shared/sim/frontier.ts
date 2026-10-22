@@ -17,7 +17,7 @@ import { spawnRoamerAt } from './roamers';
 import { isChild } from './social';
 import { campXY, edgeXY, makePerson, notify, townFull, type GameState, type Person } from './state';
 import { tellStory } from './telling';
-import { calendar, TICKS_PER_DAY, TICKS_PER_HOUR } from './time';
+import { TICKS_PER_DAY, TICKS_PER_HOUR, calendarOf } from './time';
 import { assignBeds, foodPerHead, gainSkill, housingCapacity, joinOrigin } from './townsfolk';
 import { equipAll } from './crafting';
 
@@ -49,7 +49,7 @@ export function frontierOf(s: GameState): FrontierState | null {
 
 const roll = (s: GameState, salt: string) => new Rng(hashSeed(`${s.seed}:frontier:${s.tick}:${salt}`));
 function log(s: GameState, f: FrontierState, text: string): void {
-  f.log.unshift(`Day ${calendar(s.tick).day}: ${text}`);
+  f.log.unshift(`Day ${calendarOf(s).day}: ${text}`);
   if (f.log.length > 12) f.log.length = 12;
 }
 
@@ -57,7 +57,7 @@ function log(s: GameState, f: FrontierState, text: string): void {
 export function frontierHourly(s: GameState): void {
   if (s.autopilot === false || s.tick % TICKS_PER_HOUR !== 0) return;
   const f = frontierOf(s);
-  if (!f || calendar(s.tick).hour !== FRONTIER_HOUR) return;
+  if (!f || calendarOf(s).hour !== FRONTIER_HOUR) return;
   learnTricks(s, f);
   applyTricks(s, f);
   teach(s, f);
@@ -130,7 +130,7 @@ export function stakeClaim(s: GameState, f: FrontierState): Claim | null {
     if (g === 'water' || g === 'mountain') continue;
     const used = new Set(f.claims.map((q) => q.name));
     const name = rng.pick(CLAIM_NAMES.filter((n) => !used.has(n)).length ? CLAIM_NAMES.filter((n) => !used.has(n)) : CLAIM_NAMES);
-    const claim: Claim = { name, x, y, day: calendar(s.tick).day };
+    const claim: Claim = { name, x, y, day: calendarOf(s).day };
     f.claims.push(claim);
     f.lastClaim = s.tick;
     if (f.claims.length % WAGON_EVERY === 1 % WAGON_EVERY) f.wagons = Math.min(WAGONS_WAITING, (f.wagons ?? 0) + 1);

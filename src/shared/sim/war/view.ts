@@ -10,7 +10,7 @@ import { powersOnMap } from '../conquest/rivals';
 import { provinceYield, type ConquestWorld } from '../conquest/world';
 import { realm } from '../factions';
 import type { GameState } from '../state';
-import { calendar, DAYS_PER_SEASON, TICKS_PER_DAY, TICKS_PER_HOUR } from '../time';
+import { calendar, DAYS_PER_SEASON, TICKS_PER_DAY, TICKS_PER_HOUR, calendarOf } from '../time';
 import { campaignDest } from './campaigns';
 import { councilLine, waysOf } from './council';
 import { warLossLine } from './memory';
@@ -139,7 +139,7 @@ export function warView(s: GameState): WarView | null {
     const t = e.phase === 'out' ? 0.15 + 0.7 * (e.elapsed / Math.max(1, e.outTicks)) : 0.9;
     marches.push({ realm: 'town', from: home, to: camp.province, hours: 0, strength: e.members.length, t, kind: 'town' });
   }
-  const cal = calendar(s.tick);
+  const cal = calendarOf(s);
   const season = warSeason(s);
   const campaigns: CampaignView[] = (war?.campaigns ?? []).filter((x) => x.call || x.by === 'town').map((x) => {
     const where = x.province !== null ? w.provinces[x.province]?.name ?? '?' : FACTION_BY_ID[x.against]?.stronghold ?? 'their land';

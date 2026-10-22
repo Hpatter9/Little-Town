@@ -46,7 +46,7 @@ import { woundPerson } from './injuries';
 import { findSpot } from './planner';
 import { raidBudget, startRaid } from './raids';
 import { addStock, earn, maxHp, notify, type Building, type GameState, type Person, type Prompt } from './state';
-import { calendar, TICKS_PER_DAY, TICKS_PER_HOUR } from './time';
+import { TICKS_PER_DAY, TICKS_PER_HOUR, calendarOf } from './time';
 import { assignBeds, gainSkill } from './townsfolk';
 
 export interface PortalSite {
@@ -170,7 +170,7 @@ export function tearRift(s: GameState, realm: RealmId): Portal | null {
 /** Each hour: arches open their realms; a rift may tear; the stir settles, and past `RISE_AT` things come out. */
 export function portalsHourly(s: GameState): void {
   if (s.tick % TICKS_PER_HOUR !== 0 || s.autopilot === false) return;
-  const hour = calendar(s.tick).hour;
+  const hour = calendarOf(s).hour;
   const day = Math.floor(s.tick / TICKS_PER_DAY) + 1;
   // an arch finished with no realm on it opens one
   for (const b of s.buildings) {

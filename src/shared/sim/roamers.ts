@@ -49,7 +49,7 @@ import { woundFor, woundPerson } from './injuries';
 import { groundAt, inMap, wet } from './land';
 import { lineOf, ringComplete } from './ringWall';
 import { addStock, campXY, maxHp, meet, notify, type Expedition, type FightResult, type GameState, type Person, type Roamer, type Skirmish } from './state';
-import { calendar, TICKS_PER_HOUR } from './time';
+import { TICKS_PER_HOUR, calendarOf } from './time';
 import { gainSkill } from './townsfolk';
 import { isChild } from './social';
 
@@ -97,7 +97,7 @@ function townReach(s: GameState): number {
 export function sheltered(s: GameState, x: number, y: number): boolean {
   const box = walledBox(s);
   if (box) return x >= box.x0 && x < box.x1 && y >= box.y0 && y < box.y1;
-  if (night(calendar(s.tick).hour)) return false;
+  if (night(calendarOf(s).hour)) return false;
   const c = campXY(s);
   return Math.hypot(x - c.x, y - c.y) < (townRadius(s) - DAY_KEEP_OFF) * CELL;
 }
@@ -253,14 +253,14 @@ export const flyHeight = (r: Roamer) => (r.swoop ? 0 : FLY_HIGH);
 
 /** Hourly: the dead crumble at dawn, bands wander off, and a new one may come out. */
 export function roamersHourly(s: GameState): void {
-  const hour = calendar(s.tick).hour;
+  const hour = calendarOf(s).hour;
   s.roamers = (s.roamers ?? []).filter((r) => {
     if (r.fighting !== undefined) return true;
     if (r.until <= s.tick) return false;
     if (r.kind === 'dead' && !night(hour) && !blighted(s)) return false;
     return true;
   });
-  if (calendar(s.tick).day - 1 < ROAM_FIRST_DAY) return;
+  if (calendarOf(s).day - 1 < ROAM_FIRST_DAY) return;
   const grown = s.people.filter((p) => p.away === null && !isChild(p)).length;
   if (grown < ROAM_PEOPLE) return;
   const most = Math.min(ROAMERS_MOST, ROAMERS_LEAST + Math.floor(grown / ROAMERS_PER));
@@ -270,7 +270,7 @@ export function roamersHourly(s: GameState): void {
   if (!g.chance(ROAM_HOURLY)) return;
   const kinds: RoamerKind[] = ['beasts'];
   if (night(hour) || blighted(s)) kinds.push('dead');
-  if (calendar(s.tick).day - 1 >= BANDITS_ROAM_FROM) kinds.push('bandits');
+  if (calendarOf(s).day - 1 >= BANDITS_ROAM_FROM) kinds.push('bandits');
   spawnRoamer(s, g.pick(kinds), g);
 }
 

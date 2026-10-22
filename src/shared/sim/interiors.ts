@@ -15,7 +15,7 @@ import { isChild } from './social';
 import { roomKind } from './castle';
 import { CELL } from './land';
 import type { Building, GameState, Person } from './state';
-import { calendar } from './time';
+import { calendarOf } from './time';
 import { topicName } from '../data/originResearch';
 
 /** Where someone stands inside: in bed, at the room's station or desk, by the hearth, at the table, or about the floor. */
@@ -72,7 +72,7 @@ export function insideOf(s: GameState, p: Person): { building: number; at: Insid
   const home = byId(p.bed);
   if (home && near(p, home, 2.5) && (p.activity === 'idle' || p.activity === 'sit' || p.activity === 'play')) {
     if (isChild(p)) return { building: home.id, at: 'floor' };
-    const evening = calendar(s.tick).hour >= 17 || calendar(s.tick).hour < 7;
+    const evening = calendarOf(s).hour >= 17 || calendarOf(s).hour < 7;
     return { building: home.id, at: evening ? 'hearth' : 'table' };
   }
   return null;
@@ -143,7 +143,7 @@ export function interiorView(s: GameState, doing: (p: Person) => string): Interi
   const studier = s.people.find((p) => p.task?.type === 'research' && p.task.station === b.id);
   const topic = studier?.task?.type === 'research' && studier.task.topic ? topicName(studier.task.topic, s.origin) : null;
   const owner = b.owner !== undefined ? s.people.find((p) => p.id === b.owner)?.name ?? null : null;
-  const cal = calendar(s.tick);
+  const cal = calendarOf(s);
   return {
     building: b.id,
     def: def.id,

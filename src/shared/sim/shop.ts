@@ -94,7 +94,7 @@ import { buildingCentreX, buildingDoor, depositNear, footprint as plotOf, storag
 import { addItems, craftSlots, itemUnlocked, qualitiesOf, stationFor, stationName, stationQueued, stationSlots, takeItem } from './crafting';
 import { operatorOf, operatorSkill } from './operators';
 import { addStock, earn, edgeXY, notify, poolSize, remember, type Building, type GameState, type ShopPiece, type ShopTalk, type Traveller, type Want } from './state';
-import { calendar, TICK_HZ, TICKS_PER_DAY, TICKS_PER_HOUR } from './time';
+import { calendar, TICK_HZ, TICKS_PER_DAY, TICKS_PER_HOUR, calendarOf } from './time';
 import { gainSkill, housingCapacity } from './townsfolk';
 import { offerToSettle, strangerLook, strangerOrigin } from './strangers';
 import { priceRate, travellerRate } from './origin';
@@ -1064,7 +1064,7 @@ function serveGuest(s: GameState, tavern: Building, t: Traveller, rng: Rng): voi
 
 /** Come the evening, a guest may take a bed for the night (the best free one they can pay for), and stays till morning. */
 function lodge(s: GameState, tavern: Building, t: Traveller, spent: number, rng: Rng): void {
-  const hour = calendar(s.tick).hour;
+  const hour = calendarOf(s).hour;
   if ((hour < LODGING.evening && hour >= LODGING.morning) || !rng.chance(LODGING.chance)) return;
   const who = `${t.name} the ${t.kind}`;
   const taken = new Set((s.travellers ?? []).filter((o) => o !== t && o.bed).map((o) => `${o.bed!.x},${o.bed!.y}`));
@@ -1081,7 +1081,7 @@ function lodge(s: GameState, tavern: Building, t: Traveller, spent: number, rng:
   t.bed = { x: bed.x, y: bed.y };
   // (they stay till morning)
   let until = s.tick + TICKS_PER_HOUR;
-  while (calendar(until).hour !== LODGING.morning) until += TICKS_PER_HOUR;
+  while (calendar(until - (s.fightTicks ?? 0)).hour !== LODGING.morning) until += TICKS_PER_HOUR;
   t.until = until;
   s.coins = (s.coins ?? 0) + pay;
   earn(s, 'tavern', pay);

@@ -12,7 +12,7 @@
 // All by the seed, the person's id and the turn (`slot`): nothing is drawn from the town's stream.
 
 import { CELL, groundAt, isRoad, type Ground } from './land';
-import { calendar } from './time';
+import { calendarOf } from './time';
 import { campXY, type GameState, type Person } from './state';
 import { isChild } from './social';
 import { buildingDoor, footprint } from './buildings';
@@ -227,4 +227,4 @@ export function someoneBusking(s: GameState, p: Person): boolean {
 }
 
 /** The hour now. */
-export const hourNow = (s: GameState) => calendar(s.tick).hour;
+export const hourNow = (s: GameState) => calendarOf(s).hour;

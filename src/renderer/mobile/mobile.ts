@@ -21,6 +21,8 @@ import { expeditionFill, researchFill } from '../../shared/format';
 import { css, mix, skyColors, weatherCover } from '../town/skyColors';
 import { applyTheme, panelLabel } from '../theme';
 import { setTipsOn, tipsOn } from './tips';
+import { createTutorial } from './tutorial';
+import { tutorialPending } from './tutorialSteps';
 import { applyUiLook } from '../ui/frame';
 import { wireTips } from '../ui/tips';
 import { createTopBar } from '../ui/topBar';
@@ -285,6 +287,7 @@ const tabButtons = PANELS.map((p) => {
   label.textContent = p.label;
   label.dataset.short = SHORT_LABELS[p.id] ?? p.label;
   b.append(icon, label);
+  b.dataset.panel = p.id; // (the tutorial points at a tab by it)
   b.addEventListener('click', () => bridge.togglePanel(p.id));
   tabs.append(b);
   return { id: p.id, b, label, name: p.label };
@@ -295,6 +298,14 @@ const tabButtons = PANELS.map((p) => {
   const sheet = createEventSheet((prompt, option) => bridge.command?.({ type: 'answerPrompt', prompt, option }), strip, (n, name) => bridge.command?.({ type: 'name', kind: n.kind, id: n.id, name }), (prompt) => bridge.command?.({ type: 'parkPrompt', prompt }));
   bridge.onSnapshot((snap) => (applyGivenNames(snap), sheet.update(snap)));
   document.body.append(startWaitingChoices(bridge)); // (a closed choice waits behind this button: waitingChoices.ts)
+}
+// the first-town tutorial (tutorial.ts): a new town is shown it once, when its loading screen has gone; ☰ Settings replays it
+const tutorial = createTutorial({ bridge, strip, zoom: () => zoom });
+{
+  const loadingHost = (window as unknown as { __loading?: LoadingHost }).__loading;
+  const startIfNew = () => tutorialPending(localStorage) && window.setTimeout(tutorial.start, 600);
+  if (loadingHost) loadingHost.onReveal(startIfNew);
+  else startIfNew();
 }
 // the rare things, and a party's haul, revealed card by card (revealCard.ts)
 startReveals(bridge, strip);
@@ -575,6 +586,7 @@ function drawMenu(): void {
       zooms,
       label('Help'),
       item(`Tips: ${tipsOn() ? 'on' : 'off'}`, () => (setTipsOn(!tipsOn()), drawMenu())),
+      ...(fromMenu ? [] : [item('Replay the tutorial', () => ((menu.hidden = true), tutorial.start()))]),
       item(`Reveal cards: ${revealsOn() ? 'on' : 'off'}`, () => (setRevealsOn(!revealsOn()), drawMenu())),
       ...(fromMenu ? [] : [item('Phone alerts…', () => bridge.openPanel('alerts'))]),
       ...offlineLine(),

@@ -12,7 +12,7 @@ import { checkConquestWin, rivalsDaily, rivalsTick } from '../conquest/rivals';
 import { holdings } from '../conquest/conquest';
 import { realm } from '../factions';
 import type { Faction, GameState, Prompt } from '../state';
-import { calendar, TICKS_PER_HOUR } from '../time';
+import { TICKS_PER_HOUR, calendarOf } from '../time';
 import { adviseCampaign, answerCampaign, campaignEnvoyText, campaignsHourly } from './campaigns';
 import { adviseEnvoy, councilDaily, demandCoins, type Advice } from './council';
 import { claimSeat, warMap } from './map';
@@ -33,7 +33,7 @@ export function warHourly(s: GameState): void {
   campaignsHourly(s);
   siegeHourly(s);
   desertersHourly(s);
-  if (calendar(s.tick).hour !== WAR_HOUR || !m) return;
+  if (calendarOf(s).hour !== WAR_HOUR || !m) return;
   const w = warOf(s);
   const season = warSeason(s);
   if (w.season !== season) {

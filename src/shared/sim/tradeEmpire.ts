@@ -121,7 +121,7 @@ import { noteFlow, priceOf } from './prices';
 import { townEdgeX } from './raids';
 import { seaTown } from './sea';
 import { campX, campXY, earn, notify, townFull, type Faction, type GameState, type Person, type Prompt } from './state';
-import { calendar, TICKS_PER_DAY, TICKS_PER_HOUR } from './time';
+import { TICKS_PER_DAY, TICKS_PER_HOUR, calendarOf } from './time';
 import { guardsOf } from './treasury';
 import { weatherAt } from './weather';
 
@@ -218,7 +218,7 @@ const ensure = (s: GameState): EmpireState =>
 
 const trading = (s: GameState) => s.autopilot !== false && s.direction === 'trade';
 const roll = (s: GameState, ...salts: (string | number)[]) => new Rng(hashSeed(`${s.seed}:empire:${s.tick}:${salts.join(':')}`));
-const day = (s: GameState) => calendar(s.tick).day;
+const day = (s: GameState) => calendarOf(s).day;
 const seasonOf = (s: GameState) => Math.floor((day(s) - 1) / 10);
 const nameOf = (m: Material) => MATERIAL_NAMES[m].toLowerCase();
 const list = (st: Stock) =>
@@ -239,7 +239,7 @@ function log(s: GameState, e: EmpireState, text: string, key = false): void {
 
 /** A tale for the event box: the first post, a post lost, a monopoly, a caravan lost with a fortune (a rare few). */
 function tell(s: GameState, title: string, story: string, words: string): void {
-  const cal = calendar(s.tick);
+  const cal = calendarOf(s);
   const prompt: Prompt = {
     id: s.nextId++,
     kind: 'debrief',
@@ -898,7 +898,7 @@ export function empireHourly(s: GameState): void {
     e.season = seasonOf(s);
   }
   onTheRoad(s, e);
-  const hour = calendar(s.tick).hour;
+  const hour = calendarOf(s).hour;
   if (hour === EMPIRE_HOUR) {
     if (seasonOf(s) !== e.season) {
       e.season = seasonOf(s);

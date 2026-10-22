@@ -35,7 +35,7 @@ import { hashSeed, Rng } from '../rng';
 import { CELL, groundAt, inMap, isOpen, regionOfCell, wet } from './land';
 import { inRegion } from './landRegions';
 import { campCell, campXY, notify, type GameState } from './state';
-import { calendar, TICKS_PER_DAY, TICKS_PER_HOUR } from './time';
+import { TICKS_PER_DAY, TICKS_PER_HOUR, calendarOf } from './time';
 import { raidBudget, scheduleNextRaid, startRaid } from './raids';
 import { spawnRoamerAt, townReachCells } from './roamers';
 import type { MapPlace } from './places';
@@ -138,7 +138,7 @@ export function findNest(s: GameState, p: MapPlace, how: string): void {
  *  up, the old grow, and the grown raid. */
 export function nestsHourly(s: GameState): void {
   if (s.tick % TICKS_PER_HOUR !== 0 || s.gameOver || s.autopilot === false) return;
-  const cal = calendar(s.tick);
+  const cal = calendarOf(s);
   for (const p of nestsOf(s)) if (p.found === null && isOpen(s.land, p.x, p.y)) findNest(s, p, '');
   nestRoamers(s);
   if (cal.hour !== NEST_HOUR) return;
@@ -176,7 +176,7 @@ export function nestRaid(s: GameState, p: MapPlace, g: Rng = roll(s, 'raid', s.t
 
 /** Each hour a nest's creatures may come out, to prowl the land between it and the town (sim/roamers.ts). */
 function nestRoamers(s: GameState): void {
-  if (calendar(s.tick).day - 1 < ROAM_FIRST_DAY) return;
+  if (calendarOf(s).day - 1 < ROAM_FIRST_DAY) return;
   const grown = s.people.filter((p) => p.away === null && !isChild(p)).length;
   if (grown < ROAM_PEOPLE) return;
   const c = campXY(s);

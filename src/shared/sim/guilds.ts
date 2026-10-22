@@ -20,7 +20,7 @@ import { blocOf } from './politics';
 import { isChild } from './social';
 import { campXY, earn, type GameState, type Person } from './state';
 import { tellStory } from './telling';
-import { calendar, TICKS_PER_DAY, TICKS_PER_HOUR } from './time';
+import { TICKS_PER_DAY, TICKS_PER_HOUR, calendarOf } from './time';
 
 export type { Guild } from './guildPerks';
 
@@ -109,7 +109,7 @@ function note(g: Guild, text: string): void {
 
 export function guildsHourly(s: GameState): void {
   if (s.tick % TICKS_PER_HOUR !== 0 || s.autopilot === false || s.gameOver) return;
-  if (calendar(s.tick).hour !== GUILD_HOUR) return;
+  if (calendarOf(s).hour !== GUILD_HOUR) return;
   const rng = new Rng(hashSeed(`${s.seed}:guilds:${s.tick}`));
   keepRanks(s);
   guildWork(s);

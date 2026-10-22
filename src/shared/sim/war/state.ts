@@ -4,7 +4,7 @@
 import { SEASON_OF_WAR, WAR_NEWS_MOST, type WarSeason } from '../../data/war';
 import { hashSeed, Rng } from '../../rng';
 import { notify, type GameState } from '../state';
-import { calendar } from '../time';
+import { calendarOf } from '../time';
 
 /** A campaign: a power's host marching on a province of a power it is at war with (or the town's own war party on a
  *  power's land), which may have called the town to march with it. */
@@ -88,7 +88,7 @@ export interface WarState {
 export const warOf = (s: GameState): WarState => (s.war ??= { nextId: 1, campaigns: [], news: [], dead: [] });
 
 /** The season of war it is now: march (spring, summer), harvest (autumn), hold (winter). */
-export const warSeason = (s: Pick<GameState, 'tick'>): WarSeason => SEASON_OF_WAR[calendar(s.tick).season];
+export const warSeason = (s: Pick<GameState, 'tick'>): WarSeason => SEASON_OF_WAR[calendarOf(s).season];
 
 /** The war's own dice: never the town's stream. */
 export const warRng = (s: GameState, salt: string | number = 0): Rng => new Rng(hashSeed(`${s.seed}:war:${s.tick}:${salt}`));

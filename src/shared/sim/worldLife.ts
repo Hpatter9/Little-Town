@@ -16,7 +16,7 @@ import { routesOnMap, wagonsOnMap } from './markets';
 import { empireOnMap } from './tradeEmpire';
 import { guardsOf } from './treasury';
 import { notify, type GameState } from './state';
-import { calendar, TICKS_PER_HOUR } from './time';
+import { TICKS_PER_HOUR, calendarOf } from './time';
 import { OFF_SEASON, WAR_END_WINTER, WAR_START_PLOT } from '../data/war';
 import { harvestLoss, planStrikes, strikeOver, strikeWaits } from './war/strikes';
 import { campaignOf } from './war/campaigns';
@@ -44,7 +44,7 @@ export const FEUD_START = WAR_START_PLOT;
 export const FEUD_END = WAR_END_WINTER;
 export const FEUDS_MOST = 3;
 const startOdds = (s: GameState) => FEUD_START * (warSeason(s) === 'march' ? OFF_SEASON : 1);
-const endOdds = (s: GameState) => FEUD_END * (calendar(s.tick).season === 'winter' ? 1 : OFF_SEASON);
+const endOdds = (s: GameState) => FEUD_END * (calendarOf(s).season === 'winter' ? 1 : OFF_SEASON);
 /** A host marching between powers takes this long; its strike costs the loser this share of its troops and folk. */
 export const MARCH_HOURS = 12;
 export const STRIKE_LOSS = 0.15;
@@ -61,7 +61,7 @@ const nameOf = (id: string) => FACTION_BY_ID[id]?.name ?? id;
 export function worldHourly(s: GameState): void {
   if (s.autopilot === false || s.tick % TICKS_PER_HOUR !== 0 || !s.factions?.length) return;
   arrive(s);
-  if (calendar(s.tick).hour !== WORLD_HOUR) return;
+  if (calendarOf(s).hour !== WORLD_HOUR) return;
   const fs = realm(s).filter((f) => f.stance !== 'destroyed');
   const feuds = (s.feuds ??= []);
   // feuds end, and begin

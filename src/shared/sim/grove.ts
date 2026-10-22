@@ -43,7 +43,7 @@ import { addStock, maxHp, notify, type GameState, type Raid, type Raider } from 
 import { raidBudget, startRaid } from './raids';
 import { storages } from './buildings';
 import { tellStory } from './telling';
-import { calendar, DAYS_PER_SEASON, TICKS_PER_DAY, TICKS_PER_HOUR } from './time';
+import { DAYS_PER_SEASON, TICKS_PER_DAY, TICKS_PER_HOUR, calendarOf } from './time';
 
 export interface Guardian {
   id: number;
@@ -87,7 +87,7 @@ const clamp = (n: number) => Math.max(-100, Math.min(100, Math.round(n * 10) / 1
 const roll = (s: GameState, salt: string) => new Rng(hashSeed(`${s.seed}:grove:${s.tick}:${salt}`));
 
 function log(s: GameState, g: GroveState, text: string): void {
-  g.log.unshift(`Day ${calendar(s.tick).day}: ${text}`);
+  g.log.unshift(`Day ${calendarOf(s).day}: ${text}`);
   if (g.log.length > 10) g.log.length = 10;
 }
 
@@ -98,7 +98,7 @@ export function groveHourly(s: GameState): void {
   if (s.autopilot === false || s.tick % TICKS_PER_HOUR !== 0) return;
   const g = groveOf(s);
   if (!g) return;
-  const cal = calendar(s.tick);
+  const cal = calendarOf(s);
   if (cal.hour === GROVE_HOUR) groveMorning(s, g);
   if (cal.hour === RITE_HOUR && cal.dayOfSeason === 1) keepRite(s, g);
 }
@@ -173,7 +173,7 @@ function sendGuardian(s: GameState, g: GroveState, rng: Rng): void {
 
 /** The turn of a season: the rite kept. */
 export function keepRite(s: GameState, g: GroveState): void {
-  const cal = calendar(s.tick);
+  const cal = calendarOf(s);
   const key = `${cal.season}:${cal.year}`;
   if (g.rite === key) return;
   g.rite = key;
@@ -243,7 +243,7 @@ export interface GroveView {
 export function groveView(s: GameState): GroveView | null {
   const g = s.grove;
   if (!g || !groveTown(s)) return null;
-  const cal = calendar(s.tick);
+  const cal = calendarOf(s);
   const seasons = ['spring', 'summer', 'autumn', 'winter'] as const;
   const next = seasons[(seasons.indexOf(cal.season) + 1) % 4];
   return {

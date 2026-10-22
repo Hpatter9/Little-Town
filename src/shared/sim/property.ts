@@ -16,7 +16,7 @@ import { giveCoins, moneyTown } from './economy';
 import { houseCut } from './intrigue';
 import { findSpot } from './planner';
 import { earn, notify, remember, type Building, type GameState, type Person } from './state';
-import { calendar, TICKS_PER_HOUR } from './time';
+import { TICKS_PER_HOUR, calendarOf } from './time';
 
 /** The Construction level a building needs of its builders. */
 export function buildSkill(def: BuildingDef): number {
@@ -53,7 +53,7 @@ export const materialsPrice = (def: BuildingDef) => Math.round((Object.entries(d
 /** Once an hour: people buy plots and build homes; at dawn, rent. */
 export function propertyHourly(s: GameState): void {
   if (s.tick % TICKS_PER_HOUR !== 0 || !moneyTown(s)) return;
-  if (calendar(s.tick).hour === 6) collectRent(s);
+  if (calendarOf(s).hour === 6) collectRent(s);
   planHomes(s);
 }
 

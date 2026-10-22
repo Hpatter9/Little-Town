@@ -15,7 +15,7 @@ import { drinking } from './nightOut';
 import { busyNow, onShift } from './people';
 import { isChild } from './social';
 import { addStock, remember, type Building, type GameState, type Person } from './state';
-import { calendar, TICKS_PER_HOUR } from './time';
+import { TICKS_PER_HOUR, calendarOf } from './time';
 import { gainSkill, HUNGRY } from './townsfolk';
 
 /** Spirits under this take a break before their work; a break is never sooner than this many hours after the last
@@ -42,7 +42,7 @@ export const relaxersAt = (s: GameState, b: Building): number => s.people.filter
 export function wantsRelax(s: GameState, p: Person, idle: boolean): Building | null {
   if (s.raid || p.away !== null || p.downed || p.sick || p.machine) return null;
   if (p.needs.food < HUNGRY || p.needs.rest < 0.3) return null;
-  const hour = calendar(s.tick).hour;
+  const hour = calendarOf(s).hour;
   if (hour < RELAX_FROM || hour >= RELAX_UNTIL) return null;
   if (!idle && p.morale >= RELAX_BELOW) return null;
   const gap = (idle ? RELAX_IDLE_GAP_HOURS : RELAX_GAP_HOURS) * TICKS_PER_HOUR;

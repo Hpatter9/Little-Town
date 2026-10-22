@@ -19,7 +19,7 @@ import {
 } from '../src/shared/sim/religion';
 import { totalStock } from '../src/shared/sim/buildings';
 import { makePerson, type GameState, type Person } from '../src/shared/sim/state';
-import { calendar, START_HOUR, TICKS_PER_DAY, TICKS_PER_HOUR } from '../src/shared/sim/time';
+import { START_HOUR, TICKS_PER_DAY, TICKS_PER_HOUR, calendarOf } from '../src/shared/sim/time';
 import { plainGame, put, row, camp } from './helpers';
 
 /** The tick of an hour on a day (day 1 first). */
@@ -101,7 +101,7 @@ test('a feast day kept with a priest pleases the god and lifts the town; let pas
     for (const p of s.people) (p.creed = 'harvest'), (p.zeal = 50);
     faithOf(s).favour = { harvest: 0, hearth: 0, war: 0, sky: 0 };
     s.tick = at(day, FAITH_HOUR);
-    assert.equal(calendar(s.tick).dayOfSeason, day);
+    assert.equal(calendarOf(s).dayOfSeason, day);
     religionHourly(s);
   }
   assert.ok(faithOf(kept).favour.harvest - faithOf(missed).favour.harvest >= 20, `${faithOf(kept).favour.harvest} vs ${faithOf(missed).favour.harvest}`);

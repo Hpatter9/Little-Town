@@ -11,6 +11,9 @@ import {
 } from './folkRules';
 import { variantOf } from './folkTint';
 
+/** The Moon Pack's wolf-headed look, worn in the werewolf's form (not in FOLK_LOOKS: never an everyday pick). */
+const WOLF_LOOK = 'man_beast';
+
 /** A person standing still this long (seconds) is idle rather than held mid-stride. */
 const SEEN_FOR = 0.25;
 
@@ -41,8 +44,9 @@ export class FolkSprite extends Container {
    * @param now   seconds, any steady clock
    * @param dt    seconds since the last frame
    * @param face  an optional map spot to face while working or fighting (a target); else they face the way they last moved
+   * @param wolf  a werewolf in its form: wears the Moon Pack's `man_beast` (bare, same tint as their human look)
    */
-  update(st: FolkState, mapX: number, mapY: number, now: number, dt: number, face?: { x: number; y: number }): void {
+  update(st: FolkState, mapX: number, mapY: number, now: number, dt: number, face?: { x: number; y: number }, wolf = false): void {
     // how they're moving: facing and speed (smoothed a little, so a stop-start step doesn't flicker walk/idle)
     if (!Number.isNaN(this.lastX) && dt > 0) {
       const dx = mapX - this.lastX, dy = mapY - this.lastY;
@@ -60,9 +64,9 @@ export class FolkSprite extends Container {
 
     const weapon = st.gear.weapon ? ITEM_BY_ID[st.gear.weapon] : undefined;
     const family = weapon?.family;
-    const suffix = armedSuffix(st, family, isFighting(st));
+    const suffix = wolf ? null : armedSuffix(st, family, isFighting(st));
     const body = st.gear.body ? ITEM_BY_ID[st.gear.body] : undefined;
-    const pick = pickLook(st, undefined, dressOf(body?.weight));
+    const pick = wolf ? { people: 'werewolf', look: WOLF_LOOK } : pickLook(st, undefined, dressOf(body?.weight));
     const bare = lookPath(pick, null);
     const wanted = lookPath(pick, suffix);
     const variant = variantOf(st.id);

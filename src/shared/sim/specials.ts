@@ -18,7 +18,7 @@ import { isSeat } from '../data/seats';
 import type { ClassId } from '../data/classes';
 import { hashSeed, mixSeed, Rng } from '../rng';
 import { earn, notify, setOutcome, tireless, type GameState, type Person, type Raid } from './state';
-import { calendar, TICKS_PER_HOUR } from './time';
+import { TICKS_PER_HOUR, calendarOf } from './time';
 import { raidBudget, raidKindsFor, scheduleNextRaid, startRaid } from './raids';
 import { rulesOf } from '../data/origins';
 import { isChild } from './social';
@@ -101,7 +101,7 @@ export const sabotaged = (s: GameState) => (s.sabotage ?? 0) > s.tick;
 
 export function specialsHourly(s: GameState): void {
   if (s.tick % TICKS_PER_HOUR !== 0) return;
-  const hour = calendar(s.tick).hour;
+  const hour = calendarOf(s).hour;
   for (const p of [...s.people]) {
     const sec = p.secret;
     if (!sec || sec.settled || sec.joined === undefined || p.away !== null) continue;

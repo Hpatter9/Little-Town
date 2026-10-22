@@ -30,7 +30,7 @@ import { minorWound } from './injuries';
 import { giveCoins } from './economy';
 import { enemiesOf, isChild } from './social';
 import { earn, notify, type GameState, type Person, type Prompt } from './state';
-import { calendar, TICKS_PER_DAY, TICKS_PER_HOUR } from './time';
+import { TICKS_PER_DAY, TICKS_PER_HOUR, calendarOf } from './time';
 import { assignBeds, gainSkill } from './townsfolk';
 import { seaTown } from './sea';
 import { weatherAt } from './weather';
@@ -142,7 +142,7 @@ export function politicsHourly(s: GameState): void {
   if (s.tick % TICKS_PER_HOUR !== 0 || s.autopilot === false || s.gameOver) return;
   if (grownAtHome(s).length < 3) return;
   const pol = politicsOf(s);
-  const hour = calendar(s.tick).hour;
+  const hour = calendarOf(s).hour;
   // (questions left unanswered: their defaults, by the generic expiry in roadEvents.ts; tidy up after)
   if (pol.vote && !s.prompts.some((q) => q.id === pol.vote!.prompt)) pol.vote = undefined;
   if (pol.trial && !s.prompts.some((q) => q.id === pol.trial!.prompt)) pol.trial = undefined;
@@ -245,7 +245,7 @@ export function callVote(s: GameState, by: BlocId | null, prop: NonNullable<Retu
   ({ yes, no } = swingVote(s, prop, yes, no)); // (a councillor in a house's pocket votes its way: sim/intrigue.ts)
   const passes = yes > no;
   const name = proposalName(prop);
-  const cal = calendar(s.tick);
+  const cal = calendarOf(s);
   const what = prop.tax ? 'the tax' : LAW_BY_ID[prop.law!].does;
   const prompt: Prompt = {
     id: s.nextId++,
@@ -410,7 +410,7 @@ export function trial(s: GameState, culprit: Person, crime: CrimeKind, what: str
   const harsh = lawOn(s, 'harsh_law');
   const def: Sentence = crime === 'murder' ? (harsh ? 'hang' : 'exile') : crime === 'heresy' ? (harsh ? 'exile' : 'stocks') : crime === 'theft' ? (harsh ? 'stocks' : 'fine') : crime === 'assault' ? (harsh ? 'exile' : 'stocks') : 'fine';
   const heresy = crime === 'heresy'; // (a heresy trial: sim/religion.ts)
-  const cal = calendar(s.tick);
+  const cal = calendarOf(s);
   const prompt: Prompt = {
     id: s.nextId++,
     kind: 'trial',
@@ -509,7 +509,7 @@ export function unrest(s: GameState, rng: Rng): void {
 function revolt(s: GameState, bloc: BlocId): void {
   const pol = politicsOf(s);
   const founder = s.people.find((p) => p.id === s.mainId);
-  const cal = calendar(s.tick);
+  const cal = calendarOf(s);
   const can = (s.people.filter((p) => p.guard).length > 0 || membersOf(s, 'soldiers').length > 0) && pol.sat.soldiers > 40;
   const prompt: Prompt = {
     id: s.nextId++,

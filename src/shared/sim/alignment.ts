@@ -22,7 +22,7 @@ import { foodPerHead } from './townsfolk';
 import { notify, townFull, type GameState, type Prompt } from './state';
 import { EVENT_BY_ID } from '../data/events';
 import type { NatureId } from '../data/natures';
-import { TICKS_PER_DAY, TICKS_PER_HOUR, calendar } from './time';
+import { TICKS_PER_DAY, TICKS_PER_HOUR, calendar, calendarOf } from './time';
 
 export interface AlignState {
   score: number;
@@ -309,7 +309,7 @@ function report(s: GameState, a: AlignState): void {
     const total = Object.values(pend).reduce((n, v) => n + v, 0);
     if (Math.abs(total) >= 2) {
       const top = Object.entries(pend).sort((x, y) => Math.abs(y[1]) - Math.abs(x[1]))[0];
-      a.log.push({ day: calendar(s.tick).day, delta: r2(total), why: top[0] });
+      a.log.push({ day: calendarOf(s).day, delta: r2(total), why: top[0] });
       if (a.log.length > LOG_KEPT) a.log.splice(0, a.log.length - LOG_KEPT);
     }
     a.pending = undefined;
@@ -319,7 +319,7 @@ function report(s: GameState, a: AlignState): void {
     const total = Object.values(op).reduce((n, v) => n + v, 0);
     if (Math.abs(total) >= 2) {
       const top = Object.entries(op).sort((x, y) => Math.abs(y[1]) - Math.abs(x[1]))[0];
-      a.log.push({ day: calendar(s.tick).day, delta: r2(total), why: top[0], axis: 'order' });
+      a.log.push({ day: calendarOf(s).day, delta: r2(total), why: top[0], axis: 'order' });
       if (a.log.length > LOG_KEPT) a.log.splice(0, a.log.length - LOG_KEPT);
     }
     a.opending = undefined;

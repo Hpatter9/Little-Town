@@ -77,7 +77,7 @@ import { realm } from './factions';
 import { noteFlow, priceIndex, priceOf } from './prices';
 import { seaTown } from './sea';
 import { earn, notify, type Faction, type GameState, type Prompt } from './state';
-import { calendar, TICKS_PER_DAY, TICKS_PER_HOUR } from './time';
+import { TICKS_PER_DAY, TICKS_PER_HOUR, calendarOf } from './time';
 import { guardsOf } from './treasury';
 import { weatherAt } from './weather';
 
@@ -165,7 +165,7 @@ export function marketOf(s: GameState): MarketState | null {
 }
 
 function log(s: GameState, mk: MarketState, text: string): void {
-  mk.log.unshift(`Day ${calendar(s.tick).day}: ${text}`);
+  mk.log.unshift(`Day ${calendarOf(s).day}: ${text}`);
   if (mk.log.length > LOG_MOST) mk.log.length = LOG_MOST;
 }
 
@@ -228,7 +228,7 @@ export function marketsHourly(s: GameState): void {
   const mk = marketOf(s);
   if (!mk) return;
   wagonsOnTheRoad(s, mk);
-  const hour = calendar(s.tick).hour;
+  const hour = calendarOf(s).hour;
   if (hour === MARKET_HOUR) {
     movePrices(s, mk);
     swings(s, mk);
@@ -248,7 +248,7 @@ function warsOf(s: GameState): number {
 /** Each morning every price drifts toward its target: supply, war, the season and any swing on it. */
 export function movePrices(s: GameState, mk: MarketState): void {
   const wars = warsOf(s);
-  const season = calendar(s.tick).season;
+  const season = calendarOf(s).season;
   const rng = roll(s, 'prices');
   mk.yesterday = { ...mk.price };
   for (const m of MATERIALS) {
@@ -281,7 +281,7 @@ export function swings(s: GameState, mk: MarketState): Swing | null {
   if (mk.swings.length >= SWINGS_MOST) return null;
   const rng = roll(s, 'swing');
   if (!rng.chance(SWING_DAILY)) return null;
-  const bad = calendar(s.tick).season === 'winter' || warsOf(s) > 0;
+  const bad = calendarOf(s).season === 'winter' || warsOf(s) > 0;
   const kind = rng.weighted<SwingKind>({ boom: 3, shortage: bad ? 3 * BAD_SEASON : 3, glut: 3, crash: 1 });
   const goods = dealtIn(s).filter((m) => !mk.swings.some((w) => w.m === m) && (kind !== 'shortage' || !bad || FOOD_VALUE[m] || rng.chance(0.4)));
   const food = goods.filter((m) => FOOD_VALUE[m]);
@@ -535,7 +535,7 @@ function standingTells(s: GameState, mk: MarketState): void {
 }
 
 function tell(s: GameState, title: string, story: string, words: string): void {
-  const cal = calendar(s.tick);
+  const cal = calendarOf(s);
   const prompt: Prompt = {
     id: s.nextId++,
     kind: 'debrief',

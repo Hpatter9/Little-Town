@@ -68,7 +68,7 @@ import { placeBlueprint } from './buildings';
 import { raidBudget, scheduleNextRaid, startRaid } from './raids';
 import { isChild } from './social';
 import { addStock, campXY, notify, type Airship, type Expedition, type GameState, type Person, type Roamer } from './state';
-import { calendar, paceDay, TICKS_PER_DAY, TICKS_PER_HOUR } from './time';
+import { paceDay, TICKS_PER_DAY, TICKS_PER_HOUR, calendarOf } from './time';
 
 const CELL = 32;
 
@@ -132,7 +132,7 @@ export function airshipLine(s: GameState, d: Destination): string {
 /** Each hour: the dawn's mending, the town's plans, sky pirates and the hunters of the sky. */
 export function skiesHourly(s: GameState): void {
   if (s.tick % TICKS_PER_HOUR !== 0) return;
-  const { hour } = calendar(s.tick);
+  const { hour } = calendarOf(s);
   if (hour === 6) mendAirships(s);
   if (s.autopilot === false) return;
   planAirships(s);
@@ -208,7 +208,7 @@ export function skyHour(s: GameState, e: Expedition, members: Person[], fight: (
   if (!a) return;
   const def = airshipDef(a);
   const g = roll(s, 'aloft', e.id, s.tick);
-  const { season } = calendar(s.tick);
+  const { season } = calendarOf(s);
   if (g.chance(SKY_STORM_HOURLY[season])) {
     const share = SKY_STORM_HURT[0] + g.next() * (SKY_STORM_HURT[1] - SKY_STORM_HURT[0]);
     // (a later ship, all frame and engines, rides it out better)
@@ -350,7 +350,7 @@ const night = (hour: number) => hour >= 20 || hour < 5;
 export function skyHuntersHourly(s: GameState): void {
   const flying = (s.roamers ?? []).filter((r) => r.flying);
   if (flying.length >= SKY_HUNTERS_MOST) return;
-  if (calendar(s.tick).day - 1 < SKY_HUNT_FIRST_DAY) return;
+  if (calendarOf(s).day - 1 < SKY_HUNT_FIRST_DAY) return;
   const grown = s.people.filter((p) => p.away === null && !isChild(p)).length;
   if (grown < SKY_HUNT_PEOPLE) return;
   const g = roll(s, 'hunt', s.tick);
@@ -360,7 +360,7 @@ export function skyHuntersHourly(s: GameState): void {
 
 /** A hunter comes in over the town from beyond the known land, to circle over it. */
 export function spawnSkyHunter(s: GameState, g: Rng = roll(s, 'spawn', s.tick), group?: EnemyGroup): Roamer | null {
-  const { hour } = calendar(s.tick);
+  const { hour } = calendarOf(s);
   const pool = SKY_HUNTERS[s.era] ?? SKY_HUNTERS.neolithic;
   const chosen = group ?? g.pick(night(hour) ? pool.night : pool.day);
   if (Object.keys(chosen).some((id) => !ENEMIES[id])) return null;

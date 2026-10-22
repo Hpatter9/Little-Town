@@ -12,6 +12,7 @@
 import { BUILDING_BY_ID } from '../../shared/data/buildings';
 import { CHATTER } from '../chatter';
 import type { JournalEntryView, Snapshot } from '../../shared/sim/snapshot';
+import { tutorialActive } from './tutorialSteps';
 import { loadMet, meet, saveMet, tipsDue, tipsOn, type Tip } from './tips';
 import { showObituary } from './obituaryReveal';
 import { openCardInMenu } from './cardLink';
@@ -423,7 +424,7 @@ export function startNotices(bridge: NoticeBridge, strip: HTMLIFrameElement): { 
 
   // the first hour's tips (mobile/tips.ts): each met once, shown at the top till read
   let met = loadMet();
-  const tips = (): Notice[] => (tipsOn() ? tipsDue(met, (k) => read.has(k)).map(tipNotice) : []);
+  const tips = (): Notice[] => (tipsOn() && !tutorialActive() ? tipsDue(met, (k) => read.has(k)).map(tipNotice) : []);
   const all = (): Notice[] => (snap ? [...tips(), ...situationNotices(snap), ...stakeNotices(journalNotices(entries, snap), entries, snap)] : []);
   const unread = (ns: Notice[]) => ns.filter((n) => !read.has(n.key));
 

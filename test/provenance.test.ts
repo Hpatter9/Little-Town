@@ -9,7 +9,7 @@ import { noteBossFelled, noteUnique, uniquesHourly } from '../src/shared/sim/pro
 import { credit } from '../src/shared/sim/raidRecap';
 import { snapshot } from '../src/shared/sim/snapshot';
 import { makePerson, type CraftOrder, type Raid, type Raider } from '../src/shared/sim/state';
-import { calendar, TICKS_PER_DAY } from '../src/shared/sim/time';
+import { TICKS_PER_DAY, calendarOf } from '../src/shared/sim/time';
 import { Rng } from '../src/shared/rng';
 import { plainGame } from './helpers';
 
@@ -36,7 +36,7 @@ test('a forged unique keeps its maker, the day, the station and its piece', () =
   assert.ok(r, 'a story is kept');
   assert.equal(r.how, 'forged');
   assert.deepEqual(r.by, [{ id: smith.id, name: smith.name }]);
-  assert.equal(r.day, calendar(s.tick).day);
+  assert.equal(r.day, calendarOf(s).day);
   assert.ok(r.where, 'the station is named');
   assert.equal(typeof r.qn, 'number');
 });
@@ -65,7 +65,7 @@ test('each bearer is added as they take it up, once each turn', () => {
   s.tick += TICKS_PER_DAY;
   uniquesHourly(s);
   assert.deepEqual(s.uniqueLog![id].bearers!.map((x) => x.id), [a.id, b.id]);
-  assert.equal(s.uniqueLog![id].bearers![1].day, calendar(s.tick).day);
+  assert.equal(s.uniqueLog![id].bearers![1].day, calendarOf(s).day);
 });
 
 test('a unique found before the log starts one when someone takes it up, its coming unknown', () => {
