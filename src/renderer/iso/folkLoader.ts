@@ -78,7 +78,7 @@ function toTexture(im: HTMLImageElement, variant: number): Texture {
   const c = document.createElement('canvas');
   c.width = im.naturalWidth;
   c.height = im.naturalHeight;
-  const g = c.getContext('2d')!;
+  const g = c.getContext('2d', { willReadFrequently: true })!; // (read back whole: kept off the graphics card)
   g.drawImage(im, 0, 0);
   const px = g.getImageData(0, 0, c.width, c.height);
   recolour(px.data, variant);
