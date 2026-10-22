@@ -1,0 +1,254 @@
+[
+ {
+  "id": "grass_1",
+  "w": 8,
+  "h": 5,
+  "src": "craftpix-net-665131-free-fields-tileset-pixel-art-for-tower-defense: 4.png"
+ },
+ {
+  "id": "grass_2",
+  "w": 6,
+  "h": 10,
+  "src": "craftpix-net-665131-free-fields-tileset-pixel-art-for-tower-defense: 5.png"
+ },
+ {
+  "id": "grass_3",
+  "w": 5,
+  "h": 8,
+  "src": "craftpix-net-665131-free-fields-tileset-pixel-art-for-tower-defense: 6.png"
+ },
+ {
+  "id": "tall_grass",
+  "w": 45,
+  "h": 50,
+  "src": "craftpix-net-505052-free-forest-objects-top-down-pixel-art: Willow3.png"
+ },
+ {
+  "id": "reeds_1",
+  "w": 78,
+  "h": 83,
+  "src": "craftpix-net-505052-free-forest-objects-top-down-pixel-art: Willow1.png"
+ },
+ {
+  "id": "reeds_2",
+  "w": 60,
+  "h": 73,
+  "src": "craftpix-net-505052-free-forest-objects-top-down-pixel-art: Willow2.png"
+ },
+ {
+  "id": "flowers_1",
+  "w": 6,
+  "h": 5,
+  "src": "craftpix-net-665131-free-fields-tileset-pixel-art-for-tower-defense: 4.png"
+ },
+ {
+  "id": "flowers_2",
+  "w": 6,
+  "h": 5,
+  "src": "craftpix-net-665131-free-fields-tileset-pixel-art-for-tower-defense: 6.png"
+ },
+ {
+  "id": "flowers_3",
+  "w": 8,
+  "h": 7,
+  "src": "craftpix-net-665131-free-fields-tileset-pixel-art-for-tower-defense: 9.png"
+ },
+ {
+  "id": "flowers_4",
+  "w": 8,
+  "h": 7,
+  "src": "craftpix-net-665131-free-fields-tileset-pixel-art-for-tower-defense: 12.png"
+ },
+ {
+  "id": "stump_1",
+  "w": 30,
+  "h": 29,
+  "src": "craftpix-net-695666-free-undead-tileset-top-down-pixel-art: Broken_tree_shadow1_3.png"
+ },
+ {
+  "id": "stump_2",
+  "w": 41,
+  "h": 31,
+  "src": "craftpix-net-695666-free-undead-tileset-top-down-pixel-art: Broken_tree_shadow1_4.png"
+ },
+ {
+  "id": "stump_3",
+  "w": 30,
+  "h": 23,
+  "src": "craftpix-net-695666-free-undead-tileset-top-down-pixel-art: Broken_tree_shadow1_6.png"
+ },
+ {
+  "id": "branch",
+  "w": 84,
+  "h": 39,
+  "src": "craftpix-net-695666-free-undead-tileset-top-down-pixel-art: Broken_tree_shadow1_1.png"
+ },
+ {
+  "id": "mushrooms_1",
+  "w": 25,
+  "h": 34,
+  "src": "craftpix-net-505052-free-forest-objects-top-down-pixel-art: White-red_mushroom3.png"
+ },
+ {
+  "id": "mushrooms_2",
+  "w": 18,
+  "h": 18,
+  "src": "craftpix-net-505052-free-forest-objects-top-down-pixel-art: Chanterelles3.png"
+ },
+ {
+  "id": "mushrooms_3",
+  "w": 23,
+  "h": 26,
+  "src": "craftpix-net-505052-free-forest-objects-top-down-pixel-art: Beige_green_mushroom3.png"
+ },
+ {
+  "id": "fern",
+  "w": 37,
+  "h": 44,
+  "src": "craftpix-net-639143-free-rocky-area-objects-pixel-art: Fern_tree3.png"
+ },
+ {
+  "id": "pebbles_1",
+  "w": 26,
+  "h": 27,
+  "src": "craftpix-net-695666-free-undead-tileset-top-down-pixel-art: Rock_shadow1_4.png"
+ },
+ {
+  "id": "pebbles_2",
+  "w": 15,
+  "h": 16,
+  "src": "craftpix-net-695666-free-undead-tileset-top-down-pixel-art: Rock_shadow1_5.png"
+ },
+ {
+  "id": "shrub_1",
+  "w": 64,
+  "h": 58,
+  "src": "craftpix-net-695666-free-undead-tileset-top-down-pixel-art: Plant_shadow1_1.png"
+ },
+ {
+  "id": "shrub_2",
+  "w": 30,
+  "h": 28,
+  "src": "craftpix-net-695666-free-undead-tileset-top-down-pixel-art: Plant_shadow1_3.png"
+ },
+ {
+  "id": "shrub_3",
+  "w": 15,
+  "h": 17,
+  "src": "craftpix-net-695666-free-undead-tileset-top-down-pixel-art: Plant_shadow1_4.png"
+ },
+ {
+  "id": "thorns_1",
+  "w": 110,
+  "h": 80,
+  "src": "craftpix-net-695666-free-undead-tileset-top-down-pixel-art: Thorn_plant_shadow1_1.png"
+ },
+ {
+  "id": "thorns_2",
+  "w": 24,
+  "h": 23,
+  "src": "craftpix-net-695666-free-undead-tileset-top-down-pixel-art: Thorn_plant_shadow1_3.png"
+ },
+ {
+  "id": "bones_1",
+  "w": 15,
+  "h": 13,
+  "src": "craftpix-net-695666-free-undead-tileset-top-down-pixel-art: Bones_shadow1_2.png"
+ },
+ {
+  "id": "bones_2",
+  "w": 48,
+  "h": 48,
+  "src": "craftpix-net-695666-free-undead-tileset-top-down-pixel-art: Bones_shadow1_6.png"
+ },
+ {
+  "id": "bones_3",
+  "w": 30,
+  "h": 64,
+  "src": "craftpix-net-695666-free-undead-tileset-top-down-pixel-art: Bones_shadow1_10.png"
+ },
+ {
+  "id": "skeleton",
+  "w": 128,
+  "h": 46,
+  "src": "craftpix-net-639143-free-rocky-area-objects-pixel-art: Dragon_bones_body_ground_shadow.png"
+ },
+ {
+  "id": "pillar_1",
+  "w": 55,
+  "h": 54,
+  "src": "craftpix-net-695666-free-undead-tileset-top-down-pixel-art: Ruin_shadow1_3.png"
+ },
+ {
+  "id": "pillar_2",
+  "w": 47,
+  "h": 46,
+  "src": "craftpix-net-695666-free-undead-tileset-top-down-pixel-art: Ruin_shadow1_4.png"
+ },
+ {
+  "id": "pillar_3",
+  "w": 29,
+  "h": 22,
+  "src": "craftpix-net-695666-free-undead-tileset-top-down-pixel-art: Ruin_shadow1_5.png"
+ },
+ {
+  "id": "ruin_1",
+  "w": 80,
+  "h": 95,
+  "src": "craftpix-net-695666-free-undead-tileset-top-down-pixel-art: Ruin_shadow1_1.png"
+ },
+ {
+  "id": "ruin_2",
+  "w": 79,
+  "h": 62,
+  "src": "craftpix-net-695666-free-undead-tileset-top-down-pixel-art: Ruin_shadow1_2.png"
+ },
+ {
+  "id": "dune_1",
+  "w": 192,
+  "h": 86,
+  "src": "craftpix-net-675652-free-rocks-pixel-art-asset-pack: desert_rock1.png"
+ },
+ {
+  "id": "dune_2",
+  "w": 140,
+  "h": 65,
+  "src": "craftpix-net-675652-free-rocks-pixel-art-asset-pack: desert_rock2.png"
+ },
+ {
+  "id": "dune_3",
+  "w": 51,
+  "h": 18,
+  "src": "craftpix-net-675652-free-rocks-pixel-art-asset-pack: desert_rock4.png"
+ },
+ {
+  "id": "floe_1",
+  "w": 75,
+  "h": 25,
+  "src": "craftpix-net-675652-free-rocks-pixel-art-asset-pack: ice_rock4.png"
+ },
+ {
+  "id": "floe_2",
+  "w": 52,
+  "h": 16,
+  "src": "craftpix-net-675652-free-rocks-pixel-art-asset-pack: ice_rock5.png"
+ },
+ {
+  "id": "snow_rock",
+  "w": 79,
+  "h": 61,
+  "src": "craftpix-net-675652-free-rocks-pixel-art-asset-pack: snowy_rock3.png"
+ },
+ {
+  "id": "statue",
+  "w": 71,
+  "h": 94,
+  "src": "craftpix-net-639143-free-rocky-area-objects-pixel-art: Rock_statue_old_man_grass_shadow.png"
+ },
+ {
+  "id": "mill",
+  "w": 154,
+  "h": 142,
+  "src": "src/renderer/art/packs/su_windmill.png: su_windmill.png"
+ }
+]

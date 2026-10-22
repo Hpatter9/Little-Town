@@ -5,7 +5,7 @@ import { BIOMES } from '../src/shared/data/biomes';
 import { RAID_BOARDS } from '../src/shared/data/raidBoards';
 import { RAID_KIND_BY_ID } from '../src/shared/data/raids';
 import { Rng } from '../src/shared/rng';
-import { boardsFor, GROUND_BY_CH, HAND_BOARD_SHARE, pickBoard, PROP_KINDS, type RaidBoardDef } from '../src/shared/sim/raidBoards';
+import { boardsFor, DECOR_KINDS, GROUND_BY_CH, HAND_BOARD_SHARE, pickBoard, PROP_KINDS, THING_PIECE, type RaidBoardDef } from '../src/shared/sim/raidBoards';
 import { startRaid, updateRaid } from '../src/shared/sim/raids';
 import { BOARD_H, BOARD_W, makeHandBoard, type TacTile, type Tactics } from '../src/shared/sim/tactics';
 import { boardOk, canStep } from '../src/shared/sim/tacticsTerrain';
@@ -241,4 +241,37 @@ test('a raid with the autopilot off, or a saved board from before the hand-made 
     updateRaid(s, rng);
   }
   assert.ok(r.tactics!.turns > 0);
+});
+
+test('the boards are dressed (the Decor layer) with nothing the fight sees: the same board with and without it plays the same', () => {
+  for (const def of RAID_BOARDS) {
+    const at = def.name;
+    assert.ok(def.decor.length >= 15, `${at}: dressed (${def.decor.length})`);
+    for (const [u, v, what] of def.decor) {
+      assert.ok((DECOR_KINDS as readonly string[]).includes(what), `${at}: ${what}`);
+      assert.ok(u >= 0 && v >= 0 && u < def.w && v < def.h, `${at}: ${what} at ${u},${v} on the board`);
+      assert.ok(u !== def.w - 4, `${at}: nothing on the wall's line (${what} at ${u},${v})`);
+    }
+    assert.equal(new Set(def.decor.map(([u, v]) => `${u},${v}`)).size, def.decor.length, `${at}: one bit of dressing a tile`);
+    const s = town(`dressed-${def.id}`, def.biomes[0]);
+    const dressed = makeHandBoard(s, -1, def);
+    const plain = makeHandBoard(s, -1, { ...def, decor: [] });
+    assert.ok(dressed.tiles.some((t) => t.decor), `${at}: the tiles carry it`);
+    assert.deepEqual(
+      dressed.tiles.map(({ decor: _d, ...t }) => t),
+      plain.tiles,
+      `${at}: the dressing changes nothing else`,
+    );
+    // (on the wall's line it's cleared with the cover)
+    assert.ok(dressed.tiles.every((t) => !(t.wall && t.decor)), `${at}: none under the wall`);
+  }
+});
+
+test('every prop kind has its picture: a kit piece, or `kit/piece` in another kit or the dressing’s', () => {
+  for (const k of PROP_KINDS) {
+    const piece = THING_PIECE[k];
+    if (!piece) continue;
+    const path = piece.includes('/') ? piece : `settlers/${piece}`;
+    assert.ok(existsSync(`src/renderer/art/iso/kits/${path}.png`), `${k}: ${path}.png`);
+  }
 });

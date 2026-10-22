@@ -34,6 +34,7 @@ import { weddingFeast } from './ceremonies';
 import { answerRisingEnvoy, riseLine, risingEnvoyText } from './risingPowers';
 import { assignBeds } from './townsfolk';
 import { startRaid } from './raids';
+import { raidNews } from './raidSight';
 import { seaTown } from './sea';
 import { isChild } from './social';
 import { makeStranger, strangerLook } from './strangers';
@@ -628,9 +629,9 @@ export function launchHost(s: GameState, f: Faction, rng: Rng): Raid | null {
   const d = defOf(f);
   const kind = RAID_KIND_BY_ID[raidOf(s, f)];
   if (!kind) return null;
-  const r = startRaid(s, kind, h.size * 20, rng, undefined, { ...hostMakeup(s, f, h.size, h), host: f.id });
+  const r = startRaid(s, kind, h.size * 20, rng, undefined, { ...hostMakeup(s, f, h.size, h), host: f.id }, true);
   if (h.siege) r.warSiege = true; // (a siege is fought out, not left on the clock: sim/tactics.ts)
-  notify(s, `The war host of ${d.name} is here: ${r.raiders.filter((rd) => !rd.ally).length} strong!`, true);
+  raidNews(s, r, `The war host of ${d.name} is here: ${r.raiders.filter((rd) => !rd.ally).length} strong!`, true);
   return r;
 }
 

@@ -54,6 +54,12 @@ export const PARTS: readonly ItemDef[] = [
   part('cloth_panel', 'Cloth Panels', 'loom', { cloth: 2 }, ['weaving'], 1, 'cut and quilted cloth, for robes, padding and hangings.', custom('dyed_cloth')),
   part('lens', 'Lens', 'glassworks', { glass: 1 }, ['glassblowing'], 2, 'ground glass, for scopes, goggles and fine glass.', custom('glassware')),
   part('moulded_parts', 'Moulded Parts', 'refinery', { plastic: 2 }, ['refining'], 1, 'plastic pressed into shells, grips and housings.', custom('plastic_toys')),
+  // food (the better dishes only: the plain fare stays made from the raw food)
+  part('pastry', 'Pastry', 'bakery', { flour: 2, milk: 1 }, ['baking', 'domestication'], 2, 'flour worked with milk into a rich dough, for pies and tarts.', custom('fruit_tart')),
+  part('cheese_wheel', 'Cheese Wheel', 'campfire', { milk: 4 }, ['domestication'], 2, 'milk curdled, pressed and salted, cut for the table.', custom('cheese')),
+  part('broth', 'Broth', 'campfire', { meat: 1, herbs: 1 }, ['hospitality'], 2, 'a stock simmered from bones and herbs, the base of a good stew.', custom('stew')),
+  part('sausage', 'Cured Sausage', 'smokehouse', { meat: 2, herbs: 1 }, ['food_preservation'], 2, 'minced meat and herbs, stuffed and smoked to keep.', custom('roast_meat')),
+  part('preserves', 'Preserves', 'kiln', { fruit: 3 }, ['pottery', 'orcharding'], 2, 'fruit boiled down and sealed in a clay jar.', custom('berry_bowl')),
 ];
 export const PART_IDS: ReadonlySet<string> = new Set(PARTS.map((p) => p.id));
 

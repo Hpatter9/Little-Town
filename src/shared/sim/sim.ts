@@ -6,6 +6,7 @@ import { CONQUEST } from '../data/conquest';
 import { tacticsOrder } from './tactics';
 import { regrowHourly } from './regrow';
 import { streetsHourly } from './streets';
+import { drawPath } from './pathPlans';
 import { roamersTick, skirmishTrip } from './roamers';
 import { strays } from './strays';
 import { skiesHourly, skiesTick } from './skies';
@@ -145,6 +146,7 @@ import { seafaringHourly } from './seafaring';
 import { oddsHourly } from './raidOdds';
 import { voteSettlementName } from './settlementName';
 import { setFavourite } from './favourites';
+import { buyRare } from './rareStall';
 import { founderBuyShop, founderShopManager, founderShopPrice, founderShopStock } from './founderShops';
 import { founderApprentice, founderFeast, founderHaggle, founderMatch, founderVisitor } from './founderDealings';
 import { founderExplore, founderGive, founderGo, founderHeir, founderRest, founderTick, founderWork } from './founder';
@@ -509,6 +511,9 @@ export class Sim {
       case 'trade':
         trade(s, c.offer, this.rng);
         break;
+      case 'buyRare':
+        buyRare(s, c.material as Material, c.count, c.who);
+        break;
       case 'cycleOperator':
         cycleOperator(s, c.building);
         break;
@@ -760,6 +765,9 @@ export class Sim {
         setMarked(s.land, c.cell, !isMarked(s.land, c.cell));
         break;
       }
+      case 'drawPath':
+        drawPath(s, c.cells, c.on);
+        break;
       case 'markClear': {
         // (a drag's worth: only wild cells with something to gather can be marked; any can be unmarked)
         for (const i of c.cells.slice(0, MARK_CLEAR_CAP)) {

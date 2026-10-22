@@ -55,6 +55,34 @@ const ATLAS = [
   { mark: 'back' },
   { mark: 'entry' },
   null,
+  // row 4: the props added with the boards' dressing (raidBoards.ts `THING_PIECE`)
+  { piece: 'wild/ruin_1' },
+  { piece: 'dwarves/boulders' },
+  { piece: 'wild/statue' },
+  { piece: 'nomads/covered_wagon' },
+  { piece: 'settlers/campfire' },
+  { piece: 'settlers/cottage' },
+  { piece: 'wild/mill' },
+  null,
+  // rows 5 to 7: the dressing (the Decor layer, raidBoards.ts `DECOR_KINDS` in order)
+  { piece: 'wild/grass_1' },
+  { piece: 'wild/tall_grass' },
+  { piece: 'wild/reeds_1' },
+  { piece: 'wild/flowers_3' },
+  { piece: 'wild/stump_1' },
+  { piece: 'wild/branch' },
+  { piece: 'wild/mushrooms_1' },
+  { piece: 'wild/fern' },
+  { piece: 'wild/pebbles_1' },
+  { piece: 'wild/shrub_1' },
+  { piece: 'wild/thorns_1' },
+  { piece: 'wild/bones_2' },
+  { piece: 'wild/skeleton' },
+  { piece: 'wild/pillar_1' },
+  { piece: 'wild/dune_2' },
+  { mark: 'drift' },
+  { piece: 'wild/floe_1' },
+  { piece: 'wild/snow_rock' },
 ];
 
 (async () => {
@@ -108,7 +136,17 @@ const ATLAS = [
         } else if (cell.mark) {
           // (the markers: the town's front line a blue shield, its back line a pale one, a raiders' way in a red arrow)
           g.lineWidth = 2;
-          if (cell.mark === 'entry') {
+          if (cell.mark === 'drift') {
+            // (a snow drift: no sprite has one, the board draws it too: tactics/tacticsView.ts)
+            g.fillStyle = '#9db8d4';
+            g.beginPath();
+            g.ellipse(x + 16, y + 22, 14, 6, 0, 0, Math.PI * 2);
+            g.fill();
+            g.fillStyle = '#f4f8fc';
+            g.beginPath();
+            g.ellipse(x + 14, y + 20, 12, 5, 0, 0, Math.PI * 2);
+            g.fill();
+          } else if (cell.mark === 'entry') {
             g.fillStyle = '#c83c32';
             g.beginPath();
             g.moveTo(x + 4, y + 10);

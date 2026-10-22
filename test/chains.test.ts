@@ -45,7 +45,8 @@ test('every chain resolves: parts and rare inputs are real, each part made at a 
 
 test('the first age stays simple; depth grows with the age and the grade', () => {
   // (the Stone Age's things take no parts)
-  for (const i of ITEMS) if (partsOf(i).length) assert.notEqual(ageOf({ ...i.cost, ...Object.assign({}, ...partsOf(i).map(([id]) => ITEM_BY_ID[id].cost)) }), 'neolithic', `${i.id} is a first-age thing`);
+  // (food is the owner's exception: the better dishes take food parts from the first age on, test/foodChains.test.ts)
+  for (const i of ITEMS) if (partsOf(i).length && !i.fare) assert.notEqual(ageOf({ ...i.cost, ...Object.assign({}, ...partsOf(i).map(([id]) => ITEM_BY_ID[id].cost)) }), 'neolithic', `${i.id} is a first-age thing`);
   for (const id of ['flint_knife', 'stone_axe', 'spear', 'hide_armor', 'bow_stave'].filter((x) => !PART_IDS.has(x))) assert.equal(partsOf(ITEM_BY_ID[id]).length, 0, id);
   // a plain Medieval piece: one part; a fine one: two; the age's best: a rare input as well
   assert.deepEqual(Object.keys(ITEM_BY_ID.iron_axe.items ?? {}), ['iron_blade']);

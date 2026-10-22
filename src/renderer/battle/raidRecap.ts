@@ -9,6 +9,7 @@ import type { Snapshot } from '../../shared/sim/snapshot';
 import { holdWhileUp } from '../mobile/popupHold';
 import { guildMarkOrFallen } from '../art/guildMarks';
 import { RAID_KINDS } from '../../shared/data/raids';
+import { paintPortrait } from '../art/folkPortrait';
 import { hkDraw, hkLayers, hkWhoOf } from '../art/hkFolk';
 import { playScene } from '../panel/scenePlayer';
 import { raiderSprites, recapScript, type RecapPanel } from '../panel/sceneScripts';
@@ -33,13 +34,18 @@ const el = <K extends keyof HTMLElementTagNameMap>(tag: K, cls: string, text?: s
 
 type Recap = NonNullable<Snapshot['raidRecap']>;
 
-/** A small face for a chip, from the Himeko doll (blank until its layers load; the strip is drawn once, so a later redraw fills it). */
+/** A small face for a chip: their isometric look as the map draws it (art/folkPortrait.ts); until it loads, the Himeko doll
+ *  (blank until its layers load; the strip is drawn once, so a later redraw fills it). */
 function miniFace(p: Snapshot['people'][number]): HTMLCanvasElement {
   const c = document.createElement('canvas');
   c.width = c.height = 40;
-  const g = c.getContext('2d')!;
-  g.imageSmoothingEnabled = false;
-  hkDraw(g, hkLayers(hkWhoOf(p), { fighting: false, activity: 'idle' }), 0, 0, 20, 84, 92);
+  paintPortrait(c, p, {
+    mode: 'face',
+    stand: (g) => {
+      g.imageSmoothingEnabled = false;
+      hkDraw(g, hkLayers(hkWhoOf(p), { fighting: false, activity: 'idle' }), 0, 0, 20, 84, 92);
+    },
+  });
   return c;
 }
 

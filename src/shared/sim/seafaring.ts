@@ -23,6 +23,7 @@ import { buildingCentre, depositNear, footprint, depthOf, footprints, placeBluep
 import { killPerson } from './health';
 import { CELL, groundAt, isOpen, spiralSpot, touchesWater, wet } from './land';
 import { raidBudget, startRaid } from './raids';
+import { raidNews } from './raidSight';
 import { seaTown } from './sea';
 import { isChild } from './social';
 import { peopleOf } from './strangers';
@@ -234,7 +235,7 @@ function pirates(s: GameState, rng: Rng): void {
   if (s.tick < book.nextPirate || s.raid || !coastal(s) || !eraReached(s.era, 'medieval') || dayOf(s) < PIRATE_FROM_DAY) return;
   const anger = kingAnger(s);
   book.nextPirate = s.tick + Math.round(rng.int(PIRATE_GAP[0], PIRATE_GAP[1]) * (1 - KING_GAP_CUT * anger) * TICKS_PER_DAY);
-  const raid = startRaid(s, SEA_RAID_KIND, Math.round(raidBudget(s) * PIRATE_BUDGET), rng);
+  const raid = startRaid(s, SEA_RAID_KIND, Math.round(raidBudget(s) * PIRATE_BUDGET), rng, undefined, undefined, true);
   if (anger > 0) swellCrew(s, raid, 1 + KING_BUDGET_MORE * anger);
   raid.landing = true;
   const beach = beachNear(s);
@@ -248,7 +249,8 @@ function pirates(s: GameState, rng: Rng): void {
     });
   }
   s.nextRaidTick = Math.max(s.nextRaidTick, s.tick + 24 * TICKS_PER_HOUR);
-  tell(s, 'A pirate ship stands in off the beach, and its crew wades ashore!', true);
+  if (raid.veil) raidNews(s, raid, 'A pirate ship stands in off the beach, and its crew wades ashore!', true);
+  else tell(s, 'A pirate ship stands in off the beach, and its crew wades ashore!', true);
 }
 
 /** The nearest bit of beach to the camp within the known land: a land cell with water beside it (px), if any. */

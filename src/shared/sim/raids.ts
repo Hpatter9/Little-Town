@@ -329,9 +329,9 @@ export function startRaid(s: GameState, kind: RaidKind, budget: number, rng: Rng
 
   s.raid = raid;
   // (a scheduled raid sets out unseen, in a town with the fog: a vague sign now, the warning when someone sees it, sim/raidSight.ts)
-  if (veiled && !kind.fromSea && !host && veilsRaids(s)) {
+  if (veiled && veilsRaids(s)) {
     raid.veil = { from: s.tick, total: warn, flank };
-    sayVagueSign(s, raid);
+    sayVagueSign(s, raid, !!kind.fromSea);
     return raid;
   }
   announceRaid(s, raid, kind, flank, lookout);
@@ -358,11 +358,16 @@ function announceRaid(s: GameState, raid: Raid, kind: RaidKind, flank: number, l
     defaultOption: 0,
     expiresTick: raid.arrivesTick,
   };
+  // (a source's own words for it, kept while it was unseen: sagas, secret newcomers)
+  if (raid.veil?.title) prompt.title = raid.veil.title;
+  if (raid.veil?.text) prompt.text = `${raid.veil.text} ${prompt.text}`;
   s.prompts.push(prompt);
   raid.prompt = prompt.id;
   // (a wandering tribe draws its wagons up across the camp)
   circleWagons(s);
   notify(s, `${kind.name} ${kind.plural ? 'are' : 'is'} coming from the ${where}${flank ? ', and round the other side' : ''}!`);
+  // (and what its source had to say, kept until now: sim/raidSight.ts `raidNews`)
+  for (const n of raid.veil?.news ?? []) notify(s, n.startsWith('!') ? n.slice(1) : n, n.startsWith('!'));
 }
 
 const bribeCost = (r: Raid) => r.raiders.length * BRIBE_FOOD_PER_RAIDER;
@@ -485,7 +490,9 @@ export function updateRaid(s: GameState, rng: Rng): void {
       if (s.tick >= r.arrivesTick) delete r.veil;
       else {
         if (s.tick % 5 === 0 && raidSeenBy(s, r, townEdgeX(s, r.side), campXY(s).y)) {
-          r.arrivesTick = leadAfterSeen(s, r);
+          const lead = leadAfterSeen(s, r) - r.arrivesTick;
+          r.arrivesTick += lead;
+          r.leavesTick += lead;
           announceRaid(s, r, kind, r.veil.flank);
           delete r.veil;
         }

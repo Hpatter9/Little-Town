@@ -490,7 +490,7 @@ export interface Raid {
   turned?: boolean;
   /** Still on its way and unseen (fog of war, sim/raidSight.ts): not yet announced. `from`: when it set out, `total`: the
    *  ticks of its approach, `flank`: how many come round the other side. Cleared when someone sees it, or it arrives. */
-  veil?: { from: number; total: number; flank: number };
+  veil?: { from: number; total: number; flank: number; title?: string; text?: string; news?: string[] };
   /** A chase after the fugitives of an earlier raid (sim/chase.ts): fought on the tactics board, close and the town first. */
   chase?: boolean;
 }
@@ -1485,6 +1485,8 @@ export interface GameState {
   intrigue?: import('./intrigue').IntrigueState;
   /** The trade economy: prices, booms and shortages, the trade house, its routes and wagons (sim/markets.ts). */
   market?: import('./markets').MarketState;
+  /** The traders' stall: the rare inputs bought this season, by season number (sim/rareStall.ts). */
+  rareSold?: { n: number; sold: Partial<Record<Material, number>> };
   /** A druid town's grove (sim/grove.ts). */
   grove?: import('./grove').GroveState;
   /** A fae town's Court and its bargains (sim/bargains.ts). */
