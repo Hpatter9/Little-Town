@@ -60,6 +60,8 @@ export type ToHost =
     }
   /** Hold the clock, or let it run (the phone's loading screen: renderer/mobile/loading.ts). */
   | { t: 'hold'; on: boolean }
+  /** A card only the page knows of is up, or has gone (renderer/mobile/popupHold.ts): the town stands still meanwhile. */
+  | { t: 'cards'; on: boolean }
   | { t: 'command'; c: Command }
   /** Out of sight. On the phone that means the player has gone, so the game saves and books the alerts; the desktop
    *  strip hidden behind a fullscreen app saves only (`book: false`), and books them on quitting. */
@@ -214,6 +216,9 @@ export function startSimHost(post: (m: FromHost) => void): (m: ToHost) => void {
         return;
       case 'hold':
         if (game) game.held = m.on;
+        return;
+      case 'cards':
+        if (game) game.cardsUp = m.on;
         return;
       case 'alerts':
         alerts = m.a;

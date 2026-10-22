@@ -119,6 +119,8 @@ export interface Bridge {
   command(c: Command): void;
   /** The phone's loading screen has gone: the game's clock, held till now, runs (renderer/mobile/loading.ts). */
   release?(): void;
+  /** A card only the page knows of has come up or gone (renderer/mobile/popupHold.ts): the town stands still while one is up. */
+  holdCards?(on: boolean): void;
   /** Hold the clock and save the town now (the phone's "Main menu"). */
   suspend?(): Promise<void>;
   getSnapshot(): Promise<Snapshot>;

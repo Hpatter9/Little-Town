@@ -7,6 +7,8 @@ import { readVibrate, saveVibrate } from '../vibration';
 import { startNotices } from './notices';
 import { watchFavourites } from './obituaryReveal';
 import { createEventSheet } from './eventSheet';
+import { startPopupHold } from './popupHold';
+import { startWaitingChoices } from './waitingChoices';
 import { revealsOn, setItemOpener, setRevealsOn, showReveal, startReveals } from './revealCard';
 import { openCardInMenu, setMenuFrame } from './cardLink';
 import { buildingCard, buildingCardKey, type BuildingArt } from '../panel/buildingCard';
@@ -284,8 +286,10 @@ const tabButtons = PANELS.map((p) => {
 });
 // a choice event takes the whole screen (eventSheet.ts)
 {
-  const sheet = createEventSheet((prompt, option) => bridge.command?.({ type: 'answerPrompt', prompt, option }), strip);
+  startPopupHold(bridge, [() => !!(strip.contentWindow as (Window & { __cardUp?: () => boolean }) | null)?.__cardUp?.()]);
+  const sheet = createEventSheet((prompt, option) => bridge.command?.({ type: 'answerPrompt', prompt, option }), strip, (prompt) => bridge.command?.({ type: 'parkPrompt', prompt }));
   bridge.onSnapshot((snap) => sheet.update(snap));
+  document.body.append(startWaitingChoices(bridge)); // (a closed choice waits behind this button: waitingChoices.ts)
 }
 // the rare things, and a party's haul, revealed card by card (revealCard.ts)
 startReveals(bridge, strip);

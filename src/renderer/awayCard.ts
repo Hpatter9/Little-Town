@@ -2,6 +2,7 @@
 // (`createCatchingUp`); then one card of what mattered (`createAwayCard`: deaths, births and newcomers, raids and how
 // they ended, a new age, finds, questions waiting; sim/awaySummary.ts), with Continue. Nothing important, no card.
 
+import { holdWhileUp } from './mobile/popupHold';
 import type { AwayLine } from '../shared/sim/awaySummary';
 
 export function createCatchingUp(): { show(share: number): void; hide(): void } {
@@ -28,6 +29,7 @@ export function createAwayCard(closed?: () => void): { show(lines: AwayLine[]): 
   box.setAttribute('data-hit', '');
   box.hidden = true;
   document.body.append(box);
+  holdWhileUp(box); // (the card holds the town while it's up: mobile/popupHold.ts)
   return {
     show(lines) {
       box.replaceChildren();
@@ -45,11 +47,18 @@ export function createAwayCard(closed?: () => void): { show(lines: AwayLine[]): 
       const ok = document.createElement('button');
       ok.className = 'tab';
       ok.textContent = 'Continue';
-      ok.addEventListener('click', () => {
+      const shut = () => {
         box.hidden = true;
         closed?.();
-      });
-      box.append(title, list, ok);
+      };
+      ok.addEventListener('click', shut);
+      const x = document.createElement('button');
+      x.className = 'rr-x';
+      x.textContent = '✕';
+      x.title = 'Close';
+      x.setAttribute('aria-label', 'Close');
+      x.addEventListener('click', shut);
+      box.append(title, list, ok, x);
       box.hidden = false;
     },
     get open() {

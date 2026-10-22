@@ -260,9 +260,12 @@ function formatTime(seconds: number): string {
 export interface PromptCard {
   show(p: PromptView): void;
   hide(): void;
+  /** The questions closed unanswered, oldest first: a small button to open the oldest again (the desktop strip; on the
+   *  phone the page has its own: mobile/waitingChoices.ts). */
+  waiting(parked: PromptView[]): void;
 }
 
-export function createPromptCard(onAnswer: (prompt: number, option: number) => void): PromptCard {
+export function createPromptCard(onAnswer: (prompt: number, option: number) => void, onPark: (prompt: number) => void = () => {}, onOpen: (prompt: number) => void = () => {}): PromptCard {
   const el = document.createElement('div');
   el.id = 'prompt';
   el.setAttribute('data-hit', '');
@@ -271,7 +274,20 @@ export function createPromptCard(onAnswer: (prompt: number, option: number) => v
   let shown = -1;
   const count = document.createElement('span');
   count.className = 'prompt-count';
+  const wait = document.createElement('button');
+  wait.id = 'prompt-waiting';
+  wait.className = 'tab';
+  wait.setAttribute('data-hit', '');
+  wait.hidden = true;
+  let oldest = -1;
+  wait.addEventListener('click', () => oldest >= 0 && onOpen(oldest));
+  document.body.append(wait);
   return {
+    waiting(parked) {
+      oldest = parked[0]?.id ?? -1;
+      wait.hidden = !parked.length || window.parent !== window;
+      wait.textContent = `❓ ${parked.length} ${parked.length === 1 ? 'choice' : 'choices'} waiting`;
+    },
     show(p) {
       if (p.id !== shown) {
         shown = p.id;
@@ -292,7 +308,15 @@ export function createPromptCard(onAnswer: (prompt: number, option: number) => v
           row.append(b);
         });
         row.append(count);
+        // (the corner ✕ closes it unanswered: it waits behind the choices button, sim/popups.ts)
+        const x = document.createElement('button');
+        x.className = 'prompt-x';
+        x.textContent = '✕';
+        x.title = p.pinned ? 'Close (the town still waits for your answer)' : 'Close: answer later from the choices button';
+        x.setAttribute('aria-label', 'Close');
+        x.addEventListener('click', () => onPark(p.id));
         el.replaceChildren(title, text, row);
+        if (p.kind !== 'raid' && p.kind !== 'gate') el.append(x); // (the raid's own and the gate's can't wait)
       }
       count.textContent = p.secondsLeft === null ? '' : `${p.options[p.defaultOption]} in ${Math.ceil(p.secondsLeft)}s`;
       el.hidden = false;

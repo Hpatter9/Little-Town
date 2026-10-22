@@ -544,6 +544,9 @@ export interface PromptView {
   about?: string;
   /** Until the default is taken; null when it waits as long as it takes. */
   secondsLeft: number | null;
+  /** Closed unanswered and waiting behind the choices button; and a choice that holds the town until answered. */
+  parked?: boolean;
+  pinned?: boolean;
   /** An evolution's roads (data/paths.ts, data/pathLore.ts): each with its archetype's role, its telling and its
    *  signature skill, in the options' order. */
   roads?: RoadView[];
@@ -1487,6 +1490,8 @@ export function snapshot(s: GameState): Snapshot {
       ...(p.politics || p.village ? { about: p.politics ?? p.village?.about } : {}),
       // (none for a question that waits as long as it takes: raiders held at the gate)
       secondsLeft: p.expiresTick >= Number.MAX_SAFE_INTEGER ? null : Math.max(0, (p.expiresTick - s.tick) / TICK_HZ),
+      ...(p.parked ? { parked: true } : {}),
+      ...(p.pinned ? { pinned: true } : {}),
       ...(p.roads ? { roads: p.roads.map(roadOf).filter((r): r is RoadView => !!r) } : {}),
     })),
     raid: s.raid

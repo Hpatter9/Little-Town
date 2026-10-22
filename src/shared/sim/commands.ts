@@ -80,6 +80,9 @@ export type Command =
   | { type: 'setOrder'; person: number; order: StandingOrder }
   /** Answer a question from the road. */
   | { type: 'answerPrompt'; prompt: number; option: number }
+  /** Close a question unanswered (it waits behind the choices button), or open a waiting one again (sim/popups.ts). */
+  | { type: 'parkPrompt'; prompt: number }
+  | { type: 'openPrompt'; prompt: number }
   /** Keep one of the origin's powers back to cast yourself (null: let the town cast them all), and cast it. */
   | { type: 'holdPower'; power: string | null }
   | { type: 'castHeld' }
@@ -322,6 +325,9 @@ export function parseCommand(raw: unknown): Command | null {
       return typeof c.power === 'string' && Number.isFinite(c.x) && Number.isFinite(c.y) ? { type: 'battleCast', power: c.power, x: c.x as number, y: c.y as number } : null;
     case 'answerPrompt':
       return Number.isInteger(c.prompt) && Number.isInteger(c.option) ? { type: 'answerPrompt', prompt: c.prompt as number, option: c.option as number } : null;
+    case 'parkPrompt':
+    case 'openPrompt':
+      return Number.isInteger(c.prompt) ? { type: c.type, prompt: c.prompt as number } : null;
     case 'recallExpedition':
       return Number.isInteger(c.expedition) ? { type: 'recallExpedition', expedition: c.expedition as number } : null;
     case 'acceptVisitor':

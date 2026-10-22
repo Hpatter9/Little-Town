@@ -208,6 +208,7 @@ import { ExpeditionPane } from './town/expeditionPane';
 import { SnowView } from './town/snowView';
 import { LeavesView } from './town/leavesView';
 import { WeatherView } from './town/weatherView';
+import { EVENT_BOX_KINDS } from '../shared/sim/popups';
 
 declare global {
   interface Window {
@@ -644,7 +645,7 @@ async function start(): Promise<void> {
   /** The expedition shown in the split view: the most recently sent one. */
   const shownExpedition = () => snap.expeditions.at(-1) ?? null;
   const expHeader = createExpeditionHeader(() => bridge.openPanel('expeditions'));
-  const promptCard = createPromptCard((prompt, option) => bridge.command({ type: 'answerPrompt', prompt, option }));
+  const promptCard = createPromptCard((prompt, option) => bridge.command({ type: 'answerPrompt', prompt, option }), (prompt) => bridge.command({ type: 'parkPrompt', prompt }), (prompt) => bridge.command({ type: 'openPrompt', prompt }));
   const gameOver = createGameOver(() => bridge.openPanel('newgame'));
 
   // (an origin's look reaches its buildings too)
@@ -1886,9 +1887,10 @@ async function start(): Promise<void> {
       if (h.building && BUILDING_BY_ID[h.building]) return buildingPicture(h.building, buildStyle || 'town', 96, 64);
       return null;
     };
-    const q = next.prompts[0];
+    const q = next.prompts.find((p) => !p.parked);
+    promptCard.waiting(next.prompts.filter((p) => p.parked).sort((a, b) => a.id - b.id));
     // (on the phone, a choice event has the whole screen: mobile/eventSheet.ts)
-    if (q && view.mode === 'full' && !next.fightOn && !next.tactics && !((q.kind === 'event' || q.kind === 'secret' || q.kind === 'saga' || q.kind === 'road' || q.kind === 'debrief' || q.kind === 'envoy' || q.kind === 'watch' || q.kind === 'dragon' || q.kind === 'evolve' || q.kind === 'refugees' || q.kind === 'village' || q.kind === 'council' || q.kind === 'trial' || q.kind === 'revolt' || q.kind === 'ways' || q.kind === 'enemy') && (window as unknown as { __eventSheet?: boolean }).__eventSheet)) promptCard.show(q);
+    if (q && view.mode === 'full' && !next.fightOn && !next.tactics && !(EVENT_BOX_KINDS.has(q.kind) && (window as unknown as { __eventSheet?: boolean }).__eventSheet)) promptCard.show(q);
     else promptCard.hide();
     if (next.gameOver) gameOver.show(next.gameOver.text, next.gameOver.won);
     // a boss roars or sweeps: the strip shakes (only for fresh moments, not ones from before a reload)

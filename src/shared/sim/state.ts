@@ -830,6 +830,12 @@ export interface Prompt {
   recommended?: number;
   why?: string;
   expiresTick: number;
+  /** Ticks the town has held for it (sim/popups.ts); past `POPUP_MOST_TICKS` it holds no more. */
+  stood?: number;
+  /** Closed unanswered (sim/popups.ts `parkPrompt`): it waits behind the choices button and no longer holds the town. */
+  parked?: boolean;
+  /** A choice that holds the town until it is answered, closed or not (a quest the founder leads); it never times out. */
+  pinned?: boolean;
   /** A commanded party's homecoming (sim/muster.ts `debrief`): who came back and how, who did not, and the haul. */
   debrief?: Debrief;
   /** A fateful event (data/fatefulEvents.ts): the box wears its heavier frame and reveals slowly. */

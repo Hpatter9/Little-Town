@@ -5,6 +5,8 @@
 // (`__eventSheet` on the strip's window, read in main.ts). Answered, the box stays: the answer taken and what came of it
 // (`snapshot.eventOutcome`, set by `setOutcome` in the sim) take the answers' place, and Continue closes it.
 
+import { holdWhileUp } from './popupHold';
+import { EVENT_BOX_KINDS } from '../../shared/sim/popups';
 import { BACKDROPS, type BackdropId } from '../../shared/data/backdrops';
 import type { Snapshot, PromptView } from '../../shared/sim/snapshot';
 import { loadImage } from '../art/loadImage';
@@ -40,11 +42,12 @@ export interface EventSheet {
   update(snap: Snapshot): void;
 }
 
-export function createEventSheet(onAnswer: (prompt: number, option: number) => void, strip: HTMLIFrameElement): EventSheet {
+export function createEventSheet(onAnswer: (prompt: number, option: number) => void, strip: HTMLIFrameElement, onPark: (prompt: number) => void = () => {}): EventSheet {
   const el = document.createElement('div');
   el.id = 'event-sheet';
   el.hidden = true;
   document.body.append(el);
+  holdWhileUp(el); // (the box holds the town while it's up, the outcome's page too: popupHold.ts)
   let shown = -1;
   let count: HTMLElement | null = null;
   /** The answer given, while the box shows what came of it. */
@@ -57,8 +60,35 @@ export function createEventSheet(onAnswer: (prompt: number, option: number) => v
   const QUIET_MS = 2500;
   const win = () => strip.contentWindow as (Window & { __eventSheet?: boolean; __picture?: (h: { person?: number }) => HTMLCanvasElement | null }) | null;
 
+  /** The corner ✕: closes the box. A choice is closed unanswered and waits behind the choices button (the town goes on,
+   *  unless the choice holds it); a debrief is read; the page of what came of an answer is gone on from. */
+  const x = document.createElement('button');
+  x.className = 'event-x';
+  x.textContent = '✕';
+  x.title = 'Close';
+  x.setAttribute('aria-label', 'Close');
+  let current: PromptView | null = null;
+  x.addEventListener('click', () => {
+    if (answered) return void goOn();
+    const p = current;
+    if (!p) return;
+    if (p.kind === 'debrief') onAnswer(p.id, p.defaultOption);
+    else onPark(p.id);
+    if (p.kind === 'debrief') read.add(p.id);
+    shown = -1;
+    el.hidden = true;
+    document.body.classList.remove('event-open');
+  });
+  const goOn = () => {
+    answered = null;
+    shown = -1;
+    el.hidden = true;
+    document.body.classList.remove('event-open');
+  };
+
   const build = (p: PromptView) => {
     shown = p.id;
+    current = p;
     addCardStyles();
     const art = document.createElement('div');
     art.className = 'event-art';
@@ -234,7 +264,13 @@ export function createEventSheet(onAnswer: (prompt: number, option: number) => v
     advice.className = 'event-advice';
     if (p.recommended != null && p.why && !evolve) advice.textContent = `The town recommends "${p.options[p.recommended]}": ${p.why}.`;
     body.append(title, text, options, advice, count);
-    el.replaceChildren(art, body);
+    if (p.pinned) {
+      const hold = document.createElement('div');
+      hold.className = 'event-hold';
+      hold.textContent = 'The town waits for your answer. Close this and it waits behind the choices button.';
+      body.append(hold);
+    } else if (p.kind !== 'debrief') x.title = 'Close: answer later from the choices button';
+    el.replaceChildren(art, body, x);
     el.scrollTop = 0;
   };
 
@@ -312,12 +348,7 @@ export function createEventSheet(onAnswer: (prompt: number, option: number) => v
     go.className = 'event-option event-continue';
     go.textContent = 'Continue';
     go.hidden = true;
-    go.addEventListener('click', () => {
-      answered = null;
-      shown = -1;
-      el.hidden = true;
-      document.body.classList.remove('event-open');
-    });
+    go.addEventListener('click', goOn);
     box.append(chose, came, go);
     answered = { id: p.id, from: tick, at: performance.now(), box, told: false };
     if (count) count.textContent = '';
@@ -362,7 +393,7 @@ export function createEventSheet(onAnswer: (prompt: number, option: number) => v
         tell(snap);
         return;
       }
-      const p = snap.prompts.find((q) => !read.has(q.id) && (q.kind === 'event' || q.kind === 'secret' || q.kind === 'saga' || q.kind === 'road' || q.kind === 'debrief' || q.kind === 'envoy' || q.kind === 'watch' || q.kind === 'dragon' || q.kind === 'evolve' || q.kind === 'refugees' || q.kind === 'village' || q.kind === 'council' || q.kind === 'trial' || q.kind === 'revolt' || q.kind === 'ways' || q.kind === 'enemy'));
+      const p = snap.prompts.find((q) => !read.has(q.id) && !q.parked && EVENT_BOX_KINDS.has(q.kind));
       const on = !!p && !away;
       el.hidden = !on;
       document.body.classList.toggle('event-open', on);

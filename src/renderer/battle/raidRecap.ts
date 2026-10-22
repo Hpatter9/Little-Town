@@ -6,6 +6,7 @@
 
 import { MATERIAL_NAMES, type Material, type Stock } from '../../shared/data/materials';
 import type { Snapshot } from '../../shared/sim/snapshot';
+import { holdWhileUp } from '../mobile/popupHold';
 import { guildMarkOrFallen } from '../art/guildMarks';
 import { RAID_KINDS } from '../../shared/data/raids';
 import { hkDraw, hkLayers, hkWhoOf } from '../art/hkFolk';
@@ -117,6 +118,7 @@ export function createRaidRecap(): RaidRecapView {
   box.setAttribute('data-hit', '');
   box.hidden = true;
   document.body.append(box);
+  holdWhileUp(box); // (the recap holds the town while it's up: mobile/popupHold.ts)
   let shownKey = '';
   let last: Snapshot['raidRecap'] = null;
   /** The latest snapshot, for the badges by the names. */
@@ -197,7 +199,11 @@ export function createRaidRecap(): RaidRecapView {
     }
     const ok = el('button', 'tab rr-close', 'Back to town');
     ok.addEventListener('click', close);
-    box.append(ok);
+    const x = el('button', 'rr-x', '✕');
+    x.title = 'Close';
+    x.setAttribute('aria-label', 'Close');
+    x.addEventListener('click', close);
+    box.append(ok, x);
   };
 
   return {
