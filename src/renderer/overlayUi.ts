@@ -49,6 +49,52 @@ export function createBanner(onCancel: () => void): Banner {
   };
 }
 
+/** The great creature's small card (sim/creature.ts): its last notable deed, with Praise and Scold. It never holds the
+ *  town; it goes when answered or when the sim lets the question lapse (unanswered counts as neither). */
+export interface BeastAsk {
+  show(id: number, text: string): void;
+  hide(): void;
+}
+
+export function createBeastAsk(answer: (praise: boolean) => void): BeastAsk {
+  const el = document.createElement('div');
+  el.id = 'beast-ask';
+  el.setAttribute('data-hit', '');
+  el.hidden = true;
+  el.style.cssText =
+    'position:fixed;left:56px;bottom:calc(env(safe-area-inset-bottom, 0px) + 74px);max-width:min(300px, calc(100vw - 64px));z-index:30;' +
+    'background:rgba(28,22,14,0.92);color:#f4e6c8;border:1px solid #8a6a3a;border-radius:8px;padding:6px 8px;font:12px/1.35 sans-serif;box-shadow:0 2px 8px rgba(0,0,0,0.4)';
+  const text = document.createElement('div');
+  const row = document.createElement('div');
+  row.style.cssText = 'display:flex;gap:6px;margin-top:5px';
+  let shown = -1;
+  const btn = (label: string, praise: boolean, bg: string) => {
+    const b = document.createElement('button');
+    b.textContent = label;
+    b.style.cssText = `flex:1;padding:5px 0;border:0;border-radius:5px;font:bold 12px sans-serif;color:#fff;background:${bg}`;
+    b.addEventListener('click', () => {
+      answer(praise);
+      el.hidden = true;
+    });
+    return b;
+  };
+  row.append(btn('Praise', true, '#4f7a34'), btn('Scold', false, '#8a3a2a'));
+  el.append(text, row);
+  document.body.append(el);
+  return {
+    show(id, t) {
+      // (once answered it stays gone, even before the next snapshot drops the question)
+      if (id === shown) return;
+      shown = id;
+      text.textContent = t;
+      el.hidden = false;
+    },
+    hide() {
+      el.hidden = true;
+    },
+  };
+}
+
 /** Short-lived messages in the strip's sky ("Research complete: ..."). Never capture the mouse. */
 export interface Toasts {
   push(text: string): void;
