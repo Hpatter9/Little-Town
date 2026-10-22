@@ -25,7 +25,7 @@ import { corpseAlpha, FALL_TICKS, HEAVY, MELEE_LAND, motionOf, moveSprite, TickC
 import { impactFrame, IMPACT_SIZE, SPLAT_SIZE, splatFrame } from '../art/effects';
 import { bleeds } from '../map/bloodPools';
 import { ELITES, type EliteAffix } from '../../shared/data/dungeons';
-import { FloorMap } from '../delve/floorMap';
+import { FloorMap, mapWatchOf } from '../delve/floorMap';
 import { loadDelveProps, propFrame, propLoop, type DelveProp } from '../art/delveProps';
 import { sheetOf } from '../town/spellsView';
 import { actSprite } from './actLooks';
@@ -226,7 +226,7 @@ export class FightScene {
   update(v: ExpeditionView | null, biome?: Biome, season?: string, sea = false, mers?: ReadonlySet<number>): void {
     this.root.visible = !!v;
     this.view = v;
-    this.floorMap.update(v?.delve && v.phase === 'work' ? v.delve : null, v?.id ?? 0);
+    this.floorMap.update(mapWatchOf(v));
     if (!v) return;
     // (on the road it's the land on the way; arrived at a dungeon, it's inside)
     // (`window.__scene` shows any scene, for previews)

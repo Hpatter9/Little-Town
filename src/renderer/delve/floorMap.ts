@@ -1,6 +1,7 @@
-// The map of the floor a watched delve goes down (sim/delveFloors.ts), in the corner of the fight screen
-// (fight/fightView.ts): the floor drawn from DawnLike's tiles (floorArt.ts) round the party, seen from above, the
-// camera following them. Where they've been is lit dimly, what lies ahead is black until they come to it (a room shows
+// The map of the floor a watched delve goes down (sim/delveFloors.ts), or of the story place a watched trip has come to
+// (sim/storyPlaces.ts), in the corner of the fight screen (fight/fightView.ts): the place drawn from DawnLike's tiles
+// (floorArt.ts) round the party, seen from above, the camera following them. Out of doors it's all in daylight;
+// underground: Where they've been is lit dimly, what lies ahead is black until they come to it (a room shows
 // whole as they enter it), and their own torches light the cells round them, less as the torches run low. Between rooms
 // they're seen walking the way to the next (after stopping at the room's thing, as the side view has them), and a
 // secret door shows as wall until they've gone through it. A delve whose rooms were rolled goes down a floor laid out
@@ -10,12 +11,62 @@ import { hashSeed } from '../../shared/rng';
 import { floorById, floorCell, floorPath, floorRooms, generatedFloor, FLOOR_ROCK, type FloorLook, type FloorRoom } from '../../shared/sim/delveFloors';
 import type { HandMap } from '../../shared/sim/handMaps';
 import type { ExpeditionView } from '../../shared/sim/snapshot';
+import { openAir, storyPlaceById } from '../../shared/sim/storyPlaces';
 import { loadImage } from '../art/loadImage';
 import { glowTexture } from '../town/layer';
 import { animated, groundTiles, propTiles, tileIndex, TILE_COLS, type Laid } from './floorArt';
 import sheetUrl from '../art/floors/tiles.png';
 
 type DelveView = NonNullable<ExpeditionView['delve']>;
+
+/** What the map shows: the place, the room the party is at (0 the way in) and how far along the way to the next they
+ *  are (0: standing at it), their torches (null: in daylight), and whether they're fighting. */
+interface MapWatch {
+  key: string;
+  map: () => HandMap;
+  room: number;
+  walk: number;
+  torches: number | null;
+  fighting: boolean;
+}
+
+/** The map of a delve: at a room's thing for a while, then walking on to the next. */
+function delveWatch(d: DelveView, expedition: number): MapWatch {
+  const walking = !d.cleared && d.room > 0 && d.progress > STOP && d.kind !== 'boss';
+  return {
+    key: `${expedition}|${d.floor ?? d.plan.join(',')}|${d.look}`,
+    map: () => floorById(d.floor) ?? generatedFloor(d.plan, hashSeed(`delveFloor:${expedition}`), d.look as FloorLook),
+    room: Math.max(0, d.room),
+    walk: walking ? Math.min(1, (d.progress - STOP) / (1 - STOP)) : 0,
+    torches: d.torches,
+    fighting: (d.kind === 'fight' || d.kind === 'boss' || d.kind === 'rival') && d.progress < 0.5,
+  };
+}
+
+/** The share of the way out at which a party bound for a story place comes to it, and starts through it. */
+const PLACE_NEAR = 0.75;
+
+/** The map of a story place: the last stretch of the way out is walked through it, spot by spot, to whoever waits
+ *  there (its boss spot), where they fight on arriving; while they're there afterwards they go on to the spots past it
+ *  (a hoard, a cage...). Walking two thirds of each stretch and standing the rest; standing their ground in a fight. */
+function placeWatch(v: ExpeditionView, m: HandMap): MapWatch {
+  const rooms = floorRooms(m);
+  const n = Math.max(1, rooms.length - 1);
+  const boss = Math.max(1, rooms.findIndex((r) => r.kind === 'boss'));
+  const fighting = !!v.battle?.length;
+  const at = v.phase === 'out' ? Math.min(boss, ((v.phaseProgress - PLACE_NEAR) / (1 - PLACE_NEAR)) * boss) : fighting ? boss : boss + v.phaseProgress * (n - boss);
+  const room = Math.max(0, Math.min(n, Math.floor(at)));
+  const t = Math.max(0, at - room);
+  return { key: `${v.id}|${m.id}`, map: () => m, room, walk: room < n && !fighting ? Math.min(1, t / 0.66) : 0, torches: openAir(m) ? null : 4, fighting };
+}
+
+/** What the watched trip's map shows, if it has one: a delve's floor, or the story place it's at. */
+export function mapWatchOf(v: ExpeditionView | null): MapWatch | null {
+  if (!v) return null;
+  if (v.delve) return v.phase === 'work' ? delveWatch(v.delve, v.id) : null;
+  const m = storyPlaceById(v.place);
+  return m && (v.phase === 'work' || (v.phase === 'out' && v.phaseProgress >= PLACE_NEAR)) ? placeWatch(v, m) : null;
+}
 
 let sheet: Texture | null = null;
 let asked = false;
@@ -71,7 +122,7 @@ export class FloorMap {
   private fogKey = '';
   private anim: { s: Sprite; a: Texture | null; b: Texture | null }[] = [];
   private built = false;
-  private view: { d: DelveView; id: number } | null = null;
+  private watch: MapWatch | null = null;
   private iw = 0;
   private ih = 0;
   /** The party's place on the map (cells, fractional), eased toward where the delve says they are. */
@@ -88,15 +139,13 @@ export class FloorMap {
     this.root.addChild(this.frame, this.clip, this.world);
   }
 
-  /** The watched delve (null: none, or not inside). */
-  update(d: DelveView | null, expedition: number): void {
-    this.view = d ? { d, id: expedition } : null;
-    this.root.visible = !!d;
-    if (!d) return;
-    const key = `${expedition}|${d.floor ?? d.plan.join(',')}|${d.look}`;
-    if (key === this.key) return;
-    this.key = key;
-    this.map = floorById(d.floor) ?? generatedFloor(d.plan, hashSeed(`delveFloor:${expedition}`), d.look as FloorLook);
+  /** The watched trip's map (null: none). */
+  update(w: MapWatch | null): void {
+    this.watch = w;
+    this.root.visible = !!w;
+    if (!w || w.key === this.key) return;
+    this.key = w.key;
+    this.map = w.map();
     this.rooms = floorRooms(this.map);
     this.ways = this.rooms.slice(1).map((r, i) => floorPath(this.map!, this.rooms[i], r) ?? [[this.rooms[i].u, this.rooms[i].v], [r.u, r.v]]);
     this.secrets = new Set();
@@ -118,16 +167,14 @@ export class FloorMap {
   }
 
   render(now: number, dt: number): void {
-    const v = this.view;
+    const w = this.watch;
     const m = this.map;
-    if (!v || !m) return;
-    const { d } = v;
-    // where they are: at a room's thing, then walking the way to the next
-    const room = Math.max(0, Math.min(this.rooms.length - 1, d.room));
+    if (!w || !m) return;
+    // where they are: at a room, or along the way to the next
+    const room = Math.min(this.rooms.length - 1, w.room);
     const way = this.ways[room];
-    const walking = !d.cleared && d.room > 0 && !!way && d.progress > STOP && d.kind !== 'boss';
-    const t = walking ? Math.min(1, (d.progress - STOP) / (1 - STOP)) : 0;
-    const step = walking ? Math.min(way.length - 1, Math.floor(t * (way.length - 1))) : 0;
+    const walking = !!way && w.walk > 0;
+    const step = walking ? Math.min(way.length - 1, Math.floor(w.walk * (way.length - 1))) : 0;
     const want: [number, number] = walking ? way[step] : [this.rooms[room].u, this.rooms[room].v];
     if (!this.at) this.at = [want[0], want[1]];
     const ease = Math.min(1, dt * 6);
@@ -143,10 +190,11 @@ export class FloorMap {
       this.foundKey = foundKey;
       this.build(new Set(found));
     }
-    const fogKey = `${room}|${step}|${walking}|${d.torches}`;
+    const fogKey = `${room}|${step}|${walking}|${w.torches}`;
     if (fogKey !== this.fogKey) {
       this.fogKey = fogKey;
-      this.drawFog(walked, room, want, d.torches);
+      if (w.torches === null) this.fog.clear();
+      else this.drawFog(walked, room, want, w.torches);
     }
     // (the water ripples and the fires flicker: DawnLike's two frames)
     const flip = Math.floor(now / 420) % 2 === 1;
@@ -163,14 +211,15 @@ export class FloorMap {
     const cy = Math.max(Math.min(py, m.h * 16 - this.ih / k / 2), this.ih / k / 2);
     this.world.position.set(Math.round(this.iw / 2 - cx * k), Math.round(this.ih / 2 - cy * k));
     // the party: a knot of them round their torch, red-ringed while they fight
-    const fighting = d.kind === 'fight' || d.kind === 'boss' || d.kind === 'rival' ? d.progress < 0.5 : false;
+    const fighting = w.fighting;
     this.party.clear();
     const bob = Math.sin(now / 160) * (walking ? 0.8 : 0);
     if (fighting) this.party.circle(px, py, 9 + Math.sin(now / 120) * 1.5).stroke({ color: 0xff4040, width: 1.5, alpha: 0.9 });
     const dots: [number, number, number][] = [[-3, 2, 0x5a8ae0], [3, 2, 0xe0c060], [0, -2.5, 0xe8e0d0]];
     for (const [ox, oy, c] of dots) this.party.circle(px + ox, py + oy + bob, 3.4).fill(0xf8f0e0).circle(px + ox, py + oy + bob, 2.6).fill(0x101018).circle(px + ox, py + oy + bob, 1.9).fill(c);
     this.party.circle(px + 6, py - 5, 1.8).fill(0xffd070);
-    const r = lightOf(d.torches) * 16 * 2.2;
+    this.light.visible = w.torches !== null;
+    const r = lightOf(w.torches ?? 0) * 16 * 2.2;
     this.light.position.set(px, py);
     this.light.width = this.light.height = r * (1 + Math.sin(now / 90) * 0.03);
   }

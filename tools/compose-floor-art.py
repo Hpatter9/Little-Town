@@ -33,6 +33,12 @@ LOOKS = {
     'fey': {'wall': (2, 9), 'floor': (1, 1), 'rough': (0, 4)},
     'vault': {'wall': (1, 13), 'floor': (0, 0), 'rough': (2, 3)},
     'wreck': {'wall': (1, 0), 'floor': (0, 8), 'rough': (0, 9)},
+    # (the story places': a lord's castle, a ruined keep, a camp behind a palisade (Objects/Fence.png's wooden fence), a
+    #  grove walled with hedges)
+    'castle': {'wall': (0, 0), 'floor': (0, 1), 'rough': (2, 3)},
+    'ruin': {'wall': (0, 2), 'floor': (0, 3), 'rough': (0, 7)},
+    'camp': {'fence': (0, 3), 'floor': (0, 5), 'rough': (0, 6)},
+    'grove': {'wall': (2, 11), 'floor': (1, 1), 'rough': (0, 4)},
 }
 # single cells: (sheet, column, row); a sheet ending in 0 has its second frame in the same sheet ending in 1
 CELLS = {
@@ -45,6 +51,9 @@ CELLS = {
     'bridge': ('Objects/Floor', 1, 3 + 8 * 3 + 1),
     'door': ('Objects/Door0', 0, 0), 'door_iron': ('Objects/Door0', 2, 0), 'door_stone': ('Objects/Door0', 0, 1),
     'stairs': ('Objects/Tile', 5, 3),
+    # (the grounds out of doors)
+    'grass': ('Objects/Floor', 8, 7), 'grass_dark': ('Objects/Floor', 8, 10), 'dirt': ('Objects/Floor', 1, 19),
+    'sand': ('Objects/Floor', 1, 16), 'snow': ('Objects/Floor', 15, 16),
     # the props (sim/delveFloors.ts FLOOR_PROPS)
     'torch': ('Objects/Decor0', 2, 8), 'brazier': ('Objects/Effect0', 1, 21), 'candles': ('Objects/Decor0', 3, 8),
     'chest': ('Items/Chest0', 0, 0), 'gold': ('Items/Money', 0, 0), 'coffin': ('Objects/Decor0', 6, 10),
@@ -58,6 +67,10 @@ CELLS = {
     'campfire': ('Objects/Effect0', 0, 21), 'roots': ('Objects/Ground0', 3, 4), 'portcullis': ('Objects/Door0', 0, 2),
     'rubble': ('Objects/Ground0', 6, 5), 'lantern': ('Items/Light', 3, 0), 'blood_altar': ('Objects/Decor0', 1, 20),
     'banner': ('Objects/Decor0', 1, 1),
+    # (the props out of doors)
+    'tree': ('Objects/Tree0', 3, 3), 'pine': ('Objects/Tree0', 3, 15), 'deadtree': ('Objects/Tree0', 9, 3),
+    'snowpine': ('Objects/Tree0', 3, 21), 'bush': ('Objects/Ground0', 1, 3), 'flowers': ('Objects/Ground0', 0, 2),
+    'peak': ('Objects/Hill0', 0, 0), 'grass_tuft': ('Objects/Ground0', 0, 0),
 }
 # the carpet: Decor0's red rug, a 3x3 box (x 0..2, y 14..16) laid by its neighbours
 RUG = (0, 14)
@@ -77,9 +90,13 @@ def cell(name, c, r):
 def main():
     tiles = []
     for look, d in LOOKS.items():
-        bx, by = d['wall']
+        # (a wall block of Wall.png, or a fence block of Fence.png laid the same way)
+        if 'fence' in d:
+            ox, oy, src = d['fence'][0] * 112, d['fence'][1] * 16, 'Objects/Fence'
+        else:
+            ox, oy, src = d['wall'][0] * 112, 48 + d['wall'][1] * 48, 'Objects/Wall'
         for piece, (c, r) in WALL_PIECES.items():
-            tiles.append((f'wall:{look}:{piece}', sheet('Objects/Wall').crop((bx * 112 + c * 16, 48 + by * 48 + r * 16, bx * 112 + c * 16 + 16, 48 + by * 48 + r * 16 + 16))))
+            tiles.append((f'wall:{look}:{piece}', sheet(src).crop((ox + c * 16, oy + r * 16, ox + c * 16 + 16, oy + r * 16 + 16))))
         for k in ('floor', 'rough'):
             fx, fy = d[k]
             tiles.append((f'{k}:{look}', cell('Objects/Floor', fx * 7 + 1, 3 + fy * 3 + 1)))

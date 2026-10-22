@@ -107,3 +107,58 @@ rooms.
 paint the Ground, put a Room at each room's middle numbered by `step` (0 the way in, a fight first, a camp before the
 boss, the boss last), dress it with Props, and fill in the level's fields. Save, run `node tools/ldtk-maps.mjs`, then
 `npm test -- delveFloors`, and `node tools/floor-preview.mjs` to look at it.
+
+## The story places, drawn by hand
+
+Six places a trip comes to are drawn in `maps/story-places.ldtk`, in the dungeon floors' format (the same Ground
+layer, Room and Prop things, and tiles: `STORY_SPEC` in `sim/storyPlaces.ts`), and the watch screen shows the party
+going through the place in the same corner map. This changes HISTORY "Watching a party's fights" (the map), and touches
+no rule: nothing is saved, and the trips play out as before.
+
+**What's new in the format.** Out-of-doors grounds (`grass`, `dirt`, `sand`, `snow`; `FLOOR_GROUNDS`), looks seen in
+daylight (`castle`, `ruin`, `camp` with DawnLike's wooden palisade for its walls, `grove` walled with hedges;
+`openAir`), and props (`tree`, `pine`, `deadtree`, `snowpine`, `bush`, `flowers`, `peak`). The level fields say which
+trips come to a place: `dests` (destination ids, or the start of one ending in a colon), `words` (words in the
+destination's name: a saga's "The camp of Black Maud") and `kinds` (the kinds of place on the land, data/places.ts).
+Its Rooms are the spots the party makes for, numbered from the way in (0), one of them the boss's spot.
+
+**The places** (`docs/notes/hand-made-maps/place-*.png` drawn whole by `node tools/floor-preview.mjs`):
+- **The Dragon's Lair** (`dragon:lair`, or "dragon" in the name; underground): the goat path up through the pines, the
+  scorched mouth and ledge, a gallery cracked with lava, the great cavern of gold and bones, and the hoard's heart.
+- **The Ruined Keep** ("keep", "halls", "tower", "ruin", "workshop", "works"; the land's old ruins): the old road, the
+  broken curtain wall, a courtyard of rubble, the tower's stump with its sealed door, the roofless great hall, the
+  undercroft.
+- **The Lord's Castle** ("lord", "castle", "tournament", "pretender", "manor", "court", "baron"): the road over the
+  drawbridge across the moat, the gatehouse, the bailey and tilting yard, the chapel, the lord's hall, the treasury.
+- **The Haunted Barrow** ("barrow", "crypt", "churchyard", "tomb", "cairn"; the land's great bones;
+  underground, so the churchyard is seen by torchlight too): open graves under dead trees, the barrow's sealed door, a
+  passage of coffins, a tomb behind a secret door, the burial chamber.
+- **The Bandit Camp** ("camp", "hideout", "trail", "road", "bandit", "deserter", "robber", "outlaw", "brigand"; a
+  robbed cart's robbers): the forest track, the pickets at the stockade's gate, fires and bedrolls, a cage, the stash,
+  the chief's fire.
+- **The Woodland Shrine** ("clearing", "grove", "shrine", "oracle", "well", "witch", "pasture", "huntsman", "glade"):
+  the track under the trees, the old oaks, a ring of standing stones about an altar, the still pool, the great tree.
+Eighteen of the sagas’ 27 trips come to one of them; the rest (a wolf's den, the drowned chapel, the ghost ship...) and
+every other trip keep the watch screen as it was.
+
+**Picking** (`storyPlaceOf(s, trip, name)`, pure): the places that fit the trip's destination (`placesFor`); among
+several, the 'storyPlace' side stream (`new Rng(hashSeed(`${s.seed}:storyPlace:${trip.id}`))`) picks, so a trip is
+always seen at the same one and nothing else is drawn on. The snapshot's expedition has a new optional `place` (its id).
+
+**On the watch screen** (`delve/floorMap.ts`: `mapWatchOf` now gives the map of a delve or of a story place, as a
+`MapWatch`; `placeWatch`): the last quarter of the way out (`PLACE_NEAR`) is walked through the place spot by spot to
+the boss's spot, where they fight on arriving (a red ring while they do); while they're there afterwards they go on to
+the spots past it. Out of doors it's all in daylight; the lair and the barrow are dark but for the party's torches.
+
+**Previews.** `__storyPlace('Bandit_Camp')` in the phone page's console shows every trip at that place, and sends a
+party (as `__delve`'s) to a robbed cart a way off, four fifths of the way there; `__storyPlace()` stops it.
+`storyPreview` is never set in play.
+
+**Screenshots** (`docs/notes/hand-made-maps/`): `story-*-tall.png` each place on the way in at 393x852,
+`story-lords-castle-wide.png` at 852x393; `place-*.png` the places whole.
+
+**Tests** (`test/storyPlaces.test.ts`): the data is the converter's make of the project, which is LDtk 1.5 JSON; the
+six places, each walked from the way in to every spot in turn, props on open ground one a cell, every tile in the sheet,
+four in daylight; trips are matched by destination, words and the kind of place (a dragon's lair, five sagas' places,
+a robbed cart, old ruins; a cave and a wolf's den by none), at least half the sagas' trips come to one; among several
+places the pick is the same for a trip, either by the trip, and never draws on the town's stream.
