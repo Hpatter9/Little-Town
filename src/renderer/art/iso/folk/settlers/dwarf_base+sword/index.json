@@ -1,0 +1,23 @@
+{
+ "look": "dwarf_base+sword",
+ "people": "settlers",
+ "frame": [
+  136,
+  136
+ ],
+ "directions": [
+  "south",
+  "south-east",
+  "east",
+  "north-east",
+  "north",
+  "north-west",
+  "west",
+  "south-west"
+ ],
+ "animations": {
+  "attack_1h": {
+   "frames": 9
+  }
+ }
+}

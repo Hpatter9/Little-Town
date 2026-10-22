@@ -1,0 +1,23 @@
+{
+ "look": "woman_base+greatsword",
+ "people": "settlers",
+ "frame": [
+  148,
+  148
+ ],
+ "directions": [
+  "south",
+  "south-east",
+  "east",
+  "north-east",
+  "north",
+  "north-west",
+  "west",
+  "south-west"
+ ],
+ "animations": {
+  "attack_2h": {
+   "frames": 9
+  }
+ }
+}

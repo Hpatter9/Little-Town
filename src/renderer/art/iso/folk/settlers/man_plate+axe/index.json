@@ -1,0 +1,23 @@
+{
+ "look": "man_plate+axe",
+ "people": "settlers",
+ "frame": [
+  160,
+  160
+ ],
+ "directions": [
+  "south",
+  "south-east",
+  "east",
+  "north-east",
+  "north",
+  "north-west",
+  "west",
+  "south-west"
+ ],
+ "animations": {
+  "chop": {
+   "frames": 9
+  }
+ }
+}

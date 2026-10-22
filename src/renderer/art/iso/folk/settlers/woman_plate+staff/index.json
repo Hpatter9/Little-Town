@@ -1,0 +1,23 @@
+{
+ "look": "woman_plate+staff",
+ "people": "settlers",
+ "frame": [
+  148,
+  148
+ ],
+ "directions": [
+  "south",
+  "south-east",
+  "east",
+  "north-east",
+  "north",
+  "north-west",
+  "west",
+  "south-west"
+ ],
+ "animations": {
+  "cast_2h": {
+   "frames": 9
+  }
+ }
+}

@@ -24,13 +24,17 @@ merfolk, nomads). Each sprite is one piece of the people's building kit, named i
 The townsfolk, one folder per look (a build in an outfit with a hairstyle, e.g. `settlers/woman_leather`), made
 with PixelLab from the project's own front views.
 
-- `index.json`: the frame size (`frame`, 96x96 for now), the 8 `directions` (south, south-east, east, north-east,
-  north, north-west, west, south-west: the way the person faces on screen) and each animation's frame count.
-- `rotations/<direction>.png`: standing still, facing each way.
-- `<animation>/<direction>/<n>.png`: the frames, from 0. Animations: `walk`, `run`, `idle`, `death`, `hurt`,
-  `cast_1h`. Armed looks (`<look>+axe`, `+hammer`, `+sword`, `+bow`, `+greatsword`, `+staff`) have their own folder
-  with `chop`, `hammer`, `attack_1h`, `attack_bow`, `attack_2h` or `cast_2h`.
-- Only `settlers/woman_leather` (standing and walking) is here so far; the rest of the settlers follow.
+- `index.json`: the frame size (`frame`, about 150x150; it differs a little between looks, and a look's armed looks
+  share it: the figure is centred with room for a weapon's swing), the 8 `directions`
+  (south, south-east, east, north-east, north, north-west, west, south-west: the way the person faces on screen) and
+  each animation's frame count.
+- `rotations.png`: standing still, one row, a frame per direction in `directions` order.
+- `<animation>.png`: a sheet, a row per direction (same order) and a column per frame. Animations: `walk`, `run`,
+  `idle`, `death`, `hurt`, `cast_1h`. Armed looks (`<look>+axe`, `+hammer`, `+sword`, `+bow`, `+greatsword`,
+  `+staff`) have their own folder with `chop`, `hammer`, `attack_1h`, `attack_bow`, `attack_2h` or `cast_2h`.
+- One file per animation rather than per frame: a few hundred files for the phone's offline cache, not thousands.
+- The settlers: 9 looks (`man_`, `woman_`, `dwarf_` x `base`, `leather` or `apron`, `plate`), each with its six
+  armed looks. Laid out by the coordinator's PixelLab script from the downloaded characters.
 
 ## castles/<people>/
 
