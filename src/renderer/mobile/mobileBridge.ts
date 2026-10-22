@@ -12,6 +12,7 @@ import { mayBuzz, readVibrate } from '../vibration';
 import { beginTown, deleteSlot, noteCurrent, readSlots } from './saveSlots';
 import type { Legend } from '../../shared/sim/legacy';
 import { ENTER_KEY } from './mainMenu';
+import { tutorialFounded } from './tutorialSteps';
 
 const SAVE_KEY = 'littletown.save';
 const BACKUP_KEY = 'littletown.backup';
@@ -256,6 +257,7 @@ export function mobileBridge(): Bridge {
         if (old && town.keepOld && where === 'replaced') write(BACKUP_KEY, old); // (a town only just begun isn't kept)
         if (town.legend) keepLegend(town.legend);
         write(SAVE_KEY, town.text);
+        tutorialFounded(localStorage); // (a new town is shown the first-town tutorial once: tutorial.ts)
         try {
           sessionStorage.setItem(ENTER_KEY, '1'); // (on to the loading screen, not the menu again)
         } catch {}
