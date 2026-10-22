@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { FOLK_DIRS, armedSuffix, facingFromVector, facingToward, frameAt, idHash, lookPath, dressOf, pickLook, play, wantedAnim, type FolkAnim, type FolkState } from '../src/renderer/iso/folkRules';
-import { VARIANTS, hslToRgb, recolour, rgbToHsl, variantOf } from '../src/renderer/iso/folkTint';
+import { CHILD_SCALE, FOLK_DIRS, FOLK_LOOKS, isFolkChild, armedSuffix, facingFromVector, facingToward, frameAt, idHash, lookPath, dressOf, pickLook, play, wantedAnim, type FolkAnim, type FolkState } from '../src/renderer/iso/folkRules';
+import { FIXED_CASTS, VARIANTS, hslToRgb, isSkin, recolour, rgbToHsl, variantOf } from '../src/renderer/iso/folkTint';
 
 const st = (o: Partial<FolkState> = {}): FolkState => ({
   id: 1, activity: 'idle', sinceHit: 999, sinceBlow: 999, defending: false, downed: null, hp: 10,
@@ -84,19 +84,50 @@ test('frames loop or play once', () => {
   assert.equal(frameAt(6, 8, -1, true), 0);
 });
 
-test('recolouring turns clothes, shades skin, leaves outlines and clear pixels', () => {
-  const [lr, lg, lb] = hslToRgb(100, 0.6, 0.4); // green cloth
-  const [sr, sg, sb] = hslToRgb(25, 0.45, 0.6); // skin
-  const px = new Uint8ClampedArray([lr, lg, lb, 255, sr, sg, sb, 255, 10, 8, 8, 255, 200, 50, 50, 0]);
+test('recolouring is gentle: skin keeps its hue, browns stay brown, cloth turns a little, greys and outlines stay', () => {
+  for (let v = 0; v < VARIANTS; v++) {
+    for (let h = 0; h < 360; h += 5) for (const s of [0.3, 0.6, 0.9]) for (const l of [0.25, 0.45, 0.7]) {
+      const [r, g, b] = hslToRgb(h, s, l);
+      const px = new Uint8ClampedArray([r, g, b, 255]);
+      recolour(px, v);
+      const [h0, s0, l0] = rgbToHsl(r, g, b);
+      const [h1, s1, l1] = rgbToHsl(px[0], px[1], px[2]);
+      if (s0 < 0.2 || l0 < 0.12) { assert.deepEqual(Array.from(px.slice(0, 3)), [r, g, b]); continue; }
+      const turn = Math.abs(((h1 - h0 + 540) % 360) - 180);
+      if (isSkin(h0, s0, l0)) assert.ok(turn <= 6 && Math.abs(l1 - l0) <= 0.12, `skin ${h0} ${v}`); // (rounding aside) hue kept, lightness a little
+      else if (h0 <= 56) assert.ok(h1 <= 60 || h1 >= 355, `brown ${h0} -> ${h1}`);
+      else assert.ok(turn <= 30, `cloth ${h0} -> ${h1}`);
+      assert.ok(s1 <= s0 + 0.08, 'never garishly more saturated');
+    }
+  }
+  const px = new Uint8ClampedArray([10, 8, 8, 255, 200, 50, 50, 0]);
   const before = Array.from(px);
+  recolour(px, 2);
+  assert.deepEqual(Array.from(px), before); // outline and clear pixel untouched
   recolour(px, 0);
   assert.deepEqual(Array.from(px), before);
-  recolour(px, 2);
-  assert.notDeepEqual([px[0], px[1], px[2]], before.slice(0, 3));
-  const [h] = rgbToHsl(px[4], px[5], px[6]);
-  assert.ok(h < 40 || h > 350); // skin keeps its hue
-  assert.deepEqual(Array.from(px.slice(8)), before.slice(8)); // outline and clear pixel untouched
   assert.ok(Array.from({ length: 100 }, (_, i) => variantOf(i)).every((v) => v >= 0 && v < VARIANTS));
+});
+
+test('the peoples with colours of their own are not recoloured', () => {
+  for (const people of FIXED_CASTS) for (let i = 0; i < 50; i++) assert.equal(variantOf(i, people), 0);
+  assert.ok(Array.from({ length: 50 }, (_, i) => variantOf(i, 'settlers')).some((v) => v !== 0));
+});
+
+test('a child never wears a bearded or armoured look, and is drawn smaller', () => {
+  const BEARDED = new Set(['settlers/man_base', 'settlers/man_plate', 'settlers/dwarf_base', 'settlers/dwarf_apron', 'settlers/dwarf_plate', 'merfolk/man_mer', 'alchemists/man_master', 'druid/man_elder', 'lich/man_lord', 'vampire/man_lord', 'werewolf/man_hunter', 'knights/man_knight']);
+  for (const [people, ls] of Object.entries(FOLK_LOOKS)) for (const origin of [people, ...(people === 'settlers' ? ['dwarves'] : [])]) for (const gender of ['m', 'f']) for (let id = 0; id < 40; id++) {
+    for (const dress of [undefined, 'plate'] as const) {
+      const p = pickLook(st({ id, origin: origin as never, look: { gender, outfit: 'base' } as never, lifeStage: 'child' }), FOLK_LOOKS, dress);
+      assert.ok(ls.includes(p.look), `${people}/${p.look} exists`);
+      assert.ok(!BEARDED.has(`${p.people}/${p.look}`) && !p.look.endsWith('_plate'), `${p.people}/${p.look} for a child`);
+      if (gender === 'f') assert.ok(p.look.startsWith('woman_') || p.look === 'woman_huntress');
+    }
+  }
+  assert.ok(isFolkChild({ lifeStage: 'child' }) && !isFolkChild({ lifeStage: 'prime', growsUpIn: 0 }) && !isFolkChild({}));
+  assert.ok(CHILD_SCALE < 1);
+  // a grown man keeps his look
+  assert.equal(pickLook(st({ id: 3, look: { gender: 'm', outfit: 'base' } as never, lifeStage: 'prime' })).look.startsWith('man_'), true);
 });
 
 test('dwarves wear dwarf looks, armour picks plate, and the rest wear human ones', () => {
