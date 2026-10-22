@@ -32,6 +32,10 @@ beside it).
   on a cell of blueprint lifts instead. A tap lays a straight run from the last cell laid (or the one cell); a tap on
   blueprint lifts it. Cancel sends back what this go laid and lifted; Done keeps it. Clear mode and placing a building
   end the mode, and it ends them. A second finger (pinch) drops the stroke.
+- **The banner held sideways (all its modes: placing, clearing, drawing):** on the phone held sideways the title bar lies
+  over the strip's top and hid the banner's Done and Cancel. `layout()` in `mobile/mobile.ts` sets the strip's
+  `--top-cover` (how far the title bar reaches over the strip, page px; 0 upright) and `body.embedded #banner` hangs
+  that much lower.
 - **Drawn in the iso view:** `IsoView.drawMarks` now draws every planned cell (the town's streets too, which the iso view
   never showed): a faint bed and a dotted line from its middle towards each planned or paved neighbour. Redrawn when
   the land's `plannedRoads` string changes (`plannedSeen`). The top-down map already drew planned streets.

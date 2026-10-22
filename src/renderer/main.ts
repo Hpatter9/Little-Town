@@ -747,7 +747,7 @@ async function start(): Promise<void> {
     laid.clear();
     lifted.clear();
     pathButton.classList.add('on');
-    banner.show('Drawing a path', 'Drag to lay it · tap its cells to lift them', () => endDraw(true));
+    banner.show('Draw a path', coarse() ? 'Drag to lay · tap to lift' : 'Drag to lay it · click its cells to lift them', () => endDraw(true));
   };
   /** Out of the mode: kept (Done), or what this go changed taken back (Cancel). */
   const endDraw = (keep: boolean) => {

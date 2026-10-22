@@ -174,6 +174,9 @@ function layout(): void {
   }
   document.documentElement.style.setProperty('--strip-h', `${height * z}px`);
   strip.contentDocument?.documentElement?.style.setProperty('--ui-zoom', String(1 / z));
+  // (sideways the title bar lies over the strip's top: what hangs from the strip's top, the mode banner, goes under it)
+  const cover = sideways.matches ? Math.max(0, $('top').getBoundingClientRect().bottom - stripBox.getBoundingClientRect().top) : 0;
+  strip.contentDocument?.documentElement?.style.setProperty('--top-cover', `${cover}px`); // (the banner is zoomed by 1 / z: page px)
   // (the news bubble carries the news: the strip's own pop-up notices would only repeat them, so it pops only the
   // day's small change; the class keeps its old name)
   strip.contentDocument?.body?.classList.toggle('feed-shown', !battleOn);

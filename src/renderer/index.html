@@ -1729,6 +1729,11 @@
       body.embedded #banner {
         top: 8px;
       }
+      /* (sideways the page's title bar lies over the strip's top: the mode banner goes under it; zoomed with the
+         --ui-zoom, so the page's px: mobile.ts sets --top-cover) */
+      body.embedded #banner {
+        top: calc(8px + var(--top-cover, 0px));
+      }
       /* (notices go to the bottom corner, clear of a question card at the top: they fade in a few seconds) */
       body.embedded #toasts {
         top: auto;
