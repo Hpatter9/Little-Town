@@ -16,7 +16,21 @@ let bridge: Pick<Bridge, 'holdCards'> | null = null;
 let on = false;
 let since = 0;
 
-const up = (el: HTMLElement) => el.isConnected && !el.hidden && getComputedStyle(el).display !== 'none';
+/** A node of the page, as far as `shown` needs (pure, for the tests). */
+export interface ShownNode {
+  hidden: boolean | string;
+  parentElement: ShownNode | null;
+}
+
+/** Whether `el` is really on screen: neither it nor anything it sits in is hidden or `display: none`. (A card inside a
+ *  hidden box isn't shown, though its own style says it is: the tutorial's veil, inside the tutorial's hidden root, once
+ *  held every new town from the start.) */
+export function shown<N extends ShownNode>(el: N, displayOf: (n: N) => string): boolean {
+  for (let n: N | null = el; n; n = n.parentElement as N | null) if (n.hidden || displayOf(n) === 'none') return false;
+  return true;
+}
+
+const up = (el: HTMLElement) => el.isConnected && shown<HTMLElement>(el, (n) => getComputedStyle(n).display);
 
 /** Whether any registered card is up now (and not past its limit). */
 export function cardUp(now = performance.now()): boolean {
