@@ -22,3 +22,15 @@ export const TALL_BUILDINGS: readonly string[] = ['watchtower', 'palisade_gate',
 export const START_EXPLORED = 16;
 /** The fog is worked out every this many ticks. */
 export const FOG_EVERY = 5;
+
+/** The callings that go out to the fog's edge when they have nothing to do (a class id): sim/explore.ts. */
+export const SCOUT_CLASSES: readonly string[] = ['ranger', 'hunter'];
+/** How far past the town's reach the scouts range, and the most that is ever sent (cells from the camp). */
+export const EXPLORE_BEYOND = 18;
+/** How many scouts are out at once: this, and one more for every EXPLORE_PER_PEOPLE grown-ups. */
+export const EXPLORE_QUOTA = 1;
+export const EXPLORE_PER_PEOPLE = 10;
+/** When the town has found no room for a building, anyone idle may go and look (for this long after, in hours). */
+export const FOG_NEED_HOURS = 36;
+/** What the founder is sent out for: a day's exploring in a compass direction (the eight winds, 0 north, clockwise). */
+export const EXPLORE_DIRS = ['north', 'north-east', 'east', 'south-east', 'south', 'south-west', 'west', 'north-west'] as const;

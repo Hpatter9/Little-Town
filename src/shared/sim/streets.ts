@@ -9,6 +9,7 @@
 
 import { builtOn, depositNear, layStreet, nearestStreet, totalStock } from './buildings';
 import { takeFromStorage } from './expeditions';
+import { isExplored } from './fog';
 import { CELL, cellAt, groundAt, idx, inMap, isPlannedRoad, isRoad, planRoad, setGround, setRoad, wearAt, wet, type Pt } from './land';
 import { isGate, liftRoadsOffWall, lineOf, sideOn, wallOnly } from './ringWall';
 import { campCell, type GameState, type Person } from './state';
@@ -230,6 +231,7 @@ export function planStreets(s: GameState): number {
       const i = idx(m, x, y);
       const w = wearAt(m, i);
       if (w < STREET_WEAR || isRoad(m, x, y) || isPlannedRoad(m, x, y) || builtOn(s, x, y) || wallOnly(s, x, y)) continue;
+      if (!isExplored(s, i)) continue; // (streets are laid on land that has been seen: sim/fog.ts)
       const g = groundAt(m, x, y);
       if (g !== 'grass' && g !== 'fertile' && g !== 'sand') continue;
       if (!N4.some(([dx, dy]) => isRoad(m, x + dx, y + dy) || isPlannedRoad(m, x + dx, y + dy))) continue;
@@ -278,7 +280,7 @@ export function gatePaths(s: GameState): void {
     // (and out beyond the gate a few cells, where nothing stands in the way)
     for (let k = 1; k <= GATE_PATH_OUT; k++) {
       const x = g.x - ix * k, y = g.y - iy * k;
-      if (!inMap(m, x, y) || builtOn(s, x, y) || isRoad(m, x, y) || wallOnly(s, x, y)) break;
+      if (!inMap(m, x, y) || !isExplored(s, idx(m, x, y)) || builtOn(s, x, y) || isRoad(m, x, y) || wallOnly(s, x, y)) break;
       const gr = groundAt(m, x, y);
       if (gr !== 'grass' && gr !== 'fertile' && gr !== 'sand') break;
       planRoad(m, x, y);

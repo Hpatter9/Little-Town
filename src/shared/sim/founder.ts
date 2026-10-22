@@ -10,7 +10,7 @@ import { TICKS_PER_DAY, TICKS_PER_HOUR } from './time';
 
 /** What the founder has been told to do, if anything. A walk ends when they arrive; a job lasts the day; a rest lasts
  *  `REST_HOURS`. */
-export type FounderOrder = { kind: 'go'; building: number } | { kind: 'work'; job: Job; until: number } | { kind: 'rest'; until: number };
+export type FounderOrder = { kind: 'go'; building: number } | { kind: 'work'; job: Job; until: number } | { kind: 'rest'; until: number } | { kind: 'explore'; dir: number; until: number };
 
 /** The steps the founder's gifts to the town come in. */
 export const GIVE_STEPS = [5, 20, 50] as const;
@@ -42,6 +42,19 @@ export function founderWork(s: GameState, job: Job | null): void {
     return;
   }
   s.founderOrder = { kind: 'work', job, until: s.tick + TICKS_PER_DAY };
+  f.task = null;
+}
+
+/** Send the founder out to explore toward a wind (0 north, clockwise; null: back to the town's choice) for the day. */
+export function founderExplore(s: GameState, dir: number | null): void {
+  const f = founderOf(s);
+  if (!f) return;
+  if (dir === null) {
+    if (s.founderOrder?.kind === 'explore') s.founderOrder = undefined;
+    return;
+  }
+  if (!Number.isInteger(dir) || dir < 0 || dir > 7 || f.away !== null || f.downed) return;
+  s.founderOrder = { kind: 'explore', dir, until: s.tick + TICKS_PER_DAY };
   f.task = null;
 }
 

@@ -147,7 +147,7 @@ import { voteSettlementName } from './settlementName';
 import { setFavourite } from './favourites';
 import { founderBuyShop, founderShopManager, founderShopPrice, founderShopStock } from './founderShops';
 import { founderApprentice, founderFeast, founderHaggle, founderMatch, founderVisitor } from './founderDealings';
-import { founderGive, founderGo, founderHeir, founderRest, founderTick, founderWork } from './founder';
+import { founderExplore, founderGive, founderGo, founderHeir, founderRest, founderTick, founderWork } from './founder';
 
 /** How the town trades at its shop: the planner decides what's spare and what to buy. */
 const SHOP_TOWN: ShopTown = { forSale, wants: shoppingList };
@@ -414,8 +414,11 @@ export class Sim {
     const s = this.state;
     switch (c.type) {
       case 'placeBuilding':
-        placeBlueprint(s, c.def, c.x, c.y);
+      {
+        const r = placeBlueprint(s, c.def, c.x, c.y);
+        if (!r.ok && r.reason) notify(s, `Can't build there: ${r.reason.toLowerCase()}.`);
         break;
+      }
       case 'demolish':
         demolish(s, c.building);
         break;
@@ -628,6 +631,9 @@ export class Sim {
         break;
       case 'founderRest':
         founderRest(s);
+        break;
+      case 'founderExplore':
+        founderExplore(s, c.dir);
         break;
       case 'founderGive':
         founderGive(s, c.amount);

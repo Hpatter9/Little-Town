@@ -284,7 +284,7 @@ export function magicHourly(s: GameState): void {
   if (s.tick % TICKS_PER_HOUR === 0) manaHourly(s);
   if (s.autopilot === false) return;
   // (a raid's warning is minutes long: the rites against it are looked to every tick while it lasts)
-  if (s.raid?.phase === 'warning' && s.magic && magicOpen(s)) raidRites(s, s.magic);
+  if (s.raid?.phase === 'warning' && !s.raid.veil && s.magic && magicOpen(s)) raidRites(s, s.magic);
   if (s.tick % TICKS_PER_HOUR !== 0 || !magicOpen(s)) return;
   const m = magicOf(s);
   const g = roll(s);

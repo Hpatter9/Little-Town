@@ -105,6 +105,8 @@ export type Command =
   | { type: 'founderGo'; building: number }
   | { type: 'founderWork'; job: Job | null }
   | { type: 'founderRest' }
+  /** Send the founder to explore toward a wind for the day, 0 north to 7 north-west clockwise (null: stop). */
+  | { type: 'founderExplore'; dir: number | null }
   | { type: 'founderGive'; amount: number }
   | { type: 'founderHeir'; person: number | null }
   /** More ways to interact (sim/founderDealings.ts). */
@@ -322,6 +324,8 @@ export function parseCommand(raw: unknown): Command | null {
       return c.job === null || (typeof c.job === 'string' && (JOBS as readonly string[]).includes(c.job)) ? { type: 'founderWork', job: c.job as Job | null } : null;
     case 'founderRest':
       return { type: 'founderRest' };
+    case 'founderExplore':
+      return c.dir === null || (Number.isInteger(c.dir) && (c.dir as number) >= 0 && (c.dir as number) <= 7) ? { type: 'founderExplore', dir: c.dir as number | null } : null;
     case 'founderGive':
       return Number.isInteger(c.amount) && (c.amount as number) > 0 && (c.amount as number) <= 100000 ? { type: 'founderGive', amount: c.amount as number } : null;
     case 'founderBuyShop':

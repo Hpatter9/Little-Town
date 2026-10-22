@@ -245,7 +245,7 @@ export interface ShopTalk {
 }
 
 export type Task =
-  | { type: 'wander'; targetX: number; targetY: number; pastime?: import('./pastimes').Pastime }
+  | { type: 'wander'; targetX: number; targetY: number; pastime?: import('./pastimes').Pastime; /** Walking out to the fog's edge to look (sim/explore.ts). */ explore?: true }
   | { type: 'idle'; untilTick: number; pastime?: import('./pastimes').Pastime }
   /** Work a marked cell (`tile` is its index on the land); or (scrounge) pick just the wild berries off any cell, to
    *  keep from starving. */
@@ -485,6 +485,9 @@ export interface Raid {
   skipIt?: boolean;
   /** Fled on arrival, at the sight of the town (and spared, or not). */
   turned?: boolean;
+  /** Still on its way and unseen (fog of war, sim/raidSight.ts): not yet announced. `from`: when it set out, `total`: the
+   *  ticks of its approach, `flank`: how many come round the other side. Cleared when someone sees it, or it arrives. */
+  veil?: { from: number; total: number; flank: number };
   /** A chase after the fugitives of an earlier raid (sim/chase.ts): fought on the tactics board, close and the town first. */
   chase?: boolean;
 }
@@ -1521,6 +1524,8 @@ export interface GameState {
   heirId?: number;
   /** What the player has told the founder to do (sim/founder.ts). */
   founderOrder?: import('./founder').FounderOrder;
+  /** The tick the planner last found no explored room for a building: anyone idle may go and look (sim/explore.ts). */
+  fogNeed?: number;
   /** The founder's story, chapter by chapter (sim/story.ts). */
   story?: import('./story').Story;
   /** The founder is away: who minds the town, and what stood when they left (sim/steward.ts). */

@@ -10,6 +10,7 @@
 // Castles and the hold have walls of their own, and a wandering tribe its wagons: no ring for them.
 import { BUILDING_BY_ID, type BuildingDef } from '../data/buildings';
 import { RING_SHAPE_OF, type RingShape } from '../data/ringShapes';
+import { surveyed } from './fog';
 import { builtOn, builtOnIndex, canPlace, demolish, isUnlocked, overgrownCells, placeBlueprint, refreshOvergrown, unlockInfo } from './buildings';
 import { holdOf } from './castle';
 import { CELL, groundAt, idx, inMap, isPlannedRoad, isRoad, planRoad, unsetRoad, wet, WILD, wildToClear, type LandMap, type Pt, type Rect } from './land';
@@ -491,6 +492,8 @@ export function planRing(s: GameState, wanted: boolean, raided = false): number[
     cur.gate = GATE_OF[wall];
   }
   const ring = s.ring!;
+  // (the wall is surveyed as it is planned: the land along its line is seen, and no more, sim/fog.ts)
+  surveyed(s, lineOf(ring));
   // (the town knows the land its wall stands on: the ring's corners lie further out than its buildings)
   const c = campCell(s);
   const reach = Math.ceil(Math.max(...lineOf(ring).map((p) => Math.hypot(p.x - c.x, p.y - c.y))));
