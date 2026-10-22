@@ -1,5 +1,6 @@
 // Crafting panel: the craft queue, the spare items in town, and every recipe by station.
 
+import { RARE_SET } from '../../shared/data/chains';
 import { BUILDING_BY_ID } from '../../shared/data/buildings';
 import { eraReached } from '../../shared/data/eras';
 import { ITEM_BY_ID, ITEMS, SLOT_NAMES, STATIONS, type ItemDef } from '../../shared/data/items';
@@ -99,12 +100,13 @@ export function renderWorkshops(s: Snapshot, rerender: () => void = () => {}): H
 
 /* ------------------------------------------------------------ the inventory */
 
-type InvTab = 'all' | 'weapons' | 'armour' | 'tools' | 'materials' | 'food' | 'furniture' | 'wares' | 'medicine';
+type InvTab = 'all' | 'weapons' | 'armour' | 'tools' | 'parts' | 'materials' | 'food' | 'furniture' | 'wares' | 'medicine';
 const INV_TABS: [InvTab, string][] = [
   ['all', 'All'],
   ['weapons', 'Weapons'],
   ['armour', 'Armour'],
   ['tools', 'Tools'],
+  ['parts', 'Parts'],
   ['materials', 'Materials'],
   ['food', 'Food'],
   ['furniture', 'Furniture'],
@@ -125,6 +127,7 @@ function itemKind(def: ItemDef): InvTab {
   if (def.slot === 'weapon') return 'weapons';
   if (def.weight || def.slot === 'body' || def.slot === 'head' || def.slot === 'offhand' || def.slot === 'charm') return 'armour';
   if (def.slot === 'tool') return 'tools';
+  if (def.part) return 'parts';
   if (def.furnish) return 'furniture';
   if (def.ware || def.fare) return 'wares';
   if (def.id === 'bandage' || def.id === 'poultice' || def.id === 'antibiotics' || def.id === 'medkit') return 'medicine';
@@ -233,8 +236,20 @@ function recipeCard(def: ItemDef, s: Snapshot, stationBuilt: boolean): HTMLEleme
     if (icon) chip.prepend(icon);
     cost.append(chip);
   }
-  for (const [id, n] of Object.entries(def.items ?? {})) cost.append(el('span', (s.items[id] ?? 0) >= n ? 'chip' : 'chip short', `${ITEM_BY_ID[id].name} ${n}`));
+  for (const [id, n] of Object.entries(def.items ?? {})) {
+    const chip = el('span', (s.items[id] ?? 0) >= n ? 'chip' : 'chip short');
+    chip.append(itemIcon(ITEM_BY_ID[id], 1), `${ITEM_BY_ID[id].name} ${n}`);
+    cost.append(chip);
+  }
   c.append(top, cost, el('div', 'purpose', def.description));
+  // (made through parts: what's missing, and where a missing part is made; a rare input says where it comes from)
+  if (Object.keys(def.items ?? {}).some((id) => ITEM_BY_ID[id]?.part)) {
+    const missing = [
+      ...Object.entries(def.items ?? {}).filter(([id, n]) => (s.items[id] ?? 0) < n).map(([id]) => `${ITEM_BY_ID[id].name}${ITEM_BY_ID[id].part ? ` (${BUILDING_BY_ID[ITEM_BY_ID[id].station]?.name ?? ITEM_BY_ID[id].station})` : ''}`),
+      ...(Object.entries(def.cost) as [Material, number][]).filter(([m, n]) => RARE_SET.has(m) && (s.stock[m] ?? 0) < n).map(([m]) => `${MATERIAL_NAMES[m]} (rare: mines, quests, trade)`),
+    ];
+    if (missing.length) c.append(el('div', 'lock short', `Missing: ${missing.join(', ')}`));
+  }
   if (!unlocked) {
     const need = def.research.filter((r) => !s.research.done.includes(r)).map((r) => topicName(r, s.origin.id));
     c.append(el('div', 'lock', `Needs research: ${need.join(', ')}`));

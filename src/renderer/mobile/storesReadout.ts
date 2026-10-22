@@ -7,6 +7,8 @@ import type { Snapshot } from '../../shared/sim/snapshot';
 import type { Material } from '../../shared/data/materials';
 import { stockIcon } from '../art/materialIcons';
 import { readoutItems, short } from './storesPick';
+import { itemIcon } from '../art/icons';
+import { ITEM_BY_ID } from '../../shared/data/items';
 
 export function startStoresReadout(bridge: { onSnapshot(f: (s: Snapshot) => void): void; openPanel(id: string): void }): HTMLElement {
   const box = document.createElement('button');
@@ -15,7 +17,7 @@ export function startStoresReadout(bridge: { onSnapshot(f: (s: Snapshot) => void
   box.hidden = true;
   let key = '';
   bridge.onSnapshot((s) => {
-    const items = readoutItems(s.stock, s.coins);
+    const items = readoutItems(s.stock, s.coins, s.items);
     const k = items.map((i) => `${i.id}:${i.n}`).join('|');
     if (k === key) return;
     key = k;
@@ -41,8 +43,9 @@ export function startStoresReadout(bridge: { onSnapshot(f: (s: Snapshot) => void
   return box;
 }
 
-/** Coins have no material icon: a gold disc; food borrows the berries' picture. */
+/** Coins have no material icon: a gold disc; food borrows the berries' picture, the parts a blade blank's. */
 function icon(id: string): HTMLElement | null {
+  if (id === 'parts') return itemIcon(ITEM_BY_ID.iron_blade, 1);
   if (id === 'coins') {
     const d = document.createElement('i');
     d.className = 'sr-coin';
