@@ -26,6 +26,8 @@ export const MATERIALS = [
   'copper_ore', 'tin_ore', 'silver_ore', 'sulphur', 'copper', 'bronze', 'silver',
   // Monster parts (the Monster Hunters' Guild's hunts; data/hunts.ts)
   'beast_fang', 'thick_pelt', 'venom_sac', 'chitin', 'great_horn', 'wyrm_scale', 'gorgon_eye', 'ghost_essence', 'monster_heart', 'dragon_heart',
+  // Rare woods (felled now and then, found on quests, traded; data/chains.ts)
+  'heartwood',
 ] as const;
 export type Material = (typeof MATERIALS)[number];
 /** What the sea's cells hold (sim/land.ts `seaPool`): gathered by a shore town only. */
@@ -98,6 +100,7 @@ export const MATERIAL_NAMES: Record<Material, string> = {
   ghost_essence: 'Ghost essence',
   monster_heart: 'Monster heart',
   dragon_heart: "Dragon's heart",
+  heartwood: 'Heartwood',
 };
 
 export type Stock = Partial<Record<Material, number>>;

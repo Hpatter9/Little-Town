@@ -24,6 +24,7 @@ import { BOAT_ITEMS, type BoatKind } from './boats';
 import { AIRSHIP_ITEMS, SKY_TROPHIES, type AirshipKind } from './skies';
 import type { WorkAnim } from './terrain';
 import { MAGIC_ITEMS, MAGIC_UNIQUES } from './magic';
+import { deepen, PARTS } from './chains';
 
 export type Slot = 'tool' | 'weapon' | 'offhand' | 'head' | 'body' | 'charm' | 'pack';
 export const SLOTS: readonly Slot[] = ['weapon', 'offhand', 'head', 'body', 'tool', 'charm', 'pack'];
@@ -150,6 +151,10 @@ export interface ItemDef {
   /** Armour's colour: worn (an LPC tint) and on its icon (a hue turn), so pieces sharing a look differ. */
   tint?: string;
   hue?: number;
+  /** A part (data/chains.ts): made from a refined material, it goes into finer things. */
+  part?: boolean;
+  /** How many one piece of work makes (1 when not given). */
+  yields?: number;
   /** Shop furnishings (see data/shop.ts): what it is, how many cells of the shop floor it takes, and how much it
    *  draws travellers in. The shopkeeper sets it out once it's made. */
   furnish?: Furnish;
@@ -425,8 +430,9 @@ const FIRST: Record<string, Pick<ItemDef, 'family' | 'tier' | 'weight'>> = {
   energy_shield: { weight: 'shield' },
 };
 
-/** Everything that can be made or found: the first items, and the armoury of data/weapons.ts and data/armour.ts. */
-export const ITEMS: readonly ItemDef[] = [...BASE_ITEMS.map((i) => (FIRST[i.id] ? { ...i, ...FIRST[i.id] } : i)), ...WEAPONS, ...ARMOUR, ...BESTIARY_TROPHIES, ...UNIQUES, ...FORGED_ARMOUR, ...WORKSHOP_ITEMS, ...KIT_RECIPES, ...MINERAL_ITEMS, ...BOAT_ITEMS, ...AIRSHIP_ITEMS, ...CALAMITY_TROPHIES, ...GREAT_ENEMY_TROPHIES, ...RISING_TROPHIES, ...SKY_TROPHIES, ...FESTIVAL_ITEMS, ...CULTURE_ITEMS, ...MAGIC_ITEMS, ...MAGIC_UNIQUES];
+/** Everything that can be made or found: the first items, and the armoury of data/weapons.ts and data/armour.ts. The
+ *  Medieval age's things and later's are made through parts (data/chains.ts `deepen`). */
+export const ITEMS: readonly ItemDef[] = [...BASE_ITEMS.map((i) => deepen(FIRST[i.id] ? { ...i, ...FIRST[i.id] } : i)), ...WEAPONS.map(deepen), ...ARMOUR.map(deepen), ...BESTIARY_TROPHIES, ...UNIQUES, ...FORGED_ARMOUR, ...WORKSHOP_ITEMS.map(deepen), ...KIT_RECIPES, ...MINERAL_ITEMS.map(deepen), ...PARTS, ...BOAT_ITEMS, ...AIRSHIP_ITEMS, ...CALAMITY_TROPHIES, ...GREAT_ENEMY_TROPHIES, ...RISING_TROPHIES, ...SKY_TROPHIES, ...FESTIVAL_ITEMS, ...CULTURE_ITEMS, ...MAGIC_ITEMS, ...MAGIC_UNIQUES];
 
 export const ITEM_BY_ID: Readonly<Record<string, ItemDef>> = Object.fromEntries(ITEMS.map((i) => [i.id, i]));
 

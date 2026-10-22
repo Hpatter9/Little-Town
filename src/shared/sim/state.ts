@@ -320,6 +320,9 @@ export interface CraftOrder {
   /** A customer's order, taken by a shopkeeper when the shop had none (sim/shop.ts `commission`): who, what they paid
    *  up front, and the shop (a building id). Finished, the piece is theirs: it goes to them, not into the stores. */
   commission?: { name: string; paid: number; shop: number };
+  /** The mean grade of the item ingredients (parts) taken for the piece in work: it pulls the piece's own grade toward
+   *  it (data/chains.ts; none when it takes no items). */
+  inputQ?: number;
 }
 
 /** What a person is visibly doing (drives their animation). */
@@ -544,6 +547,8 @@ export interface Person {
   /** Worn items (item ids) by slot, and their quality (Common when left out; see data/quality.ts). */
   gear: Partial<Record<Slot, string>>;
   gearQ?: Partial<Record<Slot, number>>;
+  /** Hours worked with a tool since the last one broke (sim/crafting.ts `wearTools`). */
+  toolWear?: number;
   /** Battle items in their own pouch (sim/kit.ts): drunk, thrown or used in a fight, one each time. */
   kit?: string[];
   /** Their income (sim/economy.ts): today's and yesterday's coins, pay owed for work by the hour not yet a whole

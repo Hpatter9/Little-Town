@@ -73,6 +73,7 @@ export const WORTH: Record<Material, number> = {
   ghost_essence: 14,
   monster_heart: 20,
   dragon_heart: 60,
+  heartwood: 12,
 };
 
 /** What caravans bring to sell, by era (caravans only come from the Medieval era on). */
