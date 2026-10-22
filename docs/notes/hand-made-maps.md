@@ -162,3 +162,53 @@ six places, each walked from the way in to every spot in turn, props on open gro
 four in daylight; trips are matched by destination, words and the kind of place (a dragon's lair, five sagas' places,
 a robbed cart, old ruins; a cave and a wolf's den by none), at least half the sagas' trips come to one; among several
 places the pick is the same for a trip, either by the trip, and never draws on the town's stream.
+
+## The starting valleys, drawn by hand
+
+Four starting valleys are drawn in `maps/start-valleys.ldtk` (48x48 cells a valley, a cell a land cell), and a town
+founded from the New town panel may start in one, laid over the land the seed makes round its camp. This changes HISTORY
+"The wide land" (`makeLand`) and "Mountains in every land" (the relief), and the founding (`newGame`).
+
+**The format** (`VALLEY_SPEC` in `sim/startValleys.ts`): **Ground** (IntGrid: the land's own grounds, written as the land
+writes them, `VALLEY_GROUNDS`; an empty cell keeps the land's own, so each valley's edge is frayed into the land round
+it), **Relief** (IntGrid: level, downs, rocky, high, ramp, range, `VALLEY_RELIEF`; empty is level where the valley lays
+ground), **Things** (one `Camp`, laid on the land's camp cell; `Landmark`s, `LANDMARK_KINDS`: old walls, ruins, pillars,
+a statue, a well, boulders, bones, a skeleton, stumps, reeds, flowers, an old cart, a signpost), and the level fields
+`name`, `about`, `biomes` (the lands it's a start in) and `scenarios` (data/founding.ts; none: any).
+
+**The valleys** (`docs/notes/hand-made-maps/valley-*-tall.png` in the game at 393x852, `valley-old-ruin-wide.png` at
+852x393):
+- **The River Valley** (forest, steppe, jungle, taiga, swamp, highlands): a river down the west side with a ford by an
+  old signpost, rich banks, a wood on the rising ground east, rocky hills north.
+- **The Old Ruin** (forest, steppe, highlands, desert, ashlands, taiga; lone, band and supplied starts): the ring of a
+  town that was here before, stretches of its wall still standing (drawn along their runs), the rest rubble to quarry,
+  old foundations, its gate's pillars, a statue, a well, the wild come back inside.
+- **The Mountain Shelf** (highlands, taiga, tundra): a level shelf under a range, a stream down from it to a tarn, high
+  ground east climbed by a ramp, downs falling away south.
+- **The Coastal Cove** (coast): a cove between two headlands, sand and shallows, a stream to the beach, a wood behind.
+Each keeps an open, level meadow round the camp and at least `MIN_KIND_NEAR` of every wild kind within `OPEN_START`, so
+nothing the land does afterwards changes a cell of it.
+
+**In the sim** (land-making and founding only). `newGame` with the new `NewGameOptions.valleys` (set by the New town
+panel and the first launch in `shared/simHost.ts`; the tests' towns leave it out, so they're on the seed's own land as
+before) asks `pickValley(seed, biome, scenario)`: the valleys for the land and scenario (`valleysFor`), picked
+`HAND_VALLEY_SHARE` (0.6) of the time from `new Rng(hashSeed(`${seed}:valley`))`, never for a hold or a shore town (they
+have their own shapes). `NewGameOptions.valley` names one (previews, tests; `VALLEY=` in tools/make-save.mjs). `makeLand`
+takes it: `layValley` lays its ground after the land's rivers, shores and the camp's clearing (and carries water that
+runs off its edge, more than `RUN_CORNER` from a corner, on to the land's edge, wandering and banked); the wild kinds
+near the camp, the pools and the relief are made as on any land; then the valley's ground is laid again where the
+relief changed it (pools filled on its own stream, `${seed}:valley:pools`) and its relief over the land's
+(`layValleyRelief`). The town keeps `GameState.valley` (optional; older towns have none), and the snapshot has it.
+Regions, places, fog and where the town puts things are worked out as for any land.
+
+**On the map** (`iso/isoView.ts`): `setValley` reads the valley's landmarks (`valleyLandmarks`) and draws each with a kit
+piece (`LANDMARK_PIECES`: the raid boards' `wild/` ruins, pillars, statue, bones, stumps, reeds and flowers, the
+settlers' stone wall, well, cart and signpost, the dwarves' boulders) in place of the cell's scenery, while the cell's
+ground is as the valley left it and nothing is built on it; a stretch of wall is mirrored to lie along its run.
+
+**Tests** (`test/startValleys.test.ts`): the data is the converter's make of the project, which is LDtk 1.5 JSON with
+the game's own lists; each valley has one camp in an open, level meadow, its range on mountain rock, its ramps leading up,
+landmarks on its own ground, its edge frayed; laid on each of its lands it stands as drawn, every wild kind near the
+camp, every wild cell holding something, and most of the wide land walked to; the pick is the seed's, about 0.6, by
+land and scenario; the tests' towns have none; a town founded in one keeps it, has the founder its seed makes, its
+camp where it was, regions, and spots found for its first buildings; a hold and a shore town never have one.

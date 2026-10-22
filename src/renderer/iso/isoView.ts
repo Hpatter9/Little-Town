@@ -8,7 +8,8 @@
 // the walls are fitted pieces of the kit, the roads its path tile, and the rest isn't drawn.
 
 import { Container, Graphics, Matrix, Rectangle, Sprite, Texture } from 'pixi.js';
-import { CELL, WEAR_FULL, WEAR_SHOW, cellAt, groundAt, inMap, wet as wetCell, type LandMap } from '../../shared/sim/land';
+import { CELL, WEAR_FULL, WEAR_SHOW, cellAt, groundAt, inMap, wet as wetCell, type Ground, type LandMap } from '../../shared/sim/land';
+import { valleyById, valleyCells, valleyLandmarks, type LandmarkKind } from '../../shared/sim/startValleys';
 import { glowTexture } from '../town/layer';
 import type { Biome } from '../../shared/data/biomes';
 import { footprint } from '../../shared/sim/buildings';
@@ -27,6 +28,24 @@ import { cellsInView, footBase, footDepth, footWidth, isoBounds, isoOrigin, isoT
 /** A building's picture may stand this much wider than its footprint before it is shrunk to fit (a big piece on a
  *  small building: a cottage piece on a one-cell trap). */
 const OVERHANG = 1.25;
+/** The kit pieces a starting valley's landmarks are drawn with (sim/startValleys.ts), one picked by the cell, and how
+ *  big beside the land's trees. */
+const LANDMARK_PIECES: Readonly<Record<LandmarkKind, string[]>> = {
+  ruin: ['wild/ruin_1', 'wild/ruin_2'],
+  wall: ['settlers/stone_wall_run'],
+  pillar: ['wild/pillar_1', 'wild/pillar_2', 'wild/pillar_3'],
+  statue: ['wild/statue'],
+  well: ['settlers/well'],
+  boulder: ['dwarves/boulders'],
+  bones: ['wild/bones_1', 'wild/bones_2', 'wild/bones_3'],
+  skeleton: ['wild/skeleton'],
+  stump: ['wild/stump_1', 'wild/stump_2', 'wild/stump_3'],
+  reeds: ['wild/reeds_1', 'wild/reeds_2'],
+  flowers: ['wild/flowers_1', 'wild/flowers_2', 'wild/flowers_3', 'wild/flowers_4'],
+  cart: ['settlers/cart'],
+  signpost: ['settlers/signpost'],
+};
+const LANDMARK_SCALE = 0.8;
 /** Ground tiles are drawn this much over their cell so neighbours overlap and no edge shows. */
 const OVERLAP = 1.06;
 
@@ -129,6 +148,37 @@ export class IsoView {
   }
 
   /** The land's biome: its ground tinted to match (data/biomes.ts). */
+  /** The town's starting valley drawn by hand (sim/startValleys.ts): its landmarks, by cell, as kit pieces. */
+  private valleyId: string | undefined;
+  private landmarks = new Map<number, { piece: string; ground: Ground; flip: boolean }>();
+  setValley(id: string | undefined): void {
+    if (id === this.valleyId && (!id || this.landmarks.size || !this.land)) return;
+    this.valleyId = id;
+    this.landmarks.clear();
+    const m = valleyById(id);
+    if (m && this.land) {
+      const ground = new Map(valleyCells(m, this.land.w, this.land.h, this.land.camp));
+      const marks = valleyLandmarks(m, this.land.w, this.land.camp);
+      const walls = new Set(marks.filter(([, k]) => k === 'wall').map(([i]) => i));
+      for (const [i, kind] of marks) {
+        const pieces = LANDMARK_PIECES[kind];
+        const piece = pieces[Math.floor(cellHash(i % this.land.w, Math.floor(i / this.land.w), 31) * pieces.length) % pieces.length];
+        // (a stretch of old wall lies along its run: the piece mirrored where it was drawn lying the other way)
+        const alongX = walls.has(i - 1) || walls.has(i + 1);
+        const [kit, name] = piece.split('/');
+        const flip = kind === 'wall' && alongX === liesAlongY(kit, name);
+        this.landmarks.set(i, { piece, ground: ground.get(i) ?? 'grass', flip });
+      }
+    }
+    this.groundKey = '';
+  }
+
+  /** Whether a building stands on a cell. */
+  private builtOn(x: number, y: number): boolean {
+    for (const d of this.buildings.values()) if (x >= d.foot.x && y >= d.foot.y && x < d.foot.x + d.foot.w && y < d.foot.y + d.foot.h) return true;
+    return false;
+  }
+
   setBiome(b: Biome | undefined): void {
     if ((b ?? 'forest') === this.biome) return;
     this.biome = b ?? 'forest';
@@ -647,8 +697,11 @@ export class IsoView {
       if (this.wallCells.has(i)) continue;
       const g = groundAt(land, x, y);
       if (land.regrow?.[i] || land.rubble?.[i] !== undefined) continue;
-      const piece = sceneryFor(ids, g, this.biome, cellHash(x, y, 1), cellHash(x, y, 2));
-      const tex = piece ? this.texOf(piece) : null;
+      // (a landmark of the starting valley, while its cell lies as the valley left it and nothing is built there)
+      const mark = this.landmarks.get(i);
+      const marked = !!mark && g === mark.ground && !this.builtOn(x, y);
+      const piece = marked ? mark.piece : sceneryFor(ids, g, this.biome, cellHash(x, y, 1), cellHash(x, y, 2));
+      const tex = !piece ? null : marked ? this.texUrl(kitUrl(piece.split('/')[0], piece.split('/')[1])) : this.texOf(piece);
       if (!piece || !tex) continue;
       let t = this.scenery[trees];
       if (!t) {
@@ -660,9 +713,10 @@ export class IsoView {
       trees++;
       t.texture = tex;
       t.visible = true;
-      t.scale.set(this.kit.scale * ISO_ART * (/bush/.test(piece) ? 0.7 : 0.85));
-      const jx = x + 0.3 + cellHash(x, y, 3) * 0.4;
-      const jy = y + 0.3 + cellHash(x, y, 4) * 0.4;
+      t.scale.set(this.kit.scale * ISO_ART * (marked ? LANDMARK_SCALE : /bush/.test(piece) ? 0.7 : 0.85));
+      if (marked && mark.flip) t.scale.x *= -1;
+      const jx = marked ? x + 0.5 : x + 0.3 + cellHash(x, y, 3) * 0.4;
+      const jy = marked ? y + 0.5 : y + 0.3 + cellHash(x, y, 4) * 0.4;
       const at = tileToIso(jx, jy, this.ox);
       t.position.set(Math.round(at.x), Math.round(at.y));
       t.zIndex = jx + jy;

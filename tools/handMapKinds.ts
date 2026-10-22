@@ -2,5 +2,6 @@
 import type { MapKindSpec } from '../src/shared/sim/handMaps';
 import { FLOOR_SPEC } from '../src/shared/sim/delveFloors';
 import { STORY_SPEC } from '../src/shared/sim/storyPlaces';
+import { VALLEY_SPEC } from '../src/shared/sim/startValleys';
 
-export const HAND_MAP_KINDS: readonly MapKindSpec[] = [FLOOR_SPEC, STORY_SPEC];
+export const HAND_MAP_KINDS: readonly MapKindSpec[] = [FLOOR_SPEC, STORY_SPEC, VALLEY_SPEC];
