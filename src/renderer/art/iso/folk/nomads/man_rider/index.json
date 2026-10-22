@@ -1,0 +1,29 @@
+{
+ "look": "man_rider",
+ "people": "nomads",
+ "frame": [
+  156,
+  156
+ ],
+ "directions": [
+  "south",
+  "south-east",
+  "east",
+  "north-east",
+  "north",
+  "north-west",
+  "west",
+  "south-west"
+ ],
+ "animations": {
+  "walk": {
+   "frames": 6
+  },
+  "attack_1h": {
+   "frames": 6
+  },
+  "idle": {
+   "frames": 4
+  }
+ }
+}

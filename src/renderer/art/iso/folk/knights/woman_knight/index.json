@@ -1,0 +1,29 @@
+{
+ "look": "woman_knight",
+ "people": "knights",
+ "frame": [
+  148,
+  148
+ ],
+ "directions": [
+  "south",
+  "south-east",
+  "east",
+  "north-east",
+  "north",
+  "north-west",
+  "west",
+  "south-west"
+ ],
+ "animations": {
+  "attack_1h": {
+   "frames": 6
+  },
+  "walk": {
+   "frames": 6
+  },
+  "idle": {
+   "frames": 4
+  }
+ }
+}
