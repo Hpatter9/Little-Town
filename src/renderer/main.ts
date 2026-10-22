@@ -1427,7 +1427,7 @@ async function start(): Promise<void> {
   const checkPlacement = (def: BuildingDef, x: number, y: number): PlaceCheck => {
     if (!isUnlocked({ unlockAll: snap.unlockAll, done: snap.research.done }, def)) return { ok: false, reason: 'Not researched yet' };
     if (blueprintCount(snap) >= snap.buildSlots) return { ok: false, reason: 'Construction queue is full' };
-    return canPlace({ land: snap.land, buildings: snap.buildings, origin: snap.origin.id, era: snap.era }, def, x, y);
+    return canPlace({ land: snap.land, buildings: snap.buildings, origin: snap.origin.id, era: snap.era, explored: snap.explored }, def, x, y);
   };
 
   const updateGhost = () => {

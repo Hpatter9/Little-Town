@@ -570,7 +570,7 @@ export function religionTick(s: GameState): void {
   if (s.autopilot === false) return;
   const r = s.raid;
   const rel = s.religion;
-  if (r && r.phase === 'warning' && rel?.raidSeen !== r.id) blessRaid(s, r);
+  if (r && r.phase === 'warning' && !r.veil && rel?.raidSeen !== r.id) blessRaid(s, r);
   if (!r && rel?.recapNote && s.raidRecap && s.raidRecap.tick >= rel.recapNote.tick) {
     s.raidRecap.story.push(rel.recapNote.text);
     rel.recapNote = undefined;

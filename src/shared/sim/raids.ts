@@ -93,6 +93,7 @@ import { heirOf, killPerson, knockDown, stabilize } from './health';
 import { tireless, addStock, campXY, dist, ERA_MULTIPLIER, maxHp, meet, notify, personFx, poolSize, type Building, type GameState, type Person, type Raid, type Raider, markBlood, markDebris } from './state';
 import { castleOn } from './castle';
 import { walk, type Walker } from './walk';
+import { leadAfterSeen, raidSeenBy, sayVagueSign, veilsRaids } from './raidSight';
 import { TICK_HZ, TICKS_PER_HOUR, paceDay } from './time';
 import { campEdge, gainSkill } from './townsfolk';
 import { rulesOf } from '../data/origins';
@@ -195,7 +196,7 @@ export function maybeStartRaid(s: GameState, rng: Rng): void {
   // (a band the town hunted down that left a survivor comes back, bigger: sim/raidOdds.ts)
   const vengeance = s.autopilot !== false ? ripeGrudge(s) : null;
   const kind = vengeance ? RAID_KIND_BY_ID[vengeance] : RAID_KIND_BY_ID[rng.weighted(any ? weights : Object.fromEntries(kinds.map((k) => [k.id, k.origin === (s.origin ?? 'settlers') ? 0 : k.weight])))];
-  const raid = startRaid(s, kind, raidBudget(s), rng);
+  const raid = startRaid(s, kind, raidBudget(s), rng, undefined, undefined, true);
   // now and then the era's boss leads a raid of people (not beasts or the dead)
   const bosses = ERA_BOSS[s.era];
   if (bosses && day >= BOSS_RAID_FROM_DAY && kind.steals !== undefined && !kind.leader && rng.chance(BOSS_RAID_CHANCE)) {
@@ -225,7 +226,7 @@ const BEHEMOTH_CHANCE = 0.1;
 
 /** Gather a raid at the edge of the land, with a warning; or, given `inside` (a point), one that's already in the middle
  *  of the town, fighting (lurkers.ts). */
-export function startRaid(s: GameState, kind: RaidKind, budget: number, rng: Rng, inside?: Pt, host?: { most: number; siege: number; leader: string; host: string }): Raid {
+export function startRaid(s: GameState, kind: RaidKind, budget: number, rng: Rng, inside?: Pt, host?: { most: number; siege: number; leader: string; host: string }, veiled = false): Raid {
   const side: -1 | 1 = rng.chance(0.5) ? -1 : 1;
   const raiders: Raider[] = [];
   const costs = Object.entries(kind.enemies);
@@ -326,6 +327,21 @@ export function startRaid(s: GameState, kind: RaidKind, budget: number, rng: Rng
     return raid;
   }
 
+  s.raid = raid;
+  // (a scheduled raid sets out unseen, in a town with the fog: a vague sign now, the warning when someone sees it, sim/raidSight.ts)
+  if (veiled && !kind.fromSea && !host && veilsRaids(s)) {
+    raid.veil = { from: s.tick, total: warn, flank };
+    sayVagueSign(s, raid);
+    return raid;
+  }
+  announceRaid(s, raid, kind, flank, lookout);
+  return raid;
+}
+
+/** The warning, the raid's prompt (sound the alarm, pay them off, recall, skip) and the news: as the raid is seen. */
+function announceRaid(s: GameState, raid: Raid, kind: RaidKind, flank: number, lookout?: Building): void {
+  const side = raid.side;
+  const raiders = raid.raiders;
   const options = ['Sound the alarm'];
   if (kind.bribable) options.push(`Pay them off (${bribeCost(raid)} food)`);
   if (s.expeditions.length) options.push('Recall expeditions');
@@ -344,11 +360,9 @@ export function startRaid(s: GameState, kind: RaidKind, budget: number, rng: Rng
   };
   s.prompts.push(prompt);
   raid.prompt = prompt.id;
-  s.raid = raid;
   // (a wandering tribe draws its wagons up across the camp)
   circleWagons(s);
   notify(s, `${kind.name} ${kind.plural ? 'are' : 'is'} coming from the ${where}${flank ? ', and round the other side' : ''}!`);
-  return raid;
 }
 
 const bribeCost = (r: Raid) => r.raiders.length * BRIBE_FOOD_PER_RAIDER;
@@ -466,6 +480,18 @@ export function updateRaid(s: GameState, rng: Rng): void {
   if (r.chase) return updateChase(s, r, rng); // (a chase after fugitives: sim/chase.ts)
   const kind = RAID_KIND_BY_ID[r.kind];
   if (r.phase === 'warning') {
+    // (still unseen: asked every few ticks whether anyone sees it yet; at the gate it is simply here: sim/raidSight.ts)
+    if (r.veil) {
+      if (s.tick >= r.arrivesTick) delete r.veil;
+      else {
+        if (s.tick % 5 === 0 && raidSeenBy(s, r, townEdgeX(s, r.side), campXY(s).y)) {
+          r.arrivesTick = leadAfterSeen(s, r);
+          announceRaid(s, r, kind, r.veil.flank);
+          delete r.veil;
+        }
+        return;
+      }
+    }
     if (s.tick < r.arrivesTick) return;
     // (outmatched, they hold at the edge while the town says what becomes of them: sim/raidOdds.ts)
     if (weighArrival(s, r) === 'wait') {

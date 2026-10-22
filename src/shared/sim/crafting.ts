@@ -25,10 +25,10 @@ import {
 } from '../data/items';
 import { MATERIALS, type Material, type Stock } from '../data/materials';
 import type { WorkAnim } from '../data/terrain';
-import type { Rng } from '../rng';
+import { hashSeed, Rng } from '../rng';
 import { earlier, type Era } from '../data/eras';
 import { eraOfResearch } from '../data/research';
-import { COMMON, MAX_QUALITY, piece, pieceLabel, plusMult, qualityMult, rollPlus, rollQuality, typicalQuality } from '../data/quality';
+import { COMMON, gradeOf, MAX_QUALITY, piece, pieceLabel, plusMult, qualityMult, rollPlus, rollQuality, typicalQuality } from '../data/quality';
 import { PIECE_RATE, PURSE_SCALE, saleValue } from '../data/shop';
 import { FOOD_VALUE } from '../data/people';
 import { buildingCentreX, depositNear } from './buildings';
@@ -123,7 +123,7 @@ export function reduceCraft(s: GameState, orderId: number, all = false): void {
   const def = ITEM_BY_ID[o.item];
   const at = stationFor(s, def);
   depositNear(s, at ? buildingCentreX(at) : campX(s), o.delivered);
-  if (o.itemsTaken) for (const [id, n] of Object.entries(def.items ?? {})) addItems(s, id, n);
+  if (o.itemsTaken) for (const [id, n] of Object.entries(def.items ?? {})) addItems(s, id, n, Math.round(o.inputQ ?? COMMON));
 }
 
 export function addItems(s: GameState, id: string, n: number, quality = COMMON): void {
@@ -164,13 +164,32 @@ export function takeItem(s: GameState, id: string, which: 'best' | 'worst' = 'be
   return got;
 }
 
-/** Take item ingredients for the next piece out of the inventory. Returns false if some are missing. */
+/** Take item ingredients for the next piece out of the inventory, the best first. Returns false if some are missing.
+ *  Their mean grade is kept on the order: the piece's own grade leans toward it (`finishPiece`). */
 export function takeItemInputs(s: GameState, o: CraftOrder): boolean {
   if (o.itemsTaken) return true;
   if (missingItems(s, o).length) return false;
-  for (const [id, n] of Object.entries(ITEM_BY_ID[o.item].items ?? {})) addItems(s, id, -n);
+  const grades: number[] = [];
+  for (const [id, n] of Object.entries(ITEM_BY_ID[o.item].items ?? {})) for (let k = 0; k < n; k++) grades.push(gradeOf(takeItem(s, id, 'best') ?? COMMON));
+  if (grades.length) o.inputQ = grades.reduce((a, b) => a + b, 0) / grades.length;
+  else delete o.inputQ;
   o.itemsTaken = true;
   return true;
+}
+
+/** How much the grade of what a piece is made from adds to its crafter's roll: half a step for each step its parts
+ *  are above Common (Rare parts lift the piece a step), and as much off for Poor ones. */
+export const INPUT_PULL = 0.5;
+
+/** The grade a piece made from parts of this mean grade comes out at, from the grade its crafter rolled. The part of
+ *  a step left over is a chance, rolled on the chains' own stream (so towns without parts play out as before). */
+export function pulledGrade(s: GameState, o: CraftOrder, rolled: number): number {
+  if (o.inputQ === undefined) return rolled;
+  const pull = (o.inputQ - COMMON) * INPUT_PULL;
+  const whole = Math.trunc(pull);
+  const rest = Math.abs(pull - whole);
+  const extra = rest > 0 && new Rng(hashSeed(`${s.seed}:chains:${s.tick}:${o.id}`)).chance(rest) ? Math.sign(pull) : 0;
+  return Math.max(0, Math.min(MAX_QUALITY, rolled + whole + extra));
 }
 
 /** One piece is done: into the inventory (or storage, for materials); the order moves on. */
@@ -187,7 +206,9 @@ export function finishPiece(s: GameState, o: CraftOrder, p: Person, rng?: Rng): 
     // (how well it's made depends on who made it)
     const level = p.skills.crafting.level;
     // (and on the town: dwarves make finer things, druids coarser, and a forge blessing helps)
-    const grade = Math.max(0, Math.min(MAX_QUALITY, (rng ? rollQuality(rng, level) : Math.round(typicalQuality(level))) + Math.round(qualityBonus(s))));
+    const rolled = Math.max(0, Math.min(MAX_QUALITY, (rng ? rollQuality(rng, level) : Math.round(typicalQuality(level))) + Math.round(qualityBonus(s))));
+    // (and on what it's made from: fine parts make a finer piece)
+    const grade = pulledGrade(s, o, rolled);
     // (and arms and armour may come out +1 to +5 on top: rarer the higher)
     const plus = rng && ARMS.has(def.slot!) ? rollPlus(rng, level) : 0;
     const q = piece(grade, plus);
@@ -201,7 +222,7 @@ export function finishPiece(s: GameState, o: CraftOrder, p: Person, rng?: Rng): 
         l.push({ tick: s.tick, text });
       }
       notify(s, text);
-    } else addItems(s, def.id, 1, q);
+    } else addItems(s, def.id, def.yields ?? 1, q);
     if (def.unique && !(s.uniques ?? []).includes(def.id)) {
       (s.uniques ??= []).push(def.id);
       noteUnique(s, def.id, 'forged', { by: [p], where: BUILDING_BY_ID[def.station]?.name, qn: q }); // (its story: sim/provenance.ts)
@@ -213,6 +234,7 @@ export function finishPiece(s: GameState, o: CraftOrder, p: Person, rng?: Rng): 
   }
   o.delivered = {};
   o.itemsTaken = false;
+  delete o.inputQ;
   o.progress = 0;
   o.count--;
   o.made++;
@@ -362,9 +384,33 @@ export function hasBedroll(s: GameState, p: Person): boolean {
   return bedless.indexOf(p) < (s.items.bedroll ?? 0) && bedless.includes(p);
 }
 
-/** Once an hour: snares may catch something, and poultices go to anyone badly hurt. */
+/** Hours of work a Common tool lasts before it breaks (a finer one lasts longer, by its quality's worth). */
+export const TOOL_HOURS = 60;
+
+/** Tools wear with work: an hour for each hour someone works with a tool that helps them at it. Worn through, it
+ *  breaks, and they take up the best spare (the town makes more: it keeps a tool for every worker). The wear is the
+ *  worker's: it carries over when they swap one tool for another. Relics and uniques never break. */
+export function wearTools(s: GameState): void {
+  for (const p of s.people) {
+    const id = p.gear.tool;
+    const def = id ? ITEM_BY_ID[id] : undefined;
+    if (!id || !def || def.relic || def.unique || p.away !== null) continue;
+    const work = (p.activity === 'build' ? 'construct' : p.activity) as WorkAnim | 'construct';
+    if (toolSpeed(p, work) <= 1) continue;
+    p.toolWear = (p.toolWear ?? 0) + 1;
+    if (p.toolWear < TOOL_HOURS * qualityMult(p.gearQ?.tool)) continue;
+    delete p.gear.tool;
+    if (p.gearQ) delete p.gearQ.tool;
+    p.toolWear = 0;
+    notify(s, `${p.name}'s ${def.name.toLowerCase()} wore out and broke.`);
+    if (work !== 'construct') pickTool(s, p, work);
+  }
+}
+
+/** Once an hour: snares may catch something, poultices go to anyone badly hurt, and tools wear. */
 export function hourlyItems(s: GameState, rng: Rng): void {
   if (s.tick % TICKS_PER_HOUR !== 0) return;
+  if (s.autopilot) wearTools(s);
   const snares = s.items.snare ?? 0;
   let caught = 0;
   for (let i = 0; i < snares; i++) {

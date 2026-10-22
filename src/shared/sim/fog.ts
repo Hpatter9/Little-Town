@@ -7,7 +7,7 @@ import { FOG_EVERY, SIGHT_BASE, SIGHT_BUILDING, SIGHT_CLASS, SIGHT_FOUNDER, SIGH
 import { isSeat } from '../data/seats';
 import { CELL } from './land';
 import { isNight } from './lighting';
-import { campCell, type GameState, type Person } from './state';
+import { campCell, type Building, type GameState, type Person } from './state';
 
 /** The working copies: a byte a cell, '0' (48) or '1' (49) so they read straight into a string. */
 interface Cache {
@@ -29,6 +29,11 @@ export function sightOf(s: GameState, p: Person, night = isNight(s)): number {
   let r = SIGHT_BASE + (p.cls ? (SIGHT_CLASS[p.cls] ?? 0) : 0) + (p.id === s.mainId ? SIGHT_FOUNDER : 0);
   if (night) r = Math.max(SIGHT_LEAST, r - SIGHT_NIGHT);
   return r;
+}
+
+/** How far a finished building sees, in cells (the tall ones further). */
+export function buildingSight(b: Pick<Building, 'def' | 'ring'>): number {
+  return isSeat(b.def) || TALL_BUILDINGS.includes(b.def) ? SIGHT_TALL : b.ring !== undefined ? SIGHT_WALL : SIGHT_BUILDING;
 }
 
 /** Light up the cells within `r` of (cx, cy) in `a`. */
@@ -75,9 +80,7 @@ export function updateFog(s: GameState): void {
   }
   for (const b of s.buildings) {
     if (b.status !== 'done') continue;
-    const tall = isSeat(b.def) || TALL_BUILDINGS.includes(b.def);
-    const r = tall ? SIGHT_TALL : b.ring !== undefined ? SIGHT_WALL : SIGHT_BUILDING;
-    disk(c.vis, w, h, b.tile, b.row, r);
+    disk(c.vis, w, h, b.tile, b.row, buildingSight(b));
   }
   if (fresh) {
     const camp = campCell(s);
@@ -115,6 +118,31 @@ export function sightNow(s: GameState): string {
 /** Whether a cell has ever been seen. */
 export function isExplored(s: Pick<GameState, 'explored'>, cell: number): boolean {
   return s.explored === undefined || s.explored.charCodeAt(cell) === ONE;
+}
+
+/** Whether every cell of a rectangle has been seen (building is only on explored land: sim/buildings.ts `canPlace`). */
+export function rectExplored(s: Pick<GameState, 'explored' | 'land'>, x: number, y: number, w: number, h: number): boolean {
+  if (s.explored === undefined) return true;
+  const mw = s.land.w;
+  for (let cy = y; cy < y + h; cy++) for (let cx = x; cx < x + w; cx++) if (s.explored.charCodeAt(cy * mw + cx) !== ONE) return false;
+  return true;
+}
+
+/** The land along a planned line (the ring wall) is surveyed: the cells within `SIGHT_WALL` of it count as seen. The wall
+ *  is one project ordered for the town, not a building placed in the dark. */
+export function surveyed(s: GameState, line: readonly { x: number; y: number }[]): void {
+  if (s.explored === undefined) return;
+  const { w, h } = s.land;
+  const c = cacheOf(s);
+  let grew = false;
+  for (const p of line) {
+    if (p.x < 0 || p.y < 0 || p.x >= w || p.y >= h || c.ex[p.y * w + p.x] === ONE) continue;
+    disk(c.ex, w, h, p.x, p.y, SIGHT_WALL);
+    grew = true;
+  }
+  if (!grew) return;
+  s.explored = LATIN1.decode(c.ex);
+  c.src = s.explored;
 }
 
 /** The explored cells as bits in base 64 for the save (a cell a bit: 192 by 192 is about 6 KB). */

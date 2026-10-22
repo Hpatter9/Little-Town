@@ -26,6 +26,7 @@ import { Rng, hashSeed, mixSeed } from '../rng';
 import { raiderDrinks } from './kit';
 import { aimOf, canPay, held, kitOf, takeTurn, tickStatuses, useAction, type Arena, type Combatant, type Kit, type KitAction, type Statuses } from './actions';
 import { boardOk, canStep, coverChance, easeRelief, layTerrain, sightClear } from './tacticsTerrain';
+import { boardGround, pickBoard, THING_PIECE, type RaidBoardDef, type TileLook } from './raidBoards';
 import { aimTiles, areaLabel, areaOf, areaTiles, spreads, SPREAD_POWER, type TacArea, type Tile } from './tacticsArea';
 import { attributesOf } from './attributes';
 import { hasMana, manaMax, manaNow, manaTurn, setMana } from './mana';
@@ -81,6 +82,10 @@ export interface TacTile {
   art?: [number, number];
   /** One of the town's traps (a building id), sprung by the first raider to step on it. */
   trap?: number;
+  /** A hand-made board's (sim/raidBoards.ts): the tile's own look (snow, ice, mud, planks...), and the iso kit's piece
+   *  standing on it (a cart, barrels, a fence, a stretch of fallen wall). */
+  look?: TileLook;
+  prop?: string;
 }
 
 export interface TacUnit {
@@ -184,6 +189,11 @@ export interface Tactics {
   outcome?: 'won' | 'lost' | 'fled';
   /** Hours added to the raid's clock because the raiders were winning (`PRESS_MAX` at most). */
   pressed?: number;
+  /** A hand-made board's name (sim/raidBoards.ts), the town's spots on it ([u, v, 0 the front line or 1 the back]) and
+   *  the raiders' ways in ([u, v, the way]); unset on a board cut from the land. */
+  board?: string;
+  deploy?: [number, number, 0 | 1][];
+  entries?: [number, number, number][];
 }
 
 /* ------------------------------------------------------------ tuning */
@@ -300,21 +310,10 @@ export function makeBoard(s: GameState, side: -1 | 1, big = false, salt = 0): Pi
   const m = s.land;
   const w = big ? BIG_W : BOARD_W;
   const h = big ? BIG_H : BOARD_H;
-  const gate = gateCell(s, side);
   const along = w - 1 - TOWN_ROWS; // (the gate's row on the board: the town's wall runs across it)
-  let x0 = side < 0 ? gate.x - along : gate.x - (w - 1 - along);
-  x0 = Math.max(0, Math.min(m.w - w, x0));
-  const y0 = Math.max(0, Math.min(m.h - h, gate.y - Math.floor(h / 2)));
   const seed = hashSeed(s.seed);
-  const b = { w, h, x0, y0, side, tiles: [] as TacTile[] };
-  // (the town's traps where they stand; its buildings are left off: the board is the field before the town, and the
-  // town is its wall)
-  const traps = new Map<number, number>();
-  for (const x of s.buildings) {
-    if (x.status !== 'done' || x.fire !== undefined || !isTrap(x.def)) continue;
-    const f = footprint(x);
-    traps.set(f.y * m.w + f.x, x.id);
-  }
+  const b = { ...boardWindow(s, side, w, h), w, h, tiles: [] as TacTile[] };
+  const traps = trapsOf(s);
   for (let v = 0; v < h; v++)
     for (let u = 0; u < w; u++) {
       const [lx, ly] = landOf(b, u, v);
@@ -339,17 +338,7 @@ export function makeBoard(s: GameState, side: -1 | 1, big = false, salt = 0): Pi
   const hill = field.filter((t) => t.g === 'hill' || t.g === 'rock').length / field.length;
   const wet = field.filter((t) => t.g === 'water' || t.g === 'shallows' || t.g === 'marsh').length / field.length;
   // (a pond's tiles are painted from a cell of the land's own water, the nearest to the board)
-  const cx = b.x0 + w / 2;
-  const cy = b.y0 + h / 2;
-  const found = new Map<Ground, [number, number] | null>();
-  const water = (g: Ground): [number, number] | null => {
-    if (found.has(g)) return found.get(g)!;
-    let best: [number, number] | null = null;
-    let near = Infinity;
-    for (let y = 0; y < m.h; y++) for (let x = 0; x < m.w; x++) if (groundAt(m, x, y) === g && (x - cx) ** 2 + (y - cy) ** 2 < near) [best, near] = [[x, y], (x - cx) ** 2 + (y - cy) ** 2];
-    found.set(g, best);
-    return best;
-  };
+  const water = nearestGround(s, b);
   for (let attempt = 0; attempt < 3; attempt++) {
     b.tiles = field.map((t) => ({ ...t }));
     if (attempt < 2) layTerrain(b, along, new Rng(hashSeed(`${s.seed}:board:${salt}:${attempt}`)), s.biome ?? 'forest', { wood, hill, wet }, water);
@@ -357,6 +346,85 @@ export function makeBoard(s: GameState, side: -1 | 1, big = false, salt = 0): Pi
     if (attempt === 2 || boardOk(b, along)) break;
   }
   return b;
+}
+
+/** Where the board lies on the land: across the gate on the raid's side, the gate `TOWN_ROWS` in from the town's end. */
+function boardWindow(s: GameState, side: -1 | 1, w: number, h: number): Pick<Tactics, 'x0' | 'y0' | 'side'> {
+  const m = s.land;
+  const gate = gateCell(s, side);
+  const along = w - 1 - TOWN_ROWS;
+  let x0 = side < 0 ? gate.x - along : gate.x - (w - 1 - along);
+  x0 = Math.max(0, Math.min(m.w - w, x0));
+  const y0 = Math.max(0, Math.min(m.h - h, gate.y - Math.floor(h / 2)));
+  return { x0, y0, side };
+}
+
+/** The town's traps where they stand (land cell to building id); its buildings are left off: the board is the field
+ *  before the town, and the town is its wall. */
+function trapsOf(s: GameState): Map<number, number> {
+  const traps = new Map<number, number>();
+  for (const x of s.buildings) {
+    if (x.status !== 'done' || x.fire !== undefined || !isTrap(x.def)) continue;
+    const f = footprint(x);
+    traps.set(f.y * s.land.w + f.x, x.id);
+  }
+  return traps;
+}
+
+/** The land's cell of a ground nearest the board (a pond laid on the board is painted from the land's own water). */
+function nearestGround(s: GameState, b: Pick<Tactics, 'x0' | 'y0' | 'w' | 'h'>): (g: Ground) => [number, number] | null {
+  const m = s.land;
+  const cx = b.x0 + b.w / 2;
+  const cy = b.y0 + b.h / 2;
+  const found = new Map<Ground, [number, number] | null>();
+  return (g: Ground): [number, number] | null => {
+    if (found.has(g)) return found.get(g)!;
+    let best: [number, number] | null = null;
+    let near = Infinity;
+    for (let y = 0; y < m.h; y++) for (let x = 0; x < m.w; x++) if (groundAt(m, x, y) === g && (x - cx) ** 2 + (y - cy) ** 2 < near) [best, near] = [[x, y], (x - cx) ** 2 + (y - cy) ** 2];
+    found.set(g, best);
+    return best;
+  };
+}
+
+/** A hand-made board (sim/raidBoards.ts) laid over the land round the gate: its ground, heights, cover and props as
+ *  drawn, the town's wall, gate, towers and traps on it as on any board, and the town's spots and the raiders' ways in
+ *  kept for the start. A tile whose ground isn't the land's borrows the painted ground of the land's nearest cell of
+ *  it (the flat view's tops are the land's own pictures). */
+export function makeHandBoard(s: GameState, side: -1 | 1, def: RaidBoardDef, salt = 0): Pick<Tactics, 'w' | 'h' | 'x0' | 'y0' | 'side' | 'tiles' | 'board' | 'deploy' | 'entries'> {
+  const { w, h } = def;
+  const along = w - 1 - TOWN_ROWS;
+  const b = { ...boardWindow(s, side, w, h), w, h, tiles: [] as TacTile[] };
+  const art = nearestGround(s, b);
+  for (let v = 0; v < h; v++)
+    for (let u = 0; u < w; u++) {
+      const [lx, ly] = landOf(b, u, v);
+      const gr = boardGround(def, u, v);
+      const tile: TacTile = { h: gr.h, g: gr.g, lx, ly };
+      if (gr.road) tile.road = true;
+      if (gr.look) tile.look = gr.look;
+      if (!gr.road && gr.g !== groundAt(s.land, lx, ly)) {
+        const cell = art(gr.g);
+        if (cell) tile.art = cell;
+      }
+      b.tiles.push(tile);
+    }
+  const deploy: [number, number, 0 | 1][] = [];
+  const entries: [number, number, number][] = [];
+  for (const [u, v, what] of def.things) {
+    const tile = tileAt(b, u, v);
+    if (!tile) continue;
+    if (what === 'front' || what === 'back') deploy.push([u, v, what === 'front' ? 0 : 1]);
+    else if (what === 'way1' || what === 'way2' || what === 'way3') entries.push([u, v, Number(what[3])]);
+    else if (what === 'tree') tile.tree = true;
+    else if (what === 'bush') tile.bush = true;
+    else if (what === 'log' || what === 'fence' || what === 'hay') tile.log = true;
+    else if (u < along) tile.block = 'rock'; // (a prop: nobody crosses it; never on the town's side of the wall)
+    const piece = THING_PIECE[what];
+    if (piece && (tile.log || tile.block)) tile.prop = piece;
+  }
+  dressBoard(s, b, along, trapsOf(s), hashSeed(s.seed), salt);
+  return { ...b, board: def.name, deploy, entries };
 }
 
 /** On a land with hills and mountains (sim/relief.ts): ground the board's window cuts off from the town's row by rock (a
@@ -615,7 +683,9 @@ export function startTactics(s: GameState, r: Raid): void {
   const foes = r.raiders.filter((rd) => !rd.ally && !rd.down && !rd.gone);
   const chase = !!r.chase;
   const folk = chase ? chasers(s) : fighters(s);
-  const board = makeBoard(s, r.side, foes.length + folk.length >= BIG_AT || !!r.host, s.tick);
+  const big = foes.length + folk.length >= BIG_AT || !!r.host;
+  const hand = pickBoard(s, r, big ? BIG_W : BOARD_W, big ? BIG_H : BOARD_H);
+  const board = hand ? makeHandBoard(s, r.side, hand, s.tick) : makeBoard(s, r.side, big, s.tick);
   const auto = s.tacticsAuto !== false || !!s.raidSkip || runtime.quiet || s.autopilot === false;
   const t: Tactics = { ...board, units: [], waiting: [], auto, phase: 'fighting', turns: 0, killed: 0, through: 0, lost: 0, started: s.tick, hits: [], fx: [], chests: [] };
   r.tactics = t;
@@ -639,7 +709,15 @@ export function startTactics(s: GameState, r: Raid): void {
   const front = chase ? CHASE_AT + CHASE_GAP : t.w - 1 - TOWN_ROWS;
   const rows = chase ? [front, front + 1, front + 2, front + 3] : [t.w - 1 - TOWN_ROWS, t.w - TOWN_ROWS, t.w - TOWN_ROWS + 1, t.w - 1];
   const order = across(t.h);
+  // (a hand-made board's spots first: those who strike in close to its front line, the archers and the casters to its
+  // back line; then the rows as on any board)
+  const spots = (shooter: boolean) => [...(t.deploy ?? [])].sort((a, b) => (a[2] === (shooter ? 1 : 0) ? 0 : 1) - (b[2] === (shooter ? 1 : 0) ? 0 : 1));
   const place = (key: string, shooter: boolean, extra?: Partial<TacUnit>) => {
+    for (const [u, v] of spots(shooter)) {
+      if (!standable(tileAt(t, u, v), false, swims(s)) || t.units.some((x) => x.u === u && x.v === v)) continue;
+      t.units.push({ key, foe: false, u, v, facing: 2, ct: 0, ...extra });
+      return true;
+    }
     for (const u of shooter ? [...rows].reverse() : rows)
       for (const v of order) {
         const tile = tileAt(t, u, v);
@@ -690,7 +768,7 @@ export function startTactics(s: GameState, r: Raid): void {
   for (const u of t.units) u.ct = ((mixSeed(hashSeed(s.seed), s.tick, hashSeed(u.key)) >>> 0) % 40) + (u.foe ? 0 : chase ? 100 : 40); // (a chase: the town's fill is full, it goes first)
   syncPlaces(s, r, t);
   t.banner = { text: chase ? 'Give chase!' : lead ? `Defeat ${ENEMIES[lead.kind].name}!` : 'Rout the raiders!', tick: s.tick, kind: 'start' };
-  notify(s, chase ? `The town gives chase: ${foes.length} fugitives ahead!` : `${foes.length} raiders on the field: the battle is joined!`, true);
+  notify(s, chase ? `The town gives chase: ${foes.length} fugitives ahead!` : `${foes.length} raiders on the field${t.board ? ` at ${t.board}` : ''}: the battle is joined!`, true);
 }
 
 /** Rows across the board from the middle out. */
@@ -711,8 +789,19 @@ function spawn(s: GameState, r: Raid, t: Tactics): void {
   // (no more on the field at once than the town has fighters on it, give or take: a big raid comes on in waves)
   const folk = t.units.filter((u) => !u.foe && u.key[0] !== 't').length;
   const most = Math.max(WAVE_LEAST, Math.ceil(folk * WAVE_PER_FIGHTER));
+  // (a hand-made board's ways in, by turns: the first spot of each way, then the second of each...; then the edge)
+  const ways = [...(t.entries ?? [])].sort((a, b) => a[2] - b[2]);
+  const nth = new Map<number[], number>();
+  const seen = new Map<number, number>();
+  for (const e of ways) {
+    const k = seen.get(e[2]) ?? 0;
+    nth.set(e, k);
+    seen.set(e[2], k + 1);
+  }
+  ways.sort((a, b) => nth.get(a)! - nth.get(b)! || a[2] - b[2]);
   while (t.waiting.length && t.units.filter((u) => u.foe).length < most) {
     let spot: [number, number] | null = null;
+    for (const [u, v] of ways) if (!spot && standable(tileAt(t, u, v), true, true) && !t.units.some((x) => x.u === u && x.v === v)) spot = [u, v];
     for (const u of [0, 1])
       for (const v of order) {
         if (spot) break;

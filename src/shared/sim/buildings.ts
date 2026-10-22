@@ -243,10 +243,13 @@ export interface PlaceCheck {
   reason?: string;
 }
 
+/** Why a spot in the fog is refused (the build menu says it as is). */
+export const UNEXPLORED = 'Explore further to make room';
+
 /** Whether `def` fits with its top-left cell at (x, y): on open, buildable ground, over no road, clear of every other
  *  building (but `except`); a castle's rooms built on to the castle (over a road if need be: the floor covers it), and
  *  all else a cell clear of it. */
-export function canPlace(s: Pick<GameState, 'land' | 'buildings' | 'origin' | 'era' | 'nomad'> & Partial<Pick<GameState, 'villages'>>, def: BuildingDef, x: number, y: number, except?: Building, turned = false, overWild = false): PlaceCheck {
+export function canPlace(s: Pick<GameState, 'land' | 'buildings' | 'origin' | 'era' | 'nomad'> & Partial<Pick<GameState, 'villages' | 'explored'>>, def: BuildingDef, x: number, y: number, except?: Building, turned = false, overWild = false): PlaceCheck {
   const r: Rect = { x, y, w: turned ? depthOf(def) : def.width, h: turned ? def.width : depthOf(def) };
   const m = s.land;
   const room = castleOn(s) && roomKind(s, def);
@@ -255,6 +258,8 @@ export function canPlace(s: Pick<GameState, 'land' | 'buildings' | 'origin' | 'e
     for (let cx = r.x; cx < r.x + r.w; cx++) {
       if (!inMap(m, cx, cy)) return { ok: false, reason: 'Off the map' };
       if (Math.hypot(cx - m.camp.x, cy - m.camp.y) > m.open) return { ok: false, reason: 'Beyond the known land' };
+      // (fog of war: only explored land is built on, sim/fog.ts)
+      if (s.explored !== undefined && s.explored.charCodeAt(cy * m.w + cx) !== 49) return { ok: false, reason: UNEXPLORED };
       const g = groundAt(m, cx, cy);
       if (wet(g)) {
         // (a shore town's homes, seat and defences stand in the sea: sim/sea.ts; the ring wall's grates stand in the

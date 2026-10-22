@@ -799,7 +799,7 @@ export function empireTick(s: GameState): void {
     }
   }
   const r = s.raid;
-  if (!r || r.phase !== 'warning' || e.handled === r.id) return;
+  if (!r || r.phase !== 'warning' || r.veil || e.handled === r.id) return;
   e.handled = r.id;
   if (trading(s) && payTribute(s, e)) return;
   if (m && m.n > 0 && s.tick < m.until) {

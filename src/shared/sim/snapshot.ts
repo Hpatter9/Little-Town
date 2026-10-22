@@ -149,6 +149,8 @@ import { ENEMY } from '../data/social';
 import { canTrade, stalls } from './trade';
 import { JOBS, JOB_NAMES, RECRUIT_TYPES, TRAIT_BY_ID, type Job, type Look, type Priority } from '../data/people';
 import { canBeHeir, founderOf } from './founder';
+import { windName, windsOpen } from './explore';
+import { EXPLORE_DIRS } from '../data/sight';
 import { waitingOnFounder } from './founderQuests';
 import { dealingsView, type DealingsView } from './founderDealings';
 import { storyView, type StoryBookView } from './story';
@@ -233,6 +235,8 @@ export interface SkillView {
 }
 
 export interface FounderView {
+  /** The winds the founder can be sent to explore toward, and whether any fog is left that way (sim/explore.ts). */
+  winds: { dir: number; name: string; open: boolean }[];
   id: number;
   /** What the founder was told to do, in words (null: nothing). */
   order: string | null;
@@ -1400,7 +1404,7 @@ function founderView(s: GameState): FounderView | null {
   if (!f) return null;
   const o = s.founderOrder;
   const site = o?.kind === 'go' ? s.buildings.find((b) => b.id === o.building) : undefined;
-  const order = !o ? null : o.kind === 'go' ? `Walking to the ${BUILDING_BY_ID[site?.def ?? '']?.name ?? 'building'}` : o.kind === 'work' ? `Working at ${JOB_NAMES[o.job].toLowerCase()} for the day` : 'Resting at home';
+  const order = !o ? null : o.kind === 'go' ? `Walking to the ${BUILDING_BY_ID[site?.def ?? '']?.name ?? 'building'}` : o.kind === 'work' ? `Working at ${JOB_NAMES[o.job].toLowerCase()} for the day` : o.kind === 'explore' ? `Exploring to the ${windName(o.dir)}` : 'Resting at home';
   const next = heirOf(s, f);
   const roleOf = (p: Person): 'partner' | 'child' | 'other' => (p.id === f.partner ? 'partner' : (p.parents ?? []).includes(f.id) ? 'child' : 'other');
   const rank = { partner: 0, child: 1, other: 2 } as const;
@@ -1408,7 +1412,9 @@ function founderView(s: GameState): FounderView | null {
     .filter((p) => canBeHeir(s, p))
     .map((p) => ({ id: p.id, name: p.name, role: roleOf(p) }))
     .sort((a, b) => rank[a.role] - rank[b.role]);
-  return { id: f.id, order, heir: next ? { id: next.id, name: next.name, named: next.id === s.heirId } : null, heirs, jobs: JOBS.filter((j) => j !== 'defend'), ...founderShopsView(s), duels: duelChoices(s), duelBlock: duelBlock(s), duel: s.duel ? { foe: s.duel.foe.name, to: s.duel.to, over: s.duel.ended !== undefined, text: s.duel.text ?? null } : null, uniqueNames: { ...(s.uniqueNames ?? {}) }, dealings: dealingsView(s) };
+  const open = windsOpen(s);
+  const winds = EXPLORE_DIRS.map((name, dir) => ({ dir, name, open: open[dir] }));
+  return { id: f.id, winds, order, heir: next ? { id: next.id, name: next.name, named: next.id === s.heirId } : null, heirs, jobs: JOBS.filter((j) => j !== 'defend'), ...founderShopsView(s), duels: duelChoices(s), duelBlock: duelBlock(s), duel: s.duel ? { foe: s.duel.foe.name, to: s.duel.to, over: s.duel.ended !== undefined, text: s.duel.text ?? null } : null, uniqueNames: { ...(s.uniqueNames ?? {}) }, dealings: dealingsView(s) };
 }
 
 
@@ -1633,7 +1639,7 @@ export function snapshot(s: GameState): Snapshot {
       ...(p.parked ? { parked: true } : {}),
       ...(p.roads ? { roads: p.roads.map(roadOf).filter((r): r is RoadView => !!r) } : {}),
     })),
-    raid: s.raid
+    raid: s.raid && !s.raid.veil
       ? {
           name: RAID_KIND_BY_ID[s.raid.kind].name,
           phase: s.raid.phase,

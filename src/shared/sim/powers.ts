@@ -359,7 +359,7 @@ export const POWERS: Record<string, PowerDef> = {
     name: 'Sea Fog',
     description: 'Raiders on the way: a fog rolls in, and they lose hours finding the town.',
     cooldown: 24,
-    when: (s) => s.raid?.phase === 'warning',
+    when: (s) => s.raid?.phase === 'warning' && !s.raid.veil,
     cast: (s) => {
       s.raid!.arrivesTick += 2 * TICKS_PER_HOUR;
       return 'A sea fog rolled in: the raiders are lost in it.';

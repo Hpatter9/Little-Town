@@ -59,6 +59,7 @@ import { freeStation, modifiers, researchMods, researchStations, studyingAt, tid
 import { isSeat } from '../data/seats';
 import { holderOf, holds, jobOf as heldJob } from './operators';
 import { HOLDER_EDGE } from '../data/operators';
+import { fellHeartwood } from './chains';
 import { tireless, remember, addStock, campXY, cellXY, dist, BUILD_MULTIPLIER, carryCapacity, notify, RESEARCH_MULTIPLIER, poolSize, buildingById, type Building, type GameState, type Person, type Raider, type Task } from './state';
 import { TICK_HZ, TICKS_PER_HOUR, calendarOf } from './time';
 import { stabilize } from './health';
@@ -70,6 +71,7 @@ import { BUILD_PACE, BUILD_PER_HOUR, buildPower, HIRE_PER_HOUR, STUDY_PER_HOUR, 
 import { canWork, skillPace } from './property';
 import { isChild } from './social';
 import { childTask, lessonSpot } from './lineage';
+import { founderExploreTask, scoutTask, windName } from './explore';
 import { pastimeActivity, pastimeFor } from './pastimes';
 import { tagStep, TAG_RETARGET } from './idleScenes';
 import { closeCall } from './closeCalls';
@@ -153,9 +155,12 @@ export function updatePerson(s: GameState, p: Person, rng: Rng, ctx: TickContext
     // (a light to feed before dark comes first: sim/lighting.ts)
     const torch = !s.raid && !isChild(p) ? lightToFeed(s, p) : null;
     const street = !torch && !spot && p.priorities.construct !== 0 ? paveTask(s, p, true) : null;
+    // (out to the fog's edge to look, when scouting is wanted: sim/explore.ts)
+    const scout = !torch && !spot && !street ? scoutTask(s, p) : null;
     if (torch) p.task = { type: 'light', torch: torch.id, progress: 0 };
     else if (street) p.task = street;
     else if (spot) p.task = { type: 'relax', building: spot.id, until: s.tick + relaxTicks(spot) };
+    else if (scout) p.task = scout;
     else {
       const c = campXY(s);
       p.task = { type: 'wander', targetX: c.x + rng.range(-WANDER_TILES, WANDER_TILES) * CELL, targetY: c.y + rng.range(-WANDER_TILES, WANDER_TILES) * CELL };
@@ -610,7 +615,7 @@ function doTend(s: GameState, p: Person, task: Extract<Task, { type: 'tend' }>, 
 /** The alarm has gone up: raiders are on their way (and it's not being paid off) or already here. */
 export const alarmRaised = (s: GameState) => {
   const r = s.raid;
-  if (!r || (r.phase !== 'active' && r.prompt !== null)) return false;
+  if (!r || r.veil || (r.phase !== 'active' && r.prompt !== null)) return false;
   // once every raider left is running off empty-handed, the town comes out again (to tend the wounded, put out
   // fires...); thieves and kidnappers are still chased
   return r.phase !== 'active' || r.raiders.some((rd) => !rd.ally && !rd.down && !rd.gone && (!rd.fleeing || !!rd.captive || poolSize(rd.carrying) > 0));
@@ -1033,6 +1038,7 @@ function gatherUnit(s: GameState, p: Person, tileIndex: number, rng: Rng): void 
   }
   addStock(pool, pick, -1);
   addStock(p.carrying, pick, 1);
+  if (pick === 'wood') fellHeartwood(s, p); // (now and then an old tree's heartwood: sim/chains.ts)
   gainSkill(p, 'gathering', GATHER_XP);
 
   if (poolSize(pool) === 0) {
@@ -1192,6 +1198,17 @@ function founderTask(s: GameState, p: Person): Task | null {
     return { type: 'wander', targetX: d.x, targetY: d.y };
   }
   if (o.kind === 'rest') return p.bed != null ? sleepTask(p) : null;
+  if (o.kind === 'explore') {
+    // (out to the fog's edge that way; the walk goes on from edge to edge till the day is out or that way is all seen)
+    if (p.task?.type === 'wander' && p.task.explore && Math.hypot(p.x - p.task.targetX, p.y - p.task.targetY) >= CELL) return p.task;
+    const t = founderExploreTask(s, p, o.dir);
+    if (!t) {
+      s.founderOrder = undefined;
+      notify(s, `${p.name} has seen all there is to see to the ${windName(o.dir)} for now.`);
+      return null;
+    }
+    return t;
+  }
   return findJob(s, p, o.job);
 }
 

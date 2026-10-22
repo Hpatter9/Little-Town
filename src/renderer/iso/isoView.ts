@@ -197,7 +197,10 @@ export class IsoView {
     this.lampHadTex = have;
     this.lampEra = era;
     this.lamps = lights.map((l) => ({ x: l.x, y: l.y, lit: l.lit }));
-    for (const s of this.lampSprites) s.destroy({ children: true });
+    for (const s of this.lampSprites) {
+      this.own.delete(s);
+      s.destroy({ children: true });
+    }
     this.lampSprites = [];
     for (const l of this.lamps) {
       const p = tileToIso(l.x + 0.5, l.y + 0.5, this.ox);
@@ -221,6 +224,7 @@ export class IsoView {
       stand.position.set(foot.x, foot.y);
       stand.zIndex = footDepth({ x: l.x, y: l.y, w: 1, h: 1 }) + 0.015;
       this.things.addChild(stand);
+      this.own.add(stand); // (already on the diamonds: placeLoose must not move it again)
       this.lampSprites.push(stand);
       if (!l.lit) continue;
       const s = new Sprite(glowTexture());

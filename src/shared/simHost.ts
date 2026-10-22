@@ -4,6 +4,7 @@
 // localStorage, the legends and the buzz. Commands come in, snapshots go out as what changed (snapDelta.ts). No DOM:
 // where a browser has no workers the page runs this itself, and the tests run it under node.
 
+import { boardPreview } from './sim/raidBoards';
 import type { AlertSettings } from './ipc';
 import { GameLoop } from './gameLoop';
 import { SnapDiffer, type SnapDelta } from './snapDelta';
@@ -112,6 +113,8 @@ export function startSimHost(post: (m: FromHost) => void): (m: ToHost) => void {
     saga: (id: string) => beginSaga(stateOf(), id),
     hunt: (id: string) => postHunt(stateOf(), new Rng(1), id),
     raid: (kind: string, budget = 60) => startRaid(stateOf(), RAID_KIND_BY_ID[kind], budget, new Rng(2)),
+    // (the next raids' board: a hand-made one by its id, e.g. 'The_Ford'; none for the dice again)
+    raidBoard: (id?: string) => void (boardPreview.id = id),
     disaster: (kind: DisasterKind) => startDisaster(stateOf(), kind),
     festival: (now: 'prep' | 'hold' = 'hold') => previewFestival(stateOf(), now),
     dragon: (kind?: string) => summonDragon(stateOf(), kind),

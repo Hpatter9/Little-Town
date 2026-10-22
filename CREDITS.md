@@ -11,7 +11,8 @@ the style of the project's building kits, and reduced to 256 colours. Made for a
 The twelve peoples' building kits in `src/renderer/art/iso/kits/` (houses, walls, gates, ground tiles, roofs and
 props) were made for this project: drawn with ChatGPT's image generation from prompts written for the game, then cut
 into sprites, cleaned and reduced to 256 colours with the tools in the project's art pipeline. Made for and owned by
-the project.
+the project. The LDtk editor's tileset for the hand-made raid boards, `maps/raid-boards-tiles.png`, is cut from these
+kits' ground tiles and props (`tools/compose-ldtk-atlas.cjs`).
 
 ## Character sprites
 

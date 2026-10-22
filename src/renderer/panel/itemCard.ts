@@ -10,6 +10,7 @@ import { CLASS_DEFS } from '../../shared/data/classes';
 import { ENEMIES } from '../../shared/data/enemies';
 import { ITEM_BY_ID, ITEMS, SLOT_NAMES, type ItemDef, type ItemEffects } from '../../shared/data/items';
 import { MATERIAL_NAMES, type Material } from '../../shared/data/materials';
+import { RARE_SET } from '../../shared/data/chains';
 import { topicName } from '../../shared/data/originResearch';
 import { pieceLabel, qualityOf, gradeOf, plusOf, COMMON } from '../../shared/data/quality';
 import { FORGED, SAGA, UNIQUE_EDGE, UNIQUE_FROM } from '../../shared/data/uniques';
@@ -146,18 +147,44 @@ function plainBody(def: ItemDef, s: Snapshot): HTMLElement[] {
       ['Weight', def.weight ? (WEIGHT_NAMES[def.weight] ?? def.weight) : null],
       ['The town has', `${stored + worn.length} (${stored} in the stores${worn.length ? `, ${worn.length} worn` : ''})`],
       ['Made at', made && station ? cardLink(station.name, { kind: 'building', id: station.id }) : trophy ? `never made: a trophy, won from ${trophy.name}` : 'never made: found, or won'],
-      ['Takes', takes || null],
+      ['Takes', takes && !Object.keys(def.items ?? {}).length ? takes : null],
       ['Research', research.childNodes.length ? research : null],
       ['Sells for', def.ware ? `${def.ware.price} coins` : def.fare ? `${def.fare.price} coins` : null],
       ['Goes into', goesInto.length ? into : null],
       ['Callings that use it', callings.length ? callings.join(', ') : null],
     ]),
   );
+  if (made && Object.keys(def.items ?? {}).length) out.push(...takesBody(def, s));
   if (worn.length || pouched.length) {
     out.push(sec('Who carries one'));
     out.push(portraits([...worn.slice(0, 12).map((p) => portrait(p, 'wears it')), ...pouched.slice(0, 6).map((p) => portrait(p, 'in the pouch'))]));
   }
   return out;
+}
+
+/** What an item made through parts takes (data/chains.ts): each material, part and rare input with what the town has
+ *  of it, where each part is made and from what, and what's missing. */
+function takesBody(def: ItemDef, s: Snapshot): HTMLElement[] {
+  const list = el('ul', 'ic-list');
+  const missing: string[] = [];
+  for (const [m, n] of Object.entries(def.cost) as [Material, number][]) {
+    const have = Math.floor(s.stock[m] ?? 0);
+    const name = MATERIAL_NAMES[m]?.toLowerCase() ?? m;
+    const rare = RARE_SET.has(m);
+    if (have < n) missing.push(name);
+    list.append(el('li', have < n ? 'short' : '', `${n} ${name} (${have} in store)${rare ? ': rare, from the mines, quests and trade' : ''}`));
+  }
+  for (const [id, n] of Object.entries(def.items ?? {})) {
+    const p = ITEM_BY_ID[id];
+    if (!p) continue;
+    const have = s.items[id] ?? 0;
+    if (have < n) missing.push(p.name.toLowerCase());
+    const from = (Object.entries(p.cost) as [Material, number][]).map(([m, k]) => `${k} ${MATERIAL_NAMES[m]?.toLowerCase() ?? m}`).join(', ');
+    const li = el('li', have < n ? 'short' : '');
+    li.append(`${n} × `, cardLink(p.name, { kind: 'item', id }), ` (${have} in hand)${p.part ? `: made at the ${BUILDING_BY_ID[p.station]?.name ?? p.station} from ${from}` : ''}`);
+    list.append(li);
+  }
+  return [sec('What it takes'), list, para(missing.length ? `Missing: ${missing.join(', ')}.` : 'The town has all it takes.')];
 }
 
 registerCard('item', (ref, s): CardDraw | null => {
@@ -179,7 +206,7 @@ registerCard('item', (ref, s): CardDraw | null => {
   }
   const worn = s.people.filter((p) => Object.values(p.gear).includes(def.id)).length;
   return {
-    key: JSON.stringify([s.items[def.id] ?? 0, worn, s.people.length]),
+    key: JSON.stringify([s.items[def.id] ?? 0, worn, s.people.length, Object.keys(def.items ?? {}).map((id) => s.items[id] ?? 0), Object.keys(def.items ?? {}).length ? Object.keys(def.cost).map((m) => Math.floor(s.stock[m as Material] ?? 0)) : 0]),
     kind: def.relic ? 'A trophy' : def.slot ? SLOT_NAMES[def.slot] : 'An item',
     title: def.name,
     lore: desc,

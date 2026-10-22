@@ -245,7 +245,7 @@ export interface ShopTalk {
 }
 
 export type Task =
-  | { type: 'wander'; targetX: number; targetY: number; pastime?: import('./pastimes').Pastime }
+  | { type: 'wander'; targetX: number; targetY: number; pastime?: import('./pastimes').Pastime; /** Walking out to the fog's edge to look (sim/explore.ts). */ explore?: true }
   | { type: 'idle'; untilTick: number; pastime?: import('./pastimes').Pastime }
   /** Work a marked cell (`tile` is its index on the land); or (scrounge) pick just the wild berries off any cell, to
    *  keep from starving. */
@@ -320,6 +320,9 @@ export interface CraftOrder {
   /** A customer's order, taken by a shopkeeper when the shop had none (sim/shop.ts `commission`): who, what they paid
    *  up front, and the shop (a building id). Finished, the piece is theirs: it goes to them, not into the stores. */
   commission?: { name: string; paid: number; shop: number };
+  /** The mean grade of the item ingredients (parts) taken for the piece in work: it pulls the piece's own grade toward
+   *  it (data/chains.ts; none when it takes no items). */
+  inputQ?: number;
 }
 
 /** What a person is visibly doing (drives their animation). */
@@ -485,6 +488,9 @@ export interface Raid {
   skipIt?: boolean;
   /** Fled on arrival, at the sight of the town (and spared, or not). */
   turned?: boolean;
+  /** Still on its way and unseen (fog of war, sim/raidSight.ts): not yet announced. `from`: when it set out, `total`: the
+   *  ticks of its approach, `flank`: how many come round the other side. Cleared when someone sees it, or it arrives. */
+  veil?: { from: number; total: number; flank: number };
   /** A chase after the fugitives of an earlier raid (sim/chase.ts): fought on the tactics board, close and the town first. */
   chase?: boolean;
 }
@@ -544,6 +550,8 @@ export interface Person {
   /** Worn items (item ids) by slot, and their quality (Common when left out; see data/quality.ts). */
   gear: Partial<Record<Slot, string>>;
   gearQ?: Partial<Record<Slot, number>>;
+  /** Hours worked with a tool since the last one broke (sim/crafting.ts `wearTools`). */
+  toolWear?: number;
   /** Battle items in their own pouch (sim/kit.ts): drunk, thrown or used in a fight, one each time. */
   kit?: string[];
   /** Their income (sim/economy.ts): today's and yesterday's coins, pay owed for work by the hour not yet a whole
@@ -1521,6 +1529,8 @@ export interface GameState {
   heirId?: number;
   /** What the player has told the founder to do (sim/founder.ts). */
   founderOrder?: import('./founder').FounderOrder;
+  /** The tick the planner last found no explored room for a building: anyone idle may go and look (sim/explore.ts). */
+  fogNeed?: number;
   /** The founder's story, chapter by chapter (sim/story.ts). */
   story?: import('./story').Story;
   /** The founder is away: who minds the town, and what stood when they left (sim/steward.ts). */

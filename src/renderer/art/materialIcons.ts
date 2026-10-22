@@ -97,6 +97,7 @@ const CELLS: Partial<Record<Material, ItemDef['icon']>> = {
   cartridges: { sheet: 'Ammo', x: 0, y: 0 },
   ...Object.fromEntries((['wood', 'fiber', 'lumber', 'cloth', 'oil', 'fuel', 'plastic', 'electronics', 'circuits', 'power_cells', 'totem', 'pearls', 'blood'] as const).map((m) => [m, { sheet: 'Custom' as IconSheet, x: 0, y: 0, name: `mat_${m}` }])),
   wool: { sheet: 'Custom', x: 0, y: 0, name: 'wool' },
+  heartwood: { sheet: 'Custom', x: 0, y: 0, name: 'mat_lumber' },
 };
 
 /** Where a material's picture is, for drawing on a canvas: its own file (`whole`), or a cell of an icon sheet. */

@@ -35,6 +35,7 @@ import { actFx } from '../../shared/data/actFx';
 import { FIRST_BLOOD, ghostStep, LAG_MAX_MS, ROUTED } from '../battle/juiceRules';
 import { uiPlate } from '../ui/pixiFrame';
 import { isoViewOn } from '../iso/isoSetting';
+import type { TileLook } from '../../shared/sim/raidBoards';
 import { IsoBoardArt } from './isoBoard';
 
 /** A tile's diamond (px), and a step of height. */
@@ -51,6 +52,16 @@ const GATE_TALL = 44;
 /** A sim tick (ms). */
 const TICK = 100;
 
+/** A hand-made board's tile looks (sim/raidBoards.ts) washed over the land's painted ground in the flat view. */
+const LOOK_WASH: Partial<Record<TileLook, string>> = {
+  dirt: 'rgba(150,110,70,0.55)',
+  field: 'rgba(130,140,50,0.35)',
+  flag: 'rgba(200,190,170,0.5)',
+  snow: 'rgba(240,244,250,0.8)',
+  ice: 'rgba(170,205,235,0.75)',
+  mud: 'rgba(90,70,45,0.6)',
+  plank: 'rgba(176,122,68,0.85)',
+};
 const SIDES: Partial<Record<TacTile['g'], [string, string, string]>> = {
   grass: ['#7a5636', '#5f412a', '#5e8a36'],
   fertile: ['#6e4a2c', '#553822', '#5a8232'],
@@ -216,7 +227,7 @@ export class TacticsScene {
       t.tiles.filter((x) => x.bld !== undefined && this.map.buildingPicture(x.bld)).length +
       t.tiles.filter((x) => x.wall && this.map.wallPicture(x.wall, x.gate ? 2 : 1, x.lx * 7 + x.ly, x.gate ? undefined : 'h')).length +
       t.tiles.filter((x) => (x.block === 'rock' || x.bush) && this.map.propKind(x.block === 'rock' ? 'rock' : 'bush', x.lx, x.ly)).length;
-    const key = `${t.w}x${t.h}:${t.tiles[0].lx},${t.tiles[0].ly}:${t.side}:${t.tiles.map((x) => x.h).join('')}:${t.tiles.map((x) => (x.hill ? x.hill[1] : x.log ? 'l' : x.art ? 'w' : x.tree ? 't' : x.g[0])).join('')}:${pics}${this.iso ? `:${this.iso.kit.name}${this.iso.arrived}` : ''}`;
+    const key = `${t.w}x${t.h}:${t.tiles[0].lx},${t.tiles[0].ly}:${t.side}:${t.tiles.map((x) => x.h).join('')}:${t.tiles.map((x) => (x.hill ? x.hill[1] : x.log ? 'l' : x.art ? 'w' : x.tree ? 't' : x.g[0]) + (x.look?.[0] ?? '') + (x.prop?.[0] ?? '')).join('')}:${pics}${this.iso ? `:${this.iso.kit.name}${this.iso.arrived}` : ''}`;
     if (key !== this.key || this.tiles.length === 0) this.build(t, key);
     this.life.track(t);
     // the townsfolk and the raiders, each on their tile
@@ -296,8 +307,19 @@ export class TacticsScene {
             this.life.sway(s);
           }
         }
+        // a hand-made board's prop in the iso look: the kit's cart, barrels, fence, fallen wall...
+        const prop = tile.prop && this.iso ? this.iso.prop(tile.prop) : null;
+        if (tile.prop && this.iso && !prop) missing = true;
+        if (prop) {
+          const s = new Sprite(prop);
+          s.anchor.set(0.5, 0.85);
+          const [x, y] = this.at(u, v, h);
+          s.position.set(x, y + 2);
+          s.scale.set(Math.min((TW * (tile.prop === 'stone_wall_run' ? 1.1 : 0.85)) / prop.width, (TH * 2.6) / prop.height));
+          c.addChild(s);
+        }
         // a fallen log (the wild set's own)
-        if (tile.log) {
+        else if (tile.log) {
           const lt = logTexture(tile.lx, tile.ly);
           if (lt) {
             const s = new Sprite(lt);
@@ -369,7 +391,7 @@ export class TacticsScene {
     for (let v = 0; v < t.h; v++)
       for (let u = 0; u < t.w; u++) {
         const tile = t.tiles[v * t.w + u];
-        const kind = tile.block === 'rock' ? 'rock' : tile.bush ? 'bush' : null;
+        const kind = tile.block === 'rock' && !(tile.prop && this.iso) ? 'rock' : tile.bush ? 'bush' : null;
         if (!kind) continue;
         const tex = this.map.propKind(kind, tile.lx, tile.ly);
         if (!tex) continue;
@@ -414,7 +436,7 @@ export class TacticsScene {
     const blockTop = tile.block && tile.block !== 'rock' && !tile.wall && !underBuilding;
     // (a hill's top is cliff all round but its ramp: grey rock under a lip of turf; the ramp is bare earth)
     const sides: [string, string, string] = blockTop && tile.block === 'building' ? ['#b89a6a', '#97784c', '#7a3f2e'] : blockTop ? ['#8a857c', '#6e6a62', '#a39e94'] : tile.hill === 'top' ? ['#8c867a', '#6f6a60', '#7e9a48'] : tile.hill === 'ramp' ? ['#9a7a52', '#7d6040', '#a88a5a'] : (SIDES[tile.g] ?? SIDES.grass!);
-    const kitTop = this.iso && !blockTop ? this.iso.top(tile.g, !!tile.road && !tile.art) : null;
+    const kitTop = this.iso && !blockTop ? this.iso.top(tile.g, !!tile.road && !tile.art, tile.look) : null;
     if (this.iso && !blockTop && !kitTop) return null; // (the kit's ground hasn't loaded yet: try again on the next snapshot)
     const [l, r, lip] = kitTop ? this.iso!.sidesOf(kitTop.piece, kitTop.im) : sides;
     const face = (pts: [number, number][], col: string) => {
@@ -495,6 +517,21 @@ export class TacticsScene {
     }
     g.fillStyle = 'rgba(255,248,220,0.06)';
     g.fillRect(0, 0, TW, TH);
+    // (a hand-made board's look: in the flat view a wash of its colour over the land's ground; a boardwalk's planks)
+    const wash = !kitTop && tile.look ? LOOK_WASH[tile.look] : undefined;
+    if (wash) {
+      g.fillStyle = wash;
+      g.fillRect(0, 0, TW, TH);
+    }
+    if (tile.look === 'plank') {
+      g.strokeStyle = 'rgba(60,34,16,0.6)';
+      for (let k = -TW; k < TW; k += 7) {
+        g.beginPath();
+        g.moveTo(k, 0);
+        g.lineTo(k + TW, TH);
+        g.stroke();
+      }
+    }
     // (the ramp: a worn way)
     if (tile.hill === 'ramp') {
       g.fillStyle = 'rgba(176,138,84,0.45)';
