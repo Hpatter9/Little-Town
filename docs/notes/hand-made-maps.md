@@ -4,7 +4,8 @@ The owner's ask, after the hand-made raid boards (docs/notes/raid-boards-ldtk.md
 places, made the same way (an LDtk project the owner can open and edit, a converter to the compact data the game
 imports, a test that the two never drift, the generated version kept as the fallback) and dressed with real character.
 Done in phases: the dungeons' floors first, then the story places, the scenarios' starting valleys and the buildings'
-rooms.
+rooms. All four are done (the floors and the story places merged as 0.190.0 and 0.191.0; the valleys and the rooms on
+this branch, merged up to date with main).
 
 **One converter for every kind.** `sim/handMaps.ts` says what a kind of map reads (`MapKindSpec`: its LDtk project and
 data file, its IntGrid layers with the char each value's identifier is written as, its entities and their fields, and
