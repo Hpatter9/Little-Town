@@ -13,3 +13,5 @@ button moved to the bottom left so it no longer sits where the fading notices ap
 - `#centre-town` (`renderer/main.ts`, CSS in `renderer/index.html`) is at `left: 8px` rather than right.
 - No pickaxe button exists on this branch of main (the land-clearing and Surface/Underground controls are not in the
   phone page's code), so there was nothing to move; the underground "into the Underdark" action is a tap card.
+- (At the merge) the land-clearing ⛏ button (`#clear-land`, `renderer/index.html`) moved to the left too, above the home
+  button, so the notices at the bottom right are clear.
