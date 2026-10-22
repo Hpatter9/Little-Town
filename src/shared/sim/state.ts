@@ -490,7 +490,7 @@ export interface Raid {
   turned?: boolean;
   /** Still on its way and unseen (fog of war, sim/raidSight.ts): not yet announced. `from`: when it set out, `total`: the
    *  ticks of its approach, `flank`: how many come round the other side. Cleared when someone sees it, or it arrives. */
-  veil?: { from: number; total: number; flank: number };
+  veil?: { from: number; total: number; flank: number; title?: string; text?: string; news?: string[] };
   /** A chase after the fugitives of an earlier raid (sim/chase.ts): fought on the tactics board, close and the town first. */
   chase?: boolean;
 }

@@ -35,6 +35,7 @@ import { killPerson } from './health';
 import { minorWound } from './injuries';
 import { CELL, groundAt, inMap, isRoad, setGround, WILD, wet, type Pt } from './land';
 import { raidBudget, startRaid } from './raids';
+import { raidNews } from './raidSight';
 import { isChild } from './social';
 import { TICKS_PER_DAY, TICKS_PER_HOUR, calendarOf } from './time';
 import { assignBeds, housingCapacity } from './townsfolk';
@@ -449,9 +450,9 @@ function reconcile(s: GameState, v: Village, why: string): void {
 function rebelRaid(s: GameState, v: Village, rng: Rng): void {
   const kind = RAID_KIND_BY_ID.village_rebels;
   if (!kind) return;
-  startRaid(s, kind, Math.max(20, Math.round(raidBudget(s) * REBEL_BUDGET_SHARE)), rng);
+  startRaid(s, kind, Math.max(20, Math.round(raidBudget(s) * REBEL_BUDGET_SHARE)), rng, undefined, undefined, true);
   tell(v, 'Sent its young hotheads to raid the town.');
-  notify(s, `Rebels out of ${v.name} are coming to take what they say is theirs!`, true);
+  raidNews(s, s.raid!, `Rebels out of ${v.name} are coming to take what they say is theirs!`, true);
 }
 
 function wedding(s: GameState, v: Village, rng: Rng): void {

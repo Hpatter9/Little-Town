@@ -5,7 +5,7 @@
 // The first to see it raises the warning, and what a lookout's longer warning gave is now how early it sees them.
 // Raids that arrive unseen are simply here. Autopilot only, so the plain test towns keep their old warning.
 
-import { APPROACH_CELLS, RAID_SIGNS, SPOTTED_LEAD_TICKS } from '../data/raidSight';
+import { APPROACH_CELLS, HOST_SIGNS, RAID_SIGNS, SEA_SIGNS, SPOTTED_LEAD_TICKS } from '../data/raidSight';
 import { buildingSight, sightOf } from './fog';
 import { CELL } from './land';
 import { notify, type GameState, type Raid } from './state';
@@ -15,9 +15,29 @@ import { notify, type GameState, type Raid } from './state';
 export const veilsRaids = (s: GameState): boolean => s.autopilot !== false && s.explored !== undefined;
 
 /** The vague sign as the raid sets out. */
-export function sayVagueSign(s: GameState, raid: Raid): void {
+export function sayVagueSign(s: GameState, raid: Raid, fromSea = false): void {
   const where = raid.side < 0 ? 'west' : 'east';
-  notify(s, RAID_SIGNS[raid.id % RAID_SIGNS.length].replace('{where}', where));
+  const signs = fromSea ? SEA_SIGNS : raid.host !== undefined ? HOST_SIGNS : RAID_SIGNS;
+  notify(s, signs[raid.id % signs.length].replace('{where}', where));
+}
+
+/** A source's own words about its raid (a saga's title, "the host is here"): said now, or kept until the raid is seen. */
+export function raidNews(s: GameState, raid: Raid, text: string, important = false): void {
+  if (!raid.veil) return notify(s, text, important);
+  (raid.veil.news ??= []).push(important ? `!${text}` : text);
+}
+
+/** A source's own title and words for the raid's warning (sagas, secret newcomers): put on its prompt, now or when it is seen. */
+export function raidPromptWords(s: GameState, raid: Raid, title: string, text: string): void {
+  if (raid.veil) {
+    raid.veil.title = title;
+    raid.veil.text = text;
+    return;
+  }
+  const prompt = s.prompts.find((q) => q.id === raid.prompt);
+  if (!prompt) return;
+  prompt.title = title;
+  prompt.text = `${text} ${prompt.text}`;
 }
 
 /** The cells (x, y) the leading raiders have reached now, on the camp's row, `edgeX` the town's edge in pixels. */

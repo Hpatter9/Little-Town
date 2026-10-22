@@ -8,6 +8,7 @@ import { RAID_KIND_BY_ID } from '../data/raids';
 import type { Rng } from '../rng';
 import { depositNear, totalStock } from './buildings';
 import { startRaid } from './raids';
+import { raidNews } from './raidSight';
 import { campX, notify, type GameState, type Raid } from './state';
 import { TICKS_PER_HOUR } from './time';
 
@@ -35,8 +36,8 @@ export function caveBear(s: GameState, rng: Rng): void {
   }
   if (s.tick < s.caveBearTick || s.raid) return;
   s.caveBearTick = s.tick + BEAR_WAIT_HOURS * TICKS_PER_HOUR;
-  startRaid(s, RAID_KIND_BY_ID.cave_bear, 1, rng);
-  notify(s, 'Nobody went to the Bear Cave, so the Cave Bear is coming to the town, the totem still hanging from its neck!', true);
+  const raid = startRaid(s, RAID_KIND_BY_ID.cave_bear, 1, rng, undefined, undefined, true);
+  raidNews(s, raid, 'Nobody went to the Bear Cave, so the Cave Bear is coming to the town, the totem still hanging from its neck!', true);
 }
 
 /** The Cave Bear's raid is over: if it was killed, the town has the totem. */
