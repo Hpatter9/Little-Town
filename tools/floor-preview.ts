@@ -1,10 +1,11 @@
-// Draws each hand-made dungeon floor (sim/delveFloors.ts) whole, top-down, as the game draws it (renderer/delve/
+// Draws each hand-made dungeon floor (sim/delveFloors.ts) and story place (sim/storyPlaces.ts) whole, top-down, as the game draws it (renderer/delve/
 // floorArt.ts), with the rooms numbered and the party's way through them dotted (a dev tool, run by hand: `node
 // tools/floor-preview.mjs [out dir] [scale]`; it needs Playwright's Chromium). Writes <out dir>/floor-<id>.png
-// (default docs/notes/hand-made-maps).
+// and <out dir>/place-<id>.png (default docs/notes/hand-made-maps).
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { DELVE_FLOORS } from '../src/shared/data/delveFloors';
+import { STORY_PLACES } from '../src/shared/data/storyPlaces';
 import { floorPath, floorRooms } from '../src/shared/sim/delveFloors';
 import { groundTiles, propTiles, tileIndex, TILE_COLS } from '../src/renderer/delve/floorArt';
 
@@ -23,14 +24,15 @@ const pw = (() => {
 (async () => {
   mkdirSync(OUT, { recursive: true });
   const sheet = 'data:image/png;base64,' + readFileSync('src/renderer/art/floors/tiles.png').toString('base64');
-  const jobs = DELVE_FLOORS.map((m) => {
+  const all = [...DELVE_FLOORS.map((m) => ['floor', m] as const), ...STORY_PLACES.map((m) => ['place', m] as const)];
+  const jobs = all.map(([kind, m]) => {
     const rooms = floorRooms(m);
     const found = new Set<number>();
     for (let v = 0; v < m.h; v++) for (let u = 0; u < m.w; u++) if (m.grids.Ground[v][u] === 'S') found.add(v * m.w + u);
     const tiles = [...groundTiles(m, found), ...propTiles(m)].map((t) => [tileIndex(t.name), t.u, t.v]);
     const path: [number, number][] = [];
     for (let i = 1; i < rooms.length; i++) path.push(...(floorPath(m, rooms[i - 1], rooms[i]) ?? []));
-    return { id: m.id, w: m.w, h: m.h, tiles, rooms: rooms.map((r) => [r.u, r.v, r.step]), path };
+    return { id: `${kind}-${m.id}`, w: m.w, h: m.h, tiles, rooms: rooms.map((r) => [r.u, r.v, r.step]), path };
   });
   const browser = await pw.chromium.launch({ executablePath: existsSync('/opt/pw-browsers/chromium') ? '/opt/pw-browsers/chromium' : undefined });
   const page = await browser.newPage();
@@ -67,7 +69,7 @@ const pw = (() => {
     [jobs, sheet, TILE_COLS, SCALE],
   );
   jobs.forEach((j, i) => {
-    const file = join(OUT, `floor-${j.id.toLowerCase().replace(/_/g, '-')}.png`);
+    const file = join(OUT, `${j.id.toLowerCase().replace(/_/g, '-')}.png`);
     writeFileSync(file, Buffer.from(out[i].split(',')[1], 'base64'));
     console.log(file);
   });

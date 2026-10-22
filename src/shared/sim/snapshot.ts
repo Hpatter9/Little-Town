@@ -76,6 +76,7 @@ import { ageDays, ageLine, ageYears, isElder, lifeStage, type LifeStage } from '
 import { ROOM_SECONDS, TWISTS } from '../data/dungeons';
 import { bossName, delveRoomTicks, quietHours } from './delves';
 import { LOOK_OF_TYPE } from './delveFloors';
+import { storyPlaceOf } from './storyPlaces';
 import { HOME_REGION } from '../data/regions';
 import type { Biome } from '../data/biomes';
 import type { ClassId } from '../data/classes';
@@ -688,6 +689,8 @@ export interface ExpeditionView {
   /** An assault (sim/factions.ts): the wave on now (0 before the fight) and how many. */
   assault: { wave: number; total: number; target: string } | null;
   delve: { room: number; rooms: number; kind: string | null; torches: number; log: string[]; cleared: boolean; progress: number; twist: string | null; twistText: string; boss: string; floor?: string; plan: string[]; look: string } | null;
+  /** The story place it goes to, drawn by hand (sim/storyPlaces.ts): seen on the watch screen while they're there. */
+  place?: string;
   /** The Moon Pack's full-moon hunt. */
   hunt: boolean;
   /** The last fight's outcome, while fresh (the victory screen): how long ago it ended, in ticks. */
@@ -2498,6 +2501,7 @@ function expeditionView(s: GameState, e: Expedition): ExpeditionView {
     id: e.id,
     dest: e.dest,
     destName: d.name,
+    ...((m) => (m ? { place: m.id } : {}))(storyPlaceOf(s, e, d.name)),
     ...(e.leader != null ? { leader: s.people.find((p) => p.id === e.leader)?.name } : {}),
     ...(bountyOn(s, e.dest) ? { bounty: bountyOn(s, e.dest) } : {}),
     scenery: d.scenery,

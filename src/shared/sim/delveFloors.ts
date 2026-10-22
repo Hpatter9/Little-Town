@@ -36,12 +36,17 @@ export const FLOOR_GROUNDS: readonly { ch: string; id: string; walk: boolean }[]
   { ch: 'i', id: 'ice', walk: true },
   { ch: '<', id: 'stairs', walk: true },
   { ch: '#', id: 'wall', walk: false },
+  // (out of doors: the story places, sim/storyPlaces.ts)
+  { ch: 'g', id: 'grass', walk: true },
+  { ch: 'd', id: 'dirt', walk: true },
+  { ch: 's', id: 'sand', walk: true },
+  { ch: 'n', id: 'snow', walk: true },
 ];
 export const FLOOR_ROCK = ' ';
 const WALK = new Set(FLOOR_GROUNDS.filter((g) => g.walk).map((g) => g.ch));
 
 /** How a floor looks (its walls and floors from DawnLike: renderer/delve/floorArt.ts); the dungeon kinds it suits. */
-export const FLOOR_LOOKS = ['crypt', 'cave', 'mine', 'temple', 'ice', 'forge', 'tower', 'fey', 'vault', 'wreck'] as const;
+export const FLOOR_LOOKS = ['crypt', 'cave', 'mine', 'temple', 'ice', 'forge', 'tower', 'fey', 'vault', 'wreck', 'castle', 'ruin', 'camp', 'grove'] as const;
 export type FloorLook = (typeof FLOOR_LOOKS)[number];
 /** The look a dungeon's floor is drawn in when it's laid out from its rolled rooms. */
 export const LOOK_OF_TYPE: Readonly<Record<DungeonType, FloorLook>> = {
@@ -57,10 +62,10 @@ export type FloorRoomKind = (typeof FLOOR_ROOM_KINDS)[number];
 export const FLOOR_PROPS = [
   'torch', 'brazier', 'candles', 'chest', 'gold', 'coffin', 'bones', 'skull', 'statue', 'altar', 'barrel', 'crate', 'table', 'chair', 'shelf', 'web',
   'banner', 'pillar', 'crystal', 'mushroom', 'rock', 'grave', 'cage', 'throne', 'spikes', 'darts', 'plate', 'lever', 'bed', 'campfire', 'roots',
-  'portcullis', 'rubble', 'lantern', 'blood_altar',
+  'portcullis', 'rubble', 'lantern', 'blood_altar', 'tree', 'pine', 'deadtree', 'snowpine', 'bush', 'flowers', 'peak',
 ] as const;
 export type FloorProp = (typeof FLOOR_PROPS)[number];
-export const FLOOR_LOW: ReadonlySet<FloorProp> = new Set<FloorProp>(['candles', 'gold', 'bones', 'skull', 'web', 'spikes', 'darts', 'plate', 'roots', 'rubble', 'mushroom', 'portcullis']);
+export const FLOOR_LOW: ReadonlySet<FloorProp> = new Set<FloorProp>(['candles', 'gold', 'bones', 'skull', 'web', 'spikes', 'darts', 'plate', 'roots', 'rubble', 'mushroom', 'portcullis', 'flowers']);
 
 export const FLOOR_SPEC: MapKindSpec = {
   project: 'maps/delve-floors.ldtk',

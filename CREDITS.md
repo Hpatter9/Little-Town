@@ -83,7 +83,9 @@ The hand-made dungeon floors' maps (`src/renderer/delve/floorMap.ts`, and the LD
 `Door0.png`, `Tile.png` and `Trap0.png`, the furnishings, bones, graves, webs, statues and the red rug of `Decor0.png`/
 `Decor1.png`, fires from `Effect0.png`/`Effect1.png`, rubble and roots from `Ground0.png`, crystals and rocks from
 `Ore0.png`, a mushroom from `Tree0.png`, and the chest, barrel, gold and lantern from `Items/Chest0.png`, `Money.png`
-and `Light.png`.
+and `Light.png`. The story places' maps (the same view, `maps/story-places.ldtk`) add DawnLike's grass, dirt, sand and
+snow from `Floor.png`, the wooden palisade of `Fence.png`, trees, pines and dead trees from `Tree0.png`, a mountain from
+`Hill0.png`, and bushes, flowers and tufts from `Ground0.png`.
 
 The shops' fronts on the town map (`src/renderer/art/shops/`) are cut from the Glassblower's Workshop pack's exterior
 and interior sheets: its big timber house and small shop (the gable set on its walls), the red market canopy over the

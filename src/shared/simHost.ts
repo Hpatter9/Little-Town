@@ -6,6 +6,8 @@
 
 import { boardPreview } from './sim/raidBoards';
 import { floorPreview } from './sim/delveFloors';
+import { storyPreview } from './sim/storyPlaces';
+import { placeDestId } from './data/places';
 import { DUNGEON_BY_ID } from './data/dungeons';
 import { sendDelve } from './sim/expeditions';
 import { isChild } from './sim/social';
@@ -15,7 +17,7 @@ import { SnapDiffer, type SnapDelta } from './snapDelta';
 import type { Command } from './sim/commands';
 import type { JournalEntryView } from './sim/snapshot';
 import { parseSave, serialize } from './sim/save';
-import { maxHp, newGame, type GameState, type Roamer } from './sim/state';
+import { campCell, maxHp, newGame, type GameState, type Roamer } from './sim/state';
 import { cleanNewGameOptions } from './data/founding';
 import { BIOMES } from './data/biomes';
 import { TICKS_PER_HOUR } from './sim/time';
@@ -146,6 +148,27 @@ export function startSimHost(post: (m: FromHost) => void): (m: ToHost) => void {
         e.rolled.outEvent = true;
       }
       return r.ok ? e?.id : r.reason;
+    },
+    // (every trip seen at this story place, e.g. 'Bandit_Camp', and a party sent to a robbed cart near the town to see it,
+    //  coming up to it: then `__game.command({ type: 'watch', expedition: id })`; none to stop)
+    storyPlace: (id?: string) => {
+      storyPreview.id = id;
+      if (!id) return;
+      const s = stateOf();
+      const camp = campCell(s);
+      const place = { id: s.nextId++, kind: 'cart' as const, x: camp.x + 24, y: camp.y + 12, found: s.tick, state: 'waiting' as const, foes: { bandit: 2 } };
+      s.places = [...(s.places ?? []), place];
+      const party = s.people.filter((p) => p.away === null && !p.downed && !isChild(p)).slice(0, 4);
+      for (const p of party) {
+        p.skills.melee.level = Math.max(p.skills.melee.level, 60);
+        p.hp = maxHp(p);
+      }
+      const r = sendDelve(s, placeDestId(place.id), party.map((p) => p.id), 'safe');
+      const e = s.expeditions.at(-1);
+      if (r.ok && e) {
+        e.elapsed = Math.round(e.outTicks * 0.8);
+        e.rolled.outEvent = true;
+      }
     },
     disaster: (kind: DisasterKind) => startDisaster(stateOf(), kind),
     festival: (now: 'prep' | 'hold' = 'hold') => previewFestival(stateOf(), now),
