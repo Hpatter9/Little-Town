@@ -22,6 +22,9 @@
   "walk": {
    "frames": 6
   },
+  "death": {
+   "frames": 7
+  },
   "idle": {
    "frames": 4
   }
