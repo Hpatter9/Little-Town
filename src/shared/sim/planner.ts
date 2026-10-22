@@ -57,6 +57,8 @@ import { ROCK_FEW } from '../data/hills';
 import { SHAFT } from '../data/deep';
 import { openGround } from '../data/biomes';
 import { craftNeeded, craftSlots, itemUnlocked, queueCraft, reduceCraft, stationFor } from './crafting';
+import { chainCost, chainMakeable, nextStep, partStationWishes, partsMakeable } from './chains';
+import { PART_IDS } from '../data/chains';
 import { researchMods, tidyPicks } from './research';
 import { chooseOffer, offerableTopics, offerOverdue } from './researchOffer';
 import { acceptVisitor, housingCapacity } from './townsfolk';
@@ -398,9 +400,10 @@ function inputsReady(s: GameState, i: ItemDef, stock: Stock): boolean {
   return (Object.entries(i.cost) as [Material, number][]).every(([m, k]) => (stock[m] ?? 0) >= k) && Object.entries(i.items ?? {}).every(([id, k]) => (s.items[id] ?? 0) >= k);
 }
 
-/** The best thing of a kind the town can make at all (unlocked, its station built, anything it's made from in hand). */
-function bestMakeable(s: GameState, pred: (i: ItemDef) => boolean, power: (i: ItemDef) => number): ItemDef | undefined {
-  return ITEMS.filter((i) => pred(i) && !i.research.includes('__relic') && !i.unique && itemUnlocked(s, i) && stationFor(s, i) && Object.entries(i.items ?? {}).every(([id, k]) => (s.items[id] ?? 0) >= k))
+/** The best thing of a kind the town can make at all (unlocked, its station built, anything it's made from in hand,
+ *  its parts in hand or makeable and any rare input in store: sim/chains.ts). */
+function bestMakeable(s: GameState, stock: Stock, pred: (i: ItemDef) => boolean, power: (i: ItemDef) => number): ItemDef | undefined {
+  return ITEMS.filter((i) => pred(i) && !i.research.includes('__relic') && !i.unique && chainMakeable(s, i, stock))
     .sort((a, b) => power(b) - power(a))[0];
 }
 
@@ -423,21 +426,30 @@ function weaponWorth(s: GameState, i: ItemDef): number {
  *  until its makings are in store, so an order never sits blocking the queue. */
 function planCrafting(s: GameState, n: Needs): Stock {
   const want: Stock = {};
+  // (what one of it wants all the way down its chain: its own materials and its missing parts')
   const lack = (i: ItemDef) => {
-    for (const [m, k] of Object.entries(i.cost) as [Material, number][]) if ((n.stock[m] ?? 0) < k) want[m] = Math.max(want[m] ?? 0, k);
+    for (const [m, k] of Object.entries(chainCost(s, i)) as [Material, number][]) if ((n.stock[m] ?? 0) < k) want[m] = Math.max(want[m] ?? 0, k);
   };
+  // (the next step toward it: the thing itself once its parts are in hand, else a part: sim/chains.ts)
   const tryMake = (i: ItemDef | undefined) => {
     if (!i) return;
-    if (inputsReady(s, i, n.stock)) queueCraft(s, i.id);
+    const step = nextStep(s, i, n.stock);
+    if (step) queueCraft(s, step.id);
     else lack(i);
   };
-  // orders that can't go on (their makings are gone and can't be got) are dropped
+  // orders that can't go on (their makings are gone and can't be got) are dropped; one waiting on parts the town can
+  // make gets them made
+  const waiting: ItemDef[] = [];
   for (const o of [...s.crafting]) {
     const def = ITEM_BY_ID[o.item];
-    const stuck = (!o.itemsTaken && Object.entries(def.items ?? {}).some(([id, k]) => (s.items[id] ?? 0) < k)) || (Object.keys(craftNeeded(o)) as Material[]).some((m) => (n.stock[m] ?? 0) === 0 && !sourceable(s, m));
+    const short = !o.itemsTaken && Object.entries(def.items ?? {}).some(([id, k]) => (s.items[id] ?? 0) < k);
+    const chainGone = short && (Object.keys(chainCost(s, def)) as Material[]).some((m) => (n.stock[m] ?? 0) === 0 && !sourceable(s, m));
+    const stuck = (short && (!partsMakeable(s, def, n.stock) || chainGone)) || (Object.keys(craftNeeded(o)) as Material[]).some((m) => (n.stock[m] ?? 0) === 0 && !sourceable(s, m));
     if (stuck) reduceCraft(s, o.id, true);
+    else if (short) waiting.push(def);
   }
   const room = () => s.crafting.length < craftSlots(s);
+  for (const def of waiting) if (room()) tryMake(def);
   const adults = s.people.filter((p) => p.bornTick == null).length;
 
   // 1. materials the town is short of, which a workshop can make (lumber for a cottage, bricks for a bakery...)
@@ -457,7 +469,7 @@ function planCrafting(s: GameState, n: Needs): Stock {
 
   // 2. a tool for everyone who works
   const isTool = (i: ItemDef) => i.slot === 'tool';
-  if (!ordered(s, isTool) && kept(s, isTool) < adults) tryMake(bestMakeable(s, isTool, toolPower));
+  if (!ordered(s, isTool) && kept(s, isTool) < adults) tryMake(bestMakeable(s, n.stock, isTool, toolPower));
   // 2b. a weapon for everyone with a calling who has none they can wield (the owner's ask: an archer can't shoot
   // without a bow, nor use their skills: data/armed.ts), from the first days: the best one the town can make for them,
   // one order at a time and only while the town is fed (the fields come first)
@@ -469,7 +481,7 @@ function planCrafting(s: GameState, n: Needs): Stock {
     // (one in the stores they could take, or one on order for them already: wait for it)
     const fits = (i: ItemDef) => i.slot === 'weapon' && canWear(p, i) && armedForSkills(p.cls, i.id);
     if (Object.entries(s.items).some(([id, k]) => k > 0 && ITEM_BY_ID[id] && fits(ITEM_BY_ID[id])) || ordered(s, fits)) continue;
-    const pick = bestMakeable(s, fits, (i) => weaponWorth(s, i));
+    const pick = bestMakeable(s, n.stock, fits, (i) => weaponWorth(s, i));
     if (pick) {
       tryMake(pick);
       break;
@@ -483,18 +495,18 @@ function planCrafting(s: GameState, n: Needs): Stock {
       if (ordered(s, is) || kept(s, is) >= adults) continue;
       // (made for the classes the town has: plate for its knights, robes for its mages)
       const worth = slot === 'weapon' ? (i: ItemDef) => weaponWorth(s, i) : (i: ItemDef) => (i.effects.armor ?? 0) * 10 + (i.effects.block ?? 0) * 10 + (i.effects.dodge ?? 0) * 10 + (i.effects.power ?? 0) * 5;
-      tryMake(bestMakeable(s, is, (i) => worth(i) * wielders(s, i)));
+      tryMake(bestMakeable(s, n.stock, is, (i) => worth(i) * wielders(s, i)));
     }
   }
   // 4. a few bandages or poultices, and pots when the stores are filling up
   const isMedicine = (i: ItemDef) => i.id === 'poultice' || i.id === 'bandage';
-  if (room() && !ordered(s, isMedicine) && kept(s, isMedicine) < 3) tryMake(bestMakeable(s, isMedicine, (i) => (i.id === 'bandage' ? 2 : 1)));
+  if (room() && !ordered(s, isMedicine) && kept(s, isMedicine) < 3) tryMake(bestMakeable(s, n.stock, isMedicine, (i) => (i.id === 'bandage' ? 2 : 1)));
   // 4a. battle items for the fighters' pouches, one order at a time, and only while the town is fed (sim/kit.ts)
   const isKit = (i: ItemDef) => !!KIT_BY_ID[i.id];
   if (room() && n.foodDays >= 2 && !ordered(s, isKit)) {
     // (the most wanted the town has the makings for now; else gather for the most wanted)
     const wanted = ITEMS.filter((i) => isKit(i) && kitNeed(s, i.id) > 0 && itemUnlocked(s, i) && stationFor(s, i)).sort((x, y) => kitNeed(s, y.id) - kitNeed(s, x.id));
-    const ready = wanted.find((i) => inputsReady(s, i, n.stock));
+    const ready = wanted.map((i) => nextStep(s, i, n.stock)).find((i) => i);
     if (ready) queueCraft(s, ready.id);
     else if (wanted[0]) lack(wanted[0]);
   }
@@ -502,7 +514,7 @@ function planCrafting(s: GameState, n: Needs): Stock {
   for (const fits of new Set(prostheticsWanted(s))) {
     if (!room()) break;
     const is = (i: ItemDef) => PROSTHETIC_BY_ITEM[i.id]?.fits === fits;
-    const best = bestMakeable(s, is, (i) => PROSTHETIC_BY_ITEM[i.id].rank);
+    const best = bestMakeable(s, n.stock, is, (i) => PROSTHETIC_BY_ITEM[i.id].rank);
     if (best && !ordered(s, (i) => i.id === best.id) && (s.items[best.id] ?? 0) === 0) tryMake(best);
   }
   // (one pot on order at a time: the crafters have other work)
@@ -512,18 +524,23 @@ function planCrafting(s: GameState, n: Needs): Stock {
   const spareStock = forSale(s);
   const fromSpare = (w: ItemDef) => (Object.entries(w.cost) as [Material, number][]).every(([m, k]) => (spareStock[m] ?? 0) >= k && !n.unsourced.includes(m)) && inputsReady(s, w, n.stock);
   const gatherFor = (w: ItemDef) => {
-    if ((Object.keys(w.cost) as Material[]).every((m) => !n.unsourced.includes(m) && GATHERABLE.has(m))) lack(w);
+    if ((Object.keys(chainCost(s, w)) as Material[]).every((m) => !n.unsourced.includes(m) && GATHERABLE.has(m))) lack(w);
   };
-  /** Of some things worth making, the first that can be made from what's spare (the rest are gathered for). */
+  /** Of some things worth making, the first whose next step (itself, or a part it lacks) can be made from what's spare
+   *  (the rest are gathered for). */
   const makeFirst = (options: ItemDef[]) => {
-    const ready = options.find(fromSpare);
     for (const w of options) {
-      if (w === ready) break;
+      const step = nextStep(s, w, n.stock);
+      if (step && fromSpare(step)) {
+        queueCraft(s, step.id);
+        return;
+      }
       gatherFor(w);
     }
-    if (ready) queueCraft(s, ready.id);
   };
-  const makeable = (i: ItemDef) => itemUnlocked(s, i) && !!stationFor(s, i);
+  const makeable = (i: ItemDef) => chainMakeable(s, i, n.stock);
+  /** Made of nothing but materials and parts (not a rope or a spear: gear made from other gear isn't stocked). */
+  const plain = (i: ItemDef) => Object.keys(i.items ?? {}).every((id) => PART_IDS.has(id));
   const settled = n.foodDays >= 2;
 
   // (whatever's queued below for a venue is a commission: its keeper asks, and the crafter is paid)
@@ -549,7 +566,7 @@ function planCrafting(s: GameState, n: Needs): Stock {
     // than a share of the purse, however many there are to pay)
     const purse = (s.coins ?? 0) - Math.min(wageBill(s), (s.coins ?? 0) * WAGE_SHARE);
     const before = queued();
-    tryMake(bestMakeable(s, (i) => mine(i) && wouldFurnish(venue, i) && furnishValue(venue, i) >= 1 && saleValue(i, undefined) <= purse, (i) => furnishValue(venue, i)));
+    tryMake(bestMakeable(s, n.stock, (i) => mine(i) && wouldFurnish(venue, i) && furnishValue(venue, i) >= 1 && saleValue(i, undefined) <= purse, (i) => furnishValue(venue, i)));
     commission(venue, before);
   }
   const shop = shopOf(s);
@@ -575,7 +592,7 @@ function planCrafting(s: GameState, n: Needs): Stock {
       const inStock = SALE_GEAR.filter((i) => slots.includes(i.slot!)).reduce((k, i) => k + (s.items[i.id] ?? 0), 0);
       if (inStock >= 2) continue;
       if (kind === 'item' && ITEM_BY_ID[what] && makeable(ITEM_BY_ID[what])) options.push(ITEM_BY_ID[what]);
-      else options.push(...SALE_GEAR.filter((i) => slots.includes(i.slot!) && makeable(i) && !i.items).sort((a, b) => gearScore(b, undefined) - gearScore(a, undefined)));
+      else options.push(...SALE_GEAR.filter((i) => slots.includes(i.slot!) && makeable(i) && plain(i)).sort((a, b) => gearScore(b, undefined) - gearScore(a, undefined)));
     }
     makeFirst(options);
     commission(seller, before);
@@ -589,7 +606,7 @@ function planCrafting(s: GameState, n: Needs): Stock {
     if (!store || !room() || !settled || ordered(s, isLine)) continue;
     if (LINE_ITEMS[line].reduce((k, i) => k + (s.items[i.id] ?? 0), 0) >= LINE_STOCK) continue;
     const before = queued();
-    makeFirst(LINE_ITEMS[line].filter((i) => makeable(i) && !i.items && (s.items[i.id] ?? 0) < 2).sort((a, b) => saleValue(b, undefined) - saleValue(a, undefined)));
+    makeFirst(LINE_ITEMS[line].filter((i) => makeable(i) && plain(i) && (s.items[i.id] ?? 0) < 2).sort((a, b) => saleValue(b, undefined) - saleValue(a, undefined)));
     commission(store, before);
   }
   // 8. fare for the tavern, one order at a time: the kind guests asked for most (or have least of), a few of each
@@ -987,6 +1004,8 @@ function wishes(s: GameState, n: Needs): { def: string; why: string }[] {
   for (const id of CAPSTONES) if (BUILDING_BY_ID[id] && can(BUILDING_BY_ID[id]) && !planned(s, id)) add(id, 'the way to the next era');
   if (!shopPlanned && can(firstShop)) add(firstShop.id, 'to sell to travellers for coins');
   if (!tavernPlanned && firstTavern) add(firstTavern.id, 'to feed travellers for coins');
+  // the station a part wants for the gear the town can make (a tannery for a sword's grip: data/chains.ts)
+  for (const w of partStationWishes(s)) if (BUILDING_BY_ID[w.def] && can(BUILDING_BY_ID[w.def]) && !planned(s, w.def)) add(w.def, w.why);
   // one of every workshop, mine, farm building and comfort it has learned to build
   const order = n.direction === 'trade' ? (d: BuildingDef) => (d.stalls || d.id === 'tavern' || ITEMS.some((i) => i.station === d.id) ? 0 : 1) : () => 0;
   for (const d of [...BUILDINGS].sort((a, b) => order(a) - order(b))) {

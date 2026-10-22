@@ -59,6 +59,9 @@ test('town jobs: the best crafter holds the smithy, works its orders first and f
   s.buildings[0].store = { iron: 20, wood: 20, stone: 20, leather: 10 };
   for (let i = 0; i < TICKS_PER_HOUR; i++) sim.step();
   assert.equal(smithy.operator, smith.id, 'the best crafter is the smith');
+  // (the axe is made from a blade blank and a little lumber now: data/chains.ts)
+  s.items.iron_blade = 1;
+  s.buildings[0].store.lumber = 5;
   sim.command({ type: 'queueCraft', item: 'iron_axe' });
   for (let i = 0; i < 20; i++) sim.step();
   const order = s.crafting[0];

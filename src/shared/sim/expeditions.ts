@@ -85,6 +85,7 @@ import { askToWatch } from './watchAsk';
 import { huntedUnit, huntFactors } from './wild';
 import { assignBeds, campEdge, drainNeeds, FOOD_PER_HOUR, gainSkill, HUNGRY, workFactor } from './townsfolk';
 import { topicName } from '../data/originResearch';
+import { rareFind } from './chains';
 
 /** XP per unit of loot brought in, and per attack made in a fight. */
 const LOOT_XP = 10;
@@ -733,6 +734,8 @@ function comeHome(s: GameState, e: Expedition, d: Destination, members: Person[]
   airshipHome(s, e, jobDone(e, members));
   const side = s.destSides[d.id] ?? 1;
   const at = campEdge(s, side);
+  // (a rare input found on the way, now and then: sim/chains.ts)
+  if (d.type !== 'clear' || e.cleared) rareFind(s, e, d.type);
   // Share out the loot and leftover food; they'll haul it to storage like anything else.
   const haul: Stock = { ...e.loot };
   for (const m of MATERIALS) if (e.supplies[m]) addStock(haul, m, e.supplies[m]!);
