@@ -108,6 +108,7 @@ import { sagaRaidOver } from './sagas';
 import { greatEnemyRaidOver } from './greatEnemy';
 import { groveAllies, groveRaidOver } from './grove';
 import { mountFight, ranchAllies, ranchRaidOver } from './ranch';
+import { creatureAllies, creatureRaidOver } from './creature';
 import { ancestorAllies } from './ancestors';
 import { raidSkipOver } from './raidSkip';
 import { answerOdds, askMercy, gatherRaid, heldForMercy, huntDown, oddsOver, ripeGrudge, weighArrival } from './raidOdds';
@@ -311,6 +312,8 @@ export function startRaid(s: GameState, kind: RaidKind, budget: number, rng: Rng
   groveAllies(s, raid, (k) => ally(s, k, townEdgeX(s, side), side < 0 ? -1 : 1));
   // (and the ranch's guard beasts: sim/ranch.ts)
   ranchAllies(s, raid, (k) => ally(s, k, townEdgeX(s, side), side < 0 ? -1 : 1));
+  // (and the town's great creature: sim/creature.ts)
+  if (inside === undefined) creatureAllies(s, raid, (k) => ally(s, k, townEdgeX(s, side), side < 0 ? -1 : 1));
   // (and a descendant's town's forebears: a spirit, the Old House's riders: sim/ancestors.ts)
   ancestorAllies(s, raid, inside !== undefined, (k) => ally(s, k, townEdgeX(s, side), side < 0 ? -1 : 1));
   if (inside !== undefined) {
@@ -942,6 +945,7 @@ function endRaid(s: GameState, rng: Rng): void {
   greatEnemyRaidOver(s, r);
   groveRaidOver(s, r);
   ranchRaidOver(s, r); // (tamed beasts home to the ranch: sim/ranch.ts)
+  creatureRaidOver(s, r); // (the great creature home from the fight: sim/creature.ts)
   // thieves who got away may have led off a horse, too
   if (s.horses.length && r.raiders.some((rd) => rd.gone && poolSize(rd.carrying) > 0) && rng.chance(HORSE_THEFT)) {
     const h = s.horses.splice(rng.int(0, s.horses.length - 1), 1)[0];

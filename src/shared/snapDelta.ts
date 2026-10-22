@@ -185,6 +185,8 @@ export class SnapDiffer {
       // (the footpaths' wear changes whenever anyone steps into a new cell, and is drawn again at most every second
       // and a half: it goes at the pools' pace)
       if (key === 'wear' && !poolsNow && this.landSent.has(key)) continue;
+      // (the regrowing, rich and rubble cells are drawn lazily and can be big: looked over at the pools' pace too)
+      if ((key === 'regrow' || key === 'rich' || key === 'rubble') && !poolsNow && this.landSent.has(key)) continue;
       const v = (m as unknown as Record<string, unknown>)[key];
       const mark = typeof v === 'object' && v !== null ? JSON.stringify(v) : v;
       if (fresh || !this.landSent.has(key) || this.landSent.get(key) !== mark) {

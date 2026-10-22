@@ -29,6 +29,9 @@ export type FolkAnim = 'stand' | 'walk' | 'run' | 'idle' | 'death' | 'hurt' | 'c
 
 /** What the snapshot says about a person that decides their animation (a PersonView has all of it). */
 export type FolkState = Pick<PersonView, 'id' | 'activity' | 'sinceHit' | 'sinceBlow' | 'defending' | 'downed' | 'hp'> & {
+  /** Set from a PersonView: a child is `lifeStage === 'child'` (`growsUpIn` reads 0 once grown, so it is only a stand-in). */
+  lifeStage?: PersonView['lifeStage'];
+  growsUpIn?: PersonView['growsUpIn'];
   look: Pick<PersonView['look'], 'gender' | 'outfit'>;
   gear: Partial<Record<Slot, string>>;
   work?: PersonView['work'];
@@ -144,6 +147,30 @@ export const FOLK_LOOKS: Record<string, readonly string[]> = {
   knights: ['man_knight', 'woman_knight', 'man_squire'],
 };
 
+/** Is this person a child? (the snapshot's life stage; older callers with only `growsUpIn` still count while it's above 0) */
+export const isFolkChild = (st: Pick<FolkState, 'lifeStage' | 'growsUpIn'>): boolean => st.lifeStage === 'child' || (st.lifeStage === undefined && (st.growsUpIn ?? 0) > 0);
+
+/** How big a child is drawn, against the adult art (a child gets a grown look shrunk, so the look must be a beardless one). */
+export const CHILD_SCALE = 0.72;
+
+/** The looks a child may wear, per people: only beardless, unarmoured ones (a bearded man shrunk reads as "a tiny man
+ *  with a beard"). Boys wear the youngest-looking male look, girls the female looks. Until PixelLab draws proper child
+ *  looks (a boy and a girl per people, short-limbed, big-headed, in the people's own dress) these stand in. */
+export const CHILD_LOOKS: Record<string, { boy: readonly string[]; girl: readonly string[] }> = {
+  settlers: { boy: ['man_leather'], girl: ['woman_base', 'woman_leather'] },
+  orcs: { boy: ['man_brute'], girl: ['woman_orc'] },
+  lich: { boy: ['man_skeleton'], girl: ['woman_ghoul'] },
+  druid: { boy: ['man_warden'], girl: ['woman_druid'] },
+  vampire: { boy: ['man_thrall'], girl: ['woman_lady'] },
+  werewolf: { boy: ['woman_huntress'], girl: ['woman_huntress'] },
+  robot: { boy: ['man_worker'], girl: ['woman_android'] },
+  merfolk: { boy: ['man_fisher'], girl: ['woman_mer'] },
+  nomads: { boy: ['man_herder', 'man_rider'], girl: ['woman_nomad'] },
+  fae: { boy: ['man_sprite'], girl: ['woman_fae'] },
+  alchemists: { boy: ['man_apprentice'], girl: ['woman_alchemist'] },
+  knights: { boy: ['man_squire'], girl: ['woman_knight'] },
+};
+
 /** The base look's dress by what they wear: plate for heavy body armour, leather for light or medium, base otherwise. */
 export const dressOf = (weight: string | undefined): 'plate' | 'leather' | 'base' =>
   weight === 'heavy' ? 'plate' : weight === 'medium' || weight === 'light' ? 'leather' : 'base';
@@ -163,9 +190,13 @@ export interface FolkLookPick {
 
 /** Which look a person wears: their people's folder (settlers where their own isn't drawn yet), then a look of their
  *  sex (a look named `man_*` or `woman_*`), the one in their outfit's colour first, else a stable pick by id. */
-export function pickLook(st: Pick<FolkState, 'id' | 'origin' | 'look'>, looks: Record<string, readonly string[]> = FOLK_LOOKS, dress?: 'plate' | 'leather' | 'base'): FolkLookPick {
+export function pickLook(st: Pick<FolkState, 'id' | 'origin' | 'look'> & Partial<Pick<FolkState, 'lifeStage' | 'growsUpIn'>>, looks: Record<string, readonly string[]> = FOLK_LOOKS, dress?: 'plate' | 'leather' | 'base'): FolkLookPick {
   const people = st.origin && looks[st.origin]?.length ? st.origin : 'settlers';
   const every = looks[people] ?? [];
+  if (isFolkChild(st)) {
+    const kids = CHILD_LOOKS[people]?.[st.look.gender === 'f' ? 'girl' : 'boy'].filter((l) => every.includes(l));
+    if (kids?.length) return { people, look: kids[idHash(st.id, 1) % kids.length] };
+  }
   // (dwarves wear the dwarf looks, where a folder has them; everyone else the human ones)
   const dwarf = st.origin === 'dwarves' && every.some((l) => l.startsWith('dwarf_'));
   const kin = every.filter((l) => l.startsWith('dwarf_') === dwarf);

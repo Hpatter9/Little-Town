@@ -32,6 +32,8 @@ import { SKILL_TEXT } from '../../shared/data/describe';
 import { CLASS_ABOUT, ROLE_ABOUT } from '../../shared/data/classAbout';
 import type { Bridge } from '../../shared/ipc';
 import type { PersonView, Snapshot, VisitorView } from '../../shared/sim/snapshot';
+import type { CreatureView } from '../../shared/sim/creature';
+import { creatureCard } from '../map/creatureCard';
 import { bleedLeft } from '../../shared/format';
 import { button, el } from './dom';
 import { openCard } from './infoCard';
@@ -64,6 +66,8 @@ export const townsfolkKey = (s: Snapshot) => {
     s.intrigue && [s.intrigue.houses.map((x) => [x.root, Math.round(x.wealth / 20), x.seats, x.holdings.homes, x.holdings.shops, x.holdings.works, x.holdings.fields, x.crimes.length, x.ring, !!x.rumour]), s.intrigue.whispers.length, s.intrigue.log.length],
     s.guilds.map((g) => [g.id, g.name, g.leader?.id, g.members.map((m) => [m.id, m.level]), g.log[0]]),
     s.turnable,
+    // (the great beast's section: what its card says, coarsely, and the buttons it shows)
+    s.creature && [s.creature.name, s.creature.stage, Math.round(s.creature.align / 5), s.creature.mood, s.creature.asleep, s.creature.doing, Math.round(s.creature.hunger / 10), Math.round(s.creature.rest / 10), Math.round(s.creature.play / 10), Math.round(s.creature.hp / 10), s.creature.liked, s.creature.shunned, s.creature.ask?.id, s.creature.dead],
     confirmTurn,
     s.research.done.length,
     inspecting,
@@ -164,6 +168,8 @@ export function renderTownsfolk(s: Snapshot, bridge: Bridge | undefined, rerende
     if (box) box.scrollTop = 0;
   }));
   out.push(list);
+
+  if (s.creature) out.push(...beastSection(s.creature, bridge));
 
   out.push(el('h2', '', 'Jobs'));
   out.push(priorityGrid(s, bridge));
@@ -1083,6 +1089,32 @@ function manaBar([now, most]: [number, number]): HTMLElement {
   const r = bar('Mana', now / Math.max(1, most), `${now}/${most}`);
   (r.querySelector('.bar-fill') as HTMLElement).style.background = '#5a8cff';
   return r;
+}
+
+/** The town's great creature (sim/creature.ts): its card, its needs as bars, and the player's part (praise or scold its
+ *  last deed, feed it, send it to rest). */
+function beastSection(c: CreatureView, bridge: Bridge | undefined): HTMLElement[] {
+  const card = el('div', 'card person');
+  const info = creatureCard(c);
+  const top = el('div', 'card-top');
+  const swatch = el('span', 'card-size', '●');
+  swatch.style.color = `#${c.tint.toString(16).padStart(6, '0')}`;
+  swatch.title = 'Its colour, by its nature';
+  top.append(el('span', 'card-name', info.title), swatch);
+  card.append(top);
+  if (c.dead) {
+    card.append(el('div', 'hint', info.lines[0]));
+    return [el('h2', '', 'The great beast'), card];
+  }
+  card.append(el('div', 'hint', info.lines[0]), el('div', 'hint', info.lines[1]), el('div', 'hint', info.lines[2]));
+  card.append(bar('Health', c.hp / Math.max(1, c.maxHp), `${c.hp}/${c.maxHp}`), bar('Fed', c.hunger / 100, `${c.hunger}`), bar('Rested', c.rest / 100, `${c.rest}`), bar('Played with', c.play / 100, `${c.play}`));
+  for (const line of info.lines.slice(4)) card.append(el('div', 'hint', line));
+  const row = el('div', '');
+  row.style.cssText = 'display:flex;flex-wrap:wrap;gap:6px;margin-top:6px';
+  if (c.ask) row.append(button('Praise', () => bridge?.command({ type: 'creature', op: 'praise' }), { cls: 'place small' }), button('Scold', () => bridge?.command({ type: 'creature', op: 'scold' }), { cls: 'place small quiet' }));
+  row.append(button('Feed', () => bridge?.command({ type: 'creature', op: 'feed' }), { cls: 'place small quiet', title: c.kind === 'golem' ? 'Feed it stone from the stores' : 'Feed it from the stores' }), button('Rest', () => bridge?.command({ type: 'creature', op: 'rest' }), { cls: 'place small quiet', disabled: c.asleep }));
+  card.append(row);
+  return [el('h2', '', 'The great beast'), el('div', 'hint', 'It learns from you: praise what you want more of, scold what you don\'t. It turns good or cruel by what it does.'), card];
 }
 
 function bar(label: string, value: number, text: string): HTMLElement {

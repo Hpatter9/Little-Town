@@ -162,7 +162,7 @@ import { heirOf } from './health';
 import { RESEARCH_STATIONS, TOPIC_BY_ID } from '../data/research';
 import { SKILLS, skillSpeed, xpToNext, type Skill } from '../data/skills';
 import { TERRAIN } from '../data/terrain';
-import { buildingCentre, buildingCentreX, buildSlots, defOf, enclosure, footprint, totalCapacity, totalStock } from './buildings';
+import { buildingCentre, buildingCentreX, buildSlots, defOf, enclosure, footprint, totalCapacity, totalStock, withStockScope } from './buildings';
 import { destinationHidden, destinationOf, destinationUnlocked, foodNeeded, partyCarry, planParty } from './expeditions';
 import { OFFER_WAIT_TICKS } from './researchOffer';
 import { modifiers, researchStation, researchStations, seatStageNow } from './research';
@@ -185,6 +185,7 @@ import { packDestinations, packView, type PackView } from './pack';
 import { sagaDestinations, sagasView, type SagaView, type SagaDoneView } from './sagas';
 import { huntDestinations, huntsView, type HuntView, type ForgeView } from './hunts';
 import { dragonDestinations, dragonView, type DragonView } from './dragon';
+import { creatureView, type CreatureView } from './creature';
 import { villageBuildings, villageDestinations, villageViews, type VillageView } from './villages';
 import { interiorView, type InteriorView } from './interiors';
 import { dynastyView, type DynastyView } from './dynasty';
@@ -630,6 +631,8 @@ export interface PromptView {
   /** An evolution's roads (data/paths.ts, data/pathLore.ts): each with its archetype's role, its telling and its
    *  signature skill, in the options' order. */
   roads?: RoadView[];
+  /** The great creature's pick (sim/creature.ts): the options are the five kinds in order, shown as a lineup. */
+  beasts?: boolean;
 }
 export interface RoadView {
   id: string;
@@ -1176,6 +1179,8 @@ export interface Snapshot {
   hunts: { guild: boolean; hunts: HuntView[]; forge: ForgeView[]; won: number };
   /** The dragon in the hills (sim/dragon.ts): its phase, health, tribute and flight. */
   dragon: DragonView | null;
+  /** The town's great creature (sim/creature.ts), if it has one: where, how big, its nature, mood, needs and lessons. */
+  creature: CreatureView | null;
   /** Daughter villages (sim/villages.ts), and their houses and fields for the map (ids below zero). */
   villages: VillageView[];
   /** The town's politics and law (sim/politics.ts): null until the town has three grown-ups. */
@@ -1423,11 +1428,15 @@ function founderView(s: GameState): FounderView | null {
     .sort((a, b) => rank[a.role] - rank[b.role]);
   const open = windsOpen(s);
   const winds = EXPLORE_DIRS.map((name, dir) => ({ dir, name, open: open[dir] }));
-  return { id: f.id, winds, order, heir: next ? { id: next.id, name: next.name, named: next.id === s.heirId } : null, heirs, jobs: JOBS.filter((j) => j !== 'defend'), ...founderShopsView(s), duels: duelChoices(s), duelBlock: duelBlock(s), duel: s.duel ? { foe: s.duel.foe.name, to: s.duel.to, over: s.duel.ended !== undefined, text: s.duel.text ?? null } : null, uniqueNames: { ...(s.uniqueNames ?? {}) }, dealings: dealingsView(s) };
+  return { id: f.id, winds, order, heir: next ? { id: next.id, name: next.name, named: next.id === s.heirId } : null, heirs, jobs: JOBS.filter((j) => j !== 'defend'), ...founderShopsView(s), duels: slow(s, 'duels', () => duelChoices(s)), duelBlock: duelBlock(s), duel: s.duel ? { foe: s.duel.foe.name, to: s.duel.to, over: s.duel.ended !== undefined, text: s.duel.text ?? null } : null, uniqueNames: { ...(s.uniqueNames ?? {}) }, dealings: dealingsView(s) };
 }
 
 
 export function snapshot(s: GameState): Snapshot {
+  return withStockScope(s, () => snapshotOf(s));
+}
+
+function snapshotOf(s: GameState): Snapshot {
   const stock = totalStock(s);
   const v = s.visitor;
   return {
@@ -1565,6 +1574,7 @@ export function snapshot(s: GameState): Snapshot {
     world: worldView(s),
     hunts: brief(s, 'hunts', () => huntsView(s)),
     dragon: dragonView(s),
+    creature: creatureView(s),
     villages: villageViews(s),
     politics: brief(s, 'politics', () => politicsView(s)),
     villageBuildings: villageBuildings(s),
@@ -1648,6 +1658,7 @@ export function snapshot(s: GameState): Snapshot {
       secondsLeft: p.expiresTick >= Number.MAX_SAFE_INTEGER ? null : Math.max(0, (p.expiresTick - s.tick) / TICK_HZ),
       ...(p.parked ? { parked: true } : {}),
       ...(p.roads ? { roads: p.roads.map(roadOf).filter((r): r is RoadView => !!r) } : {}),
+      ...(p.beasts ? { beasts: true } : {}),
     })),
     raid: s.raid && !s.raid.veil
       ? {
@@ -2101,8 +2112,9 @@ function tripsView(s: GameState): TripsView {
 
 function destPower(s: GameState, d: Destination): { partyPower: number; foesPower: number; matchup: Matchup | null } {
   const plan = slow(s, `party:${d.id}`, () => planParty(s, d.id));
-  const mine = powerOfParty(plan.members.flatMap((id) => s.people.find((q) => q.id === id) ?? []));
-  const foes = foesToExpect(d);
+  // (a party's power is worked out from each member's whole kit: kept a few seconds like the plan)
+  const mine = slow(s, `partyPower:${d.id}`, () => powerOfParty(plan.members.flatMap((id) => s.people.find((q) => q.id === id) ?? [])));
+  const foes = slow(s, `foes:${d.id}`, () => foesToExpect(d));
   return { partyPower: mine, foesPower: foes, matchup: foes > 0 ? matchupOf(mine, foes) : null };
 }
 
@@ -2408,7 +2420,7 @@ function raidPowers(s: GameState): { power: number; townPower: number; matchup: 
   const raid = s.raid!;
   const power = raid.raiders.filter((r) => !r.ally && !r.down && !r.gone).reduce((t, r) => t + powerOfEnemy(r.kind, r.might ?? 1), 0);
   const allies = raid.raiders.filter((r) => r.ally && !r.down && !r.gone).reduce((t, r) => t + powerOfEnemy(r.kind, r.might ?? 1), 0);
-  const town = s.people.filter((p) => p.type !== 'child' && !p.downed && p.away === null && p.hp > 0).reduce((t, p) => t + powerOfPerson(p), 0) + allies;
+  const town = brief(s, 'townPower', () => s.people.filter((p) => p.type !== 'child' && !p.downed && p.away === null && p.hp > 0).reduce((t, p) => t + powerOfPerson(p), 0)) + allies;
   return { power, townPower: town, matchup: matchupOf(town, power) };
 }
 

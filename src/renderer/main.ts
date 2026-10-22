@@ -25,6 +25,9 @@ import { inRegion, regionTitle } from '../shared/sim/landRegions';
 import { footprint as footprintOf } from '../shared/sim/buildings';
 import { regionOfCell } from '../shared/sim/land';
 import { MapDragon } from './map/mapDragon';
+import { MapCreature } from './map/mapCreature';
+import { SHEETS, type CreatureSheet, type SheetDef } from './art/creatureSheets';
+import { creatureCard } from './map/creatureCard';
 import { MapSky, skyFor } from './map/mapSky';
 import { MapPets, type PetHome } from './map/mapPets';
 import { freezes, iceAt } from './map/ice';
@@ -209,7 +212,7 @@ import { ambientMix, type AmbientMix } from './ambienceMix';
 import { burnLevel, doorSound } from './isoSounds';
 import { quietZones, zoneMix, zoneSources, type ZoneMix } from './soundZones';
 import { BUZZ, buzzesBetween, collapsesBetween, type Buzz } from './vibration';
-import { createActionBar, createBanner, createExpeditionHeader, createGameOver, createPersonCard, createPromptCard, createToasts, type Action } from './overlayUi';
+import { createActionBar, createBanner, createBeastAsk, createExpeditionHeader, createGameOver, createPersonCard, createPromptCard, createToasts, type Action } from './overlayUi';
 import { createTooltip } from './tooltip';
 import { startStripLoad } from './loading/stripLoad';
 import { ExpeditionPane } from './town/expeditionPane';
@@ -251,6 +254,7 @@ type Hover =
   | { kind: 'raider'; id: number }
   | { kind: 'roamer'; id: number }
   | { kind: 'pet'; key: string }
+  | { kind: 'creature' }
   | { kind: 'grave'; id: number }
   | { kind: 'ruin'; id: number }
   | { kind: 'sign'; sign: Signpost }
@@ -463,6 +467,13 @@ async function start(): Promise<void> {
   raiders.rings = 'fight';
   const roamers = new MapRaiders(lay); // (the bands roaming the land: sim/roamers.ts)
   const penned = new MapRaiders(lay); // (the ranch's beasts in their pens: sim/ranch.ts)
+  const beast = new MapCreature(lay); // (the town's great creature: sim/creature.ts)
+  (window as unknown as { __beast?: MapCreature }).__beast = beast; // (for previews)
+  // (the creature sheets, for the page's lineup of the great creature's pick: mobile/beastLineup.ts; the page borrows
+  // the strip's pictures rather than carrying its own copies)
+  (window as unknown as { __sheetOf?: (id: string) => SheetDef | undefined }).__sheetOf = (id) => SHEETS[id as CreatureSheet];
+  // (on the phone the page around the strip shows it, at its own size: mobile/mobile.ts)
+  const beastAsk = phone ? { show: () => undefined, hide: () => undefined } : createBeastAsk((praise) => bridge.command({ type: 'creature', op: praise ? 'praise' : 'scold' }));
   (window as unknown as { __penned?: unknown }).__penned = penned; // (for previews)
   const herds = new MapHerds(lay);
   const boats = new MapBoats(map.things);
@@ -922,6 +933,11 @@ async function start(): Promise<void> {
     if (raider) return { kind: 'raider', id: raider.id };
     const roamer = roamers.raiderAt(w.x, w.y);
     if (roamer) return { kind: 'roamer', id: Math.floor(roamer.id / ROAMER_IDS) };
+    // (the great creature: tapped on its body, so the ground a little lower is tried too, as for the townsfolk)
+    for (let dy = 0; dy <= 60; dy += 10) {
+      const g = map.worldOf(x, y + dy);
+      if (beast.at(g.x, g.y)) return { kind: 'creature' };
+    }
     const person = isoPersonAt(x, y);
     // (one of a daughter village's folk: the village's card)
     const vil = person && snap.villages.find((v) => v.folk.some((f) => f.id === person.id));
@@ -1135,6 +1151,11 @@ async function start(): Promise<void> {
         if (v.beset) lines.push(`Beset by ${v.beset}!`);
         if (v.news[0]) lines.push(`Lately: ${v.news[0]}`);
         return { title: v.name, lines, hint: 'Click for the villages', y: map.screenOf((v.x + 1) * CELL, v.y * CELL).y - 60 };
+      }
+      case 'creature': {
+        if (!snap.creature) return null;
+        const c = creatureCard(snap.creature);
+        return { title: c.title, lines: c.lines, hint: 'Tap for its card', y: overheadY(beast.posOf(), 70) };
       }
       case 'pet': {
         const d = pets.describe(h.key);
@@ -1403,6 +1424,17 @@ async function start(): Promise<void> {
           actions: [act('villages', 'The villages…', openVillages, { primary: true }), ...(v ? [act('gift', 'Send a gift', () => bridge.command({ type: 'giftVillage', id: v.id }))] : [])],
         };
       }
+      case 'creature':
+        return {
+          title: d.title,
+          lines: d.lines,
+          actions: [
+            ...(snap.creature?.ask ? [act('praise', 'Praise', () => bridge.command({ type: 'creature', op: 'praise' }), { primary: true }), act('scold', 'Scold', () => bridge.command({ type: 'creature', op: 'scold' }), { danger: true })] : []),
+            act('feed', 'Feed', () => bridge.command({ type: 'creature', op: 'feed' })),
+            act('rest', 'Rest', () => bridge.command({ type: 'creature', op: 'rest' })),
+            act('more', 'Townsfolk…', () => bridge.openPanel('townsfolk')),
+          ],
+        };
       case 'pet':
         return { title: d.title, lines: d.lines, actions: [act('scratch', 'Scratch behind the ears', () => (pets.scratch(h.key), publishInspect()), { primary: true })] };
       case 'caravan':
@@ -1587,6 +1619,7 @@ async function start(): Promise<void> {
     if (h?.kind === 'caravan') return bridge.openPanel('trade');
     if (h?.kind === 'village') return openVillages();
     if (h?.kind === 'pet') return pets.scratch(h.key);
+    if (h?.kind === 'creature') return bridge.openPanel('townsfolk');
     if (h?.kind === 'person') {
       if (snap.visitor?.id === h.person.id) return bridge.openPanel('townsfolk');
       return selectPerson(selectedPerson === h.person.id ? null : h.person.id);
@@ -2074,6 +2107,9 @@ async function start(): Promise<void> {
     sky.mix = skyFor({ weather: freeze ? 'storm' : next.weather.kind, season: freeze ? 'winter' : next.calendar.season, biome: next.biome, hour: next.calendar.hour, daylight: next.calendar.daylight, spell: next.calendar.day * 4 + Math.floor(next.calendar.hour / 6) });
     sky.night = next.calendar.daylight < 0.3;
     dragon.sync(next.dragon);
+    beast.sync(next.creature);
+    if (next.creature?.ask) beastAsk.show(next.creature.ask.id, next.creature.ask.text);
+    else beastAsk.hide();
     tracks.land = next.land;
     tracks.season = freeze ? 'winter' : next.calendar.season;
     tracks.biome = next.biome;
@@ -2440,6 +2476,7 @@ async function start(): Promise<void> {
     raiders.render(performance.now());
     roamers.render(performance.now()); // (the bands on the land: drawn only once this was added)
     penned.render(performance.now()); // (the ranch's beasts)
+    beast.render(ticker.deltaMS / 1000);
     herds.render(performance.now(), ticker.deltaMS / 1000);
     market.render(ticker.deltaMS / 1000);
     lamps.render(ticker.deltaMS / 1000);
