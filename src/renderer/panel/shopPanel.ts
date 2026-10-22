@@ -27,6 +27,8 @@ import { loadImage } from '../art/loadImage';
 import workshopUrl from '../art/interior/workshop.png';
 import forgeUrl from '../art/interior/forge.png';
 import { expandable, facts } from './details';
+import { paintRoom, handLayout, T as TILE, WALL_H, type Draw } from '../interior/interiorView';
+import { venueRoom, venueSpots } from '../interior/handRooms';
 
 /** The windows this panel draws: the shop, the tavern, and each specialty shop (`store_<line>`). */
 type VenueId = 'shop' | 'tavern' | StorePanelId;
@@ -49,7 +51,7 @@ export const shopKey = (s: Snapshot, id: VenueId = 'shop') => {
 const CELL = 16;
 const DEPTH = 12;
 const WALL = 6;
-const BACK = 40;
+const BACK_ = 40;
 const SILL = 6;
 /** A tavern's guest rooms: a wing beside the common room, each room this wide and three rows deep, off a hallway
  *  that runs along their front from a doorway in the common room's side wall. */
@@ -126,8 +128,10 @@ export function renderShop(s: Snapshot, id: VenueId = 'shop', redraw: () => void
   out.push(head);
 
   canvas ??= el('canvas', 'shop-floor');
-  const w = v.cols * CELL + WALL * 2 + wingWidth(v);
-  const h = BACK + v.rows * DEPTH + SILL;
+  // (the inns and shops are drawn from the hand-made Common Room and Shop: interior/handRooms.ts `venueRoom`)
+  const hand = venueRoom(v.venue);
+  const w = (hand ? hand.w : v.cols) * CELL + WALL * 2 + wingWidth(v);
+  const h = (hand ? WALL_H + hand.h * TILE : BACK_ + v.rows * DEPTH) + SILL;
   if (canvas.width !== w || canvas.height !== h) {
     canvas.width = w;
     canvas.height = h;
@@ -453,7 +457,11 @@ function draw(c: HTMLCanvasElement, v: ShopView, t: number, dt: number): void {
   if (style && decor >= 1) pal = { ...pal, wall: style.wall, wallLight: lighter(style.wall), wallDark: style.wallTrim, build: pal.build === 'logs' ? 'plaster' : pal.build };
   const W = c.width;
   /** The common room's width (the guest wing, if any, is beside it). */
-  const WR = v.cols * CELL + WALL * 2;
+  // (an inn or a shop is its hand-made room: the Common Room or the Shop, its people at the room's own places)
+  const hand = venueRoom(v.venue);
+  const geo = hand ? venueSpots(hand) : null;
+  const BACK = hand ? WALL_H : BACK_;
+  const WR = (hand ? hand.w : v.cols) * CELL + WALL * 2;
   const up = 0;
   const H = c.height;
   const rect = (x: number, y: number, w: number, h: number, col: string) => {
@@ -468,8 +476,13 @@ function draw(c: HTMLCanvasElement, v: ShopView, t: number, dt: number): void {
   };
   const cellX = (x: number) => WALL + x * CELL;
   /** The floor's y at a row's back edge (rows run from the back wall towards us). */
-  const rowY = (y: number) => BACK + y * DEPTH;
-  const floorBottom = rowY(v.rows);
+  const rowY = (y: number) => BACK + y * (hand ? TILE : DEPTH);
+  const floorBottom = rowY(hand ? hand.h : v.rows);
+  /** A cell of the hand-made room, as a pixel (its feet). */
+  const handX = (u: number) => WALL + u * TILE;
+  const handY = (w: number) => WALL_H + w * TILE;
+  const keeperAt = geo ? { x: handX(geo.keeper.x), y: handY(geo.keeper.y) } : { x: cellX(v.keeper.x) + CELL, y: rowY(v.keeper.y + 1) - 2 };
+  const doorAt = geo ? { x: handX(geo.door.x), y: handY(geo.door.y) } : { x: cellX(v.door) + CELL / 2, y: floorBottom };
   /** A box standing on the floor: its footprint's back edge at y0, d deep, h tall: a lit top and a front face. */
   const box = (x: number, y0: number, w: number, d: number, h: number, top: string, front: string, edge = 'rgba(0,0,0,0.35)') => {
     g.fillStyle = 'rgba(0,0,0,0.22)';
@@ -484,6 +497,11 @@ function draw(c: HTMLCanvasElement, v: ShopView, t: number, dt: number): void {
   const sleepers = new Map<string, Look>();
   g.save();
   g.translate(0, up);
+  if (hand) {
+    rect(0, 0, W, H, '#120e0c');
+    // (the guest wing's walls and floor take the room's stone and planks)
+    pal = { ...pal, wall: '#8d8480', wallLight: '#a89e9a', wallDark: '#2a1e18', floor: '#9a7448', seam: '#80603a', build: 'stone' };
+  } else {
   // the back wall, built of the venue's own stuff
   rect(0, 0, W, H, pal.wallDark);
   rect(0, 0, W, BACK, pal.wall);
@@ -551,20 +569,21 @@ function draw(c: HTMLCanvasElement, v: ShopView, t: number, dt: number): void {
   rect(0, floorBottom, W, 1, pal.wallLight);
   rect(doorX + 1, floorBottom, CELL - 2, H - floorBottom, '#8a3a2a'); // the doormat on the threshold
   rect(doorX + 1, floorBottom, CELL - 2, 1, '#a84a3a');
+  }
 
   // rugs lie flat, under everything else (the décor's runner and rug first)
-  decorFloor();
-  for (const p of v.pieces) if (p.y >= 0 && (p.kind === 'rug' || p.item.endsWith('_rug') || p.item === 'woven_mat')) rug(p);
+  if (!hand) decorFloor();
+  if (!hand) for (const p of v.pieces) if (p.y >= 0 && (p.kind === 'rug' || p.item.endsWith('_rug') || p.item === 'woven_mat')) rug(p);
 
   // everything standing, back to front, with the people among it
   const layers: { y: number; paint: () => void }[] = [];
   const cy = rowY(v.counter.y);
-  layers.push({ y: rowY(v.counter.y + 1), paint: () => counter(cellX(v.counter.x), cy, v.counter.w * CELL) });
+  if (!hand) layers.push({ y: rowY(v.counter.y + 1), paint: () => counter(cellX(v.counter.x), cy, v.counter.w * CELL) });
   if (v.keeperLook) {
     const look = v.keeperLook;
-    layers.push({ y: rowY(v.keeper.y + 1) - 2, paint: () => person(cellX(v.keeper.x) + CELL, rowY(v.keeper.y + 1) - 2, look, false, false, t, 1, v.keeperId ?? 7, true) });
+    layers.push({ y: keeperAt.y, paint: () => person(keeperAt.x, keeperAt.y, look, false, false, t, 1, v.keeperId ?? 7, true) });
   }
-  for (const p of v.pieces) {
+  for (const p of hand ? [] : v.pieces) {
     if (p.y < 0 || ON_WALL.has(p.item) || p.kind === 'rug' || p.item.endsWith('_rug') || p.item === 'woven_mat') continue;
     layers.push({ y: rowY(p.y + p.h), paint: () => piece(p) });
   }
@@ -576,25 +595,31 @@ function draw(c: HTMLCanvasElement, v: ShopView, t: number, dt: number): void {
   const guests: Guest[] = [...v.customers, ...v.locals.map((l): Guest => ({ id: l.id, name: l.name, kind: 'townsperson', look: l.look, tier: 1, wants: '', temper: '', req: null, bed: null, asleep: false, stage: null, talk: null, purse: 0, people: null, local: true }))];
   const here = new Set(guests.map((q) => q.id));
   for (const id of walkers.keys()) if (!here.has(id)) walkers.delete(id);
-  const spots = browseSpots(v);
+  const spots = geo ? geo.browse.map((b) => ({ x: handX(b.x), y: handY(b.y) })) : browseSpots(v);
   const shopFloor = v.venue !== 'tavern';
-  const pieceSpots = shopFloor && spots.length > 1 ? spots.slice(0, -1) : spots;
+  const pieceSpots = shopFloor && !hand && spots.length > 1 ? spots.slice(0, -1) : spots;
   const headAbove = (y: number) => y - (FEET_Y - HEAD_Y) * SCALE - 1;
   const bubbles: Bubble[] = [];
   for (const q of guests) {
     let wk = walkers.get(q.id);
     if (!wk) {
-      const x0 = doorX + CELL / 2;
-      wk = { id: q.id, look: q.look, x: x0, y: floorBottom + 4, tx: x0, ty: floorBottom - 2, wait: 0, left: false };
+      const x0 = doorAt.x;
+      wk = { id: q.id, look: q.look, x: x0, y: floorBottom + 4, tx: x0, ty: doorAt.y - 2, wait: 0, left: false };
       walkers.set(q.id, wk);
     }
     // (where the shop's customer is bound: the counter, or the door; else they look round)
     if (shopFloor && q.stage === 'counter') {
-      wk.tx = WALL + (v.counter.x + 0.5 + (q.id % 2)) * CELL;
-      wk.ty = Math.min(floorBottom - 2, rowY(v.counter.y + 1) + 4);
+      if (geo) {
+        const at = geo.counter[q.id % geo.counter.length];
+        wk.tx = handX(at.x);
+        wk.ty = handY(at.y);
+      } else {
+        wk.tx = WALL + (v.counter.x + 0.5 + (q.id % 2)) * CELL;
+        wk.ty = Math.min(floorBottom - 2, rowY(v.counter.y + 1) + 4);
+      }
     } else if (shopFloor && q.stage === 'done') {
-      wk.tx = doorX + CELL / 2;
-      wk.ty = floorBottom - 2;
+      wk.tx = doorAt.x;
+      wk.ty = doorAt.y - 2;
     }
     if (q.stage !== 'counter') wk.atCounter = undefined;
     const bound = shopFloor && (q.stage === 'counter' || q.stage === 'done');
@@ -615,8 +640,8 @@ function draw(c: HTMLCanvasElement, v: ShopView, t: number, dt: number): void {
         const said = t - wk.atCounter;
         const w0 = wk;
         if (said < ASK_SECONDS) bubbles.push({ key: `${q.id}a`, x: w0.x, y: headAbove(w0.y), text: q.talk.ask, tone: 'ask' });
-        else if (v.keeperLook) bubbles.push({ key: `${q.id}k`, x: cellX(v.keeper.x) + CELL, y: headAbove(rowY(v.keeper.y + 1) - 2), text: q.talk.answer, tone: q.talk.outcome });
-        else bubbles.push({ key: `${q.id}k`, x: cellX(v.counter.x) + (v.counter.w * CELL) / 2, y: rowY(v.counter.y) - 4, text: q.talk.answer, tone: q.talk.outcome });
+        else if (v.keeperLook) bubbles.push({ key: `${q.id}k`, x: keeperAt.x, y: headAbove(keeperAt.y), text: q.talk.answer, tone: q.talk.outcome });
+        else bubbles.push({ key: `${q.id}k`, x: geo ? handX(geo.counter[0].x + 0.5) : cellX(v.counter.x) + (v.counter.w * CELL) / 2, y: geo ? handY(geo.keeper.y) - 6 : rowY(v.counter.y) - 4, text: q.talk.answer, tone: q.talk.outcome });
       }
     } else if ((wk.wait -= dt) <= 0) {
       const pool = shopFloor ? pieceSpots : spots;
@@ -624,7 +649,7 @@ function draw(c: HTMLCanvasElement, v: ShopView, t: number, dt: number): void {
       wk.tx = s.x;
       wk.ty = s.y;
       wk.wait = v.venue === 'tavern' ? 6 + Math.random() * 8 : 1.5 + Math.random() * 3;
-    } else if (v.venue === 'tavern') {
+    } else if (v.venue === 'tavern' && !hand) {
       // (seated, they turn to the table)
       const table = v.pieces.find((p) => p.kind === 'table' && Math.abs(wk!.y - rowY(p.y + p.h / 2) - 3) < 3);
       if (table) wk.left = wk.x > cellX(table.x + table.w / 2);
@@ -643,11 +668,15 @@ function draw(c: HTMLCanvasElement, v: ShopView, t: number, dt: number): void {
     layers.push({ y: w.y, paint: () => person(w.x, w.y, w.look, moving, w.left, t + q.id, q.tier, q.id, false, q.local) });
   }
   layers.sort((a, b) => a.y - b.y);
-  for (const l of layers) l.paint();
+  if (hand) {
+    // (the room paints its walls, floor and furniture, the people among them: their feet's y in cells)
+    paintRoom(g, { cols: hand.w, rows: hand.h, L: handLayout(hand), ox: WALL, oy: 0, k: 1, now: t * 1000, night: v.night, side: WALL, folk: () => layers.map((l): Draw => ({ y: (l.y - WALL_H) / TILE, fn: l.paint })) });
+    display();
+  } else for (const l of layers) l.paint();
   placeBubbles(c, bubbles);
 
   // (a soft glow from each hearth, over the floor in front of it)
-  for (const p of v.pieces)
+  for (const p of hand ? [] : v.pieces)
     if (p.item.endsWith('_hearth')) {
       const x = cellX(p.x) + (p.w * CELL) / 2;
       const y = rowY(p.y + p.h);
@@ -1252,7 +1281,7 @@ function placeBubbles(c: HTMLCanvasElement, list: Bubble[]): void {
 
 /** Where a browser stands (their feet): in front of each piece, and at the counter. */
 function browseSpots(v: ShopView): { x: number; y: number }[] {
-  const rowY = (y: number) => BACK + y * DEPTH;
+  const rowY = (y: number) => BACK_ + y * DEPTH;
   const bottom = rowY(v.rows) - 2;
   const atCounter = [0.5, 1.5].map((k) => ({ x: WALL + (v.counter.x + k) * CELL, y: Math.min(bottom, rowY(v.counter.y + 1) + 4) }));
   // tavern guests sit at the tables (on the benches either end), or stand at the bar

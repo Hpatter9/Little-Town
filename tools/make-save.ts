@@ -1,7 +1,8 @@
 // Writes a dwarves town, run for some days, as a phone save (for previews). Run: node tools/make-save.mjs out.txt [days]
 // (SEED=, ORIGIN=settlers, BIOME=highlands: another town; RELIEF=0 a level land; VALLEY=River_Valley a starting valley
 // drawn by hand, sim/startValleys.ts; SCENARIO=band; EXPLORE=24 the land that far round the camp seen;
-// HOME_DEF=longhouse a home built at the start with everyone's bed in it)
+// HOME_DEF=longhouse a home built at the start with everyone's bed in it; VENUES=1 a Fireside Inn and a Trading Post
+// built at the start, to see their own windows)
 import { writeFileSync } from 'node:fs';
 import { serialize } from '../src/shared/sim/save';
 import { Sim } from '../src/shared/sim/sim';
@@ -21,6 +22,16 @@ if (env.HOME_DEF) {
     const id = st.nextId++;
     st.buildings.push({ id, def: d.id, tile: r.x, row: r.y, status: 'done', delivered: {}, progress: 1, store: {} });
     for (const p of st.people) p.bed = id;
+  }
+}
+if (env.VENUES) {
+  const st = sim.state;
+  // (the studies they need, or the town pulls them down)
+  for (const r of ['barter', 'hospitality']) if (!st.research.done.includes(r)) st.research.done.push(r);
+  for (const id of ['fireside_inn', 'trading_post']) {
+    const d = BUILDING_BY_ID[id];
+    const r = spiralSpot(st.land, d.width, depthOf(d), footprints(st), campCell(st));
+    if (r) st.buildings.push({ id: st.nextId++, def: d.id, tile: r.x, row: r.y, status: 'done', delivered: {}, progress: 1, store: {} });
   }
 }
 for (let t = 0; t < Number(process.argv[3] ?? 6) * TICKS_PER_DAY; t++) sim.step();
