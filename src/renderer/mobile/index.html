@@ -761,6 +761,59 @@
         display: none;
       }
       /* the review page: every piece of news, the new ones bright, with its colour down the left and its button */
+      /* the stores readout (storesReadout.ts): coins and the main materials, at the top right under the top bar, above the
+         minimap; hidden while a menu, a battle or a scene has the screen */
+      #stores-readout {
+        position: fixed;
+        right: calc(env(safe-area-inset-right) + 8px);
+        top: calc(env(safe-area-inset-top) + 76px);
+        z-index: 3;
+        display: flex;
+        gap: 8px;
+        align-items: center;
+        max-width: calc(100% - 100px);
+        height: 26px;
+        padding: 0 8px;
+        border: 2px solid var(--wood-edge);
+        border-radius: 6px;
+        background: rgba(30, 22, 14, 0.82);
+        color: var(--text);
+        font: inherit;
+        font-size: 12px;
+        font-weight: 600;
+        white-space: nowrap;
+        overflow: hidden;
+      }
+      #stores-readout[hidden] {
+        display: none;
+      }
+      #stores-readout .sr-item {
+        display: inline-flex;
+        align-items: center;
+        gap: 2px;
+      }
+      #stores-readout img,
+      #stores-readout canvas,
+      #stores-readout .sr-item > div {
+        width: 16px;
+        height: 16px;
+        margin: 0 !important;
+      }
+      #stores-readout .sr-coin {
+        width: 12px;
+        height: 12px;
+        margin: 0 2px;
+        border-radius: 50%;
+        background: #e8c040;
+        border: 2px solid #a87820;
+        box-sizing: border-box;
+      }
+      body.menu-open #stores-readout,
+      body.battle #stores-readout,
+      body.event-open #stores-readout,
+      body.scene #stores-readout {
+        display: none;
+      }
       #notice-sheet {
         position: fixed;
         inset: 0;
