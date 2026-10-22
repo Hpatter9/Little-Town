@@ -71,7 +71,7 @@ export const SCENARIOS: readonly Scenario[] = [
   {
     id: 'tribe',
     name: 'Lost Tribe',
-    description: 'Six of you, young and old, and not much food. Put everyone to work fast.',
+    description: 'Six of you, young and old, and not much food. Keep everyone fed.',
     companions: ['gatherer', 'hunter', 'crafter', 'elder', 'child'],
     stores: { berries: 36 },
     research: [],

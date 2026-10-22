@@ -9,7 +9,7 @@ export function renderAlerts(bridge: Bridge | undefined): HTMLElement[] {
     el(
       'div',
       'hint',
-      'Get a push on your phone when raiders reach the town while you\'re away: they wait at the gate for you to watch the fight (up to 12 hours), and when a choice comes up (the town pauses until you answer). Install the free ntfy app, subscribe to a topic name only you know, and enter the same name here. Then tap Send a test alert. When you leave the game, it looks ahead and books the alerts.',
+      'Get a push on your phone for the big moments: raiders at the gate, a death, a choice waiting for you. Install the free ntfy app, subscribe to a topic name only you know, enter the same name here, then tap Send a test alert.',
     ),
   );
   const form = el('div', 'alerts-form');

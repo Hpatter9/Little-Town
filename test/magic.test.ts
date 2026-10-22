@@ -31,6 +31,7 @@ const ALL_SCHOOLS = SCHOOL_IDS.map((k) => SCHOOLS[k].topic);
 /** A town with the magic open, the autopilot on, and a few hands; `mages` of them casters. */
 function town(seed: string, mages = 1, n = 6, schools: string[] = ALL_SCHOOLS): GameState {
   const s = plainGame(seed);
+  s.townBuilds = true;
   const rng = new Rng(3);
   const c = s.people[0];
   while (s.people.length < n) s.people.push(makePerson(rng, s.nextId++, 'gatherer', { x: c.x + s.people.length * 6, y: c.y }, s.people.map((q) => q.name)));

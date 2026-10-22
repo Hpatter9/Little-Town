@@ -2,6 +2,7 @@
 // tick rate and are interpolated per frame; everyone stands in `things`, sorted by their feet. The LPC sprites are
 // side-on: they face the way they're going, left or right.
 
+import { FolkSprite } from '../iso/folkSprite';
 import { ghostStep } from '../battle/juiceRules';
 import { Container, Graphics, Rectangle, Sprite, Texture } from 'pixi.js';
 import type { ClassId } from '../../shared/data/classes';
@@ -73,6 +74,8 @@ const HORSE_SCALE = 0.85;
 const SADDLE_LIFT = 5;
 const HORSE_LEG_CUT = 0.5;
 const BLEED_MINUTES = 120;
+/** A PixelLab look's 160px frame to the map's people (the figure fills about two thirds of the frame). */
+const FOLK_SCALE = 0.55;
 const CHILD_SCALE = 0.7;
 /** A Himeko figure drawn as tall as the side-on townsfolk were (about 48px). */
 const HK_K = 48 / HK_FIGURE;
@@ -159,6 +162,9 @@ interface Drawn {
   view: PersonView;
   visitor: boolean;
   sprite: Sprite;
+  /** Their isometric figure (isoFolk only), made when first needed. */
+  folk?: FolkSprite;
+  folkAt?: number;
   shadow: Sprite;
   /** The side ring under them while they fight (art/sideRing.ts). */
   ring: SideRing;
@@ -285,6 +291,8 @@ export class MapPeople {
   /** A plague on (sim/pastimes.ts `plagueOn`): the sick cough oftener, a green puff. */
   plague = false;
   zoom = 1;
+  /** The isometric view (main.ts): townsfolk are drawn as the PixelLab looks (iso/folkSprite.ts), not the top-down sprites. */
+  isoFolk = false;
   /** The latest news (main.ts, per snapshot): the town crier, the best talker about, calls it out now and then. */
   news: { id: number; text: string } | null = null;
   /** The town's talk (main.ts, per snapshot: sim/gossip.ts): what those standing together talk over. */
@@ -377,7 +385,7 @@ export class MapPeople {
     }
     for (const [id, d] of this.drawn)
       if (!seen.has(id)) {
-        for (const o of [d.cough, d.sprite, d.shadow, d.ring.g, d.horse, d.horseFront, d.load, d.bubble, d.spray, d.barrow, d.pail, d.reflect, d.kite, d.props, d.blood, d.emote, d.levelUp, d.aura, d.lamp, d.tail, d.speech, d.marks, d.work, d.hpBar]) o?.destroy();
+        for (const o of [d.cough, d.sprite, d.shadow, d.ring.g, d.horse, d.horseFront, d.load, d.bubble, d.spray, d.barrow, d.pail, d.reflect, d.kite, d.props, d.blood, d.emote, d.levelUp, d.aura, d.lamp, d.tail, d.folk, d.speech, d.marks, d.work, d.hpBar]) o?.destroy();
         this.drawn.delete(id);
       }
   }
@@ -875,11 +883,27 @@ export class MapPeople {
         const stride = moving ? Math.floor(d.walked / 8) % 3 : 1;
         s.y -= SADDLE_LIFT + (stride === 1 ? 1 : 0);
       }
+      // the isometric view draws them as the PixelLab looks (iso/folkSprite.ts): the figure stands where the top-down
+      // sprite would, and the view's `placeLoose` carries it onto the diamonds. Their special forms keep the old sprite.
+      const wolfNow = v.monster === 'werewolf' && (this.moon || inCombat);
+      const folkOn = this.isoFolk && !hidden && !swimming && !wolfNow && !form && !(v.beast && inCombat && v.downed === null);
+      if (this.isoFolk) {
+        if (folkOn) {
+          const f = (d.folk ??= this.layer.addChild(new FolkSprite()));
+          f.visible = true;
+          f.scale.set(FOLK_SCALE * k);
+          f.position.set(s.x, s.y);
+          f.zIndex = z;
+          f.update(v, d.x, d.y, now / 1000, Math.max(0.001, (now - (d.folkAt ?? now - 16)) / 1000));
+          d.folkAt = now;
+          s.visible = false;
+        } else if (d.folk) d.folk.visible = false;
+      }
       // their harm, over the sprite (bodyMarks.ts)
       const marks = v.body.marks;
       // (a merrow on land wears their fins: the same overlay, in their tail's colours)
       const mer = v.mer && !swimming ? v.id : -1;
-      const showMarks = plain && !hidden && (marks.length > 0 || mer >= 0) && v.downed === null;
+      const showMarks = plain && !hidden && !(this.isoFolk && folkOn) && (marks.length > 0 || mer >= 0) && v.downed === null;
       if (showMarks && !d.marks) d.marks = this.layer.addChild(new Graphics());
       if (d.marks) {
         d.marks.visible = showMarks;

@@ -1,5 +1,6 @@
 // Pop-up panel window. One window serves every tab; the main process shows it and tells it which tab is open.
 
+import { applyGivenNames } from '../art/givenNames';
 import { withDeltas } from '../deltaBridge';
 import { PANELS, type Bridge, type PanelId, type StripState } from '../../shared/ipc';
 import type { Snapshot } from '../../shared/sim/snapshot';
@@ -20,6 +21,8 @@ import { arenaKey } from './arenaPanel';
 import { renderTrade, tradeKey } from './tradePanel';
 import { renderWar, warKey } from './warPanel';
 import { renderAlerts } from './alertsPanel';
+import { founderKey, renderFounder } from './founderPanel';
+import { renderStory, storyKey } from './storyPanel';
 import { renderNewGame, restartNewGame } from './newGamePanel';
 import { isVenuePanel, renderShop, shopKey, venueView } from './shopPanel';
 import { hkKnow } from '../art/hkFolk';
@@ -109,6 +112,8 @@ function keyOf(): string {
                     ? 'w' + warKey(snap)
                   : isVenuePanel(shown)
                     ? shown + shopKey(snap, shown)
+                  : shown === 'founder'
+                    ? 'f' + founderKey(snap) + '|' + storyKey(snap)
                   : shown === 'newgame'
                     ? 'n' + !!snap.gameOver + legendsVersion()
                     : shown;
@@ -127,7 +132,7 @@ function render(): void {
   if (pressing) return;
   renderedKey = keyed;
   const tab = PANELS.find((p) => p.id === shown);
-  title.textContent = tab ? panelLabel(tab.id, tab.label, currentTheme()) : (shown === 'alerts' ? 'Phone alerts' : shown === 'newgame' ? 'New town' : isVenuePanel(shown) ? (venueView(snap, shown)?.name ?? (shown === 'shop' ? 'Shop' : shown === 'tavern' ? 'Tavern' : 'Shop')) : '');
+  title.textContent = tab ? panelLabel(tab.id, tab.label, currentTheme()) : (shown === 'alerts' ? 'Phone alerts' : shown === 'founder' ? 'The founder' : shown === 'newgame' ? 'New town' : isVenuePanel(shown) ? (venueView(snap, shown)?.name ?? (shown === 'shop' ? 'Shop' : shown === 'tavern' ? 'Tavern' : 'Shop')) : '');
   const scroll = body.scrollTop;
   if (snap && shown === 'journal') {
     // fetched separately: the whole journal is too big to send with every snapshot
@@ -152,6 +157,10 @@ function render(): void {
   else if (snap && shown === 'trade') body.replaceChildren(...tabbed([...renderTrade(snap, bridge), ...renderWorkshops(snap, render)]));
   else if (snap && shown === 'war') body.replaceChildren(...tabbed(renderWar(snap, bridge, render)));
   else if (shown === 'alerts') body.replaceChildren(...renderAlerts(bridge));
+  else if (snap && shown === 'founder') {
+    hkKnow(snap.people);
+    body.replaceChildren(...tabbed([...renderFounder(snap, bridge, render), ...renderStory(snap)]));
+  }
   else if (snap && isVenuePanel(shown)) {
     hkKnow(snap.people); // (who's who, so the keeper is dressed as the map dresses them: art/hkFolk.ts)
     body.replaceChildren(...renderShop(snap, shown, render));
@@ -211,6 +220,7 @@ function onState(s: StripState): void {
 if (bridge) {
   bridge.onState(onState);
   bridge.onSnapshot((next) => {
+    applyGivenNames(next);
     snap = next;
     refreshCard(next);
     noteFood(next);

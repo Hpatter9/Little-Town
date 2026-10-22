@@ -9,7 +9,8 @@ import type { JournalEntryView, Snapshot } from '../../shared/sim/snapshot';
 import { SnapAssembler } from '../../shared/snapDelta';
 import type { FromHost, NewTown, ToHost, startSimHost } from '../../shared/simHost';
 import { mayBuzz, readVibrate } from '../vibration';
-import { beginTown, noteCurrent } from './saveSlots';
+import { beginTown, deleteSlot, noteCurrent, readSlots } from './saveSlots';
+import type { Legend } from '../../shared/sim/legacy';
 import { ENTER_KEY } from './mainMenu';
 
 const SAVE_KEY = 'littletown.save';
@@ -126,7 +127,7 @@ export function mobileBridge(): Bridge {
         return;
     }
   });
-  const ask = <T>(m: Record<string, unknown> & { t: 'save' | 'journal' | 'newGame' }): Promise<T> =>
+  const ask = <T>(m: Record<string, unknown> & { t: 'save' | 'journal' | 'newGame' | 'legend' }): Promise<T> =>
     new Promise<T>((res) => {
       const id = nextAsk++;
       asked.set(id, res as (v: unknown) => void);
@@ -140,13 +141,11 @@ export function mobileBridge(): Bridge {
       noteCurrent(localStorage, { name: s.townName, origin: s.origin.name, biome: s.biome, day: s.calendar.day, people: s.people.length, savedAt: Date.now() });
     } catch {}
   };
-  const catchingUp = () => !!assembler.current?.catchingUp;
   // (boot.js has sent the town already, when it could start the worker)
   if (!(window as unknown as { __simBoot?: unknown }).__simBoot) send({ t: 'init', save: savedText, now: Date.now(), hidden: document.hidden, alerts, held: true });
   else send({ t: 'hidden', on: document.hidden });
 
-  // Phone alerts (ntfy): booked for the time away as the page goes to the background (the game's side looks ahead
-  // while it's open), dropped when it comes back.
+  // Alerts booked by an older version for a time away are dropped when the page opens (and when it comes back).
   const dropBooked = () => {
     const ids = JSON.parse(read(SCHEDULED_KEY) ?? '[]') as string[];
     if (!ids.length) return;
@@ -155,8 +154,8 @@ export function mobileBridge(): Bridge {
   };
   dropBooked();
 
-  // In the background the page is frozen: the game saves on the way out (and books the alerts); coming back, it sees
-  // the gap and catches up.
+  // In the background the game saves on the way out and stands still (sim/gameLoop.ts `hidden`); coming back, it
+  // carries on from the same tick: no time passes for the time hidden.
   document.addEventListener('visibilitychange', () => {
     if (!document.hidden) dropBooked();
     send({ t: 'hidden', on: document.hidden });
@@ -185,7 +184,7 @@ export function mobileBridge(): Bridge {
   return {
     // (the strip asks; the buzz is made here, in the page the player touched: an iframe's own call may be refused)
     vibrate: (pattern) => {
-      if (document.hidden || catchingUp() || !readVibrate() || typeof navigator.vibrate !== 'function') return;
+      if (document.hidden || !readVibrate() || typeof navigator.vibrate !== 'function') return;
       const now = performance.now();
       if (!mayBuzz(lastBuzz, now)) return;
       lastBuzz = now;
@@ -262,6 +261,21 @@ export function mobileBridge(): Bridge {
         } catch {}
         location.reload();
       });
+    },
+    // (the town is over: its legend is kept, the save is let go, and the page starts over at the main menu)
+    endTown: async () => {
+      if (leaving) return;
+      const legend = await ask<Legend | null>({ t: 'legend', now: Date.now() });
+      leaving = true;
+      (window as unknown as { __noSave?: boolean }).__noSave = true;
+      if (legend) keepLegend(legend);
+      const book = readSlots(localStorage);
+      if (book.current) deleteSlot(localStorage, book.current);
+      try {
+        localStorage.removeItem(SAVE_KEY);
+        sessionStorage.removeItem(ENTER_KEY);
+      } catch {}
+      location.reload();
     },
     command: (c) => send({ t: 'command', c }),
     // (the loading screen has gone: the clock runs)

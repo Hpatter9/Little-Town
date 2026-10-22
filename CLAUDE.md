@@ -54,16 +54,24 @@ read that part before changing anything.
 - **Art:** use sprites from the packs (see below), copied one at a time into `src/`, and credit them in
   `CREDITS.md`. Never change `../chronos-assets`.
 - **Never run** Electron (`npm start`) or `npm run dist`.
-- **When unsure what the owner wants, ask.** Don't guess at design decisions or add manual controls the owner didn't
-  ask for (the town is hands-off).
+- **When unsure what the owner wants, ask.** Don't guess at design decisions or add controls the owner didn't ask for.
 
 ## Priorities (from the owner)
 
 - **Phone first.** Design every change for the phone version. Before calling anything done, check it at phone
   sizes both upright (393x852) and sideways (852x393) in a browser preview.
-- **Hands-off.** The town decides for itself what to research, gather, build and craft
-  (`src/shared/sim/planner.ts`). The player only sets the town's **direction** (Growth, Defence, Trade or
-  Knowledge, in the Plan tab) and sends **expeditions**. Don't add chores or manual controls.
+- **The founder is the player's character (changed October 2026; the game used to be hands-off).** The player
+  steers the founder (where they go, their work, their purse, gear and shop, the quests they lead), and the story
+  follows them. The townsfolk still live and work on their own. The plan: the owner's doc "Chronos: playing the
+  founder".
+  - **Building is the founder's call.** The town never places a blueprint of its own: every building, home, wall,
+    field, pen and street is ordered by the player from the build menu. The town picks the spot, and recommends what
+    to build next (the planner's old choices become recommendations).
+  - **Research:** three topics are offered at a time; the player picks one (the town picks if they don't).
+  - **The founder's heir:** a grown child, the partner, or a named or adopted heir. If the founder dies with no heir,
+    the game is over.
+  - **The game only runs while it's open.** No catching up on time away.
+  - A choice on a quest the founder leads pauses the game until the player answers.
 - **Deaths should be common.** Raids, disasters and hunger are meant to bite.
 - **Use the assets, not code-drawn art.** The owner doesn't like the look of the textures and sprites the code paints.
   From here on, wherever an uploaded asset (the packs in `../chronos-assets`) can stand in for something code-drawn,
@@ -284,6 +292,20 @@ Grep the file and constant names too: most systems were changed again in later s
   nomads `sim/nomads.ts`; the merfolk `sim/sea.ts`; the dwarves the hold (`sim/castle.ts`); the orcs `sim/warpath.ts`.
   H: each people's name, e.g. "The Orc Warband", "The Moon Pack", "The merfolk rework".
 
+**The founder (the player's character)**
+- **The founder's card and orders:** `sim/founder.ts`, `panel/founderPanel.ts`, `sim/power.ts` (power levels),
+  `sim/titles.ts` + `data/titles.ts`. H: "The founder's card", "Power levels", "Titles that take longer".
+- **Building by hand:** `panel/buildPanel.ts` (`buildMenu`), `panel/buildKinds.ts`, `sim/pins.ts`, land clearing
+  (`sim/commands.ts`, `sim/regrow.ts`). H: "The build menu: the founder builds", "A simpler build menu", "Land clearing".
+- **Research offers:** `sim/researchOffer.ts`, `panel/researchPanel.ts`. H: "Research offered three at a time".
+- **Shops, dealings, duels, disputes, naming:** `sim/founderShops.ts` + `data/founderShops.ts`,
+  `sim/founderDealings.ts`, `sim/duel.ts` + `data/duels.ts`, `sim/disputes.ts`, `sim/naming.ts`. H: "The founder's
+  shops", "Founder interactions A", "More ways to interact".
+- **Quests the founder leads, the steward, the Story:** `sim/founderQuests.ts`, `sim/steward.ts`, `sim/story.ts`,
+  `panel/storyPanel.ts`. H: "Founder quests, the steward".
+- **Only while open:** `shared/simHost.ts`, `sim/offline.ts`; the phone's service worker (`tools/build-web.mjs`).
+  H: "No time away", "Playing with no connection".
+
 **The renderer**
 - **The map:** `map/mapView.ts` (ground chunks, buildings, props, lights layer), `map/mapPeople.ts`,
   `map/mapRaiders.ts`, `map/mapCamera.ts`, `map/minimap.ts`, `main.ts` (input, tap cards, hover). H: "Phase 3",
@@ -306,6 +328,11 @@ Grep the file and constant names too: most systems were changed again in later s
 - **Sound:** `ambience.ts`, `ambienceMix.ts`, `sfx.ts`, `music.ts`, `musicScore.ts`, `musicGen.ts`, `musicMood.ts`,
   `soundZones.ts`, `audioGate.ts`, `volume.ts`. H: "The soundscape", "Music, sound and real light", "Sounds that
   match".
+- **The isometric view (behind Settings, `littletown.iso`):** `iso/isoView.ts`, `iso/isoMath.ts`, `iso/isoKits.ts`,
+  `iso/isoTown.ts`, `iso/isoLight.ts`, `iso/isoCastle.ts` + `isoCastleView.ts`, `iso/folk*.ts` (townsfolk, not yet
+  wired), `tactics/isoBoard.ts`; art in `art/iso/` (kits, castles, folk; PixelLab). H: "The isometric view, begun",
+  "The iso town, filled in", "The isometric art", "Isometric townsfolk", "Night, doors", "The castle and the hold in
+  the isometric view", "The raid board in the isometric look".
 
 **Tests and tools**
 - `test/helpers.ts` (`plainGame`, land helpers), `test.mjs` (the runner: parallel, slowest first, slow files split

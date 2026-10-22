@@ -139,6 +139,8 @@ export interface Building {
   /** A home's name (data/homeNames.ts), given once its first owner or resident is known and kept after
    *  (sim/memorials.ts `nameHomes`). */
   homeName?: string;
+  /** The founder named it (sim/naming.ts): the name is in `homeName`, and shows on any kind of building. */
+  named?: boolean;
   /** A statue: the one of the town's famous dead it stands for (a person's id, in `s.honoured`: sim/memorials.ts). */
   statue?: number;
   /** A pen widened for its herd: this many columns more than its def's width (sim/livestock.ts `growPen`). */
@@ -160,6 +162,9 @@ export interface Building {
     decor?: { style: DecorId; level: number };
     /** What it took today and yesterday (sim/ambition.ts: a business's price). */
     takings?: { day: number; today: number; yesterday: number };
+    /** The founder's own shop (sim/founderShops.ts): its stock line, price level, the takings not yet settled, and the
+     *  season's books. */
+    run?: { stock: string; price: import('../data/founderShops').ShopPrice; till: number; season?: { n: number; gross: number; net: number }; last?: number };
   };
   /** Loads quarried from it (a quarry: sim/farming.ts `quarryLoad`). */
   dug?: number;
@@ -422,6 +427,8 @@ export interface SagaRun {
   b?: number;
   /** What has happened so far, a line a chapter. */
   log: string[];
+  /** How many chapters it has been through (older saves: counted from the log). */
+  turns?: number;
 }
 
 export interface Raid {
@@ -457,10 +464,6 @@ export interface Raid {
   prompt: number | null;
   /** A rival lord's hexes on the defenders and blessings on its army, until these ticks (sim/rivals.ts). */
   hex?: Partial<Record<'hold' | 'fog' | 'emp' | 'frenzy' | 'ward', { until: number; name: string }>>;
-  /** Held at the gate for the player (sim/offline.ts): the real ms it has waited so far. Unset once it's under way,
-   *  and `alone` once it has been left to play out without them. */
-  waiting?: number;
-  alone?: boolean;
   /** The tower-defence battle on the trail (sim/battle.ts), while it's on and after. */
   battle?: TownBattle;
   /** The same raid fought as a tactics battle (sim/tactics.ts), when the town fights that way. */
@@ -482,6 +485,8 @@ export interface Raid {
   skipIt?: boolean;
   /** Fled on arrival, at the sight of the town (and spared, or not). */
   turned?: boolean;
+  /** A chase after the fugitives of an earlier raid (sim/chase.ts): fought on the tactics board, close and the town first. */
+  chase?: boolean;
 }
 
 export interface Needs {
@@ -632,6 +637,10 @@ export interface Person {
   lvXp?: number;
   /** Raiders this person has struck the last blow on (sim/raidRecap.ts), for the hall of heroes. */
   felled?: number;
+  /** Things counted for the titles that say how someone is (`tally` in sim/deeds.ts, data/titles.ts): "slain:wolf", "wounds", "wed" ... */
+  tally?: Record<string, number>;
+  /** How each of their titles was earned (sim/titles.ts): title -> a line for their card. */
+  titleWhy?: Record<string, string>;
   /** Deeds counted toward titles (sim/deeds.ts, data/deeds.ts). */
   deeds?: Partial<Record<import('../data/deeds').DeedKind, number>>;
   /** Their last close calls (sim/closeCalls.ts): for their diary, and "Shaken" on their card for a while. */
@@ -805,9 +814,14 @@ export interface Debrief {
 
 export interface Prompt {
   id: number;
-  kind: 'strangers' | 'raid' | 'rite' | 'lich' | 'gate' | 'event' | 'thirst' | 'visitor' | 'secret' | 'saga' | 'road' | 'debrief' | 'envoy' | 'watch' | 'dragon' | 'evolve' | 'refugees' | 'village' | 'council' | 'trial' | 'revolt' | 'ways' | 'enemy';
+  kind: 'strangers' | 'raid' | 'rite' | 'lich' | 'gate' | 'event' | 'thirst' | 'visitor' | 'secret' | 'saga' | 'road' | 'debrief' | 'envoy' | 'watch' | 'dragon' | 'evolve' | 'refugees' | 'village' | 'council' | 'trial' | 'revolt' | 'ways' | 'enemy' | 'dispute' | 'duel' | 'name' | 'deal';
   /** A people's own question (the origins made deeper: sim/heritage.ts `answerWays`): whose, and about what. */
   ways?: { system: string; about: string; id?: number };
+  /** A naming (sim/naming.ts): what is to be named. The options are suggestions; the box also takes a name typed in. */
+  naming?: { kind: 'building' | 'person' | 'unique'; id: number | string };
+  /** A dispute the founder judges (sim/disputes.ts) or a duel put to them (sim/duel.ts): the people it is about. */
+  dispute?: { kind: 'quarrel' | 'theft'; a: number; b: number; guilty?: boolean };
+  duel?: { foe: number; to: 'yield' | 'death' };
   /** A question of the town's politics (sim/politics.ts): a council vote, a trial or a revolt. */
   politics?: 'vote' | 'trial' | 'revolt';
   /** A daughter village's question (sim/villages.ts): some would go and found one, or one is beset. */
@@ -820,6 +834,11 @@ export interface Prompt {
   road?: string;
   /** A saga's question: the run it belongs to (sim/sagas.ts). */
   saga?: number;
+  /** A road question on a trip the founder is on: no timer, no default, and the game is held until it is answered
+   *  (sim/founderQuests.ts). */
+  waits?: boolean;
+  /** A question the founder put (sim/founderDealings.ts): a match for someone, or a haggle over a caravan's deal. */
+  deal?: { kind: 'match'; person: number; picks: number[] } | { kind: 'haggle'; offer: number };
   /** The expedition it's about (strangers), or null. */
   expedition: number | null;
   title: string;
@@ -834,8 +853,6 @@ export interface Prompt {
   stood?: number;
   /** Closed unanswered (sim/popups.ts `parkPrompt`): it waits behind the choices button and no longer holds the town. */
   parked?: boolean;
-  /** A choice that holds the town until it is answered, closed or not (a quest the founder leads); it never times out. */
-  pinned?: boolean;
   /** A commanded party's homecoming (sim/muster.ts `debrief`): who came back and how, who did not, and the haul. */
   debrief?: Debrief;
   /** A fateful event (data/fatefulEvents.ts): the box wears its heavier frame and reveals slowly. */
@@ -1131,7 +1148,7 @@ export interface GameState {
   /** Goodwill from helping strangers; draws more wanderers. */
   reputation: number;
   /** Set when the main character dies. The sim stops. */
-  gameOver: { tick: number; text: string; won?: boolean } | null;
+  gameOver: { tick: number; text: string; won?: boolean; /** The founder who fell with no heir: their name, the days the town lasted and how they died. */ founder?: string; days?: number; cause?: string } | null;
   /** The ship is built: it lifts off at this tick (the game is won). */
   launchTick?: number | null;
   /** Everyone is saddened by a death until this tick. */
@@ -1175,7 +1192,7 @@ export interface GameState {
   sabotage?: number;
   /** The sagas under way (sim/sagas.ts), those finished (by id), and when the last began. */
   sagas?: SagaRun[];
-  sagasDone?: { id: string; outcome: 'triumph' | 'bittersweet' | 'ruin'; tick: number; hero?: string }[];
+  sagasDone?: { id: string; outcome: 'triumph' | 'bittersweet' | 'ruin'; tick: number; hero?: string; began?: number; story?: string[] }[];
   lastSaga?: number;
   /** The Monster Hunters' Guild (sim/hunts.ts): hunts on its board, when it last posted one, and hunts won by quarry. */
   hunts?: Hunt[];
@@ -1201,6 +1218,13 @@ export interface GameState {
   /** Each unique's story: who made or won it, who has borne it, its deeds, its end (sim/provenance.ts). Missing on
    *  older saves, and for a unique found before there was one. */
   uniqueLog?: Record<string, import('./provenance').UniqueRecord>;
+  /** The names the founder gave their uniques, by item id (sim/naming.ts). */
+  uniqueNames?: Record<string, string>;
+  /** The founder's duel under way, or the last one (sim/duel.ts), and when disputes were last put to them (sim/disputes.ts). */
+  duel?: import('./duel').DuelState;
+  disputes?: { last: number };
+  /** When a rival last challenged the founder to a duel (sim/duel.ts). */
+  duelChallenged?: number;
   itemQ?: Record<string, number[]>;
   /** The craft queue, worked front to back. */
   crafting: CraftOrder[];
@@ -1272,6 +1296,13 @@ export interface GameState {
   pins?: Pin[];
   /** False turns the town's own planner off (tests of single mechanics). On when left out. */
   autopilot?: boolean;
+  /** Old behaviour switched back on (tests): the town lays its own blueprints. Missing or false: the founder orders every
+   *  building, wall, field, pen and street from the build menu, and the town only picks the spot (CLAUDE.md, Priorities). */
+  townBuilds?: boolean;
+  /** The founder has ordered the ring wall raised, widened or upgraded: the planner works it until it stands. */
+  ringOrder?: boolean;
+  /** The founder has ordered the streets laid: done at the next hour. */
+  streetsOrder?: boolean;
   /** The player's veto on destinations, the treasury's bounties on them (coins set aside), and when the last party
    *  formed itself (sim/parties.ts). */
   vetoed?: string[];
@@ -1297,6 +1328,8 @@ export interface GameState {
   /** The evening at the tavern under way (sim/nightOut.ts). */
   nightOut?: NightOut;
   lastFeast?: number;
+  /** The founder's dealings (sim/founderDealings.ts): when they last hosted, the caravans' goodwill, and who refused a match until when. */
+  dealings?: { feastAt?: number; goodwill?: number; cool?: Record<number, number> };
   /** An event to put to the player next, once the one open now is answered (`follow`). */
   eventNext?: string;
   busy?: { until: number; ids: number[]; text: string; x: number; y: number; anim: 'chop' | 'build' | 'mine' };
@@ -1336,6 +1369,8 @@ export interface GameState {
   eventOutcome?: { title: string; choice: string | null; text: string; tick: number };
   /** The last raid's recap (sim/raidRecap.ts). */
   raidRecap?: RaidRecap;
+  /** The fugitives of the last raid, while they can still be chased (sim/chase.ts). */
+  chaseOffer?: import('./chase').ChaseOffer;
   /** The annals (sim/annals.ts): the fallen, the year's chronicles, and the year being reckoned. */
   fallen?: Fallen[];
   /** The famous dead the town means to raise statues to, in the order they fell (sim/memorials.ts). */
@@ -1404,8 +1439,8 @@ export interface GameState {
   /** Choice events (sim/events.ts): the one being asked now (its def, prompt and the townsperson it's about), when the
    *  next may come, the last few drawn (not drawn again soon), the marks answers left on the town (a lever or
    *  everyone's morale, until a tick), and effects still to come. */
-  /** The choice event waiting for an answer; `held` once it has paused the town during time away (offline.ts). */
-  event?: { def: string; prompt: number; who?: number; held?: boolean };
+  /** The choice event waiting for an answer. */
+  event?: { def: string; prompt: number; who?: number };
   /** The townsperson the player follows (the camera keeps them in view; their big moments send phone alerts). */
   hero?: number;
   /** The expedition (or delve, or a skirmish on the land: sim/roamers.ts) the player is watching, in place of the
@@ -1480,6 +1515,12 @@ export interface GameState {
   fates?: import('./fates').Fate[];
   /** The founder's chosen heir (a stranger taken in by a fateful choice: sim/events.ts `adopt`); heirOf prefers them. */
   heirId?: number;
+  /** What the player has told the founder to do (sim/founder.ts). */
+  founderOrder?: import('./founder').FounderOrder;
+  /** The founder's story, chapter by chapter (sim/story.ts). */
+  story?: import('./story').Story;
+  /** The founder is away: who minds the town, and what stood when they left (sim/steward.ts). */
+  gone?: import('./steward').Gone;
   /** The town's alignment, good to evil (sim/alignment.ts). */
   align?: import('./alignment').AlignState;
   /** When a wanderer last came to the gate (arrivals are a question to the player, and come no oftener than
@@ -1611,11 +1652,9 @@ export interface Notice {
 }
 
 export interface JournalEntry extends Notice {
-  /** A milestone (finished research or building, a death, a raid's outcome...): "while you were away"
-   *  reports list these and only count the rest. */
+  /** A milestone (finished research or building, a death, a raid's outcome...). */
   key?: true;
-  /** A "while you were away" report: `text` is its title, `lines` the summary, and the three biggest things that
-   *  happened, as pictures (sim/highlights.ts). */
+  /** A report entry from an older save: `text` is its title, `lines` the summary, `highlights` pictures of the biggest things. */
   lines?: string[];
   highlights?: { text: string; building?: string; person?: number }[];
 }

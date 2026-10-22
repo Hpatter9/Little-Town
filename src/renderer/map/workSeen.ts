@@ -129,7 +129,7 @@ export interface Gain {
   n: number;
 }
 
-/** Ticks between two snapshots past which nothing is lifted (a catch-up after time away would be a fountain). */
+/** Ticks between two snapshots past which nothing is lifted (a long gap, such as a fast-forward, would be a fountain). */
 export const GAINS_GAP = 40;
 /** The most gains lifted from one snapshot to the next. */
 export const GAINS_MOST = 6;

@@ -42,7 +42,12 @@ export interface EventSheet {
   update(snap: Snapshot): void;
 }
 
-export function createEventSheet(onAnswer: (prompt: number, option: number) => void, strip: HTMLIFrameElement, onPark: (prompt: number) => void = () => {}): EventSheet {
+export function createEventSheet(
+  onAnswer: (prompt: number, option: number) => void,
+  strip: HTMLIFrameElement,
+  onName?: (naming: NonNullable<PromptView['naming']>, name: string) => void,
+  onPark: (prompt: number) => void = () => {},
+): EventSheet {
   const el = document.createElement('div');
   el.id = 'event-sheet';
   el.hidden = true;
@@ -54,7 +59,7 @@ export function createEventSheet(onAnswer: (prompt: number, option: number) => v
   let answered: { id: number; from: number; at: number; box: HTMLElement; told: boolean } | null = null;
   let tick = 0;
   let lastSnap: Snapshot | null = null;
-  /** Debriefs read (closed at once, never shown again while the sim catches up). */
+  /** Debriefs read, and questions answered (closed at once, never shown again). */
   const read = new Set<number>();
   /** Waiting this long (real ms) with nothing come of it, the box says so and lets you go on. */
   const QUIET_MS = 2500;
@@ -139,6 +144,18 @@ export function createEventSheet(onAnswer: (prompt: number, option: number) => v
     }
     // a commanded party's result leads with who came home and who did not, then the haul (sim/muster.ts `debrief`)
     if (p.debrief) text.replaceChildren(...debriefBlock(p.debrief));
+    // the telling is long: the first few lines show, the rest a tap away
+    let more: HTMLElement | null = null;
+    if (!p.debrief && text.children.length > 1) {
+      text.classList.add('short');
+      more = document.createElement('button');
+      more.className = 'event-more';
+      more.textContent = 'Read on';
+      more.addEventListener('click', () => {
+        text.classList.remove('short');
+        more!.remove();
+      });
+    }
     const options = document.createElement('div');
     options.className = evolve ? 'event-options evolve-options' : 'event-options';
     // the answer taken: a gold flash and a burst of sparks over the scene
@@ -158,6 +175,7 @@ export function createEventSheet(onAnswer: (prompt: number, option: number) => v
         if (answered) return;
         flourish();
         onAnswer(p.id, i);
+        read.add(p.id); // (an answered question is not put again if a snapshot still lags with it)
         if (p.kind === 'debrief' || p.kind === 'watch') {
           read.add(p.id);
           shown = -1;
@@ -167,7 +185,7 @@ export function createEventSheet(onAnswer: (prompt: number, option: number) => v
         }
         options.replaceWith(answerBox(p, label));
     };
-    // an evolution: each road a card with its emblem, its role, its telling and its signature skill
+    // a promotion: each road a card with its emblem, its role, its telling and its signature skill
     if (evolve) {
       for (const [i, r] of p.roads!.entries()) {
         const card = document.createElement('div');
@@ -231,6 +249,7 @@ export function createEventSheet(onAnswer: (prompt: number, option: number) => v
         if (answered) return;
         flourish();
         onAnswer(p.id, i);
+        read.add(p.id);
         // (a debrief is read, not answered, and a fight to watch is watched or not: either just closes)
         if (p.kind === 'debrief' || p.kind === 'watch') {
           read.add(p.id);
@@ -243,6 +262,34 @@ export function createEventSheet(onAnswer: (prompt: number, option: number) => v
       });
       options.append(b);
     });
+    // a naming: the suggestions above, and a box to type a name of your own (sim/naming.ts)
+    let nameForm: HTMLElement | null = null;
+    if (p.kind === 'name' && p.naming && onName) {
+      const naming = p.naming;
+      const form = document.createElement('form');
+      form.className = 'event-name';
+      const input = document.createElement('input');
+      input.type = 'text';
+      input.maxLength = 24;
+      input.placeholder = 'Or type a name';
+      input.autocomplete = 'off';
+      const go = document.createElement('button');
+      go.type = 'submit';
+      go.className = 'event-option';
+      go.textContent = 'Name it';
+      form.append(input, go);
+      form.addEventListener('submit', (ev) => {
+        ev.preventDefault();
+        const name = input.value.replace(/\s+/g, ' ').trim();
+        if (answered || name.length < 2) return void input.focus();
+        flourish();
+        onName(naming, name);
+        read.add(p.id);
+        options.replaceWith(answerBox(p, name));
+        form.remove();
+      });
+      nameForm = form;
+    }
     if (fateful && !reducedMotion()) {
       const STEP = 300;
       let at = 0;
@@ -263,8 +310,8 @@ export function createEventSheet(onAnswer: (prompt: number, option: number) => v
     const advice = document.createElement('div');
     advice.className = 'event-advice';
     if (p.recommended != null && p.why && !evolve) advice.textContent = `The town recommends "${p.options[p.recommended]}": ${p.why}.`;
-    body.append(title, text, options, advice, count);
-    if (p.pinned) {
+    body.append(title, text, ...(more ? [more] : []), options, ...(nameForm ? [nameForm] : []), advice, count);
+    if (p.waits) {
       const hold = document.createElement('div');
       hold.className = 'event-hold';
       hold.textContent = 'The town waits for your answer. Close this and it waits behind the choices button.';

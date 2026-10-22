@@ -3,6 +3,7 @@
 import * as esbuild from 'esbuild';
 import { copyFileSync, cpSync, existsSync, mkdirSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
+import { createHash } from 'node:crypto';
 import { execSync } from 'node:child_process';
 import { trayIconPng } from '../src/main/trayIcon.ts';
 
@@ -17,6 +18,7 @@ cpSync('out/renderer/music', `${OUT}/music`, { recursive: true });
 cpSync('out/renderer/packs', `${OUT}/packs`, { recursive: true });
 cpSync('out/renderer/backdrops', `${OUT}/backdrops`, { recursive: true });
 cpSync('out/renderer/himeko', `${OUT}/himeko`, { recursive: true });
+cpSync('out/renderer/iso', `${OUT}/iso`, { recursive: true });
 cpSync('out/renderer/props', `${OUT}/props`, { recursive: true });
 cpSync('out/renderer/scenery', `${OUT}/scenery`, { recursive: true });
 cpSync('out/renderer/eventprops', `${OUT}/eventprops`, { recursive: true });
@@ -116,22 +118,36 @@ writeFileSync(
   ),
 );
 
-// the offline cache lists every file, and is renamed on every build so phones pick up the new one
-const files = [];
+// the offline caches (sw.js): the shell (pages, scripts, manifest: renamed every build) and the art (kept between
+// builds, one entry per file and short content hash, so an update fetches only the pictures that changed)
+const SHELL = /\.(html|js|webmanifest|json)$|^icon-|^\.nojekyll$/;
+// (the fights' backdrops, the townsfolk's layers and the isometric kits are many and big: the service worker fetches
+// them in the background after install, not before the first play)
+const LATER = /^(backdrops|himeko|iso)\//;
+const shell = [];
+const art = {};
 const walk = (dir) => {
   for (const f of readdirSync(dir)) {
     const p = path.join(dir, f);
     if (statSync(p).isDirectory()) walk(p);
-    // (the fights' backdrops are many and big: each is cached when a fight first shows it, see sw.js)
-    // (and the townsfolk's layers, hundreds of them: each is cached when someone first wears it)
-    else if (!/^(backdrops|himeko)/.test(path.relative(OUT, p))) files.push(path.relative(OUT, p).replaceAll('\\', '/'));
+    else {
+      const rel = path.relative(OUT, p).replaceAll('\\', '/');
+      if (rel === 'sw.js' || rel === 'art-manifest.json') continue;
+      if (SHELL.test(rel)) shell.push(rel);
+      else {
+        const bytes = readFileSync(p);
+        art[rel] = [createHash('md5').update(bytes).digest('hex').slice(0, 10), bytes.length, LATER.test(rel) ? 1 : 0];
+      }
+    }
   }
 };
 walk(OUT);
+const version = `${pkg.version}-${Date.now().toString(36)}`;
+writeFileSync(`${OUT}/art-manifest.json`, JSON.stringify({ version, art }));
 const sw = readFileSync('src/renderer/mobile/sw.js', 'utf8')
-  .replace('__VERSION__', `littletown-${pkg.version}-${Date.now().toString(36)}`)
-  .replace('__FILES__', JSON.stringify(['./', ...files]));
+  .replace('__VERSION__', `littletown-shell-${version}`)
+  .replace('__FILES__', JSON.stringify(['./', ...shell, 'art-manifest.json']));
 writeFileSync(`${OUT}/sw.js`, sw);
 // (GitHub Pages would otherwise skip files and folders starting with _)
 writeFileSync(`${OUT}/.nojekyll`, '');
-console.log(`built ${OUT}/ (${files.length} files)`);
+console.log(`built ${OUT}/ (${shell.length} shell files, ${Object.keys(art).length} art files)`);

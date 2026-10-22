@@ -17,6 +17,7 @@ import { clearAround, makeWild } from './helpers';
 /** A town ready to wall itself: palisades learned, the land about it clear, wood to spare, enough grown-ups. */
 function walledTown(seed: string): GameState {
   const s = newGame(seed);
+  s.townBuilds = true;
   s.research.done.push('palisades', 'basic_shelter');
   clearAround(s, 50);
   s.buildings[0].store = { wood: 3000, stone: 500, fiber: 300, berries: 400 };

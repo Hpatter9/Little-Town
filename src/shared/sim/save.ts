@@ -1,5 +1,4 @@
-// The save file format: the whole GameState (plain JSON by design) plus when it was written, which is
-// how offline time is measured on the next start.
+// The save file format: the whole GameState (plain JSON by design) plus when it was written (shown in the save list; no game time passes for the time between).
 
 import type { GameState } from './state';
 

@@ -117,7 +117,9 @@ test('a lone leader is never sent to a duel by default (a loss would end the tow
   const f = realm(s).find((x) => x.id === 'shogunate')!;
   s.people[0].skills.melee.level = 50;
   assert.equal(risingEnvoyText(s, f, 'duel')!.def, 1);
-  s.people.push(makePerson(new Rng(4), s.nextId++, 'hunter', { x: s.people[0].x, y: s.people[0].y }, ['x']));
+  const heir = makePerson(new Rng(4), s.nextId++, 'hunter', { x: s.people[0].x, y: s.people[0].y }, ['x']);
+  s.people.push(heir);
+  s.heirId = heir.id; // (a stranger is an heir only when named)
   assert.equal(risingEnvoyText(s, f, 'duel')!.def, 0, 'with an heir at home, the best answers');
 });
 

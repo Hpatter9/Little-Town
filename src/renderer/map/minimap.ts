@@ -21,6 +21,8 @@ export interface MiniDots {
   buildings: { x: number; y: number; w: number; h: number }[];
   /** The view, in world px. */
   view: { x: number; y: number; w: number; h: number };
+  /** The isometric view's frame: four corners (world px), drawn instead of the box (the screen is a slanted patch there). */
+  quad?: { x: number; y: number }[];
 }
 
 export class Minimap {
@@ -155,6 +157,13 @@ export class Minimap {
     const v = dots.view;
     ctx.strokeStyle = 'rgba(255,255,255,0.85)';
     ctx.lineWidth = 2;
+    if (dots.quad) {
+      ctx.beginPath();
+      dots.quad.forEach((q, i) => (i ? ctx.lineTo(q.x * kx, q.y * ky) : ctx.moveTo(q.x * kx, q.y * ky)));
+      ctx.closePath();
+      ctx.stroke();
+      return;
+    }
     ctx.strokeRect(Math.round(v.x * kx) + 1, Math.round(v.y * ky) + 1, Math.max(6, Math.round(v.w * kx)) - 2, Math.max(6, Math.round(v.h * ky)) - 2);
   }
 }

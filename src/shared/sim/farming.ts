@@ -35,6 +35,7 @@ import { QUARRY, QUARRY_GEM_EVERY, QUARRY_GEMS, QUARRY_VEINS } from '../data/hil
 import { cellAt, deepOf, deepTarget, digDeep, digSeconds, isDiggable, shaftHasWork, workingLevel } from './deep';
 import { underDug, underFlooded } from './underdark';
 import { markMilestone } from './milestones';
+import { tally } from './deeds';
 
 const FARM_XP_PER_SEC = 2;
 const HARVEST_XP = 20;
@@ -155,6 +156,7 @@ export function workField(s: GameState, p: Person, b: Building): boolean {
       c.stage = 'growing';
     } else {
       c.stage = 'fallow';
+      tally(p, 'reaped');
       c.reaped = s.tick; // (the sheaves stand on the stubble a while: map/mapChores.ts)
       if (!def.indoor) c.soil = Math.max(SOIL.min, soil - SOIL.drain * researchMods(s.research).soil);
     }

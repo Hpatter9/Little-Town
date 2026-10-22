@@ -5,7 +5,8 @@
 // battle/juiceRules.ts. `world` goes in the scene's own world (moving with its camera), `screen` over everything.
 import { Container, Graphics, Sprite, Text } from 'pixi.js';
 import { sheetOf } from '../town/spellsView';
-import { bannerMotion, COMBO_WINDOW, comboText, fadeTrauma, HEAVY_SHARE, killCallout, MULTI_WINDOW, popScale, shakeOf, traumaFor } from './juiceRules';
+import { reducedMotion } from '../ui/motion';
+import { bannerMotion, blowTier, COMBO_WINDOW, comboText, fadePunch, fadeTrauma, HIT_STOP, IMPACT_CAP, killCallout, KILL_PUNCH, KILL_STOP, MULTI_WINDOW, NUMBER_COLOUR, NUMBER_SIZE, popScale, shakeOf, slamScale, SLOWMO_RATE, SLOWMO_SECS, SPARK_CAP, SPARKS, traumaFor, ZOOM_PUNCH } from './juiceRules';
 
 const FONT = 'monospace';
 const text = (s: string, size: number, fill: number, stroke = 5) =>
@@ -16,6 +17,7 @@ interface Ring { x: number; y: number; born: number; col: number; size: number }
 interface Num { t: Text; x: number; y: number; born: number; drift: number }
 interface Callout { t: Text; born: number; life: number; y: number }
 interface Banner { band: Graphics; t: Text; sub: Text | null; born: number; life: number; col: number }
+interface Spark { x: number; y: number; vx: number; vy: number; born: number; life: number; col: number; len: number }
 interface Bit { x: number; y: number; vx: number; vy: number; spin: number; a: number; col: number; w: number; h: number }
 
 export interface HitOpts {
@@ -49,12 +51,20 @@ export class BattleJuice {
   private kills = { n: 0, last: -99 };
   private victory: { born: number; t: Text; sub: Text; won: boolean } | null = null;
   private bits: Bit[] = [];
+  private sparks: Spark[] = [];
+  private sparkG = new Graphics();
   private now = 0;
+  /** The board's clock is held still until this (seconds): the hit-stop; and slowed until `slowUntil`. */
+  private stopUntil = 0;
+  private slowUntil = 0;
+  /** The camera's punch-in (a share of the zoom) and where it aims, in the world's own coordinates. */
+  punch = 0;
+  focus = { x: 0, y: 0 };
   /** Where the screen's own words sit (below the top bar). */
   top = 64;
 
   constructor() {
-    this.world.addChild(this.ringG, this.fxLayer);
+    this.world.addChild(this.ringG, this.fxLayer, this.sparkG);
     this.screen.addChild(this.flashG, this.raysG, this.bitsG);
   }
 
@@ -63,22 +73,36 @@ export class BattleJuice {
     return performance.now() / 1000;
   }
 
-  /** A blow landed at world (x, y): its impact, its number, the shake, and the combo or kill it makes. */
+  /** A blow landed at world (x, y): its impact, sparks, number, the shake, hit-stop and zoom, and the combo or kill it makes. */
   hit(x: number, y: number, o: HitOpts): void {
     const t = this.t;
-    const heavy = o.share >= HEAVY_SHARE || !!o.ult;
+    const tier = blowTier(o.share, o.kill, o.ult);
+    const heavy = tier !== 'normal';
+    const calm = reducedMotion();
     const word = !/^[\d+]/.test(o.label);
     if (!word && !o.heal) {
-      this.trauma = Math.min(1, this.trauma + traumaFor(o.share, o.kill, o.ult) * (o.onFoe ? 0.7 : 1));
-      this.impacts.push({ fx: o.kill ? 'px:blood-explosion' : heavy ? (o.onFoe ? 'px:gold-burst' : 'px:fire-explosion') : 'px:white-hit', x, y: y - 14, born: t, scale: heavy ? 1.25 : 0.9 });
-      this.rings.push({ x, y: y - 14, born: t, col: o.onFoe ? (heavy ? 0xffd040 : 0xffffff) : 0xff4030, size: heavy ? 34 : 20 });
-      if (heavy || o.kill) this.flash = Math.max(this.flash, o.kill ? 0.22 : 0.12);
+      if (!calm) this.trauma = Math.min(1, this.trauma + traumaFor(o.share, o.kill, o.ult) * (o.onFoe ? 0.7 : 1));
+      this.impact({ fx: o.kill ? 'px:blood-explosion' : heavy ? (o.onFoe ? 'px:gold-burst' : 'px:fire-explosion') : 'px:white-hit', x, y: y - 14, born: t, scale: tier === 'crit' ? 1.9 : heavy ? 1.5 : 1.05 });
+      if (tier === 'crit') this.impact({ fx: 'px:white-cross', x, y: y - 14, born: t, scale: 2.2 });
+      this.rings.push({ x, y: y - 14, born: t, col: o.onFoe ? (heavy ? NUMBER_COLOUR[tier] : 0xffffff) : 0xff4030, size: tier === 'crit' ? 50 : heavy ? 34 : 20 });
+      if (!calm) {
+        this.throwSparks(x, y - 14, SPARKS[tier] + (o.kill ? 4 : 0), o.onFoe ? NUMBER_COLOUR[tier] : 0xff5040, t);
+        // (hit-stop and the zoom punch: a big blow holds the screen a moment and leans in)
+        const stop = HIT_STOP[tier] + (o.kill ? KILL_STOP : 0) + (o.ult ? 0.05 : 0);
+        if (stop > 0) this.stopUntil = Math.max(this.stopUntil, t + stop);
+        const punch = ZOOM_PUNCH[tier] + (o.kill ? KILL_PUNCH : 0);
+        if (punch > this.punch) {
+          this.punch = punch;
+          this.focus = { x, y: y - 14 };
+        }
+        if (heavy || o.kill) this.flash = Math.max(this.flash, o.kill || tier === 'crit' ? 0.22 : 0.12);
+      }
     }
-    if (o.heal) this.impacts.push({ fx: 'px:gold-sparkle', x, y: y - 14, born: t, scale: 0.9 });
-    // (the number: big, popped, gold when heavy, red when the town's own is hurt, green when mended)
-    const size = word ? 15 : heavy ? 30 : 22;
-    const col = o.heal ? 0x7cff8a : word ? 0xdddddd : !o.onFoe ? 0xff5040 : heavy ? 0xffd040 : 0xffffff;
-    const n = text(`${o.label}${heavy && !word && !o.heal ? '!' : ''}`, size, col, heavy ? 6 : 5);
+    if (o.heal) this.impact({ fx: 'px:gold-sparkle', x, y: y - 14, born: t, scale: 1.2 });
+    // (the number: big, popped; gold when heavy, orange and biggest when a crit, red when the town's own is hurt, green when mended)
+    const size = word ? 15 : o.heal ? 22 : NUMBER_SIZE[tier];
+    const col = o.heal ? 0x7cff8a : word ? 0xdddddd : !o.onFoe ? (tier === 'crit' ? 0xff2a20 : 0xff5040) : NUMBER_COLOUR[tier];
+    const n = text(`${o.label}${heavy && !word && !o.heal ? (tier === 'crit' ? '!!' : '!') : ''}`, size, col, tier === 'crit' ? 8 : heavy ? 6 : 5);
     n.anchor.set(0.5, 1);
     this.world.addChild(n);
     this.nums.push({ t: n, x, y: y - 36, born: t, drift: (Math.random() - 0.5) * 18 });
@@ -92,8 +116,38 @@ export class BattleJuice {
     if (o.kill && o.onFoe) this.killed(1);
   }
 
+  /** An impact sprite, the oldest dropped when too many are alive (the cap keeps a phone smooth). */
+  private impact(i: Impact): void {
+    this.impacts.push(i);
+    if (this.impacts.length > IMPACT_CAP) this.impacts.splice(0, this.impacts.length - IMPACT_CAP);
+  }
+
+  /** Sparks flung from a blow, the live ones capped at `SPARK_CAP`. */
+  private throwSparks(x: number, y: number, n: number, col: number, t: number): void {
+    for (let i = 0; i < n && this.sparks.length < SPARK_CAP; i++) {
+      const a = Math.random() * Math.PI * 2;
+      const v = 60 + Math.random() * 110;
+      this.sparks.push({ x, y, vx: Math.cos(a) * v, vy: Math.sin(a) * v - 40, born: t, life: 0.25 + Math.random() * 0.3, col: i % 3 ? col : 0xffffff, len: 3 + Math.random() * 4 });
+    }
+  }
+
+  /** The speed the board's clock should run at now: 0 in a hit-stop, slow on the final blow, else 1. */
+  timeRate(): number {
+    const t = this.t;
+    return t < this.stopUntil ? 0 : t < this.slowUntil ? SLOWMO_RATE : 1;
+  }
+
+  /** The final blow: the board slows to a crawl for a moment (not under reduced motion). */
+  slowmo(): void {
+    if (reducedMotion()) return;
+    this.slowUntil = this.t + SLOWMO_SECS;
+    this.punch = Math.max(this.punch, 0.1);
+    this.flash = Math.max(this.flash, 0.3);
+  }
+
   /** A jolt of shake (an ultimate let loose). */
   jolt(n: number): void {
+    if (reducedMotion()) return;
     this.trauma = Math.min(1, this.trauma + n);
     this.flash = Math.max(this.flash, 0.25);
   }
@@ -105,7 +159,7 @@ export class BattleJuice {
       this.kills.n = t - this.kills.last <= MULTI_WINDOW ? this.kills.n + 1 : 1;
       this.kills.last = t;
     }
-    this.trauma = Math.min(1, this.trauma + 0.2 * n);
+    if (!reducedMotion()) this.trauma = Math.min(1, this.trauma + 0.2 * n);
     const say = killCallout(this.kills.n);
     if (say) this.callout(say, this.kills.n >= 5 ? 0xff5030 : 0xffa030);
   }
@@ -114,10 +168,10 @@ export class BattleJuice {
   callout(s: string, col = 0xffa030): void {
     // (one at a time: a newer one takes the place of the last)
     for (const c of this.callouts) c.t.destroy();
-    const t = text(s, 30, col, 7);
+    const t = text(s, 36, col, 8);
     t.anchor.set(0.5);
     this.screen.addChild(t);
-    this.callouts = [{ t, born: this.t, life: 1.4, y: 0.3 }];
+    this.callouts = [{ t, born: this.t, life: 1.5, y: 0.3 }];
   }
 
   /** A banner across the screen ("Wave 2 of 4", "Reinforcements!"), slid in and out. */
@@ -171,13 +225,15 @@ export class BattleJuice {
     this.impacts = [];
     this.rings = [];
     this.bits = [];
+    this.sparks = [];
+    this.stopUntil = this.slowUntil = this.punch = 0;
     this.trauma = 0;
     this.flash = 0;
   }
 
   /** The screen's shake now, in px (the caller moves its world by it). */
   shake(): [number, number] {
-    const a = shakeOf(this.trauma);
+    const a = reducedMotion() ? 0 : shakeOf(this.trauma);
     if (a < 0.3) return [0, 0];
     const t = performance.now() / 1000;
     return [Math.round(a * Math.sin(t * 71.3) * 0.8 + a * (Math.random() - 0.5) * 0.4), Math.round(a * Math.cos(t * 63.7) * 0.6)];
@@ -190,6 +246,7 @@ export class BattleJuice {
     // (the world's bits never smaller on the screen than drawn: a zoomed-out map scales them back up)
     const inv = 1 / Math.min(1, Math.max(0.2, this.world.worldTransform.a || 1));
     this.trauma = fadeTrauma(this.trauma, dt);
+    this.punch = fadePunch(this.punch, dt);
     this.flash = Math.max(0, this.flash - dt * 1.5);
     // the impacts: the pack's sheets where blows landed (and the victory's sparkles, on the screen)
     for (const c of this.fxLayer.removeChildren()) c.destroy();
@@ -216,6 +273,16 @@ export class BattleJuice {
         s.position.set(i.x, i.y);
         this.fxLayer.addChild(s);
       }
+    }
+    // sparks flung from the blows: short bright lines under gravity
+    this.sparkG.clear();
+    this.sparks = this.sparks.filter((p) => t - p.born < p.life);
+    for (const p of this.sparks) {
+      const age = t - p.born;
+      const px = p.x + p.vx * age, py = p.y + p.vy * age + 220 * age * age;
+      const vx = p.vx, vy = p.vy + 440 * age;
+      const n = Math.hypot(vx, vy) || 1;
+      this.sparkG.moveTo(px, py).lineTo(px - (vx / n) * p.len * inv, py - (vy / n) * p.len * inv).stroke({ color: p.col, width: 2 * inv, alpha: 1 - age / p.life });
     }
     // rings of light spreading from each blow
     this.ringG.clear();
@@ -246,10 +313,10 @@ export class BattleJuice {
         c.t.destroy();
         return false;
       }
-      c.t.scale.set(popScale(age) * Math.min(1, (w - 40) / Math.max(1, c.t.width / c.t.scale.x)));
+      c.t.scale.set(slamScale(age) * Math.min(1, (w - 40) / Math.max(1, c.t.width / c.t.scale.x)));
       c.t.position.set(w / 2, this.top + 70 + Math.sin(age * 30) * Math.max(0, 0.2 - age) * 20);
       c.t.alpha = age > c.life - 0.3 ? (c.life - age) / 0.3 : 1;
-      c.t.rotation = -0.06;
+      c.t.rotation = -0.06 + (age < 0.3 ? Math.sin(age * 90) * 0.05 * (1 - age / 0.3) : 0);
       return true;
     });
     // the combo, down the right
@@ -291,7 +358,7 @@ export class BattleJuice {
         const streak = ((age * 1.6) % 1.4) - 0.2;
         b.band.rect(streak * w, y - bh / 2 + 2, 40, bh - 4).fill({ color: 0xffffff, alpha: 0.12 * m.alpha });
         const fit = Math.min(1, (w - 30) / Math.max(1, b.t.width / b.t.scale.x));
-        b.t.scale.set(m.scale * fit);
+        b.t.scale.set(m.scale * fit * slamScale(age * 1.2) * 0.9);
         b.t.alpha = m.alpha;
         b.t.position.set(w / 2 + m.x * w, y - (b.sub ? 8 : 0));
         if (b.sub) {

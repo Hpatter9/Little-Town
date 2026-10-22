@@ -7,10 +7,9 @@
 // gets to the end of the trail is through: they reach the town and do what raiders do there (raids.ts takes them on).
 //
 // Before the raiders come there's a placing phase: the player places the fighters (the `battlePlace` command), or the
-// town places them itself when the time runs out, when the player has asked it to (auto-watch, `s.autoBattle`), or
-// when the raid plays out without them (`Raid.alone`). Big raids come in waves, with a breather between.
+// town places them itself when the time runs out, or when the player has asked it to (auto-watch, `s.autoBattle`). Big raids come in waves, with a breather between.
 //
-// Everything here is part of the deterministic sim: battles play out the same in the forecast, in time away and in
+// Everything here is part of the deterministic sim: battles play out the same in every run and in
 // the tests. The map is laid out when the battle starts (from the land and the town as they stand then) and kept on
 // the raid. Spots, trails and aims are in the land's cells (CELL px each); the raiders' px positions follow them.
 
@@ -655,7 +654,7 @@ export function startBattle(s: GameState, r: Raid): void {
     const lanes = lanesFrom(side).length ? lanesFrom(side) : [0];
     rd.bt = { d: -1, lane: lanes[turn[side]++ % lanes.length], wave };
   });
-  const auto = s.autoBattle !== false || !!r.alone; // (on unless the player turned it off: the owner's call)
+  const auto = s.autoBattle !== false; // (on unless the player turned it off: the owner's call)
   r.battle = { map, phase: 'placing', until: s.tick + PLACE_TICKS, started: s.tick, opened: s.tick, wave: 0, waves, units: [], auto, through: 0, killed: 0 };
   // (time to fight it out: the raid doesn't give up while the battle's on)
   r.leavesTick = Math.max(r.leavesTick, s.tick + 3 * TICKS_PER_HOUR);
@@ -789,7 +788,7 @@ export function setAutoBattle(s: GameState, on: boolean): void {
       autoPlace(s, r.battle, r);
       r.battle.until = Math.min(r.battle.until, s.tick + TICK_HZ);
     }
-  } else if (r?.battle && !on && !r.alone) r.battle.auto = false;
+  } else if (r?.battle && !on) r.battle.auto = false;
 }
 
 /* ------------------------------------------------------------ the fight */

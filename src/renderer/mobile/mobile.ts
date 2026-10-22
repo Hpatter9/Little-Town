@@ -2,6 +2,7 @@
 // in two frames: the town strip along the bottom, scaled up for fingers, and the menus in a sheet above it.
 // Everything the desktop tray does (new town, music, zoom) lives in the ☰ menu.
 
+import { applyGivenNames } from '../art/givenNames';
 import { readLevel, saveLevel, type VolumeKind } from '../volume';
 import { readVibrate, saveVibrate } from '../vibration';
 import { startNotices } from './notices';
@@ -22,9 +23,12 @@ import { setTipsOn, tipsOn } from './tips';
 import { applyUiLook } from '../ui/frame';
 import { wireTips } from '../ui/tips';
 import { createTopBar } from '../ui/topBar';
+import { startUndergroundSwitch } from './undergroundSwitch';
 import { watchMilestones } from './milestoneCards';
 import type { LoadingHost } from './loading';
 import { townSketch } from '../loading/sketch';
+import { isoViewOn, setIsoView } from '../iso/isoSetting';
+import { reduceMotionSet, setReduceMotion } from '../ui/motion';
 
 /** A phone on its side (the same test as the page's CSS): the tabs run across the top, and the town fills the
  *  rest of the screen under them. */
@@ -287,8 +291,8 @@ const tabButtons = PANELS.map((p) => {
 // a choice event takes the whole screen (eventSheet.ts)
 {
   startPopupHold(bridge, [() => !!(strip.contentWindow as (Window & { __cardUp?: () => boolean }) | null)?.__cardUp?.()]);
-  const sheet = createEventSheet((prompt, option) => bridge.command?.({ type: 'answerPrompt', prompt, option }), strip, (prompt) => bridge.command?.({ type: 'parkPrompt', prompt }));
-  bridge.onSnapshot((snap) => sheet.update(snap));
+  const sheet = createEventSheet((prompt, option) => bridge.command?.({ type: 'answerPrompt', prompt, option }), strip, (n, name) => bridge.command?.({ type: 'name', kind: n.kind, id: n.id, name }), (prompt) => bridge.command?.({ type: 'parkPrompt', prompt }));
+  bridge.onSnapshot((snap) => (applyGivenNames(snap), sheet.update(snap)));
   document.body.append(startWaitingChoices(bridge)); // (a closed choice waits behind this button: waitingChoices.ts)
 }
 // the rare things, and a party's haul, revealed card by card (revealCard.ts)
@@ -315,6 +319,7 @@ bridge.onSnapshot((snap) => {
 });
 // the shared look (ui/): the people's frames, the alignment's warmth and the night; the quiet top bar; held tips
 const topBar = createTopBar($('top'), bridge);
+startUndergroundSwitch(bridge, $('top')); // (Surface / Underground: mobile/undergroundSwitch.ts)
 wireTips();
 watchMilestones(bridge); // (the rank's changes and the town's firsts, each told once as a card)
 bridge.onSnapshot((snap) => {
@@ -363,7 +368,27 @@ new ResizeObserver(() => {
   layout();
 }).observe(tabs);
 
+// The game waits while a menu is open (the owner's ask): opening one pauses the town unless the player had paused it
+// already, and closing it lets the town run again. Pressing ▶ inside the menu is the player's own call and is kept.
+let heldByMenu: 'wait' | 'on' | null = null;
+let townPaused = false;
+bridge.onSnapshot((snap) => {
+  townPaused = snap.paused;
+  if (heldByMenu === 'wait' && snap.paused) heldByMenu = 'on';
+  else if (heldByMenu === 'on' && !snap.paused) heldByMenu = null;
+});
+const holdForMenu = (open: boolean) => {
+  if (open && !heldByMenu && !townPaused) {
+    heldByMenu = 'wait';
+    bridge.command?.({ type: 'setPaused', paused: true });
+  } else if (!open && heldByMenu) {
+    heldByMenu = null;
+    bridge.command?.({ type: 'setPaused', paused: false });
+  }
+};
+
 const applyState = (s: StripState) => {
+  holdForMenu(!!s.panel && s.panel !== 'newgame');
   sheet.hidden = !s.panel;
   document.body.classList.toggle('menu-open', !!s.panel); // (menus take the whole screen)
   if (s.panel) menu.hidden = true;
@@ -405,7 +430,7 @@ const drawCard = () => {
   const key = buildingCardKey(lastSnap, cardFor);
   if (key === cardKey) return;
   cardKey = key;
-  const card = buildingCard(lastSnap, cardFor, cardArt);
+  const card = buildingCard(lastSnap, cardFor, cardArt, (name) => bridge.command?.({ type: 'name', kind: 'building', id: cardFor!, name }));
   cardSlot.replaceChildren(...(card ? [card] : []));
   if (cardLines) cardLines.hidden = !!card;
 };
@@ -502,7 +527,7 @@ function drawMenu(): void {
       zoomStart = null;
       setZoom(Number(zoomInput.value) / 100);
     };
-    const showZoom = () => (zoomLabel.textContent = `Map zoom: ${zoomInput.value}%`);
+    const showZoom = () => (zoomLabel.textContent = `Map zoom: ${zoomInput.value}% (or pinch with two fingers)`);
     showZoom();
     zoomInput.addEventListener('pointerdown', startZoomPreview);
     zoomInput.addEventListener('keydown', startZoomPreview);
@@ -528,19 +553,27 @@ function drawMenu(): void {
               });
             }),
           ]),
+      label('Sound and feel'),
       item(`Music: ${s.music ? 'on' : 'off'}`, () => (bridge.setMusic(!s.music), drawMenu())),
       slider('music', 'Music volume'),
       slider('sfx', 'Sound effects volume'),
-      item(`Minimap: ${minimapShown() ? 'on' : 'off'}`, () => (setMinimap(!minimapShown()), drawMenu())),
       // (the phone buzzes softly at the big moments: vibration.ts; its own setting, not the sound's)
       ...('vibrate' in navigator ? [item(`Vibration: ${readVibrate() ? 'on' : 'off'}`, () => (saveVibrate(!readVibrate()), drawMenu()))] : []),
-      item(`Tips: ${tipsOn() ? 'on' : 'off'}`, () => (setTipsOn(!tipsOn()), drawMenu())),
-      item(`Reveal cards: ${revealsOn() ? 'on' : 'off'}`, () => (setRevealsOn(!revealsOn()), drawMenu())),
+      // (battle shake, hit-stop, zoom and slow-motion off: ui/motion.ts)
+      item(`Reduce motion: ${reduceMotionSet() ? 'on' : 'off'}`, () => (setReduceMotion(!reduceMotionSet()), drawMenu())),
+      label('Screen'),
+      item(`Minimap: ${minimapShown() ? 'on' : 'off'}`, () => (setMinimap(!minimapShown()), drawMenu())),
       // (the loading screen's scene behind the logo, off for a slow phone: mobile/loading.ts)
       item(`Loading scene: ${loadingSceneOn() ? 'on' : 'off'}`, () => (setLoadingScene(!loadingSceneOn()), drawMenu())),
-      ...(fromMenu ? [] : [item('Phone alerts…', () => bridge.openPanel('alerts'))]),
-      label('Zoom, or pinch the town with two fingers'),
+      // (the isometric view, being built: iso/isoView.ts; the strip reads it as it starts, so the town is saved and
+      // the page loaded again)
+      item(`Isometric view (in progress): ${isoViewOn() ? 'on' : 'off'}`, () => switchIso(!isoViewOn(), !fromMenu)),
       zooms,
+      label('Help'),
+      item(`Tips: ${tipsOn() ? 'on' : 'off'}`, () => (setTipsOn(!tipsOn()), drawMenu())),
+      item(`Reveal cards: ${revealsOn() ? 'on' : 'off'}`, () => (setRevealsOn(!revealsOn()), drawMenu())),
+      ...(fromMenu ? [] : [item('Phone alerts…', () => bridge.openPanel('alerts'))]),
+      ...offlineLine(),
       ...(installed ? [] : [label('To install: Chrome menu ⋮ → Add to Home screen')]),
       version(),
     );
@@ -592,6 +625,18 @@ function setMinimap(on: boolean): void {
       localStorage.setItem('littletown.minimap', on ? '1' : '0');
     } catch {}
 }
+/** The isometric view turned on or off: the town saved, and the page loaded again (back into the town if it was in
+ *  it, `ENTER_KEY` in mobile/mainMenu.ts). */
+function switchIso(on: boolean, inTown: boolean): void {
+  setIsoView(on);
+  menu.hidden = true;
+  void (inTown ? (bridge.suspend?.() ?? Promise.resolve()) : Promise.resolve()).finally(() => {
+    try {
+      if (inTown) sessionStorage.setItem('littletown.enter', '1');
+    } catch {}
+    location.reload();
+  });
+}
 /** The loading screen's scene (mobile/loading.ts reads the same key; kept apart so this page needn't bundle it). */
 const SCENE_KEY = 'littletown.loadingScene';
 function loadingSceneOn(): boolean {
@@ -632,6 +677,40 @@ document.addEventListener('pointerdown', (e) => {
 
 /* ------------------------------------------------------------ offline */
 
+// The service worker (sw.js) keeps the whole game on the phone. Once it is installed the page asks it to fetch the
+// big art folders in the background, and shows how far it has got in the ☰ menu.
+type OfflineState = { done: number; total: number; ready: boolean; downloading: boolean; failed?: boolean };
+let offline: OfflineState | null = null;
+let offlineSeen = -1;
+const askWorker = (msg: string): void => {
+  void navigator.serviceWorker.ready.then((r) => r.active?.postMessage(msg)).catch(() => {});
+};
+function offlineLine(): HTMLElement[] {
+  if (!offline) return [];
+  const row = label(offline.ready ? 'Ready to play offline ✓' : `Downloading for offline: ${Math.floor((offline.done / Math.max(1, offline.total)) * 100)}%`);
+  if (offline.ready || offline.downloading) return [row];
+  const b = document.createElement('button');
+  b.className = 'item';
+  b.textContent = 'Download now';
+  b.addEventListener('click', () => (askWorker('offline-start'), drawMenu()));
+  return [row, b];
+}
 if ('serviceWorker' in navigator && location.protocol !== 'file:') {
-  navigator.serviceWorker.register('sw.js').catch((err) => console.warn('[mobile] no offline support:', err));
+  navigator.serviceWorker.addEventListener('message', (e: MessageEvent) => {
+    if (e.data?.type !== 'offline-status') return;
+    offline = e.data as OfflineState;
+    if (!menu.hidden) drawMenu();
+  });
+  // (with no signal the register call fails, but the worker installed earlier is still there to ask)
+  navigator.serviceWorker.register('sw.js').catch((err) => console.warn('[mobile] sw.js not checked:', err));
+  void navigator.serviceWorker.ready.then(() => {
+    askWorker('offline-start');
+    // (a worker the phone put to sleep mid-download is woken again: resumable, so nothing is fetched twice)
+    setInterval(() => {
+      if (offline?.ready) return;
+      const stuck = offline !== null && offline.done === offlineSeen && !offline.downloading;
+      offlineSeen = offline?.done ?? -1;
+      askWorker(stuck && navigator.onLine ? 'offline-start' : 'offline-status');
+    }, 5000);
+  });
 }

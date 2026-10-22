@@ -1,0 +1,38 @@
+{
+ "look": "woman_leather",
+ "people": "settlers",
+ "frame": [
+  144,
+  144
+ ],
+ "directions": [
+  "south",
+  "south-east",
+  "east",
+  "north-east",
+  "north",
+  "north-west",
+  "west",
+  "south-west"
+ ],
+ "animations": {
+  "cast_1h": {
+   "frames": 6
+  },
+  "run": {
+   "frames": 6
+  },
+  "death": {
+   "frames": 7
+  },
+  "idle": {
+   "frames": 4
+  },
+  "walk": {
+   "frames": 6
+  },
+  "hurt": {
+   "frames": 6
+  }
+ }
+}

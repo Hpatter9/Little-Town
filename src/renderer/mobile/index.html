@@ -70,6 +70,44 @@
         color: var(--text);
         font-size: 20px;
       }
+      #ug-btn {
+        font-size: 16px;
+      }
+      #ug-chooser p {
+        margin: 0;
+        max-width: 200px;
+        padding: 6px 8px;
+        color: var(--text);
+        font-size: 14px;
+      }
+      #ug-btn.none {
+        opacity: 0.45;
+      }
+      #ug-chooser {
+        position: fixed;
+        top: calc(env(safe-area-inset-top) + var(--top-h, 56px));
+        right: calc(env(safe-area-inset-right) + 60px);
+        z-index: 5;
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+        padding: 6px;
+        border: 2px solid var(--wood-edge);
+        border-radius: 6px;
+        background: var(--btn);
+      }
+      #ug-chooser button {
+        min-height: 40px;
+        padding: 0 12px;
+        text-align: left;
+        color: var(--text);
+        background: transparent;
+        border: 0;
+        font-size: 15px;
+      }
+      #ug-chooser[hidden] {
+        display: none;
+      }
       #hint {
         position: fixed;
         left: 24px;
@@ -1049,6 +1087,19 @@
         font-size: 16px;
         line-height: 1.5;
       }
+      .event-text.short p:not(:first-child) {
+        display: none;
+      }
+      .event-more {
+        min-height: 44px;
+        padding: 6px 4px;
+        font: inherit;
+        font-size: 15px;
+        color: #e8d49a;
+        background: none;
+        border: 0;
+        text-decoration: underline;
+      }
       .event-options {
         display: flex;
         flex-direction: column;
@@ -1063,6 +1114,23 @@
         text-align: left;
         color: #f0e4c8;
         background: #3b2b1e;
+        border: 2px solid #6e4d2e;
+        border-radius: 6px;
+      }
+      .event-name {
+        display: flex;
+        gap: 8px;
+        margin-top: 10px;
+      }
+      .event-name input {
+        flex: 1;
+        min-width: 0;
+        min-height: 48px;
+        padding: 8px 12px;
+        font: inherit;
+        font-size: 16px;
+        color: #f0e4c8;
+        background: #241911;
         border: 2px solid #6e4d2e;
         border-radius: 6px;
       }

@@ -37,10 +37,8 @@ export function topLines(s: Snapshot): { urgent: string | null; turn: string[] }
   const dying = s.people.filter((p) => p.away === null && p.bleedMinutes !== null).sort((a, b) => a.bleedMinutes! - b.bleedMinutes!);
   const starving = s.people.filter((p) => p.away === null && p.needs.food <= 0.02 && p.monster !== 'undead').length;
   const d = s.doom;
-  const urgent = s.catchingUp != null
-    ? `Catching up… ${Math.floor(s.catchingUp * 100)}%`
-    : r
-      ? r.phase === 'warning' ? `${r.name} in ${Math.ceil(r.secondsToArrival)}s` : `${r.name} in town!`
+  const urgent = r
+      ? r.phase === 'warning' ? `${r.name} in ${Math.ceil(r.secondsToArrival)}s · ${r.matchup}` : `${r.name} in town! ${r.matchup}`
       : dying.length
         ? `${dying[0].name} bleeding out: ${bleedLeft(dying[0].bleedMinutes)}${dying.length > 1 ? ` (+${dying.length - 1})` : ''}`
         : starving
@@ -112,8 +110,11 @@ export function createTopBar(top: HTMLElement, bridge: Bridge): TopBar {
     const speed = snap.speed ?? 1;
     bridge.command({ type: 'gameSpeed', speed: GAME_SPEEDS[(GAME_SPEEDS.indexOf(speed as never) + 1) % GAME_SPEEDS.length] });
   });
+  const founder = el('button', 'top-btn top-founder', '♛');
+  founder.dataset.tip = 'The founder|Your character: where they go, their work, their purse and their heir.';
+  founder.addEventListener('click', () => bridge.openPanel('founder'));
   const btns = el('div', 'top-btns');
-  btns.append(pause, fast);
+  btns.append(founder, pause, fast);
   if (menuBtn) btns.append(menuBtn);
   top.replaceChildren(mark, main, btns);
   top.classList.add('top-quiet');

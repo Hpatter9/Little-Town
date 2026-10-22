@@ -33,8 +33,11 @@ import type { Rng } from '../rng';
 import { ambitionOf } from './ambition';
 import { startBattle } from './combat';
 import { giveCoins } from './economy';
+import { holdForFounder } from './founderQuests';
 import { destinationOf, destinationUnlocked, partyCarry, planParty, rolesFor, sendExpedition, STAKES, type SendCheck, type Stakes } from './expeditions';
 import { dangerOf, fitToGo, mostFor, partRole, recruit, strengthOf } from './parties';
+import { storyTrip } from './story';
+import { foesToExpect, powerLine, powerOfParty } from './power';
 import { seaTown } from './sea';
 import { stakeCard, type StakeCard } from './stakes';
 import { isChild, opinion } from './social';
@@ -182,6 +185,13 @@ export function oddsLine(s: GameState, m: Muster): string {
   if (!danger) return 'Nothing out there to fear but the road.';
   const ratio = strengthOf(party) / danger;
   return ODDS.find(([at]) => ratio >= at)![1];
+}
+
+/** The party's power against the foes to expect (sim/power.ts). */
+function musterPower(s: GameState, m: Muster, d: Destination): { power: number; foesPower: number; powerLine: string | null } {
+  const power = powerOfParty(m.members.map((id) => byId(s, id)).filter((p): p is Person => !!p));
+  const foesPower = Math.round(foesToExpect(d) * (m.stakes === 'risky' ? 1.25 : 1));
+  return { power, foesPower, powerLine: foesPower > 0 ? powerLine(power, foesPower) : null };
 }
 
 /** Why the leader picked each member (for the roster). */
@@ -395,6 +405,7 @@ export function crossroads(s: GameState, e: Expedition, members: Person[], rng: 
     defaultOption: e.stakes === 'risky' ? c.bold : 1 - c.bold,
     expiresTick: s.tick + CROSSROADS_HOURS * TICKS_PER_HOUR,
   };
+  holdForFounder(s, e, prompt); // (a trip the founder is on waits for them: sim/founderQuests.ts)
   s.prompts.push(prompt);
   e.prompt = prompt.id;
   e.crossroads = (e.crossroads ?? 0) + 1;
@@ -455,6 +466,7 @@ export function debrief(s: GameState, e: Expedition, d: Destination): void {
   if (e.rations === 'lean') lines.push('The packs ran thin by the end.');
   const leader = byId(s, e.leader ?? ids[0]);
   const lostWord = !lost.length ? '' : back.length ? `${back.length} of ${ids.length} came home` : 'None came home';
+  if (ids.includes(s.mainId)) storyTrip(s, d.name, (e.leader ?? ids[0]) === s.mainId, !!e.cleared, lost.map((l) => l.name), e.crashed || e.wrecked ? [] : (Object.entries(e.loot) as [Material, number][]).filter(([, n]) => n > 0).map(([m, n]) => `${n} ${MATERIAL_NAMES[m]?.toLowerCase() ?? m}`));
   const prompt: Prompt = {
     id: s.nextId++,
     kind: 'debrief',
@@ -508,6 +520,10 @@ export interface MusterView {
   type: string;
   leader: number;
   odds: string;
+  /** Power levels (sim/power.ts): this party, the foes to expect, and the line that says so ("Your party 240 vs about 310: Risky"). */
+  power: number;
+  foesPower: number;
+  powerLine: string | null;
   /** The stake card: the odds in words, what they seek, what the town risks, how long (sim/stakes.ts). */
   stake: StakeCard;
   members: MusterPerson[];
@@ -542,6 +558,7 @@ export function musterView(s: GameState, calling: (p: Person) => string | null):
     type: d.type,
     leader: m.leader,
     odds: oddsLine(s, m),
+    ...musterPower(s, m, d),
     stake: stakeCard(s, m, d),
     members,
     others,

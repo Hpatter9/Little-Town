@@ -7,6 +7,7 @@
 
 import { mythicYearLines } from './classes';
 import { awardDeedTitles } from './deeds';
+import { awardCharacterTitles } from './titles';
 import { ERA_NAMES } from '../data/eras';
 import { callingName } from '../data/founderClasses';
 import { levelOf, stageOf } from '../data/levels';
@@ -128,6 +129,10 @@ function startYear(s: GameState): void {
   s.yearRaids = { came: 0, won: 0, pillaged: 0 };
 }
 
+/** How much it takes: raiders felled, or trips made, for the origin's first title and its second (it was 3/8 and 5/12
+ *  before 0.162). */
+export const ORIGIN_TITLE_AT = { kills: [10, 30], trips: [15, 40] } as const;
+
 /** Award durable, origin-flavoured titles for a person's record in the settlement. */
 function awardTownTitles(s: GameState): void {
   const names: Record<NonNullable<GameState['origin']>, [string, string]> = {
@@ -143,10 +148,11 @@ function awardTownTitles(s: GameState): void {
   for (const p of s.people) {
     const kills = p.felled ?? 0, trips = p.trips ?? 0, earned = p.titles ?? [];
     const [first, second] = names[origin];
-    const title = kills >= 8 || trips >= 12 ? second : kills >= 3 || trips >= 5 ? first : null;
+    const title = kills >= ORIGIN_TITLE_AT.kills[1] || trips >= ORIGIN_TITLE_AT.trips[1] ? second : kills >= ORIGIN_TITLE_AT.kills[0] || trips >= ORIGIN_TITLE_AT.trips[0] ? first : null;
     if (!title || earned.includes(title)) continue;
     earned.push(title);
     p.titles = earned;
+    (p.titleWhy ??= {})[title] = kills >= ORIGIN_TITLE_AT.kills[0] ? `Struck the last blow on ${kills} raiders.` : `Went out on ${trips} trips.`;
     notify(s, `${p.name} is now known as ${p.name} ${title}.`, true);
   }
 }
@@ -156,6 +162,7 @@ export function annalsHourly(s: GameState): void {
   if (s.tick % TICKS_PER_HOUR !== 0 || s.gameOver) return;
   awardTownTitles(s);
   awardDeedTitles(s);
+  awardCharacterTitles(s);
   if (!s.yearStart) return startYear(s);
   const cal = calendar(s.tick);
   if (cal.season !== 'winter' || cal.dayOfSeason !== CHRONICLE_DAY || cal.hour !== CHRONICLE_HOUR) return;

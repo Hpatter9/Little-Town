@@ -1,6 +1,7 @@
-// The Town menu (the old Build tab, the panel id 'build'): the town at a glance and the player's levers (direction, size,
-// powers), what's being built and what stands, the stores (craftingPanel.ts renderStores), the treasury, and a book of
-// every building it knows. The town builds for itself.
+// The Town menu (the old Build tab, the panel id 'build'), in four tabs (subtabs.ts): Overview (the town at a glance, the
+// powers, the days ahead), Buildings (what's going up, what stands, a book of every building), Stores (the stores
+// themselves, craftingPanel.ts renderStores, and the treasury) and More (the levers, then faith, villages, council, the
+// people's ways and magic, each once the town has it).
 
 import { calendarKey, renderCalendar } from './calendarStrip';
 import { faithKey, faithSection } from './faithPanel';
@@ -8,25 +9,23 @@ import { villagesSection } from './villagesPanel';
 import { politicsSection } from './politicsPanel';
 import { heritageKey, heritageSection } from './heritagePanel';
 import { magicSection } from './magicPanel';
-import { BUILD_PACE } from '../../shared/data/economy';
-import { buildSkill } from '../../shared/sim/property';
 import { TOWN_SIZES } from '../../shared/sim/state';
 import { TAX, TAX_RATES } from '../../shared/data/economy';
-import { ADJACENT_TILES, BUILDING_BY_ID, BUILDINGS, LAYER_NAMES, NEAR_SOURCE, NEAR_SOURCE_BONUS, RIVER_GROWTH, TAVERN_MARKET_MORALE, type BuildLayer, type BuildingDef } from '../../shared/data/buildings';
+import { BUILDING_BY_ID, BUILDINGS, type BuildingDef } from '../../shared/data/buildings';
 import { CROPS } from '../../shared/data/crops';
-import { earlier, eraReached } from '../../shared/data/eras';
-import { MATERIAL_NAMES, type Material } from '../../shared/data/materials';
+import { eraReached } from '../../shared/data/eras';
+import { MATERIAL_NAMES, type Material, type Stock } from '../../shared/data/materials';
 import { eraOfResearch, TOPIC_BY_ID } from '../../shared/data/research';
 import { PINS_MOST } from '../../shared/sim/pins';
+import { isRingPiece, WALL_KINDS } from '../../shared/sim/ringWall';
+import { BUILD_TABS, tabOf, whyOf, type BuildTab } from './buildKinds';
 import type { Bridge } from '../../shared/ipc';
+import type { Command } from '../../shared/sim/commands';
 import { DIRECTION_DEFS, DIRECTIONS } from '../../shared/sim/planner';
-import { blueprintCount, isUnlocked } from '../../shared/sim/buildings';
+import { isUnlocked } from '../../shared/sim/buildings';
 import type { Snapshot } from '../../shared/sim/snapshot';
-import { button, duration, el } from './dom';
+import { button, el } from './dom';
 import { thumb } from './structure';
-import { materialIcon } from '../art/materialIcons';
-import { BUILD_MULTIPLIER } from '../../shared/sim/state';
-import { hiddenNote, HidePrefs } from './hide';
 import { foodDays, glance, inTown } from './townOverview';
 import { dashboard, dashboardKey } from './dashboard';
 import { storesKey } from './craftingPanel';
@@ -66,27 +65,28 @@ export const buildKey = (s: Snapshot, tab: string | null = null) => {
   const on = (names: readonly string[], part: () => unknown): unknown => (tab === null || names.includes(tab) ? part() : 0);
   const heritageTiles = () => [s.heritage?.blood && [s.heritage.blood.store, s.heritage.blood.farms, s.heritage.blood.prisoners, s.heritage.blood.cells, s.heritage.blood.nightly], s.heritage?.horde && [s.heritage.horde.fury, s.heritage.horde.waaagh, s.heritage.horde.out?.target, s.heritage.horde.name]];
   return JSON.stringify([
-    hide.key,
+    tab,
     s.theme,
     on(['Overview'], () => [s.powers.map((p) => [p.id, Math.ceil(p.readyHours), Math.ceil(p.activeHours), p.held, p.affordable]), s.powerLog[0], s.nomad && [s.nomad.site, s.nomad.settled, Math.ceil((s.nomad.nextMoveDays ?? 0) * 24)], s.lichOffer, heritageTiles()]),
     on(['Overview'], () => [dashboardKey(s), s.why?.research, s.why?.craft]),
     on(['Overview'], () => calendarKey(s)),
-    on(['Overview', 'Treasury'], () => s.coins),
-    on(['Treasury'], () => ledgerKey(s)),
+    on(['Overview', 'Stores'], () => s.coins),
+    on(['Stores'], () => ledgerKey(s)),
     s.guards.n, s.guards.watch, !!s.shop, !!s.tavern, s.era, s.research.revealed, s.buildSlots, s.unlockAll, s.research.done, s.storageCapacity, s.housing, s.direction, s.plan,
     Math.round(s.align.score / 2), Math.round(s.align.order / 2), s.align.title, s.align.pact, s.align.swings[0],
-    on(['Villages'], () => s.villages.map((v) => [v.pop, v.loyalty, v.rebel, v.beset, v.helpers, v.cartOut, v.road, v.goods, v.news[0], v.canGift])),
-    s.politics && [s.politics.tax, on(['Council'], () => [s.politics!.blocs.map((b) => [b.sat, b.members.length, b.wants, b.striking]), s.politics!.laws.map((l) => l.on), s.politics!.log[0], s.politics!.crimes, s.politics!.strike, s.politics!.edictWait])],
+    on(['More'], () => s.villages.map((v) => [v.pop, v.loyalty, v.rebel, v.beset, v.helpers, v.cartOut, v.road, v.goods, v.news[0], v.canGift])),
+    s.politics && [s.politics.tax, on(['More'], () => [s.politics!.blocs.map((b) => [b.sat, b.members.length, b.wants, b.striking]), s.politics!.laws.map((l) => l.on), s.politics!.log[0], s.politics!.crimes, s.politics!.strike, s.politics!.edictWait])],
     s.buildings.map((b) => [b.def, b.status, on(['Buildings'], () => Math.floor(b.progress * 20))]),
-    on(['Our ways', 'Magic'], () => heritageKey(s)),
-    on(['Overview', 'Faith'], () => faithKey(s)),
+    on(['More'], () => heritageKey(s)),
+    on(['Overview', 'More'], () => faithKey(s)),
     s.skipRaids,
     s.pins.map((p) => [p.def, p.building, Math.floor(p.progress * 20), p.why]),
+    s.recommend && [s.recommend.def ?? s.recommend.kind, s.recommend.why],
+    s.ringOrdered, s.streetsOrdered, s.ringState,
   ]);
 };
 
 export function renderBuild(s: Snapshot, bridge: Bridge | undefined, rerender: () => void = () => {}): HTMLElement[] {
-  const used = blueprintCount(s);
   // the town at a glance first (townOverview.ts): every tile a way in
   const out: HTMLElement[] = [...dashboard(s, bridge, rerender), ...glance(s, bridge, rerender)];
 
@@ -135,7 +135,7 @@ export function renderBuild(s: Snapshot, bridge: Bridge | undefined, rerender: (
   // the coming days the town knows of (panel/calendarStrip.ts)
   out.push(...renderCalendar(s));
 
-  // the one thing the player decides: where the town puts its effort
+  // where the town puts its effort
   out.push(el('h2', '', 'Direction'));
   const dirs = el('div', 'row directions');
   for (const d of DIRECTIONS) {
@@ -147,8 +147,7 @@ export function renderBuild(s: Snapshot, bridge: Bridge | undefined, rerender: (
     );
   }
   out.push(dirs, el('div', 'hint', DIRECTION_DEFS[s.direction].description));
-  // what the town chose to do, and why (sim/whyLines.ts)
-  for (const w of [s.why?.build, s.why?.research, s.why?.craft]) if (w) out.push(el('div', 'why-line', w));
+  // (what it's building, studying and making, and why, is on the overview's cards: dashboard.ts)
 
   // how raids are fought: down the trail (tower defence) or on a tactics board (sim/tactics.ts; a trial)
   out.push(el('h2', '', 'Raid battles'));
@@ -161,10 +160,10 @@ export function renderBuild(s: Snapshot, bridge: Bridge | undefined, rerender: (
     skips.append(button(name, () => bridge?.command({ type: 'skipRaids', on }), { cls: `place small${s.skipRaids === on ? ' on' : ' quiet'}` }));
   out.push(skips, el('div', 'hint', s.skipRaids ? 'Every raid is fought out by the town at once, and you see the recap when it is over.' : 'Raids are fought on screen; a battle\'s Skip button fights it out at once.'));
 
-  // evolutions and stat points: put to the player, or the town's own call (sim/classes.ts, sim/attributes.ts)
-  out.push(el('h2', '', 'Callings and stats'));
+  // promotions and stat points: put to the player, or the townsfolk's own call (sim/classes.ts, sim/attributes.ts)
+  out.push(el('h2', '', 'Promotions and stats'));
   const asks = el('div', 'row directions');
-  for (const [what, on, name] of [['evolve', s.evolveAsk, 'Evolutions: ask me'], ['evolve', !s.evolveAsk, 'Evolutions: they choose'], ['stats', s.statsAsk, 'Stat points: I assign'], ['stats', !s.statsAsk, 'Stat points: auto']] as const)
+  for (const [what, on, name] of [['evolve', s.evolveAsk, 'Promotions: ask me'], ['evolve', !s.evolveAsk, 'Promotions: they choose'], ['stats', s.statsAsk, 'Stat points: I assign'], ['stats', !s.statsAsk, 'Stat points: auto']] as const)
     asks.append(button(name, () => bridge?.command(what === 'evolve' ? { type: 'setAsk', evolve: name.includes('ask') } : { type: 'setAsk', stats: name.includes('assign') }), { cls: `place small${on ? ' on' : ' quiet'}` }));
   out.push(asks, el('div', 'hint', `${s.evolveAsk ? 'At each stage (levels 12, 30 and 55) a townsperson\'s two roads are put to you; unanswered a day, they choose for themselves.' : 'Townsfolk take whichever road suits their skills, and you hear of it.'} ${s.statsAsk ? 'Each level brings two stat points to place on their Character tab; left two days, they place them their own way.' : 'Stat points are placed as their calling grows.'}`));
 
@@ -194,7 +193,7 @@ export function renderBuild(s: Snapshot, bridge: Bridge | undefined, rerender: (
   // the town's money: travellers bring it in at the shop and the tavern, and it goes on wages, crafters and the venues
   {
     out.push(el('h2', '', `Treasury: ${s.coins} coins`));
-    out.push(el('div', 'hint', 'The founder\'s purse. The townsfolk keep their own: they earn by their work, buy land and build, and pay rent and tax. The treasury pays for the public works, the study, and the guards.'));
+    out.push(el('div', 'hint', 'The town\'s purse. The townsfolk keep their own. The treasury pays for public works, study and the guards.'));
     // the tax lever
     const taxes = el('div', 'row directions');
     for (const r of TAX_RATES)
@@ -241,124 +240,134 @@ export function renderBuild(s: Snapshot, bridge: Bridge | undefined, rerender: (
     }
   }
 
-  // what it's doing about it
-  out.push(el('h2', '', 'Being built'));
-  out.push(el('div', 'hint', `It builds ${s.buildSlots} at once (${used} under way now), and decides for itself what and where.`));
-  const building = s.buildings.filter((b) => b.status === 'blueprint');
-  if (!building.length) out.push(el('p', 'empty', 'Nothing right now.'));
-  for (const b of building) {
-    const def = BUILDING_BY_ID[b.def];
-    const need = (Object.entries(def.cost) as [Material, number][]).filter(([m, n]) => (b.delivered[m] ?? 0) < n);
-    const row = el('div', 'queue-row');
-    row.append(
-      thumb(b.def, 28, s),
-      el('span', 'queue-name', def.name),
-      el('span', 'queue-time', b.progress > 0 ? `${Math.floor(b.progress * 100)}% built` : need.length ? `waiting on ${need.map(([m, n]) => `${MATERIAL_NAMES[m].toLowerCase()} ${b.delivered[m] ?? 0}/${n}`).join(', ')}` : 'ready to build'),
-    );
-    const bar = el('div', 'bar');
-    const fill = el('div', 'bar-fill');
-    fill.style.width = `${Math.floor(b.progress * 100)}%`;
-    bar.append(fill);
-    row.append(bar);
-    out.push(row);
-  }
-  const plan = s.plan;
-  if (plan?.build) {
-    const last = el('div', 'hint', `Last decided: a ${BUILDING_BY_ID[plan.build.def]?.name ?? plan.build.def}, because ${plan.build.why}.`);
-    if (BUILDING_BY_ID[plan.build.def]) last.prepend(thumb(plan.build.def, 28, s));
-    out.push(last);
-  }
-  for (const w of plan?.waiting ?? []) out.push(el('div', 'hint', w));
-  if (plan?.gathering.length) out.push(el('div', 'hint', `Gathering for: ${plan.gathering.join(', ').toLowerCase()}.`));
-
-  // what stands in town, each tappable (townOverview.ts)
-  out.push(...inTown(s, bridge));
   out.push(...faithSection(s));
   out.push(...villagesSection(s, bridge));
   out.push(...politicsSection(s, bridge));
   out.push(...heritageSection(s));
   out.push(...magicSection(s));
 
-  // everything it knows how to build (for reference: it decides for itself)
-  out.push(
-    el('h2', '', 'Building book'),
-    el('div', 'hint', 'Every building the town knows how to make, and what each is for. It builds them itself, as it needs them; pin one (📌) to have it built next.'),
-    ...wishesBlock(s, bridge),
-    hide.row(
-      [
-        ['built', 'Built', 'Hide the buildings the town already has'],
-        ['locked', "Can't build yet", 'Hide the buildings still waiting on research'],
-      ],
-      rerender,
-    ),
-  );
-  let hidden = 0;
-  for (const layer of ['fore', 'mid', 'back'] as BuildLayer[]) {
-    // buildings from eras the town hasn't reached stay hidden
-    const known = BUILDINGS.filter((b) => b.layer === layer && !b.never && (s.unlockAll || !b.research || (eraReached(s.era, TOPIC_BY_ID[b.research]?.era) && topicKnown(s, b.research))));
-    const shown = known.filter(
-      (b) =>
-        !(hide.has('built') && s.buildings.some((q) => q.def === b.id && q.status === 'done')) &&
-        !(hide.has('locked') && !isUnlocked({ unlockAll: s.unlockAll, done: s.research.done, era: s.era, origin: s.origin.id }, b)),
-    );
-    hidden += known.length - shown.length;
-    if (!shown.length) continue;
-    out.push(el('h2', '', LAYER_NAMES[layer]));
-    const grid = el('div', 'cards');
-    for (const def of shown) grid.append(card(def, s, bridge));
-    out.push(grid);
-  }
-  out.push(...hiddenNote(hidden));
+  out.push(...buildMenu(s, bridge, rerender));
+  // what stands in town, each tappable (townOverview.ts)
+  out.push(...inTown(s, bridge));
   return out;
 }
 
-/** What to hide in the list of buildings (kept across visits, per phone). */
-const hide = new HidePrefs('littletown.buildHide', ['built', 'locked'] as const);
+/** The category tab open in the build menu (kept for the session; part of the panel's redraw key). */
+let tab: BuildTab = BUILD_TABS[0];
 
-/** The player's pinned wishes: each with how it stands and Unpin. */
-function wishesBlock(s: Snapshot, bridge: Bridge | undefined): HTMLElement[] {
-  if (!s.pins.length) return [];
-  const box = el('div', 'queue');
-  box.append(el('div', 'panel-head', `📌 Your wishes ${s.pins.length}/${PINS_MOST}`));
-  for (const p of s.pins) {
-    const row = el('div', 'queue-row');
-    row.append(
-      el('span', 'queue-name', p.name),
-      el('span', 'queue-time', p.building ? `going up: ${Math.floor(p.progress * 100)}% built` : p.why ? `waiting: ${p.why}` : 'next to be built'),
-      button('Unpin', () => bridge?.command({ type: 'pinBuilding', def: p.def, on: false }), { cls: 'place small' }),
-    );
-    box.append(row);
-  }
-  return [box];
+/** One row of the build menu: what to show and what Build does. */
+interface Row {
+  key: string;
+  icon: string | null;
+  name: string;
+  cost: Stock;
+  ordered: boolean;
+  /** Orders already at their most: the row can't take another. */
+  full?: boolean;
+  order: Command;
+  more: () => More[];
 }
 
-function card(def: BuildingDef, s: Snapshot, bridge: Bridge | undefined): HTMLElement {
+/** The build menu (the Buildings tab): what's under way, what the town recommends, then the buildings by category. */
+function buildMenu(s: Snapshot, bridge: Bridge | undefined, rerender: () => void): HTMLElement[] {
+  const out: HTMLElement[] = [el('h2', '', 'Build')];
+  out.push(...underway(s, bridge));
+  const r = s.recommend;
+  if (r) {
+    const def = r.def ? BUILDING_BY_ID[r.def] : undefined;
+    const ordered = r.def ? s.pins.some((p) => p.def === r.def) : s.ringOrdered;
+    const c = el('div', 'card recommend');
+    const top = el('div', 'card-top');
+    if (r.def) top.append(thumb(r.def, 36, s));
+    top.append(el('span', 'card-name', r.name));
+    c.append(el('div', 'panel-head', 'Recommended'), top, el('div', 'hint', `${r.why}.`));
+    const cost = def ?? BUILDING_BY_ID[WALL_KINDS[0]];
+    c.append(costLine(s, cost.cost));
+    c.append(button(ordered ? 'Ordered' : 'Build', () => bridge?.command(r.def ? { type: 'pinBuilding', def: r.def, on: true } : { type: 'orderRing' }), { cls: 'place build-btn', disabled: ordered || (!!r.def && s.pins.length >= PINS_MOST) }));
+    out.push(c);
+  }
+  const rows = buildRows(s);
+  const tabs = BUILD_TABS.filter((t) => rows.some((r) => r.tab === t));
+  if (!tabs.includes(tab) && tabs.length) tab = tabs[0];
+  const bar = el('div', 'row directions');
+  for (const t of tabs) bar.append(button(t, () => { tab = t; rerender(); }, { cls: `place small${t === tab ? ' on' : ' quiet'}` }));
+  out.push(bar);
+  const list = el('div', 'brows');
+  for (const row of rows.filter((r) => r.tab === tab)) list.append(buildRow(row, s, bridge));
+  out.push(list);
+  return out;
+}
 
-  const unlocked = isUnlocked({ unlockAll: s.unlockAll, done: s.research.done, era: s.era, origin: s.origin.id }, def);
-  const c = el('div', unlocked ? 'card' : 'card locked');
-  const top = el('div', 'card-top');
-  top.append(thumb(def.id, 36, s), el('span', 'card-name', def.name), el('span', 'card-size', `${def.width} wide · ~${duration(def.buildSeconds * BUILD_PACE * BUILD_MULTIPLIER[earlier(s.era, eraOfResearch(def.research))])} of work · Construction ${buildSkill(def)}+`));
-  const cost = el('div', 'cost');
-  for (const [m, n] of Object.entries(def.cost) as [Material, number][]) {
-    const chip = el('span', (s.stock[m] ?? 0) >= n ? 'chip' : 'chip short', `${MATERIAL_NAMES[m]} ${n}`);
-    const icon = materialIcon(m);
-    if (icon) chip.prepend(icon);
-    cost.append(chip);
+/** Every row the menu can show, each in its category: what the town has learned to build, then the wall and the streets. */
+function buildRows(s: Snapshot): (Row & { tab: BuildTab })[] {
+  const have = { unlockAll: s.unlockAll, done: s.research.done, era: s.era, origin: s.origin.id };
+  const rows: (Row & { tab: BuildTab })[] = [];
+  for (const b of BUILDINGS) {
+    if (b.never || isRingPiece(b.id) || b.seat || (b.hp && b.width === 1 && !b.defense)) continue;
+    if (!isUnlocked(have, b) || (!s.unlockAll && b.research && !(eraReached(s.era, TOPIC_BY_ID[b.research]?.era) && topicKnown(s, b.research)))) continue;
+    rows.push({ tab: tabOf(b), key: `bld:${b.id}`, icon: b.id, name: b.name, cost: b.cost, ordered: s.pins.some((p) => p.def === b.id), full: s.pins.length >= PINS_MOST, order: { type: 'pinBuilding', def: b.id, on: true }, more: () => [el('div', 'more-line', b.purpose), el('div', 'more-line', `Why: ${whyOf(b)}`), ...buildingDetails(b, s)] });
   }
-  c.append(top, cost, el('div', 'purpose', def.purpose));
-  const tip = placementTip(def);
-  if (tip) c.append(el('div', 'hint', tip));
-  if (!unlocked) c.append(el('div', 'lock', `Needs research: ${topicName(def.research!, s.origin.id)}`));
-  else {
-    const n = s.buildings.filter((b) => b.def === def.id && b.status === 'done').length;
-    c.append(el('div', 'lock', n ? `In town: ${n}` : 'None yet'));
-    // (the player's wish: built next, sim/pins.ts)
-    const pin = s.pins.find((p) => p.def === def.id);
-    const can = !def.never && !(def.hp && def.width === 1 && !def.defense) && !def.seat;
-    if (pin) c.append(button('📌 Pinned: unpin', () => bridge?.command({ type: 'pinBuilding', def: def.id, on: false }), { cls: 'place small on' }));
-    else if (can) c.append(button('📌 Build this next', () => bridge?.command({ type: 'pinBuilding', def: def.id, on: true }), { cls: 'place small', disabled: s.pins.length >= PINS_MOST }));
+  const wall = s.ringState === 'none' ? 'Raise the palisade' : s.ringState === 'building' ? 'Finish the ring wall' : 'Widen or upgrade the wall';
+  rows.push(
+    { tab: 'Defence', key: 'bld:ring', icon: WALL_KINDS[0], name: wall, cost: BUILDING_BY_ID[WALL_KINDS[0]].cost, ordered: s.ringOrdered, order: { type: 'orderRing' }, more: () => ['A wall round the town with gates where the roads cross: raiders have to break it. The town picks the line and works it until it stands. Worth widening once the space inside is mostly built on.'] },
+    { tab: 'Town', key: 'bld:streets', icon: null, name: 'Lay the streets', cost: {}, ordered: s.streetsOrdered, order: { type: 'orderStreets' }, more: () => ['Paves the paths folk have worn, and a road to each gate of the wall.'] },
+  );
+  return rows;
+}
+
+/** What a cost needs, in words: nothing short gives the cost itself ("Wood 20 · Stone 5"). */
+function costLine(s: Snapshot, cost: Stock): HTMLElement {
+  const entries = (Object.entries(cost) as [Material, number][]).filter(([, n]) => n);
+  const short = entries.filter(([m, n]) => (s.stock[m] ?? 0) < n);
+  if (!entries.length) return el('div', 'brow-cost', 'No materials');
+  if (short.length) return el('div', 'brow-cost short', `needs ${short.map(([m, n]) => `${n - (s.stock[m] ?? 0)} ${MATERIAL_NAMES[m].toLowerCase()}`).join(', ')}`);
+  return el('div', 'brow-cost', entries.map(([m, n]) => `${MATERIAL_NAMES[m]} ${n}`).join(' · '));
+}
+
+/** A compact row: icon, name, cost, Build. Tap it for the details. */
+function buildRow(row: Row, s: Snapshot, bridge: Bridge | undefined): HTMLElement {
+  const afford = (Object.entries(row.cost) as [Material, number][]).every(([m, n]) => (s.stock[m] ?? 0) >= n);
+  const c = el('div', `brow${afford ? '' : ' short'}`);
+  const main = el('div', 'brow-main');
+  main.append(row.icon ? thumb(row.icon, 28, s) : el('span', 'thumb-gap'));
+  const text = el('div', 'brow-text');
+  text.append(el('div', 'card-name', row.name), costLine(s, row.cost));
+  main.append(text, button(row.ordered ? 'Ordered' : 'Build', () => bridge?.command(row.order), { cls: 'place small', disabled: row.ordered || !!row.full }));
+  c.append(main);
+  return expandable(c, row.key, row.more);
+}
+
+/** What's under way: one small strip for the orders and sites, each with its progress and a cancel. */
+function underway(s: Snapshot, bridge: Bridge | undefined): HTMLElement[] {
+  const sites = s.buildings.filter((b) => b.status === 'blueprint');
+  const taken = new Set<number>();
+  const out: HTMLElement[] = [];
+  const row = (def: string, status: string, progress: number, cancel: () => void) => {
+    const r = el('div', 'queue-row strip');
+    r.append(thumb(def, 22, s), el('span', 'queue-name', BUILDING_BY_ID[def]?.name ?? def), el('span', 'queue-time', status), button('Cancel', cancel, { cls: 'place small' }));
+    const bar = el('div', 'bar');
+    const fill = el('div', 'bar-fill');
+    fill.style.width = `${Math.floor(progress * 100)}%`;
+    bar.append(fill);
+    r.append(bar);
+    return r;
+  };
+  for (const p of s.pins) {
+    const site = p.building ? sites.find((b) => b.def === p.def && !taken.has(b.id)) : undefined;
+    if (site) taken.add(site.id);
+    out.push(row(p.def, site ? siteStatus(site) : p.why ? `waiting: ${p.why}` : 'next up', site?.progress ?? 0, () => {
+      bridge?.command({ type: 'pinBuilding', def: p.def, on: false });
+      if (site) bridge?.command({ type: 'demolish', building: site.id });
+    }));
   }
-  return expandable(c, `bld:${def.id}`, () => buildingDetails(def, s));
+  for (const b of sites) if (!taken.has(b.id)) out.push(row(b.def, siteStatus(b), b.progress, () => bridge?.command({ type: 'demolish', building: b.id })));
+  return out;
+}
+
+function siteStatus(b: Snapshot['buildings'][number]): string {
+  const def = BUILDING_BY_ID[b.def];
+  const need = (Object.entries(def.cost) as [Material, number][]).filter(([m, n]) => (b.delivered[m] ?? 0) < n);
+  return b.progress > 0 ? `${Math.floor(b.progress * 100)}% built` : need.length ? `waiting on ${need.map(([m, n]) => `${MATERIAL_NAMES[m].toLowerCase()} ${b.delivered[m] ?? 0}/${n}`).join(', ')}` : 'ready to build';
 }
 
 /** A building's details (tap its card): its size and age, what it gives the town, what it fights with, the job it
@@ -397,16 +406,5 @@ function buildingDetails(def: BuildingDef, s: Snapshot): More[] {
     ]),
     crop ? facts([['Grows', `${MATERIAL_NAMES[crop.material]}, about ${crop.yield} a harvest`], ['Ripens in', `${crop.growHours} hours in spring and summer${crop.hardy ? ' (and autumn)' : ''}`], ['Indoors', crop.indoor ? 'yes: no seasons, no weather' : null]]) : null,
     list('Made here', made.slice(0, 16).concat(made.length > 16 ? [`and ${made.length - 16} more`] : [])),
-    'The town decides for itself what to build and where (the Plan tab sets its direction).',
   ];
 }
-
-/** Where it does best (adjacency bonuses), if anywhere in particular. */
-function placementTip(def: BuildingDef): string | null {
-  const sources = NEAR_SOURCE[def.id];
-  if (sources) return `Works ${Math.round((NEAR_SOURCE_BONUS - 1) * 100)}% faster within ${ADJACENT_TILES} tiles of a ${sources.map((id) => BUILDING_BY_ID[id].name).join(' or ')}.`;
-  if (def.id === 'tavern') return `Livelier (+${TAVERN_MARKET_MORALE} morale) within ${ADJACENT_TILES} tiles of a Market Stall.`;
-  if (CROPS[def.id] && !CROPS[def.id].indoor) return `Grows ${Math.round((RIVER_GROWTH - 1) * 100)}% faster beside a river.`;
-  return null;
-}
-

@@ -25,6 +25,7 @@ import type { Material } from '../data/materials';
 import { tierOf } from '../data/taming';
 import { hashSeed, Rng } from '../rng';
 import { isUnlocked, placeBlueprint, totalStock, unlockInfo } from './buildings';
+import { matchupOf, powerOfFighter, powerOfPerson, type Matchup } from './power';
 import { personFighter, startBattle, stepBattle, unitFighter, type Fighter } from './combat';
 import { addDeed } from './deeds';
 import { raidOf } from './factions';
@@ -179,6 +180,7 @@ function tourneyToday(s: GameState): boolean {
 
 /** The town raises an arena once it's big enough. */
 export function buildArena(s: GameState): void {
+  if (!s.townBuilds) return; // (the founder builds: the town lays no blueprint of its own)
   const def = BUILDING_BY_ID.arena;
   if (!def || !isUnlocked(unlockInfo(s), def) || s.buildings.some((b) => b.def === 'arena')) return;
   if (s.people.filter((p) => !isChild(p)).length < ARENA_PEOPLE) return;
@@ -221,7 +223,16 @@ export function beastFighter(b: RanchBeast): Fighter {
   return f;
 }
 
-function visitorFighter(kind: string, scale: number, name: string): Fighter {
+/** Power levels of the two sides on a card (sim/power.ts), and how the town's side matches the visitor. */
+function cardPower(s: GameState, card: ArenaCard): { power: { town: number; visitor: number }; matchup: Matchup } {
+  const p = card.town.kind === 'person' ? s.people.find((q) => q.id === card.town.id) : undefined;
+  const b = card.town.kind === 'beast' ? (s.ranch?.beasts ?? []).find((q) => q.id === card.town.id) : undefined;
+  const town = p ? powerOfPerson(p) : b ? powerOfFighter(beastFighter(b)) : 0;
+  const visitor = powerOfFighter(visitorFighter(card.visitor.kind, card.visitor.scale, card.visitor.name));
+  return { power: { town, visitor }, matchup: matchupOf(town, visitor) };
+}
+
+export function visitorFighter(kind: string, scale: number, name: string): Fighter {
   const f = unitFighter(kind, 'enemy', 0);
   f.name = name;
   f.maxHp = Math.max(1, Math.round(f.maxHp * scale));
@@ -395,7 +406,7 @@ export function startBout(s: GameState): ArenaBout | null {
   return bout;
 }
 
-function refund(s: GameState, b: Bet): void {
+export function refund(s: GameState, b: Bet): void {
   if (b.who === -1) {
     s.coins = (s.coins ?? 0) + b.amount;
     earn(s, 'arena', b.amount);
@@ -575,7 +586,7 @@ export interface ArenaView {
   seasons: number;
   renown: number;
   master: string | null;
-  card: (Omit<ArenaCard, 'bets'> & { hoursLeft: number; bets: number; pot: number; treasury: { on: Bet['on']; amount: number } | null; backers: { town: number; visitor: number } }) | null;
+  card: (Omit<ArenaCard, 'bets'> & { hoursLeft: number; bets: number; pot: number; treasury: { on: Bet['on']; amount: number } | null; backers: { town: number; visitor: number }; power: { town: number; visitor: number }; matchup: Matchup }) | null;
   bout: { id: number; town: string; visitor: string; from: string; over: boolean; won: boolean | null } | null;
   ladder: (Entrant & { rank: number })[];
   past: BoutRecord[];
@@ -609,6 +620,7 @@ export function arenaView(s: GameState): ArenaView | null {
           pot: card.bets.reduce((n, b) => n + b.amount, 0),
           treasury: ((b) => (b ? { on: b.on, amount: b.amount } : null))(card.bets.find((b) => b.who === -1)),
           backers: { town: card.bets.filter((b) => b.on === 'town').length, visitor: card.bets.filter((b) => b.on === 'visitor').length },
+          ...cardPower(s, card),
         }
       : null,
     bout: st.bout ? { id: st.bout.id, town: st.bout.card.town.name, visitor: st.bout.card.visitor.name, from: st.bout.card.visitor.from, over: st.bout.ended !== undefined, won: st.bout.outcome ? st.bout.outcome === 'won' : null } : null,

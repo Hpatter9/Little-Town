@@ -18,6 +18,7 @@ import { freeSpot, plainGame, put } from './helpers';
 /** A coastal town with the autopilot on: it can build boats, has a boatyard and a boat, eight pairs of hands and stores. */
 function seaTownGame(seed = 'sea'): GameState {
   const s = plainGame(seed);
+  s.townBuilds = true;
   s.autopilot = true;
   s.research.done.push('boatbuilding', 'carpentry', 'shipwrighting', 'navigation');
   s.land.open = 40;
@@ -154,6 +155,7 @@ test('the Tide Clan claims the isles first: a merfolk town keeps them, others lo
   other.tick = (day + 1) * TICKS_PER_DAY;
   assert.ok(claimed(other, 'herring_isle') && !settleable(other, 'herring_isle'));
   const mer = newGame('merclaim', { origin: 'merfolk' });
+  mer.townBuilds = true;
   mer.research.done.push('boatbuilding');
   mer.tick = 200 * TICKS_PER_DAY;
   assert.ok(!claimed(mer, 'herring_isle') && settleable(mer, 'herring_isle'));
@@ -161,6 +163,7 @@ test('the Tide Clan claims the isles first: a merfolk town keeps them, others lo
 
 test('the merfolk\'s shore starts with a boat and the sea monsters leave it be more', () => {
   const s = newGame('mer-start', { origin: 'merfolk' });
+  s.townBuilds = true;
   s.autopilot = true;
   assert.equal(fleet(s).length, 0);
   s.tick = TICKS_PER_HOUR * 5;

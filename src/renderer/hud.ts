@@ -162,7 +162,7 @@ export function createHud(bridge: Bridge, onTheme?: (theme: Theme) => void): Hud
         cast.title = mine.description;
       }
       if (r) {
-        const t = r.phase === 'warning' ? `${r.name} in ${Math.ceil(r.secondsToArrival)}s` : `${r.name} in town!${r.hexes.length ? ` · ${r.hexes.join(' · ')}` : ''}`;
+        const t = r.phase === 'warning' ? `${r.name} in ${Math.ceil(r.secondsToArrival)}s · ${r.matchup} (${r.power} vs ${r.townPower})` : `${r.name} in town! ${r.matchup}${r.hexes.length ? ` · ${r.hexes.join(' · ')}` : ''}`;
         if (raid.textContent !== t) raid.textContent = t;
       }
       // anyone bleeding out in town: who has least time left (a dressing or an infirmary saves them)
@@ -187,9 +187,8 @@ export function createHud(bridge: Bridge, onTheme?: (theme: Theme) => void): Hud
         const t = d.phase === 'signs' ? `${d.name} coming (${Math.ceil(d.hoursLeft)}h)` : d.name === 'Plague' ? `Plague: ${d.sick} sick` : `${d.name}: ${Math.ceil(d.hoursLeft)}h left`;
         if (doom.textContent !== t) doom.textContent = t;
       }
-      // while the main process simulates time away, say so (the town fast-forwards meanwhile)
       const badge =
-        snap.catchingUp != null ? `Catching up… ${Math.floor(snap.catchingUp * 100)}%` : snap.launchHours != null ? `Lift-off in ${Math.ceil(snap.launchHours)}h` : null;
+        snap.launchHours != null ? `Lift-off in ${Math.ceil(snap.launchHours)}h` : null;
       launch.hidden = badge === null;
       if (badge !== null && launch.textContent !== badge) launch.textContent = badge;
       // how long the stored food lasts everyone who eats (the undead don't), in days; red under a day

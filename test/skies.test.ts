@@ -20,6 +20,7 @@ import { plainGame, put } from './helpers';
 /** A town of the Industrial age that has learned to fly. */
 function skyTown(seed = 'skies'): GameState {
   const s = plainGame(seed);
+  s.townBuilds = true;
   s.era = 'industrial';
   s.research.done.push('steam_power', 'cartography', 'steelmaking', 'aeronautics', 'rigid_airships');
   s.land.open = 30;

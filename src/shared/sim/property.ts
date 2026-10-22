@@ -74,6 +74,7 @@ function homesFor(s: GameState, p: Person): BuildingDef[] {
 /** Someone with coins enough and no home of their own buys a plot and has a home built (one site a person; one new
  *  home an hour in all). */
 export function planHomes(s: GameState): void {
+  if (!s.townBuilds) return; // (the founder orders the homes: the town no longer buys plots and builds)
   if (blueprintCount(s) >= buildSlots(s)) return;
   for (const p of s.people) {
     if (p.away !== null || p.bornTick != null || p.downed) continue;

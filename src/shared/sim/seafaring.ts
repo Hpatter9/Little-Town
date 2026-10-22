@@ -416,6 +416,7 @@ function sailHome(s: GameState, c: Colony, rng: Rng): void {
 
 /** Once there is a boatyard and a boat, a town of a few hands with lumber to spare lays a harbour beside the water. */
 function planHarbour(s: GameState): void {
+  if (!s.townBuilds) return; // (the founder builds: the town lays no blueprint of its own)
   if (!s.research.done.includes('shipwrighting') || !boatyardOf(s) || !fleet(s).length) return;
   if (s.buildings.some((b) => b.def === 'harbour')) return;
   if (s.people.filter((p) => !isChild(p)).length < 8) return;

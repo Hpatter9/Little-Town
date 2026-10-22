@@ -112,7 +112,7 @@ export interface RaidRecapView {
   seenNow(s: Snapshot): void;
 }
 
-export function createRaidRecap(): RaidRecapView {
+export function createRaidRecap(giveChase: () => void = () => {}): RaidRecapView {
   const box = el('div', '');
   box.id = 'raid-recap';
   box.setAttribute('data-hit', '');
@@ -142,7 +142,7 @@ export function createRaidRecap(): RaidRecapView {
   };
 
   const draw = (c: NonNullable<Snapshot['raidRecap']>) => {
-    const key = String(c.tick);
+    const key = `${c.tick}${snap?.chase ? 'c' : ''}`;
     box.hidden = false;
     if (key === shownKey) return;
     shownKey = key;
@@ -196,6 +196,15 @@ export function createRaidRecap(): RaidRecapView {
         foot.append(l);
       }
       box.append(foot);
+    }
+    // raiders who got away: the town may ride after them (sim/chase.ts)
+    if (snap?.chase) {
+      const go = el('button', 'tab rr-close', `Give chase! (${snap.chase.count} fled)`);
+      go.addEventListener('click', () => {
+        close();
+        giveChase();
+      });
+      box.append(go);
     }
     const ok = el('button', 'tab rr-close', 'Back to town');
     ok.addEventListener('click', close);

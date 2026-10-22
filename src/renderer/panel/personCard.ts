@@ -112,7 +112,7 @@ function head(p: PersonView, s: Snapshot, hooks: SheetHooks): HTMLElement {
   const chips = el('div', 'pc-chips');
   if (p.clsName) chips.append(p.cls ? tapLink(chip(`${p.clsName} · Lv ${p.level}`, 'calling'), () => openCard({ kind: 'calling', id: p.cls! })) : chip(`${p.clsName} · Lv ${p.level}`, 'calling'));
   else chips.append(chip(p.typeName));
-  chips.append(chip(`${p.ageYears} years${p.elder ? ', an elder' : ''}`), chip(p.natureName));
+  chips.append(chip(`${p.ageYears} years${p.elder ? ', an elder' : ''}`), chip(p.natureName), chip(`Power ${p.battle.power}`));
   if (p.job) chips.append(chip(`${p.job.title} at ${p.job.at}`));
   for (const t of p.titles) chips.append(chip(t, 'title'));
   for (const g of guilds) {
@@ -126,6 +126,9 @@ function head(p: PersonView, s: Snapshot, hooks: SheetHooks): HTMLElement {
   if (p.breakdown) chips.append(chip(p.breakdown, 'warn'));
   if (p.freePts > 0) chips.append(chip(`${p.freePts} stat ${p.freePts === 1 ? 'point' : 'points'} to spend`, 'title'));
   who.append(chips);
+  // how the latest title was earned (sim/titles.ts)
+  const lastTitle = p.titles[p.titles.length - 1];
+  if (lastTitle && p.titleWhy[lastTitle]) who.append(el('div', 'pc-text', `${lastTitle}: ${p.titleWhy[lastTitle]}`));
   top.append(col, who);
   return top;
 }
@@ -138,11 +141,11 @@ function storyTab(p: PersonView, out: HTMLElement): void {
   if (p.secret) out.append(el('div', 'pc-sec', 'A secret'), el('div', 'pc-text', `${p.secret.name}: ${p.secret.text}`));
   if (p.diary.length) {
     out.append(el('div', 'pc-sec', 'Today, in their words'));
-    for (const l of p.diary) out.append(linked(l, 'div', 'pc-diary'));
+    for (const l of p.diary.slice(0, 3)) out.append(linked(l, 'div', 'pc-diary'));
   }
   if (p.recent.length) {
     out.append(el('div', 'pc-sec', 'Lately'));
-    for (const l of p.recent.slice(0, 5)) out.append(linked(l, 'div', 'pc-diary'));
+    for (const l of p.recent.slice(0, 3)) out.append(linked(l, 'div', 'pc-diary'));
   }
   const deeds = p.deeds.filter((d) => d.n > 0);
   if (deeds.length) {

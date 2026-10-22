@@ -1,0 +1,201 @@
+// Which piece of a people's isometric building kit (art/iso/kits/: see its README.md) stands for each of the game's
+// buildings and grounds. Pure (no Pixi, no page): the tests check every kit has what this asks of it.
+//
+// The kits' indexes are small and imported here; their PNGs are not (the web build would inline them all, megabytes):
+// iso/isoView.ts loads each by URL (`kitUrl`), and the build copies the folder beside the strip (build.mjs).
+
+import kitsJson from '../art/iso/kits/kits.json';
+import settlers from '../art/iso/kits/settlers/index.json';
+import knights from '../art/iso/kits/knights/index.json';
+import dwarves from '../art/iso/kits/dwarves/index.json';
+import bloodcourt from '../art/iso/kits/bloodcourt/index.json';
+import liches from '../art/iso/kits/liches/index.json';
+import druids from '../art/iso/kits/druids/index.json';
+import fae from '../art/iso/kits/fae/index.json';
+import machines from '../art/iso/kits/machines/index.json';
+import moonpack from '../art/iso/kits/moonpack/index.json';
+import orcs from '../art/iso/kits/orcs/index.json';
+import merfolk from '../art/iso/kits/merfolk/index.json';
+import nomads from '../art/iso/kits/nomads/index.json';
+import { BUILDING_BY_ID } from '../../shared/data/buildings';
+import { CROPS } from '../../shared/data/crops';
+import { HERDS } from '../../shared/data/livestock';
+import type { Ground } from '../../shared/sim/land';
+import { kitTileCells } from './isoMath';
+import { BIOME_GROUND, mulTint } from './isoTown';
+import type { Biome } from '../../shared/data/biomes';
+
+/** The kits are drawn at this much of their `scale` (the view's cells are half the size the kits were made for:
+ *  iso/isoMath.ts `ISO_TW`). */
+export const ISO_ART = 0.5;
+
+export interface KitPiece {
+  id: string;
+  w: number;
+  h: number;
+}
+export interface Kit {
+  name: string;
+  /** Draw its pieces at this (times `ISO_ART`), so every people's cottage is the same size. */
+  scale: number;
+  pieces: Map<string, KitPiece>;
+  /** Its ground tiles in order: the open ground, the bare ground, the path, the field. */
+  tiles: [string, string, string, string];
+  /** How many cells across one of its ground tiles covers (from its `scale_tile`). */
+  tileCells: number;
+}
+
+const INDEXES: Record<string, readonly KitPiece[]> = { settlers, knights, dwarves, bloodcourt, liches, druids, fae, machines, moonpack, orcs, merfolk, nomads };
+const SCALES = kitsJson as Record<string, { scale: number }>;
+export const KIT_NAMES = Object.keys(INDEXES);
+
+/** Each people (the snapshot's `origin.id`) to its kit; the alchemists have none yet and borrow the settlers'. */
+const KIT_OF_ORIGIN: Record<string, string> = {
+  settlers: 'settlers',
+  lich: 'liches',
+  druid: 'druids',
+  vampire: 'bloodcourt',
+  werewolf: 'moonpack',
+  robot: 'machines',
+  dwarves: 'dwarves',
+  merfolk: 'merfolk',
+  nomads: 'nomads',
+  fae: 'fae',
+  alchemists: 'settlers',
+  knights: 'knights',
+  orcs: 'orcs',
+};
+/** The kit for a town: its people's (a lich's town is a necropolis whatever its people: the snapshot's theme). */
+export const kitNameFor = (origin: string, theme?: string): string => (theme === 'lich' ? 'liches' : (KIT_OF_ORIGIN[origin] ?? 'settlers'));
+
+const made = new Map<string, Kit>();
+export function kitOf(name: string): Kit {
+  const had = made.get(name);
+  if (had) return had;
+  const list = INDEXES[name] ?? INDEXES.settlers;
+  const pieces = new Map(list.map((p) => [p.id, { id: p.id, w: p.w, h: p.h }]));
+  const tiles = list.filter((p) => p.id.endsWith('_tile') && p.id !== 'scale_tile').map((p) => p.id);
+  const scale = SCALES[name]?.scale ?? 1;
+  const kit: Kit = {
+    name,
+    scale,
+    pieces,
+    tiles: [tiles[0], tiles[1] ?? tiles[0], tiles[2] ?? tiles[0], tiles[3] ?? tiles[0]],
+    tileCells: kitTileCells(pieces.get('scale_tile')?.w ?? 96, scale, ISO_ART),
+  };
+  made.set(name, kit);
+  return kit;
+}
+
+/** Where a kit's piece is served (beside the strip page: build.mjs copies the folder). */
+export const kitUrl = (kit: string, piece: string): string => `iso/kits/${kit}/${piece}.png`;
+
+/** The parts a building can be drawn as. */
+export type Role = 'cottage' | 'longhouse' | 'stockpile' | 'workshop' | 'tavern' | 'well' | 'chapel' | 'granary' | 'watchtower' | 'wall_run' | 'wall_corner' | 'gate' | 'market';
+/** A building drawn as ground, not a picture: a crop's field (the kit's field tile over its footprint). */
+export type Drawn = { role: Role } | { field: true };
+
+/** The game's buildings by name: anything not here is worked out by `roleOf`'s rules, and falls back to a cottage. */
+const ROLES: Record<string, Role> = {
+  stockpile: 'stockpile',
+  campfire: 'stockpile',
+  longhouse: 'longhouse',
+  elder_lodge: 'longhouse',
+  town_hall: 'longhouse',
+  trophy_hall: 'longhouse',
+  barracks: 'longhouse',
+  well: 'well',
+  granary: 'granary',
+  tavern: 'tavern',
+  fireside_inn: 'tavern',
+  brewery: 'tavern',
+  grog_pit: 'tavern',
+  market: 'market',
+  trading_post: 'market',
+  graveyard: 'chapel',
+};
+
+/** What a building of this kind is drawn as. */
+export function roleOf(defId: string): Drawn {
+  if (CROPS[defId] || HERDS[defId]) return { field: true };
+  const named = ROLES[defId];
+  if (named) return { role: named };
+  const def = BUILDING_BY_ID[defId];
+  if (/_gate$/.test(defId)) return { role: 'gate' };
+  if (/_(wall|grate)$/.test(defId) || defId === 'wagon_circle' || defId === 'stockade') return { role: 'wall_run' };
+  if (/tower|lookout|perch|spire|mast/.test(defId)) return { role: 'watchtower' };
+  if (/shrine|temple|cathedral|chapel|altar|idol/.test(defId)) return { role: 'chapel' };
+  if (/^seat_/.test(defId)) return { role: 'longhouse' };
+  if (def?.floor?.venue === 'tavern') return { role: 'tavern' };
+  if (def?.floor?.venue === 'shop') return { role: 'market' };
+  if (def?.housing) return { role: def.housing >= 3 && def.width >= 4 ? 'longhouse' : 'cottage' };
+  if (def?.storage) return { role: 'stockpile' };
+  if (/smith|forge|mill|works|kiln|bench|rack|loom|tannery|bakery|foundry|plant|factory|workshop|mine|refinery|lab|press|carver|cooper|apothecary|chandlery|alembic|assembler|armourer|jeweller|tailor|basketry|smokehouse|cannery|fab|derrick|garage|station|reactor|cutter|pelt|bloomery|quarry/.test(defId))
+    return { role: 'workshop' };
+  return { role: 'cottage' };
+}
+
+/** Each part's pieces to look for in a kit, in order (the kits name some of theirs their own way). */
+const ROLE_PIECES: Record<Role, (ids: string[]) => string | undefined> = {
+  cottage: () => 'cottage',
+  longhouse: (ids) => ids.find((i) => i === 'longhouse' || i === 'great_hall'),
+  stockpile: (ids) => ids.find((i) => i === 'stockpile'),
+  workshop: (ids) => ids.find((i) => i === 'workshop' || i === 'forge'),
+  tavern: (ids) => ids.find((i) => i === 'tavern' || i === 'ale_hall'),
+  well: (ids) => ids.find((i) => i === 'well'),
+  chapel: (ids) => ids.find((i) => i === 'chapel' || i === 'shrine'),
+  granary: (ids) => ids.find((i) => i === 'granary'),
+  watchtower: (ids) => ids.find((i) => /tower|platform/.test(i)),
+  wall_run: (ids) => ids.find((i) => i.endsWith('_run')),
+  wall_corner: (ids) => ids.find((i) => i.endsWith('_corner')),
+  gate: (ids) => ids.find((i) => i.endsWith('_gate') || i === 'gatehouse'),
+  market: (ids) => ids.find((i) => i === 'market_stall' || i.endsWith('_stall')) ?? ids.find((i) => i === 'workshop'),
+};
+
+/** The piece of a kit a building is drawn with: a piece named as the building itself if the kit has one (the knights'
+ *  `barracks`, the dwarves' `quarry`), else its part's, else the cottage. */
+export function pieceFor(kit: Kit, defId: string): string {
+  if (kit.pieces.has(defId) && !defId.endsWith('_tile')) return defId;
+  const d = roleOf(defId);
+  if ('field' in d) return kit.tiles[3];
+  const ids = [...kit.pieces.keys()];
+  return ROLE_PIECES[d.role](ids) ?? 'cottage';
+}
+
+/** Walls and gates are fitted to their footprint (a run of the kit's is drawn for a wider stretch than one cell). */
+export const fitted = (defId: string): boolean => {
+  const d = roleOf(defId);
+  return 'role' in d && (d.role === 'wall_run' || d.role === 'wall_corner' || d.role === 'gate');
+};
+
+/** Which of a kit's ground tiles a cell is drawn with (0 open, 1 bare, 2 path, 3 field), and a tint for the grounds
+ *  the kits have no tile of (water, for now, is the bare tile tinted blue). */
+export function groundTile(g: Ground, road: boolean, field: boolean, biome?: Biome): { tile: 0 | 1 | 2 | 3; tint: number } {
+  const t = baseTile(g, road, field);
+  const b = biome && BIOME_GROUND[biome];
+  // (the biome sets the open ground's look: snow, sand, swamp; water, stone and paths keep theirs)
+  if (!b || road || field || t.tile > 1 || g === 'water' || g === 'shallows' || g === 'rock' || g === 'mountain') return t;
+  return { tile: t.tile === 1 && g !== 'sand' ? 1 : b.tile, tint: mulTint(t.tint, b.tint) };
+}
+
+function baseTile(g: Ground, road: boolean, field: boolean): { tile: 0 | 1 | 2 | 3; tint: number } {
+  if (field) return { tile: 3, tint: 0xffffff };
+  if (road) return { tile: 2, tint: 0xffffff };
+  switch (g) {
+    case 'water':
+      return { tile: 1, tint: 0x4f7fc0 };
+    case 'shallows':
+      return { tile: 1, tint: 0x8fb4d8 };
+    case 'rock':
+    case 'mountain':
+      return { tile: 1, tint: 0xb8b8b8 };
+    case 'sand':
+      return { tile: 1, tint: 0xf0e0b0 };
+    case 'marsh':
+      return { tile: 1, tint: 0xa0b890 };
+    case 'forest':
+      return { tile: 0, tint: 0xb8d0a8 };
+    default:
+      return { tile: 0, tint: 0xffffff };
+  }
+}

@@ -8,6 +8,7 @@ import { prereqsMet, seatNeeded, seatStageNow } from '../src/shared/sim/research
 import { Sim } from '../src/shared/sim/sim';
 import { addStock, newGame } from '../src/shared/sim/state';
 import { TICKS_PER_HOUR } from '../src/shared/sim/time';
+import { OFFER_WAIT_TICKS } from '../src/shared/sim/researchOffer';
 import { plainGame } from './helpers';
 
 const stoneAge = TOPICS.filter((t) => (t.era ?? 'neolithic') === 'neolithic' && !t.origin && !t.hidden).map((t) => t.id);
@@ -24,7 +25,7 @@ test('picked by hand: first in the queue ahead of the town\'s own, reordered, re
   const s = newGame('picks');
   s.autopilot = true;
   const sim = new Sim(s);
-  for (let i = 0; i < TICKS_PER_HOUR; i++) sim.step(); // (the planner fills the queue)
+  for (let i = 0; i < OFFER_WAIT_TICKS + TICKS_PER_HOUR; i++) sim.step(); // (the town chooses from its offer)
   const r = s.research;
   const townsOwn = [...r.queue];
   assert.ok(townsOwn.length >= 1);

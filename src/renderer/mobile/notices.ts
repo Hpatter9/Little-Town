@@ -46,15 +46,8 @@ export interface Notice {
   /** Who or what it is about (a picture, and a way to it on the map). */
   about?: { person?: number; building?: string };
   action?: NoticeAction;
-  /** A Journal line's id (the lines of an absence are those up to the last when the player came back). */
+  /** A Journal line's id. */
   entry?: number;
-}
-
-/** The player closed the "While you were away" card: everything from that absence counts as read (it was told on the
- *  card), so the bubble doesn't count every Journal line of two days away. `upTo` is the last Journal line's id when
- *  the card closed; the situations standing then are read too. */
-export function readAbsence(ns: readonly Notice[], read: Set<string>, upTo: number): void {
-  for (const n of ns) if (n.entry === undefined ? !n.key.startsWith('tip:') : n.entry <= upTo) read.add(n.key);
 }
 
 /** The tone of a Journal line, by what it tells. */
@@ -164,6 +157,10 @@ export function situationNotices(s: Snapshot): Notice[] {
       } else waiting.set(k, { name: p.name, foes: p.foes ?? 'Something', n: 1, ids: [p.id] });
     }
   for (const w of waiting.values()) out.push({ key: `place:${w.ids.join(',')}`, tone: 'gold', mark: '⚑', title: `${w.name} found${w.n > 1 ? ` ×${w.n}` : ''}`, text: `${w.foes} there. A party may go after it; post a bounty or raise a party.`, action: { label: 'Trips', kind: 'panel', panel: 'expeditions' } });
+  // (a saga under way, told once when it begins and again as it moves; one lately ended, with its story)
+  for (const g of s.sagas.open) out.push({ key: `saga:${g.run}:${g.turns}`, tone: 'gold', mark: '📜', title: `Saga: ${g.title}`, text: `${g.blurb} ${g.now} Turn ${g.turns}.`, action: { label: 'Quests', kind: 'panel', panel: 'expeditions', tab: 'Quests' } });
+  const sd = s.sagas.done.at(-1);
+  if (sd && s.tick - sd.tick < 8 * 600) out.push({ key: `sagaend:${sd.title}:${sd.tick}`, tone: sd.outcome === 'ruin' ? 'red' : 'gold', mark: '📜', title: `Saga ended: ${sd.title}`, text: sd.story.join(' '), action: { label: 'Quests', kind: 'panel', panel: 'expeditions', tab: 'Quests' } });
   const rr = s.raidRecap;
   if (rr && !s.raid) {
     const word = rr.outcome === 'victory' ? 'Victory' : rr.outcome === 'driven' ? 'Driven off' : 'Pillaged';
@@ -430,22 +427,7 @@ export function startNotices(bridge: NoticeBridge, strip: HTMLIFrameElement): { 
   const all = (): Notice[] => (snap ? [...tips(), ...situationNotices(snap), ...stakeNotices(journalNotices(entries, snap), entries, snap)] : []);
   const unread = (ns: Notice[]) => ns.filter((n) => !read.has(n.key));
 
-  // (the "While you were away" card closed, in the strip: everything from the absence is read; Journal lines fetched
-  // later are caught up when they come)
-  let absenceTo = -1;
-  window.addEventListener('littletown:away-seen', (e) => {
-    absenceTo = Math.max(absenceTo, (e as CustomEvent<number>).detail ?? snap?.journalHead ?? 0);
-    readAbsence(all(), read, absenceTo);
-    keep();
-    drawBubble();
-    refresh();
-  });
   const drawBubble = () => {
-    if (absenceTo >= 0) {
-      const before = read.size;
-      readAbsence(journalNotices(entries, snap), read, absenceTo);
-      if (read.size !== before) keep();
-    }
     const u = unread(all());
     const tone = worst(u.map((n) => n.tone));
     bubble.hidden = !u.length || !sheet.hidden;

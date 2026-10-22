@@ -14,7 +14,7 @@ export type Hold = 'fight' | 'popup' | null;
 
 /** The questions that open the event box on the phone (mobile/eventSheet.ts); the strip's small card stands aside for them. */
 export const EVENT_BOX_KINDS: ReadonlySet<string> = new Set<string>([
-  'event', 'secret', 'saga', 'road', 'debrief', 'envoy', 'watch', 'dragon', 'evolve', 'refugees', 'village', 'council', 'trial', 'revolt', 'ways', 'enemy',
+  'event', 'secret', 'saga', 'road', 'debrief', 'envoy', 'watch', 'dragon', 'evolve', 'refugees', 'village', 'council', 'trial', 'revolt', 'ways', 'enemy', 'dispute', 'duel', 'name', 'deal',
 ]);
 
 /** A question held the town this long (ticks, ten real minutes) and still no answer: the town goes on, and the question's
@@ -23,7 +23,7 @@ export const POPUP_MOST_TICKS = 6000;
 
 /** A question for the player that stops the town: any but the raid's own (its clock runs with the fight) and the gate's
  *  (the town is paused for it already). */
-export const blocksTown = (p: Prompt): boolean => p.kind !== 'raid' && p.kind !== 'gate' && (!!p.pinned || (!p.parked && (p.stood ?? 0) < POPUP_MOST_TICKS));
+export const blocksTown = (p: Prompt): boolean => p.kind !== 'raid' && p.kind !== 'gate' && (!!p.waits || (!p.parked && (p.stood ?? 0) < POPUP_MOST_TICKS));
 
 /** A question closed unanswered settles itself after this long in game time (six hours), on its default answer, unless
  *  its own clock runs out sooner. */
@@ -33,14 +33,14 @@ export const PARK_WAIT_TICKS = 6 * TICKS_PER_HOUR;
  *  reading it). */
 export const canPark = (p: Prompt): boolean => p.kind !== 'raid' && p.kind !== 'gate' && p.kind !== 'debrief';
 
-/** Close a question unanswered: it waits behind the choices button and the town goes on (unless it is `pinned`: then the
+/** Close a question unanswered: it waits behind the choices button and the town goes on (unless it `waits` for the founder: then the
  *  town stays held until it is answered). Its clock is cut to `PARK_WAIT_TICKS` if it was longer, and `expirePrompts`
  *  answers it with its default when that runs out. */
 export function parkPrompt(s: GameState, id: number): void {
   const p = s.prompts.find((q) => q.id === id);
   if (!p || !canPark(p) || p.parked) return;
   p.parked = true;
-  if (!p.pinned) p.expiresTick = Math.min(p.expiresTick, s.tick + PARK_WAIT_TICKS);
+  if (!p.waits) p.expiresTick = Math.min(p.expiresTick, s.tick + PARK_WAIT_TICKS);
 }
 
 /** Open a waiting question again (the oldest first is the page's choice). It holds the town as before while it is up. */
@@ -49,6 +49,7 @@ export function openPrompt(s: GameState, id: number): void {
   if (p) p.parked = false;
 }
 
+/** (A question the founder's trip waits on, `waits`, holds the town even closed: `blocksTown`; `waitingOnFounder` in the step still drops the stale ones.) */
 export function holdOf(s: GameState): Hold {
   if (s.gameOver || s.paused) return null;
   if (fightOnScreen(s)) return 'fight';

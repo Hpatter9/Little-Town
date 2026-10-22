@@ -50,7 +50,7 @@ export const townsfolkKey = (s: Snapshot) => {
       who.id, who.job, who.order, who.sick, who.gear, who.gearQ, who.pouch, who.owns, who.debt, who.bedroll, who.carryCapacity, who.partner, who.married, who.friends, who.rivals, who.enemies, who.devoted,
       who.body, who.growsUpIn !== null && Math.ceil(who.growsUpIn / 24), Math.round(who.hp / 5), who.downed, who.bleedMinutes !== null, Math.round(who.morale / 5), Math.round(who.moodTarget / 5),
       Math.round(who.needs.food * 10), Math.round(who.needs.rest * 10), who.bed, SKILLS.map((k) => [who.skills[k].level, Math.floor(who.skills[k].progress * 4)]),
-      who.cls, who.monster, who.clsName, who.stage, who.level, Math.floor(who.levelProgress * 4), who.away, who.battle, who.kit.length, who.carrying, who.recent, who.freePts, who.autoStats, who.road, who.coins, who.income, who.traits.length, who.titles, who.deeds.map((d) => d.n),
+      who.cls, who.monster, who.clsName, who.stage, who.level, Math.floor(who.levelProgress * 4), who.away, who.battle, who.kit.length, who.carrying, who.recent, who.freePts, who.autoStats, who.road, who.coins, who.income, who.traits.length, who.titles, Object.keys(who.titleWhy).length, who.deeds.map((d) => d.n),
       who.arcana,
       who.mana,
     ],
@@ -140,7 +140,7 @@ export function renderTownsfolk(s: Snapshot, bridge: Bridge | undefined, rerende
   head.append(el('span', '', `People ${s.housing.people} · Beds ${s.housing.beds}`), el('span', '', `Food in storage: ${food}`));
   out.push(head);
   if (s.housing.beds <= s.housing.people && !s.visitor) {
-    out.push(el('div', 'hint', 'Wanderers only come while a bed is free. Build a Lean-to (Basic Shelter research).'));
+    out.push(el('div', 'hint', 'Wanderers only join while a bed is free. Build a home to make room.'));
   }
   if (s.visitor) out.push(visitorCard(s.visitor, s, bridge));
 
@@ -165,7 +165,7 @@ export function renderTownsfolk(s: Snapshot, bridge: Bridge | undefined, rerende
 
   out.push(el('h2', '', 'Jobs'));
   out.push(priorityGrid(s, bridge));
-  out.push(el('div', 'hint', 'Click a cell to cycle High, Normal, Low, Off. People do High jobs first. Auto sets them from skills. Defend: when raiders come, anyone not set to Off fights; the rest shelter (safest in a bed).'));
+  out.push(el('div', 'hint', 'Tap a cell to cycle High, Normal, Low, Off. High jobs come first. Auto sets them from skills. Defend: in a raid, anyone not set to Off fights; the rest shelter.'));
 
   out.push(
     ...familiesSection(s, (id) => {
@@ -189,7 +189,7 @@ export function renderTownsfolk(s: Snapshot, bridge: Bridge | undefined, rerende
 
   if (s.prisoners.length) {
     out.push(el('h2', '', 'Prisoners'));
-    out.push(el('div', 'hint', 'Taken in raids. They eat a ration a day and may slip away; in time they come round and join the town (faster with someone good at Social).'));
+    out.push(el('div', 'hint', 'Taken in raids. They eat a ration a day and may slip away. In time they may come round and join the town.'));
     for (const pr of s.prisoners) {
       const c = el('div', 'card person');
       const top = el('div', 'card-top');
@@ -237,7 +237,7 @@ let listScroll = 0;
 
 /* ------------------------------------------------------------ the list */
 
-/** One short row: their face (badged with the stat points they have to spend and a mark when an evolution waits
+/** One short row: their face (badged with the stat points they have to spend and a mark when a promotion waits
  *  on them: the owner's ask), name, calling and level, what they're up to, their health and spirits, and any
  *  trouble. Tap for the rest. The live parts are filled by `fillRow`, again on every snapshot. */
 function folkRow(p: PersonView, s: Snapshot, open: () => void): HTMLElement {
@@ -277,7 +277,7 @@ function fillRow(row: HTMLElement, p: PersonView, s: Snapshot): void {
   const q = (sel: string) => row.querySelector<HTMLElement>(sel)!;
   const face = row.querySelector<HTMLCanvasElement>('canvas.folk-face');
   if (face) refreshFace(face, p, s);
-  setText(q('.folk-class'), `${p.job ? `${p.job.title} · ` : ''}${p.natureName} · ${p.cls ? `${p.clsName} · Lv ${p.level}` : p.growsUpIn !== null ? 'Child' : `${p.typeName} · Lv ${p.level}`} · ${p.ageYears}y${p.elder ? ' · Elder' : ''}${p.coins !== null ? ` · ● ${p.coins}` : ''}${p.owns.length ? ' · 🏠' : ''}`);
+  setText(q('.folk-class'), `${p.job ? `${p.job.title} · ` : ''}${p.natureName} · ${p.cls ? `${p.clsName} · Lv ${p.level}` : p.growsUpIn !== null ? 'Child' : `${p.typeName} · Lv ${p.level}`} · Power ${p.battle.power} · ${p.ageYears}y${p.elder ? ' · Elder' : ''}${p.coins !== null ? ` · ● ${p.coins}` : ''}${p.owns.length ? ' · 🏠' : ''}`);
   setText(q('.folk-doing'), p.away !== null ? `Away: ${p.away}` : p.doing);
   fillBar(q('.mini-bar.hp'), p.hp / p.maxHp);
   fillBar(q('.mini-bar.mood'), p.morale / 100);
@@ -289,7 +289,7 @@ function fillRow(row: HTMLElement, p: PersonView, s: Snapshot): void {
   const evo = q('.folk-evo');
   const asking = !!p.road && p.road.promptId !== null;
   setText(evo, asking ? '⬆' : '');
-  evo.title = asking ? 'An evolution waits: choose their road' : '';
+  evo.title = asking ? 'A promotion waits: choose their road' : '';
 }
 const setText = (e: HTMLElement, text: string) => {
   if (e.textContent !== text) e.textContent = text;
@@ -354,7 +354,7 @@ function inspectView(p: PersonView, s: Snapshot, bridge: Bridge | undefined, rer
   }
   card.append(el('div', 'lock inspect-doing', p.away !== null ? `Away on an expedition: ${p.away}` : p.doing));
   card.append(classRow(p, bridge, rerender));
-  // (the same marks as the list's rows: points to spend, an evolution to choose; each a tap to where it's done)
+  // (the same marks as the list's rows: points to spend, a promotion to choose; each a tap to where it's done)
   const asking = !!p.road && p.road.promptId !== null;
   if (p.freePts > 0 || asking) {
     const badges = el('div', 'row folk-badges');
@@ -362,7 +362,7 @@ function inspectView(p: PersonView, s: Snapshot, bridge: Bridge | undefined, rer
       inspectTab = 'character';
       rerender();
     }, { cls: 'place small folk-badge pts' }));
-    if (asking) badges.append(button('⬆ An evolution awaits', () => {
+    if (asking) badges.append(button('⬆ A promotion awaits', () => {
       classOpen = p.id;
       rerender();
     }, { cls: 'place small folk-badge evo' }));
@@ -459,7 +459,11 @@ function backgroundTab(p: PersonView, s: Snapshot, out: HTMLElement): void {
   const who = el('div', 'card person');
   // their own story first (data/backstories.ts)
   if (p.story) who.append(el('div', 'story', p.story));
-  if (p.titles.length) who.append(el('div', 'story titles', `Known as ${p.titles.join(', ')}.`));
+  if (p.titles.length) {
+    who.append(el('div', 'story titles', `Known as ${p.titles.join(', ')}.`));
+    // and how each was earned (sim/titles.ts)
+    for (const t of p.titles) if (p.titleWhy[t]) who.append(el('div', 'lock', `${t}: ${p.titleWhy[t]}`));
+  }
   // their deeds, and the title each leads to next (sim/deeds.ts)
   if (p.deeds.length) {
     const deeds = el('div', 'deeds');
@@ -578,7 +582,7 @@ function paperDoll(p: PersonView, s: Snapshot, rerender: () => void): HTMLElemen
   const doll = el('div', 'doll');
   const fig = el('div', 'doll-figure');
   fig.append(figure(p, s, 3));
-  fig.append(el('div', 'doll-level', `${p.cls ? `${p.clsName} · Lv ${p.level}` : `Level ${p.level}`} · Aged ${p.ageYears}${p.elder ? ' · Elder' : ''}`));
+  fig.append(el('div', 'doll-level', `${p.cls ? `${p.clsName} · Lv ${p.level}` : `Level ${p.level}`} · Power ${p.battle.power} · Aged ${p.ageYears}${p.elder ? ' · Elder' : ''}`));
   fig.append(el('div', 'hint doll-age', p.ageText));
   if (p.job) fig.append(el('div', 'hint doll-age', `${p.job.title} at the ${p.job.at}`));
   fig.append(el('div', 'hint doll-age', `${p.natureName}: ${p.natureLine}`));
@@ -685,6 +689,7 @@ function fightCard(p: PersonView, bridge?: Bridge): HTMLElement {
     grid.append(c);
   };
   const pc = (v: number) => `${Math.round(v * 100)}%`;
+  stat('Power', String(b.power));
   stat('Health', `${Math.round(Math.min(p.hp, p.maxHp))}/${p.maxHp}`);
   stat(b.ranged ? 'Damage (range)' : 'Damage', b.damage[0] === b.damage[1] ? String(b.damage[0]) : `${b.damage[0]}–${b.damage[1]}`);
   stat('Aim', pc(Math.min(1, b.accuracy)));

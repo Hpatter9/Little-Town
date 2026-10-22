@@ -69,7 +69,7 @@ export class MapSky {
   force: SkyMix | null = null;
   private shown: SkyMix = { fog: 0, sand: 0, blizzard: 0, haze: 0 };
   private readonly banks: Bank[] = [];
-  private readonly fogLayer = new Container();
+  readonly fogLayer = new Container();
   private readonly tint = new Graphics();
   private readonly lines = new Graphics();
   private readonly dust: Bank[] = [];

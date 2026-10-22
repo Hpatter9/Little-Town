@@ -17,10 +17,14 @@ import { MATERIALS, type Material } from '../data/materials';
 import { ORDER_NAMES, type StandingOrder } from '../data/monsters';
 import { JOBS, type Job, type Priority } from '../data/people';
 import { TOPIC_BY_ID } from '../data/research';
+import { cleanName } from './naming';
 import { DIRECTIONS, type Direction } from './planner';
 
 export type MusterOp = 'raise' | 'add' | 'drop' | 'lead' | 'persuade' | 'order' | 'set' | 'send' | 'cancel';
 const MUSTER_OPS: readonly MusterOp[] = ['raise', 'add', 'drop', 'lead', 'persuade', 'order', 'set', 'send', 'cancel'];
+
+/** The most cells one `markClear` (a drag across the map) may mark or unmark. */
+export const MARK_CLEAR_CAP = 150;
 
 export type Command =
   | { type: 'setPaused'; paused: boolean }
@@ -33,10 +37,11 @@ export type Command =
   /** Forbid a destination to the town's parties, or allow it again; post (raise) or withdraw a bounty on one. */
   | { type: 'veto'; dest: string; on: boolean }
   /** The quest board (sim/questBoard.ts): take an offer up, or turn it down. */
-  | { type: 'quest'; op: 'accept' | 'decline'; sort: 'quest' | 'hunt'; id: number }
+  | { type: 'quest'; op: 'accept' | 'decline' | 'lead'; sort: 'quest' | 'hunt'; id: number }
   | { type: 'bounty'; dest: string; post: boolean }
   /** Mark a wild cell of the land for gathering (clearing it), or unmark it. */
   | { type: 'toggleGather'; cell: number }
+  | { type: 'markClear'; cells: number[]; on: boolean }
   /** Place a blueprint with its top-left cell at (x, y). */
   | { type: 'placeBuilding'; def: string; x: number; y: number }
   /** Cancel a blueprint or demolish a finished building. */
@@ -45,11 +50,17 @@ export type Command =
   | { type: 'discardStock'; building: number; material: Material }
   /** Pick a topic by hand: queued ahead of the town's own choices (sim/research.ts pickResearch). */
   | { type: 'queueResearch'; topic: string }
+  /** Study one of the three offered topics (sim/researchOffer.ts). */
+  | { type: 'studyOffer'; topic: string }
   /** Remove a topic (and anything queued that depends on it) from the queue. Progress is kept; the town leaves it be
    *  while it has anything else to study. */
   | { type: 'cancelResearch'; topic: string }
   /** Pin (on) or unpin a building from the Building book: the town builds it next (sim/pins.ts). */
   | { type: 'pinBuilding'; def: string; on: boolean }
+  /** Order the ring wall raised, widened or upgraded (the town picks the line and works it until it stands). */
+  | { type: 'orderRing' }
+  /** Order the streets laid where folk walk and to the gates (done at the next hour). */
+  | { type: 'orderStreets' }
   /** Move a hand-picked topic a place earlier (-1) or later (1) among the picks. */
   | { type: 'moveResearch'; topic: string; dir: -1 | 1 }
   /** Move a topic to the front of the queue. */
@@ -89,6 +100,25 @@ export type Command =
   /** Follow a townsperson (null: nobody). */
   | { type: 'follow'; person: number | null }
   | { type: 'watch'; expedition: number | null }
+  /** Play the founder (sim/founder.ts): walk to a building, work a job for the day (null: the town's choice), rest at
+   *  home, give coins to the town, name an heir (null: none). */
+  | { type: 'founderGo'; building: number }
+  | { type: 'founderWork'; job: Job | null }
+  | { type: 'founderRest' }
+  | { type: 'founderGive'; amount: number }
+  | { type: 'founderHeir'; person: number | null }
+  /** More ways to interact (sim/founderDealings.ts). */
+  | { type: 'founderVisitor'; terms: 'fee' | 'favour' }
+  | { type: 'founderApprentice'; child: number; master: number }
+  | { type: 'founderMatch'; person: number }
+  | { type: 'founderFeast'; grade: 'feast' | 'festival' }
+  | { type: 'founderHaggle'; offer: number }
+  /** The founder's shops (sim/founderShops.ts): buy one, set its stock line and price, hire its manager (the founder's own
+   *  id: they work the counter; null: shut it). */
+  | { type: 'founderBuyShop'; building: number }
+  | { type: 'founderShopStock'; building: number; stock: string }
+  | { type: 'founderShopPrice'; building: number; price: 'low' | 'fair' | 'high' }
+  | { type: 'founderShopManager'; building: number; person: number | null }
   /** Follow a townsperson, or stop (sim/favourites.ts): a view preference only. */
   | { type: 'favourite'; id: number; on: boolean }
   /** Go into a mine on the land and watch the digging (null: back to the town). */
@@ -103,6 +133,10 @@ export type Command =
   | { type: 'ranch'; id: number; op: 'name' | 'keep'; name?: string; keep?: boolean }
   /** The treasury's bet on tonight's bout at the arena (0 takes it back: sim/arena.ts). */
   | { type: 'arenaBet'; on: 'town' | 'visitor'; amount: number }
+  /** Challenge someone to a duel (a person's id; -1 the arena's champion), to yield or to the death (sim/duel.ts). */
+  | { type: 'duel'; foe: number; to: 'yield' | 'death' }
+  /** Name a building, a child of the founder's family, or a unique weapon (sim/naming.ts). */
+  | { type: 'name'; kind: 'building' | 'person' | 'unique'; id: number | string; name: string }
   /** Open or close a trade route to a power (sim/markets.ts). */
   | { type: 'tradeRoute'; to: string; open: boolean }
   /** Rally a defender in a raid (a burst of courage; sim/rally.ts). */
@@ -115,6 +149,8 @@ export type Command =
   | { type: 'battleSpeed'; speed: number }
   /** Skip the raid under way to its recap; or skip every raid (sim/raidSkip.ts). */
   | { type: 'raidSkip' }
+  /** Ride out after the raiders who got away (sim/chase.ts). */
+  | { type: 'giveChase' }
   | { type: 'skipRaids'; on: boolean }
   | { type: 'battleStyle'; style: 'trail' | 'tactics' }
   /** Spend one of a townsperson's stat points (data/attributes.ts), or all of them their class's way (`attr` null). */
@@ -166,7 +202,7 @@ export function parseCommand(raw: unknown): Command | null {
     case 'setTax':
       return TAX_RATES.includes(c.rate as TaxRate) ? { type: 'setTax', rate: c.rate as TaxRate } : null;
     case 'quest':
-      return (c.op === 'accept' || c.op === 'decline') && (c.sort === 'quest' || c.sort === 'hunt') && Number.isInteger(c.id) ? { type: 'quest', op: c.op, sort: c.sort, id: c.id as number } : null;
+      return (c.op === 'accept' || c.op === 'decline' || c.op === 'lead') && (c.sort === 'quest' || c.sort === 'hunt') && Number.isInteger(c.id) ? { type: 'quest', op: c.op, sort: c.sort, id: c.id as number } : null;
     case 'veto':
       return typeof c.dest === 'string' && typeof c.on === 'boolean' ? { type: 'veto', dest: c.dest, on: c.on } : null;
     case 'bounty':
@@ -175,6 +211,8 @@ export function parseCommand(raw: unknown): Command | null {
       return c.size === null || (Number.isInteger(c.size) && (c.size as number) >= 1 && (c.size as number) <= 200) ? { type: 'setTownSize', size: c.size as number | null } : null;
     case 'toggleGather':
       return Number.isInteger(c.cell) ? { type: 'toggleGather', cell: c.cell as number } : null;
+    case 'markClear':
+      return Array.isArray(c.cells) && typeof c.on === 'boolean' && c.cells.length <= MARK_CLEAR_CAP && c.cells.every((q) => Number.isInteger(q)) ? { type: 'markClear', cells: c.cells as number[], on: c.on } : null;
     case 'placeBuilding':
       return typeof c.def === 'string' && BUILDING_BY_ID[c.def] && Number.isInteger(c.x) && Number.isInteger(c.y) ? { type: 'placeBuilding', def: c.def, x: c.x as number, y: c.y as number } : null;
     case 'demolish':
@@ -198,9 +236,13 @@ export function parseCommand(raw: unknown): Command | null {
         ? { type: 'equip', person: c.person as number, slot: c.slot as Slot, item: c.item as string | null }
         : null;
     case 'queueResearch':
+    case 'studyOffer':
     case 'cancelResearch':
     case 'researchNext':
       return typeof c.topic === 'string' && TOPIC_BY_ID[c.topic] ? { type: c.type, topic: c.topic } : null;
+    case 'orderRing':
+    case 'orderStreets':
+      return { type: c.type };
     case 'pinBuilding':
       return typeof c.def === 'string' && BUILDING_BY_ID[c.def] && typeof c.on === 'boolean' ? { type: 'pinBuilding', def: c.def, on: c.on } : null;
     case 'moveResearch':
@@ -256,6 +298,10 @@ export function parseCommand(raw: unknown): Command | null {
       return c.op === 'keep' && typeof c.keep === 'boolean' ? { type: 'ranch', id: c.id as number, op: 'keep', keep: c.keep } : null;
     case 'arenaBet':
       return (c.on === 'town' || c.on === 'visitor') && Number.isInteger(c.amount) && (c.amount as number) >= 0 && (c.amount as number) <= 100000 ? { type: 'arenaBet', on: c.on, amount: c.amount as number } : null;
+    case 'duel':
+      return Number.isInteger(c.foe) && (c.to === 'yield' || c.to === 'death') ? { type: 'duel', foe: c.foe as number, to: c.to } : null;
+    case 'name':
+      return (c.kind === 'building' || c.kind === 'person' || c.kind === 'unique') && (typeof c.id === 'string' || Number.isInteger(c.id)) && cleanName(c.name) ? { type: 'name', kind: c.kind, id: c.id as number | string, name: cleanName(c.name)! } : null;
     case 'tradeRoute':
       return typeof c.to === 'string' && typeof c.open === 'boolean' ? { type: 'tradeRoute', to: c.to, open: c.open } : null;
     case 'lookInside':
@@ -270,6 +316,34 @@ export function parseCommand(raw: unknown): Command | null {
       return c.place === null || Number.isInteger(c.place) ? { type: 'watchMine', place: c.place as number | null } : null;
     case 'follow':
       return c.person === null || Number.isInteger(c.person) ? { type: 'follow', person: c.person as number | null } : null;
+    case 'founderGo':
+      return Number.isInteger(c.building) ? { type: 'founderGo', building: c.building as number } : null;
+    case 'founderWork':
+      return c.job === null || (typeof c.job === 'string' && (JOBS as readonly string[]).includes(c.job)) ? { type: 'founderWork', job: c.job as Job | null } : null;
+    case 'founderRest':
+      return { type: 'founderRest' };
+    case 'founderGive':
+      return Number.isInteger(c.amount) && (c.amount as number) > 0 && (c.amount as number) <= 100000 ? { type: 'founderGive', amount: c.amount as number } : null;
+    case 'founderBuyShop':
+      return Number.isInteger(c.building) ? { type: 'founderBuyShop', building: c.building as number } : null;
+    case 'founderShopStock':
+      return Number.isInteger(c.building) && typeof c.stock === 'string' && (c.stock as string).length < 24 ? { type: 'founderShopStock', building: c.building as number, stock: c.stock as string } : null;
+    case 'founderShopPrice':
+      return Number.isInteger(c.building) && (c.price === 'low' || c.price === 'fair' || c.price === 'high') ? { type: 'founderShopPrice', building: c.building as number, price: c.price } : null;
+    case 'founderShopManager':
+      return Number.isInteger(c.building) && (c.person === null || Number.isInteger(c.person)) ? { type: 'founderShopManager', building: c.building as number, person: c.person as number | null } : null;
+    case 'founderVisitor':
+      return c.terms === 'fee' || c.terms === 'favour' ? { type: 'founderVisitor', terms: c.terms } : null;
+    case 'founderApprentice':
+      return Number.isInteger(c.child) && Number.isInteger(c.master) ? { type: 'founderApprentice', child: c.child as number, master: c.master as number } : null;
+    case 'founderMatch':
+      return Number.isInteger(c.person) ? { type: 'founderMatch', person: c.person as number } : null;
+    case 'founderFeast':
+      return c.grade === 'feast' || c.grade === 'festival' ? { type: 'founderFeast', grade: c.grade } : null;
+    case 'founderHaggle':
+      return Number.isInteger(c.offer) ? { type: 'founderHaggle', offer: c.offer as number } : null;
+    case 'founderHeir':
+      return c.person === null || Number.isInteger(c.person) ? { type: 'founderHeir', person: c.person as number | null } : null;
     case 'rally':
       return Number.isInteger(c.person) ? { type: 'rally', person: c.person as number } : null;
     case 'battlePlace':
@@ -282,6 +356,8 @@ export function parseCommand(raw: unknown): Command | null {
       return typeof c.speed === 'number' && (GAME_SPEEDS as readonly number[]).includes(c.speed) ? { type: 'gameSpeed', speed: c.speed } : null;
     case 'raidSkip':
       return { type: 'raidSkip' };
+    case 'giveChase':
+      return { type: 'giveChase' };
     case 'skipRaids':
       return typeof c.on === 'boolean' ? { type: 'skipRaids', on: c.on } : null;
     case 'battleSpeed':

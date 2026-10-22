@@ -16,6 +16,7 @@ import { worldHourly } from './worldLife';
 import { marketsHourly, setRoute } from './markets';
 import { empireHourly, empireTick } from './tradeEmpire';
 import { groveHourly } from './grove';
+import { giveChase } from './chase';
 import { skipRaid, skipRaidsTick } from './raidSkip';
 import { courtHourly } from './bargains';
 import { workHourly } from './greatWork';
@@ -34,8 +35,11 @@ import { specialsHourly } from './specials';
 import { sagasHourly } from './sagas';
 import { huntsHourly } from './hunts';
 import { dragonTick } from './dragon';
-import { holdForFight, openGate } from './raidWait';
+import { holdForFight } from './raidWait';
 import { fightClock, openPrompt, parkPrompt, stoodTick, type Hold } from './popups';
+import { leadQuest, waitingOnFounder } from './founderQuests';
+import { stewardTick } from './steward';
+import { storyHourly } from './story';
 import { maybeEvent } from './events';
 import { alignmentHourly } from './alignment';
 import { rally } from './rally';
@@ -44,7 +48,7 @@ import { castAt } from './powers';
 import { Rng } from '../rng';
 import { demolish, discardStock, placeBlueprint, townRadius, upgrade } from './buildings';
 import { cellAt, groundAt, isMarked, setGround, setMarked, type Pt, decayWear } from './land';
-import type { Command } from './commands';
+import { MARK_CLEAR_CAP, type Command } from './commands';
 import { restockKits } from './kit';
 import { equip, hourlyItems, queueCraft, reduceCraft } from './crafting';
 import { growCrops, tendFields } from './farming';
@@ -89,6 +93,9 @@ import { giftVillage, villagesHourly } from './villages';
 import { issueEdict, politicsHourly } from './politics';
 import { guildsHourly } from './guilds';
 import { ranchCommand, ranchHourly } from './ranch';
+import { challenge, duelHourly, duelTick, duelTrip } from './duel';
+import { disputesHourly } from './disputes';
+import { nameCommand } from './naming';
 import { arenaBet, arenaHourly, arenaTick, arenaTrip } from './arena';
 import { endScene, queueScene, scenesHourly, watchScene } from './cutscenes';
 import { turnPerson, turnTown } from './turning';
@@ -103,6 +110,7 @@ import { cancelResearch, moveResearch, pickResearch, researchNext, seatStageNow 
 import { autoPriorities, campCell, notify, type GameState } from './state';
 import { TICK_MS, TICKS_PER_HOUR } from './time';
 import { acceptVisitor, assignBeds, drillGuards, driftMorale, keepKin, maybeArrive, rejectVisitor, updateVisitor } from './townsfolk';
+import { chooseOffer, keepOffer } from './researchOffer';
 import { forSale, runPlanner, shoppingList } from './planner';
 import { syncRing } from './ringWall';
 import { chooseLich, watchLich } from './occult';
@@ -136,6 +144,9 @@ import { seafaringHourly } from './seafaring';
 import { oddsHourly } from './raidOdds';
 import { voteSettlementName } from './settlementName';
 import { setFavourite } from './favourites';
+import { founderBuyShop, founderShopManager, founderShopPrice, founderShopStock } from './founderShops';
+import { founderApprentice, founderFeast, founderHaggle, founderMatch, founderVisitor } from './founderDealings';
+import { founderGive, founderGo, founderHeir, founderRest, founderTick, founderWork } from './founder';
 
 /** How the town trades at its shop: the planner decides what's spare and what to buy. */
 const SHOP_TOWN: ShopTown = { forSale, wants: shoppingList };
@@ -191,9 +202,12 @@ export class Sim {
     // (a pop-up is up: sim/popups.ts. The town stands still; a fight on screen plays on.)
     if (hold === 'popup') return stoodTick(s);
     if (hold === 'fight') return this.fightStep();
+    if (waitingOnFounder(s)) return; // (a road question for the founder holds the game until it is answered)
 
     s.tick++;
     voteSettlementName(s);
+    founderTick(s); // (the founder's orders end, and a rest mends: sim/founder.ts)
+    stewardTick(s); // (a steward minds the town while the founder is away: sim/steward.ts)
     const ctx = newTickContext();
     for (const p of s.people) {
       if (p.away !== null) continue;
@@ -280,6 +294,7 @@ export class Sim {
     foundryHourly(s); // (a machine town's factory mind: sim/foundry.ts)
     frontierHourly(s); // (a settlers' town's frontier: sim/frontier.ts)
     lightingHourly(s); // (the town's torches and lamps placed and burned: sim/lighting.ts)
+    storyHourly(s); // (the founder's story: sim/story.ts)
     questBoardHourly(s); // (offers taken up or lapsing, accepted quests failing: sim/questBoard.ts)
     questsHourly(s);
     delvesHourly(s);
@@ -302,6 +317,9 @@ export class Sim {
     ranchHourly(s); // (the monster ranch's day: sim/ranch.ts)
     arenaHourly(s); // (the arena's season, its card and its bout: sim/arena.ts)
     arenaTick(s);
+    duelHourly(s); // (a rival's challenge: sim/duel.ts)
+    duelTick(s); // (the founder's duel under way)
+    disputesHourly(s); // (a quarrel or theft for the founder to judge: sim/disputes.ts)
     scenesHourly(s); // (cutscenes left unwatched lapse: sim/cutscenes.ts)
     // (a town just founded: its founding, to watch)
     if (s.tick === TICKS_PER_HOUR && s.autopilot !== false && !s.scenesSeen?.length && !s.scenes?.length) queueScene(s, 'founding');
@@ -335,6 +353,7 @@ export class Sim {
     holdForFight(s); // (questions wait while a fight is on screen: sim/raidWait.ts)
     updateVisitor(s, (p: Person, to: Pt) => walkTo(s, p, to));
     // the town decides for itself what to research, make, build and gather
+    keepOffer(s); // (the three topics on offer: sim/researchOffer.ts)
     runPlanner(s);
 
     s.rngState = this.rng.state;
@@ -428,8 +447,17 @@ export class Sim {
       case 'queueResearch':
         pickResearch(s.research, c.topic, s.cheats.unlockAll ? 'space' : s.era, s.origin, seatStageNow(s));
         break;
+      case 'studyOffer':
+        chooseOffer(s, c.topic);
+        break;
       case 'cancelResearch':
         cancelResearch(s.research, c.topic, true);
+        break;
+      case 'orderRing':
+        s.ringOrder = true;
+        break;
+      case 'orderStreets':
+        s.streetsOrder = true;
         break;
       case 'pinBuilding': {
         const no = setPin(s, c.def, c.on);
@@ -505,6 +533,9 @@ export class Sim {
       case 'raidSkip':
         skipRaid(s);
         break;
+      case 'giveChase':
+        giveChase(s);
+        break;
       case 'skipRaids':
         s.skipRaids = c.on;
         if (c.on) skipRaid(s);
@@ -550,7 +581,7 @@ export class Sim {
         setFavourite(s, c.id, c.on);
         break;
       case 'watch':
-        s.watching = c.expedition !== null && (s.expeditions.some((e) => e.id === c.expedition) || !!skirmishTrip(s, c.expedition) || !!arenaTrip(s, c.expedition)) ? c.expedition : undefined;
+        s.watching = c.expedition !== null && (s.expeditions.some((e) => e.id === c.expedition) || !!skirmishTrip(s, c.expedition) || !!arenaTrip(s, c.expedition) || !!duelTrip(s, c.expedition)) ? c.expedition : undefined;
         break;
       case 'giftVillage':
         giftVillage(s, c.id);
@@ -587,11 +618,61 @@ export class Sim {
       case 'follow':
         s.hero = c.person !== null && s.people.some((p) => p.id === c.person) ? c.person : undefined;
         break;
+      case 'founderGo':
+        founderGo(s, c.building);
+        break;
+      case 'founderWork':
+        founderWork(s, c.job);
+        break;
+      case 'founderRest':
+        founderRest(s);
+        break;
+      case 'founderGive':
+        founderGive(s, c.amount);
+        break;
+      case 'founderBuyShop':
+        founderBuyShop(s, c.building);
+        break;
+      case 'founderShopStock':
+        founderShopStock(s, c.building, c.stock);
+        break;
+      case 'founderShopPrice':
+        founderShopPrice(s, c.building, c.price);
+        break;
+      case 'founderShopManager':
+        founderShopManager(s, c.building, c.person);
+        break;
+      case 'founderHeir':
+        founderHeir(s, c.person);
+        break;
+      case 'founderVisitor':
+        founderVisitor(s, c.terms);
+        break;
+      case 'founderApprentice':
+        founderApprentice(s, c.child, c.master);
+        break;
+      case 'founderMatch':
+        founderMatch(s, c.person);
+        break;
+      case 'founderFeast':
+        founderFeast(s, c.grade);
+        break;
+      case 'founderHaggle':
+        founderHaggle(s, c.offer);
+        break;
       case 'holdPower':
         holdPower(s, c.power);
         break;
       case 'castHeld':
         if (!castHeld(s, this.rng)) notify(s, "Can't cast it yet.");
+        break;
+      case 'duel': {
+        const r = challenge(s, c.foe, c.to);
+        if (!r.ok) notify(s, `${r.reason}.`);
+        break;
+      }
+      case 'name':
+        nameCommand(s, c.kind, c.id, c.name);
         break;
       case 'answerPrompt':
         answerPrompt(s, c.prompt, c.option, this.rng);
@@ -630,7 +711,6 @@ export class Sim {
         break;
       case 'setPaused':
         s.paused = c.paused;
-        if (!c.paused) openGate(s); // (raiders held at the gate come on when the town runs again)
         break;
       case 'becomeLich':
         chooseLich(s);
@@ -644,7 +724,10 @@ export class Sim {
         break;
       case 'quest':
         if (c.op === 'accept') acceptQuest(s, c.sort, c.id);
-        else declineQuest(s, c.sort, c.id);
+        else if (c.op === 'lead') {
+          const r = leadQuest(s, c.sort, c.id); // (the founder leads it themselves: sim/founderQuests.ts)
+          if (!r.ok) notify(s, `${r.reason}.`);
+        } else declineQuest(s, c.sort, c.id);
         break;
       case 'bounty':
         if (c.post) {
@@ -667,6 +750,14 @@ export class Sim {
       case 'toggleGather': {
         if (!s.land.pools[c.cell]) return;
         setMarked(s.land, c.cell, !isMarked(s.land, c.cell));
+        break;
+      }
+      case 'markClear': {
+        // (a drag's worth: only wild cells with something to gather can be marked; any can be unmarked)
+        for (const i of c.cells.slice(0, MARK_CLEAR_CAP)) {
+          if (i < 0 || i >= s.land.w * s.land.h || isMarked(s.land, i) === c.on) continue;
+          if (!c.on || s.land.pools[i]) setMarked(s.land, i, c.on);
+        }
         break;
       }
     }

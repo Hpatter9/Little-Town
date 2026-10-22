@@ -25,8 +25,8 @@ export function startWaitingChoices(bridge: WaitingBridge): HTMLElement {
     oldest = w[0]?.id ?? -1;
     if (!w.length) return;
     b.textContent = `❓ ${w.length}`;
-    b.classList.toggle('holding', w.some((p) => p.pinned));
-    b.title = w.some((p) => p.pinned)
+    b.classList.toggle('holding', w.some((p) => p.waits));
+    b.title = w.some((p) => p.waits)
       ? 'A choice is waiting, and the town waits for your answer. Tap to answer.'
       : `${w.length} ${w.length === 1 ? 'choice is' : 'choices are'} waiting. Tap to answer the oldest; unanswered, they settle themselves in time.`;
   });

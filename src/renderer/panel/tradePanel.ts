@@ -39,7 +39,7 @@ export function renderTrade(s: Snapshot, bridge: Bridge | undefined): HTMLElemen
     const c = el('div', 'card');
     const top = el('div', 'card-top');
     const mark = open === 'shop' ? '🛒' : open === 'tavern' ? '🍺' : STORE_MARKS[v.line!];
-    top.append(el('span', 'card-name', `${mark} ${v.name}`), el('span', 'card-size', v.takings ? `took ${v.takings} yesterday` : ''));
+    top.append(el('span', 'card-name', `${mark} ${v.name}`), el('span', 'card-size', v.takings ? `took ${Math.round(v.takings)} coins yesterday` : ''));
     c.append(top, el('div', 'purpose', `${v.keeperName ? `Kept by ${v.keeperName}` : 'No keeper yet'} · ${v.ownerName ? `owned by ${v.ownerName}` : "the town's own"} · renown ${Math.round(v.renown)}`));
     c.append(button('Step inside', () => bridge?.openPanel(open), { cls: 'place small' }));
     shops.append(c);
@@ -57,6 +57,7 @@ export function renderTrade(s: Snapshot, bridge: Bridge | undefined): HTMLElemen
       c.append(top, el('div', 'purpose', `For ${list(o.wants)}`));
       if (!o.done) {
         c.append(button('Trade', () => bridge?.command({ type: 'trade', offer: o.id }), { disabled: !o.ok, title: o.reason }));
+        c.append(button('Haggle', () => bridge?.command({ type: 'founderHaggle', offer: o.id }), { disabled: !o.ok, title: 'Go to the caravan and haggle over this deal' }));
         if (!o.ok && o.reason) c.append(el('div', 'lock short', o.reason));
       }
       grid.append(expandable(c, `deal:${o.id}`, () => dealDetails(o, s)));

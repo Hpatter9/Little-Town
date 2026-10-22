@@ -3,6 +3,7 @@
 // the log), Places (the world map, the land's places, the pack's lairs, the destinations; each card one button, the
 // rest in its details), Companies (the bonded parties, sim/companies.ts), Realm and Treasures.
 
+import { powerLine } from '../../shared/sim/power';
 import { AIRSHIP_BY_KIND } from '../../shared/data/skies';
 import { renderRealm } from './realmPanel';
 import { renderMuster } from './musterPanel';
@@ -54,6 +55,7 @@ const pick = (id: string) => {
 export const expeditionsKey = (s: Snapshot) =>
   JSON.stringify([
     mapPick,
+    s.people.find((p) => p.id === s.mainId)?.away ?? null, // (Lead it yourself: the founder is free to go)
     s.trips,
     s.coins,
     s.expeditions.map((e) => [e.id, e.phase, Math.floor(e.phaseProgress * 50), e.lootSize, e.recalled, e.waiting, e.battle?.map((f) => [f.hp, f.down])]),
@@ -75,7 +77,7 @@ export const expeditionsKey = (s: Snapshot) =>
     s.hunts.hunts.map((h) => [h.id, h.accepted, h.hoursLeft]),
     s.hunts.forge.map((f) => [f.made, f.ready, f.holder]),
     s.questLog.length,
-    s.sagas.open.map((g) => [g.run, g.now, g.log.length, g.dest]),
+    s.sagas.open.map((g) => [g.run, g.now, g.log.length, g.dest, g.turns]),
     s.sagas.done.length,
     s.fleet,
     s.airships.map((a) => [a.id, a.hull, a.away]),
@@ -247,6 +249,7 @@ function destinationCard(d: Destination, v: DestinationView, s: Snapshot, bridge
   const chips = el('div', 'dest-chips');
   const chip = (text: string, cls = '') => chips.append(el('span', `dest-chip ${cls}`, text));
   chip(d.threats ? `⚔ ${d.threats}` : 'Peaceful', d.threats ? 'threat' : '');
+  if (v.matchup && !going) chip(`Party ${v.partyPower} vs ~${v.foesPower}: ${v.matchup}`, v.matchup === 'Deadly' ? 'bad' : v.matchup === 'Risky' ? 'threat' : 'ok');
   if (going) chip(`Party there${going.leader ? `: ${going.leader}` : ''}`, 'ok');
   if (v.bounty) chip(`Bounty ${v.bounty}`, 'gold');
   if (s.quests.some((q) => q.dungeon === d.id)) chip('Quest', 'gold');
@@ -296,6 +299,7 @@ function destDetails(d: Destination, v: DestinationView, s: Snapshot): More[] {
       ['By boat', d.byBoat ? 'only a boat (or an airship) reaches it' : null],
       ['By air', d.bySky ? 'only an airship reaches it' : null],
       ['Party', `${d.recommendedParty} suggested`],
+      ['Power', v.matchup ? powerLine(v.partyPower, v.foesPower) : null],
       ['A fight there', d.encounters ? pct(d.encounters.arrival) : null],
       ['Ambush going home', d.encounters ? pct(d.encounters.ambush) : null],
       ['Bounty', v.bounty ? `${v.bounty} coins` : null],
@@ -313,7 +317,7 @@ function destDetails(d: Destination, v: DestinationView, s: Snapshot): More[] {
 
 /** A saga under way: what it's about, where it stands, and the whole story so far. */
 function sagaDetails(g: Snapshot['sagas']['open'][number]): More[] {
-  return [g.blurb, facts([['Began', `day ${g.began}`], ['Now', g.now]]), list('The story so far', g.story)];
+  return [g.blurb, facts([['Began', `day ${g.began}`], ['Turns so far', `${g.turns}`], ['Now', g.now]]), list('The story so far', g.story)];
 }
 
 /** A party out: each member's health, calling and level, what they've found and packed, and a delve's log. */
@@ -411,7 +415,7 @@ function packSection(s: Snapshot, bridge: Bridge | undefined): HTMLElement[] {
 /** The bonded parties (sim/companies.ts): each with its members, trips and deeds; and who would set out next. */
 function companiesSection(s: Snapshot): HTMLElement[] {
   const out: HTMLElement[] = [el('h2', '', 'Companies')];
-  out.push(el('div', 'hint', `${s.trips.adventurers} adventurer${s.trips.adventurers === 1 ? '' : 's'} in town · ${s.trips.fit} fit to go · ${s.trips.room} more may be away. Friends go out together; when the same few go out and come home together twice, they name themselves and go out together again.`));
+  out.push(el('div', 'hint', `${s.trips.adventurers} adventurer${s.trips.adventurers === 1 ? '' : 's'} in town · ${s.trips.fit} fit to go · ${s.trips.room} more may be away. Friends who go out and come home together twice become a company.`));
   if (!s.companies.length) {
     out.push(el('div', 'empty', 'No company yet.'));
     return out;
@@ -485,14 +489,14 @@ function sagaList(s: Snapshot, bridge: Bridge | undefined): HTMLElement[] {
   const { open, done } = s.sagas;
   const out: HTMLElement[] = [el('h2', '', 'Sagas')];
   if (!open.length && !done.length) {
-    out.push(el('div', 'hint', 'Now and then a story finds the town: a burnt cart on the road, a bell under the sea, a crown in the dirt. The town takes it up itself, two at a time; the parties go where the story needs them.'));
+    out.push(el('div', 'hint', 'Now and then a story finds the town: a burnt cart on the road, a bell under the sea, a crown in the dirt. Each shows here as it unfolds.'));
     return out;
   }
   const grid = el('div', 'cards wide');
   for (const g of open) {
     const c = el('div', 'card quest saga');
     const top = el('div', 'card-top');
-    top.append(tapLink(el('span', 'card-name', g.title), () => openCard({ kind: 'saga', id: g.title })), el('span', 'card-size', 'Under way'));
+    top.append(tapLink(el('span', 'card-name', g.title), () => openCard({ kind: 'saga', id: g.title })), el('span', 'card-size', `Under way, turn ${g.turns}`));
     c.append(top, el('div', 'purpose', g.now));
     for (const line of g.log.slice(-2)) c.append(el('div', 'lock short', line));
     if (g.dest) {
@@ -508,7 +512,7 @@ function sagaList(s: Snapshot, bridge: Bridge | undefined): HTMLElement[] {
     top.append(tapLink(el('span', 'card-name', g.title), () => openCard({ kind: 'saga', id: g.title })), el('span', 'card-size', `${OUTCOME[g.outcome]}, day ${g.day}`));
     c.append(top);
     if (g.hero) c.append(el('div', 'lock short', `Its hero: ${g.hero}`));
-    grid.append(expandable(c, `sagadone:${g.title}:${g.day}`, () => [g.blurb, facts([['Ended', `day ${g.day}`], ['How', OUTCOME[g.outcome]], ['Its hero', g.hero]])]));
+    grid.append(expandable(c, `sagadone:${g.title}:${g.day}`, () => [g.blurb, facts([['Began', `day ${g.began}`], ['Ended', `day ${g.day}`], ['How', OUTCOME[g.outcome]], ['Its hero', g.hero]]), ...(g.story.length ? [list('What happened', g.story)] : [])]));
   }
   out.push(grid);
   return out;

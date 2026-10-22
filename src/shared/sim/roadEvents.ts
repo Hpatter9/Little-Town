@@ -14,7 +14,6 @@ import { answerCrossroads } from './muster';
 import { answerVisitor } from './townsfolk';
 import { answerRefugees } from './bands';
 import { answerThirst } from './monsters';
-import { openGate } from './raidWait';
 import { answerEvent } from './events';
 import { answerLich } from './doom';
 import { the, The } from '../data/expeditions';
@@ -23,6 +22,10 @@ import type { Material } from '../data/materials';
 import type { Rng } from '../rng';
 import { startBattle } from './combat';
 import { destinationOf, partyCarry } from './expeditions';
+import { answerName } from './naming';
+import { answerDuel } from './duel';
+import { answerDispute } from './disputes';
+import { holdForFounder } from './founderQuests';
 import { answerRaidPrompt } from './raids';
 import { answerRite } from './occult';
 import { answerVillagePrompt } from './villages';
@@ -78,6 +81,7 @@ export function rollRoadEvent(s: GameState, e: Expedition, members: Person[], rn
         defaultOption,
         expiresTick: s.tick + PROMPT_TICKS,
       };
+      holdForFounder(s, e, prompt); // (a trip the founder is on waits for them: sim/founderQuests.ts)
       s.prompts.push(prompt);
       e.prompt = prompt.id;
       notify(s, `${prompt.title}: ${the(d.name)} party needs a decision.`);
@@ -87,15 +91,22 @@ export function rollRoadEvent(s: GameState, e: Expedition, members: Person[], rn
 }
 
 /** Answer a question (by the player, or by default when the timer runs out). */
+import { answerDeal } from './founderDealings';
 export function answerPrompt(s: GameState, id: number, option: number, rng: Rng): void {
   const prompt = s.prompts.find((q) => q.id === id);
-  if (!prompt || option < 0 || option >= prompt.options.length) return;
+  if (!prompt) return;
+  // (a promotion's answer that names no road, from a card that was out of date, is the town's own choice: the question is
+  // never left standing to be put again)
+  if (prompt.kind === 'evolve' && (!Number.isInteger(option) || option < 0 || option >= prompt.options.length)) option = prompt.defaultOption;
+  if (option < 0 || option >= prompt.options.length) return;
   s.prompts = s.prompts.filter((q) => q !== prompt);
   if (answerAlignPrompt(s, prompt, option)) return; // (the alignment's own questions: sim/alignment.ts)
+  if (prompt.kind === 'name') return answerName(s, prompt, option);
+  if (prompt.kind === 'duel') return answerDuel(s, prompt, option);
+  if (prompt.kind === 'dispute') return answerDispute(s, prompt, option);
   if (prompt.kind === 'raid') return answerRaidPrompt(s, prompt.options[option], rng);
   if (prompt.kind === 'rite') return answerRite(s, prompt.options[option]);
   if (prompt.kind === 'lich') return answerLich(s, prompt.options[option]);
-  if (prompt.kind === 'gate') return openGate(s);
   if (prompt.kind === 'event') return answerEvent(s, option, rng);
   if (prompt.kind === 'thirst') return answerThirst(s, prompt.options[option]);
   if (prompt.kind === 'visitor') return answerVisitor(s, prompt.options[option]);
@@ -111,6 +122,7 @@ export function answerPrompt(s: GameState, id: number, option: number, rng: Rng)
   if (prompt.kind === 'dragon') return answerDragon(s, prompt, option);
   if (prompt.kind === 'enemy') return answerEnemy(s, prompt, option);
   if (prompt.kind === 'evolve') return answerEvolve(s, prompt, option);
+  if (prompt.kind === 'deal') return answerDeal(s, prompt, option);
   if (prompt.kind === 'ways') return answerWays(s, prompt, option, rng);
   const e = s.expeditions.find((q) => q.id === prompt.expedition);
   if (!e) return;
@@ -149,5 +161,5 @@ export function answerPrompt(s: GameState, id: number, option: number, rng: Rng)
 
 /** Unanswered questions time out to their default. */
 export function expirePrompts(s: GameState, rng: Rng): void {
-  for (const p of [...s.prompts]) if (!p.pinned && s.tick >= p.expiresTick) answerPrompt(s, p.id, p.defaultOption, rng);
+  for (const p of [...s.prompts]) if (!p.waits && s.tick >= p.expiresTick) answerPrompt(s, p.id, p.defaultOption, rng);
 }

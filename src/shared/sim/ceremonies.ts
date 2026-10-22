@@ -39,6 +39,7 @@ import { addStock, eatersOf, foodDaysFor, tireless, campXY, earn, notify, type G
 import { calendar, TICKS_PER_HOUR } from './time';
 import { takeSale } from './ambition';
 import { festivalOver } from './festivals';
+import { tally } from './deeds';
 
 export type GatheringKind = 'funeral' | 'great_funeral' | 'wedding' | 'feast' | 'rite' | 'festival';
 
@@ -88,7 +89,7 @@ export function eatFeast(s: GameState, heads: number): void {
 }
 
 export const here = (s: GameState) => s.people.filter((p) => p.away === null && !p.downed);
-const tavernOf = (s: GameState) => s.buildings.find((b) => b.status === 'done' && (b.def === 'fireside_inn' || b.def === 'tavern'));
+export const tavernOf = (s: GameState) => s.buildings.find((b) => b.status === 'done' && (b.def === 'fireside_inn' || b.def === 'tavern'));
 const graveyardOf = (s: GameState) => s.buildings.find((b) => b.status === 'done' && b.def === 'graveyard');
 
 /** Begin a gathering: who, where, for how long; with `from`, it begins as a procession from there (the head walking at
@@ -96,6 +97,7 @@ const graveyardOf = (s: GameState) => s.buildings.find((b) => b.status === 'done
 export function gather(s: GameState, kind: GatheringKind, ids: number[], hours: number, text: string, at: { x: number; y: number }, from?: { x: number; y: number }): void {
   const far = from ? Math.hypot(at.x - from.x, at.y - from.y) : 0;
   const walkTicks = far >= PROCESSION_LEAST ? Math.min(PROCESSION_MOST * TICKS_PER_HOUR, Math.ceil(far / PROCESSION_PACE)) : 0;
+  for (const id of ids) tally(s.people.find((p) => p.id === id), `gathered:${kind}`);
   s.gathering = { kind, ids, until: s.tick + walkTicks + hours * TICKS_PER_HOUR, text, x: at.x, y: at.y, from: s.tick };
   if (walkTicks && from) s.gathering.walk = { x: from.x, y: from.y, until: s.tick + walkTicks };
 }

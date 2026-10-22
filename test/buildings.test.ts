@@ -17,6 +17,7 @@ const campfire = (s: GameState) => building(s, 'campfire')!;
 
 test('placement: needs cleared land, no overlap, inside the known land', () => {
   const s = newGame('place');
+  s.townBuilds = true;
   const stockpile = BUILDING_BY_ID.stockpile;
   const spot = freeSpot(s, 'stockpile');
   assert.equal(canPlace(s, stockpile, spot.x, spot.y).ok, true);
@@ -30,6 +31,7 @@ test('placement: needs cleared land, no overlap, inside the known land', () => {
 
 test('placement: locked buildings need research (or the debug unlock); the queue has limited slots', () => {
   const s = newGame('locks');
+  s.townBuilds = true;
   const at = freeSpot(s, 'lean_to');
   assert.equal(placeBlueprint(s, 'lean_to', at.x, at.y).ok, false);
   s.cheats.unlockAll = true;
@@ -155,6 +157,7 @@ test('with all storage full, gathering stops and the worker says so', () => {
 
 test('upgrading in place: a lean-to becomes a longhouse where it stands, reusing half its materials', () => {
   const s = plainGame('upgrade');
+  s.townBuilds = true;
   const lean = put(s, 'lean_to', camp(s).x + 3);
   assert.equal(upgrade(s, lean.id).ok, false, 'needs Oral Tradition');
   s.research.done.push('oral_tradition');
@@ -166,6 +169,7 @@ test('upgrading in place: a lean-to becomes a longhouse where it stands, reusing
 });
 test('merging: two lean-tos side by side with no room to widen become one longhouse', () => {
   const s = plainGame('merge');
+  s.townBuilds = true;
   s.research.done.push('oral_tradition');
   const at = camp(s).x + 3;
   const a = put(s, 'lean_to', at);
@@ -185,6 +189,7 @@ test('merging: two lean-tos side by side with no room to widen become one longho
 
 test('an upgrade with no room pulls down the small things in its way, never what matters', () => {
   const s = plainGame('clear-way');
+  s.townBuilds = true;
   s.research.done.push('oral_tradition');
   const at = camp(s).x + 4;
   const home = put(s, 'lean_to', at);
@@ -201,6 +206,7 @@ test('an upgrade with no room pulls down the small things in its way, never what
   assert.ok(s.journal.some((j) => /pulled down to make room for the Longhouse/.test(j.text)));
   // the town's seat in the way is never pulled down
   const t = plainGame('clear-seat');
+  t.townBuilds = true;
   t.research.done.push('oral_tradition');
   const at2 = camp(t).x + 4;
   const home2 = put(t, 'lean_to', at2);
@@ -211,6 +217,7 @@ test('an upgrade with no room pulls down the small things in its way, never what
   // with goods in it
   for (const [def, extra] of [['garden_plot', {}], ['stockpile', { store: { wood: 4 } }]] as const) {
     const u = plainGame(`clear-${def}`);
+    u.townBuilds = true;
     u.research.done.push('oral_tradition', 'basic_farming');
     const at3 = camp(u).x + 4;
     const home3 = put(u, 'lean_to', at3);
@@ -221,7 +228,7 @@ test('an upgrade with no room pulls down the small things in its way, never what
 });
 
 test('a town short of beds rebuilds a small home bigger before building another', () => {
-  const sim = new Sim(newGame('beds-up'));
+  const sim = new Sim(Object.assign(newGame('beds-up'), { townBuilds: true }));
   const s = sim.state;
   s.research.done.push('basic_shelter', 'oral_tradition');
   for (const b of s.buildings.filter((q) => q.def === 'lean_to')) s.buildings.splice(s.buildings.indexOf(b), 1);

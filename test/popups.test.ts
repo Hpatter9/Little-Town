@@ -99,7 +99,7 @@ test('a waiting question opens again and holds the town while it is up', () => {
 test('a choice that holds the town stays held when closed, and never times out', () => {
   const s = plainGame('pop-pinned');
   const sim = new Sim(s);
-  ask2(s, 9, { pinned: true, expiresTick: s.tick + 5 });
+  ask2(s, 9, { waits: true, expiresTick: s.tick + 5 });
   sim.command({ type: 'parkPrompt', prompt: 9 });
   const t0 = s.tick;
   for (let i = 0; i < 50; i++) sim.step(holdOf(s));

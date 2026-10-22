@@ -16,6 +16,7 @@ import { plainGame, put } from './helpers';
 /** A town that has learned to build boats and knows enough of its land to reach the water. */
 function boatTown(seed = 'boats'): GameState {
   const s = plainGame(seed);
+  s.townBuilds = true;
   s.research.done.push('boatbuilding', 'carpentry', 'shipwrighting');
   s.land.open = 40;
   return s;

@@ -9,6 +9,7 @@ import { plainGame } from './helpers';
 
 test('Lichcraft learned: the founder is offered the rite, and the offer stays open on the Plan tab if put off', () => {
   const s = plainGame('lich-offer');
+  s.townBuilds = true;
   s.research.done.push('lichcraft');
   offerLichRite(s);
   assert.ok(s.prompts.some((p) => p.title.includes('Phylactery')));
@@ -20,6 +21,7 @@ test('Lichcraft learned: the founder is offered the rite, and the offer stays op
 
 test('chosen: the town builds the phylactery first; once it stands the founder is a lich, and the game looks it', () => {
   const s = newGame('lich-build');
+  s.townBuilds = true;
   s.era = 'medieval';
   s.research.done.push('lichcraft', 'fire_keeping');
   s.buildings[0].store = { bone: 30, iron: 10, herbs: 10, cloth: 5, wood: 20, stone: 20, berries: 20 };

@@ -1,0 +1,50 @@
+{
+ "settlers": {
+  "scale": 1.326,
+  "cottage_px": 181
+ },
+ "knights": {
+  "scale": 1.165,
+  "cottage_px": 206
+ },
+ "dwarves": {
+  "scale": 1.0573,
+  "cottage_px": 227
+ },
+ "bloodcourt": {
+  "scale": 1.1881,
+  "cottage_px": 202
+ },
+ "liches": {
+  "scale": 1.2565,
+  "cottage_px": 191
+ },
+ "druids": {
+  "scale": 1.2766,
+  "cottage_px": 188
+ },
+ "fae": {
+  "scale": 1.0084,
+  "cottage_px": 238
+ },
+ "machines": {
+  "scale": 1.4371,
+  "cottage_px": 167
+ },
+ "moonpack": {
+  "scale": 1.0435,
+  "cottage_px": 230
+ },
+ "orcs": {
+  "scale": 1.086,
+  "cottage_px": 221
+ },
+ "merfolk": {
+  "scale": 1.1881,
+  "cottage_px": 202
+ },
+ "nomads": {
+  "scale": 1.3408,
+  "cottage_px": 179
+ }
+}

@@ -23,7 +23,7 @@ function cellsWithout(s: ReturnType<typeof newGame>, id: number): Set<number> {
 }
 
 test('a Blood Court builds one castle: rooms built on to the hall and each other, everything else kept clear of it', () => {
-  const sim = new Sim(newGame('castle-grows', { origin: 'vampire' }));
+  const sim = new Sim(Object.assign(newGame('castle-grows', { origin: 'vampire' }), { townBuilds: true }));
   const s = sim.state;
   for (let t = 0; t < 10 * TICKS_PER_DAY && !s.gameOver; t++) sim.step();
   const built = rooms(s);
@@ -58,7 +58,7 @@ test('a Blood Court builds one castle: rooms built on to the hall and each other
 });
 
 test('other towns spread out as before, with no castle', () => {
-  const sim = new Sim(newGame('no-castle', { origin: 'settlers' }));
+  const sim = new Sim(Object.assign(newGame('no-castle', { origin: 'settlers' }), { townBuilds: true }));
   for (let t = 0; t < 4 * TICKS_PER_DAY; t++) sim.step();
   assert.ok(!sim.state.buildings.some((b) => b.room));
   assert.equal(snapshot(sim.state).castle, null);
@@ -66,6 +66,7 @@ test('other towns spread out as before, with no castle', () => {
 
 test('a room must share a wall with the castle; nothing else may come within a cell of it', () => {
   const s = newGame('attach', { origin: 'vampire' });
+  s.townBuilds = true;
   const core = coreRect(s);
   clearAround(s, 12); // (open ground all round the hall)
   const cottage = BUILDING_BY_ID.cottage;
@@ -101,6 +102,7 @@ test('a room must share a wall with the castle; nothing else may come within a c
 
 test('inside the walls people go room to room by the doorways, and in and out by the gate', () => {
   const s = newGame('through', { origin: 'vampire' });
+  s.townBuilds = true;
   const core = coreRect(s);
   // a room built on to the hall's east side
   const room = put(s, 'longhouse', core.x + core.w, core.y, { room: true });
@@ -137,6 +139,7 @@ test('a walker put somewhere else finds their way again, never cutting through t
   // (people came out of a building or off the raid board still holding the path from where they'd been, and walked
   // straight from there to its next cell, through the castle's walls)
   const s = newGame('through', { origin: 'vampire' });
+  s.townBuilds = true;
   const core = coreRect(s);
   const room = put(s, 'longhouse', core.x + core.w, core.y, { room: true });
   const f = footprint(room);
@@ -158,6 +161,7 @@ test('a walker put somewhere else finds their way again, never cutting through t
 
 test('a Deep Hold is cut into the mountain: half the land is rock, the halls carved into it behind one gate', () => {
   const s = newGame('hold', { origin: 'dwarves' });
+  s.townBuilds = true;
   const m = s.land;
   const c = m.camp;
   assert.equal(groundAt(m, c.x + 12, c.y - 10), 'mountain', 'the mountain north of the camp');
@@ -194,7 +198,7 @@ test('a Deep Hold is cut into the mountain: half the land is rock, the halls car
 });
 
 test('a Deep Hold grows its halls into the mountain over the days', () => {
-  const sim = new Sim(newGame('hold-grows-b', { origin: 'dwarves' }));
+  const sim = new Sim(Object.assign(newGame('hold-grows-b', { origin: 'dwarves' }), { townBuilds: true }));
   const s = sim.state;
   for (let t = 0; t < 10 * TICKS_PER_DAY && !s.gameOver; t++) sim.step();
   const built = rooms(s);
@@ -222,7 +226,7 @@ test('the mountain holds richer veins the deeper in: stone at the face, gold and
 });
 
 test('a Deep Hold digs on into the mountain: faces beside its halls open, dug out they become galleries', () => {
-  const sim = new Sim(newGame('hold-digs', { origin: 'dwarves' }));
+  const sim = new Sim(Object.assign(newGame('hold-digs', { origin: 'dwarves' }), { townBuilds: true }));
   const s = sim.state;
   for (let t = 0; t < 12 * TICKS_PER_DAY && !s.gameOver; t++) sim.step();
   const m = s.land;
@@ -252,6 +256,7 @@ test('a dwarf town is always founded at the foot of its mountain, whatever the l
   for (const biome of ['forest', 'desert', 'tundra', 'coast'] as const)
     for (const seed of ['m1', 'm2']) {
       const s = newGame(`hold-${seed}`, { origin: 'dwarves', biome } as never);
+      s.townBuilds = true;
       const cells = s.land.cells;
       const mountain = [...cells].filter((c) => c === 'M').length;
       assert.ok(mountain > s.land.w * s.land.h * 0.3, `${biome}: a mountain to carve (${mountain} cells)`);
@@ -261,6 +266,7 @@ test('a dwarf town is always founded at the foot of its mountain, whatever the l
 
 test('into a Deep Hold only by its gate: the rock and the hall\'s walls are never walked through', () => {
   const s = newGame('hold-gate', { origin: 'dwarves' });
+  s.townBuilds = true;
   const core = coreRect(s);
   const gate = castleGate(s);
   const layout = castleLayout(s)!;

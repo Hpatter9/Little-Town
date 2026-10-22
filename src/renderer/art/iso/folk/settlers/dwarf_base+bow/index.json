@@ -1,0 +1,23 @@
+{
+ "look": "dwarf_base+bow",
+ "people": "settlers",
+ "frame": [
+  136,
+  136
+ ],
+ "directions": [
+  "south",
+  "south-east",
+  "east",
+  "north-east",
+  "north",
+  "north-west",
+  "west",
+  "south-west"
+ ],
+ "animations": {
+  "attack_bow": {
+   "frames": 9
+  }
+ }
+}
