@@ -32,6 +32,8 @@ export class Minimap {
   private groundKey = '';
   private land: LandMap | null = null;
   private frame = 0;
+  /** The fog of war's veil (map/fogLayer.ts), drawn over the ground; null while there is none. */
+  fog: HTMLCanvasElement | null = null;
   onLook: ((wx: number, wy: number) => void) | null = null;
 
   constructor() {
@@ -139,6 +141,11 @@ export class Minimap {
     ctx.imageSmoothingEnabled = false;
     ctx.clearRect(0, 0, S, S);
     ctx.drawImage(this.ground, 0, 0, S, S);
+    if (this.fog) {
+      ctx.imageSmoothingEnabled = true;
+      ctx.drawImage(this.fog, 0, 0, S, S);
+      ctx.imageSmoothingEnabled = false;
+    }
     ctx.fillStyle = '#e8dcc0';
     for (const b of dots.buildings) ctx.fillRect(Math.round(b.x * kx), Math.round(b.y * ky), Math.max(2, Math.round(b.w * kx)), Math.max(2, Math.round(b.h * ky)));
     for (const p of dots.places) {

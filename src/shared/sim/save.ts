@@ -1,5 +1,6 @@
 // The save file format: the whole GameState (plain JSON by design) plus when it was written (shown in the save list; no game time passes for the time between).
 
+import { packExplored, unpackExplored } from './fog';
 import type { GameState } from './state';
 
 export const SAVE_FORMAT = 'little-town-save';
@@ -15,7 +16,8 @@ export interface SaveFile {
 export function serialize(state: GameState, savedAt: number): string {
   // (the land's pools are most of a save written out cell by cell: they go packed, `packPools`)
   const land = { ...state.land, pools: {}, packedPools: packPools(state.land.pools) };
-  const file: SaveFile = { format: SAVE_FORMAT, savedAt, state: { ...state, land } as GameState };
+  const packedExplored = state.explored ? packExplored(state.explored) : undefined;
+  const file: SaveFile = { format: SAVE_FORMAT, savedAt, state: { ...state, land, ...(packedExplored ? { explored: undefined, packedExplored } : {}) } as GameState };
   return JSON.stringify(file);
 }
 
@@ -86,6 +88,15 @@ export function parseSave(text: string): ParsedSave {
       return { ok: false, reason: 'corrupt' };
     }
     delete (s.land as { packedPools?: string }).packedPools;
+  }
+  const packedEx = (s as { packedExplored?: string }).packedExplored;
+  if (typeof packedEx === 'string' && s.land) {
+    try {
+      s.explored = unpackExplored(packedEx, s.land.w * s.land.h);
+    } catch {
+      return { ok: false, reason: 'corrupt' };
+    }
+    delete (s as { packedExplored?: string }).packedExplored;
   }
   const from = s.version as number;
   while (typeof s.version === 'number' && s.version < SAVE_VERSION && MIGRATIONS[s.version]) {

@@ -56,6 +56,7 @@ import type { Signpost } from './map/signRules';
 import { plagueOn } from '../shared/sim/pastimes';
 import { StreetLamps } from './map/streetLamps';
 import { LightMap } from './map/lightMap';
+import { FogLayer } from './map/fogLayer';
 import { MapSkiffs } from './map/mapSkiffs';
 import { RoadTraffic } from './map/roadTraffic';
 import { BloodPools } from './map/bloodPools';
@@ -438,6 +439,13 @@ async function start(): Promise<void> {
   (window as unknown as { __lightMap: LightMap }).__lightMap = lightMap;
   if (iso) iso.lightLayer.addChild(lightMap.sprite);
   else map.world.addChildAt(lightMap.sprite, map.world.getChildIndex(map.over));
+  // (the fog of war, over the land and the lights: black until explored, grey once left, clear in sight: map/fogLayer.ts)
+  const fog = new FogLayer();
+  if (iso) iso.lightLayer.addChild(fog.sprite);
+  else map.world.addChild(fog.sprite);
+  (window as unknown as { __fog?: FogLayer }).__fog = fog; // (for previews)
+  /** What is out of sight in the fog is hidden: creatures, raiders, roaming bands, strangers. */
+  const inSightOnly = <T extends { x: number; y: number }>(list: readonly T[]): readonly T[] => (fog.on ? list.filter((t) => fog.seen(t.x, t.y)) : list);
   (window as unknown as { __map?: MapView }).__map = map; // (for previews and profiling)
   (window as unknown as { __topDownArt?: typeof topDownArt }).__topDownArt = topDownArt; // (for previews: a gallery of the painted buildings)
   const pools = new BloodPools(map.under); // (blood on the ground where someone fell)
@@ -466,6 +474,7 @@ async function start(): Promise<void> {
   let buskDue = 0;
   const butterflies = new MapButterflies(lay, map);
   const wildlife = new MapWildlife(lay, map);
+  wildlife.seen = (x, y) => fog.seen(x, y);
   (window as unknown as { __wildlife?: MapWildlife }).__wildlife = wildlife; // (for previews)
   const water = new MapWater(map.things, map.under, map.over, map.root, map);
   // footprints in the snow, the sand and the rain's mud, and breath in the cold (map/mapTracks.ts)
@@ -2073,9 +2082,11 @@ async function start(): Promise<void> {
       iso.syncBuildings(next.buildings);
     }
     minimap.setLand(next.land, next.calendar.season);
+    fog.sync(next.land.w, next.land.h, next.explored, next.sight);
+    minimap.fog = fog.on ? fog.canvas : null;
     map.tick = next.tick;
     if (iso) {
-      iso.setWalkers([...next.people.filter((p) => p.away === null && !p.indoors), ...(next.raid?.phase === 'active' ? next.raid.raiders : [])]);
+      iso.setWalkers([...next.people.filter((p) => p.away === null && !p.indoors), ...inSightOnly(next.raid?.phase === 'active' ? next.raid.raiders : [])]);
       iso.setLamps(next.lights ? next.lights.lights.filter((l) => l.room === null) : [], next.era);
     }
     // (the gates shut at night and when raiders come: the palisade's are drawn closed)
@@ -2220,12 +2231,12 @@ async function start(): Promise<void> {
     people.revived = next.revived ? { ...next.revived, at: performance.now() } : null;
     people.fx = next.fx.map((f) => ({ ...f, at: performance.now() }));
     people.update(
-      [...next.people.filter((p) => p.away === null), ...next.travellers.map(travellerPerson), ...(next.envoyRider ? [envoyPerson(next.envoyRider)] : []), ...villagerFigures(next, performance.now()), ...wide.riders().map(courierPerson)],
+      [...next.people.filter((p) => p.away === null), ...inSightOnly([...next.travellers.map(travellerPerson), ...(next.envoyRider ? [envoyPerson(next.envoyRider)] : []), ...villagerFigures(next, performance.now()), ...wide.riders().map(courierPerson)])],
       next.visitor,
       performance.now(),
     );
-    raiders.update(next.raid?.phase === 'active' ? next.raid.raiders : [], performance.now());
-    roamers.update(roamerFigures(next.roamers), performance.now());
+    raiders.update(inSightOnly(next.raid?.phase === 'active' ? next.raid.raiders : []) as RaiderView[], performance.now());
+    roamers.update(inSightOnly(roamerFigures(next.roamers)) as RaiderView[], performance.now());
     penned.update(ranchFigures(next.ranchPens ?? [], performance.now()), performance.now());
     spells.update(next.spells, next.camp, performance.now());
     if (hover || placing) refreshHover(); // tooltip contents change as work progresses
@@ -2324,7 +2335,7 @@ async function start(): Promise<void> {
     if (snap && minimap.shown)
       minimap.render({
         people: snap.people.filter((p) => p.away === null).map((p) => ({ x: p.x, y: p.y })),
-        raiders: snap.raid?.phase === 'active' ? snap.raid.raiders.map((r) => ({ x: r.x, y: r.y })) : [],
+        raiders: snap.raid?.phase === 'active' ? inSightOnly(snap.raid.raiders).map((r) => ({ x: r.x, y: r.y })) : [],
         places: snap.places.filter((p) => p.found).map((p) => ({ x: p.x, y: p.y, waiting: !!p.dest, nest: !!p.nest })),
         heart: snap.calamity?.heartAt ? { x: (snap.calamity.heartAt.x + 0.5) * 32, y: (snap.calamity.heartAt.y + 0.5) * 32 } : null,
         buildings: [...snap.buildings, ...snap.villageBuildings].map((b) => {
@@ -2352,6 +2363,7 @@ async function start(): Promise<void> {
       }
     }
     lightMap.render(map.view, lightDaylight);
+    fog.render(performance.now());
     pets.render(ticker.deltaMS / 1000);
     critters.cats = pets.cats();
     pets.prey = critters.prey();
