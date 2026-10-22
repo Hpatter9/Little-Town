@@ -63,11 +63,22 @@ export const isSkin = (h: number, s: number, l: number): boolean => (h <= 40 || 
 export function recolour(data: Uint8ClampedArray | Uint8Array, variant: number): void {
   const v = variantTable(variant);
   if (v.hue === 0 && v.light === 1 && v.sat === 1) return;
+  // (pixel art has few colours and a sheet has tens of thousands of pixels: each colour is worked out once)
+  const seen = new Map<number, number>();
   for (let i = 0; i < data.length; i += 4) {
     if (data[i + 3] === 0) continue;
-    const [h, s, l] = rgbToHsl(data[i], data[i + 1], data[i + 2]);
-    if (s < 0.12 || l < 0.12) continue;
-    const out = isSkin(h, s, l) ? hslToRgb(h, s, Math.min(0.95, l * v.light)) : hslToRgb((h + v.hue) % 360, Math.min(1, s * v.sat), l);
-    data[i] = out[0]; data[i + 1] = out[1]; data[i + 2] = out[2];
+    const key = (data[i] << 16) | (data[i + 1] << 8) | data[i + 2];
+    let packed = seen.get(key);
+    if (packed === undefined) {
+      const [h, s, l] = rgbToHsl(data[i], data[i + 1], data[i + 2]);
+      if (s < 0.12 || l < 0.12) packed = -1;
+      else {
+        const out = isSkin(h, s, l) ? hslToRgb(h, s, Math.min(0.95, l * v.light)) : hslToRgb((h + v.hue) % 360, Math.min(1, s * v.sat), l);
+        packed = (out[0] << 16) | (out[1] << 8) | out[2];
+      }
+      seen.set(key, packed);
+    }
+    if (packed < 0) continue;
+    data[i] = packed >> 16; data[i + 1] = (packed >> 8) & 255; data[i + 2] = packed & 255;
   }
 }
