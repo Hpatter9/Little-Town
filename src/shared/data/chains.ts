@@ -155,7 +155,7 @@ function rareFor(def: ItemDef, role: Role, age: Era, main: Material | undefined)
 }
 
 /**
- * An item with its chain: its parts in place of the materials they're made of (as many as the cost had material
+ * Give an item its chain: its parts in place of the materials they're made of (as many as the cost had material
  * for, so the raw total stays about the same and the work grows by the parts' making), and the age's best pieces a
  * rare input on top. First-age things, simple things and things made of no refined material are left as they are.
  */
@@ -194,7 +194,10 @@ export function deepen(def: ItemDef): ItemDef {
     const r = rareFor(def, role, age, mats[0]?.[0]);
     cost[r] = (cost[r] ?? 0) + 1;
   }
-  return { ...def, cost, items };
+  // (in place, so the tables an item comes from and ITEMS hold the same one)
+  def.cost = cost;
+  def.items = items;
+  return def;
 }
 
 /** The parts an item takes (its item inputs that are parts). */
