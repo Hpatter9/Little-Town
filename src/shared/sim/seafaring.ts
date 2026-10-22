@@ -27,7 +27,7 @@ import { seaTown } from './sea';
 import { isChild } from './social';
 import { peopleOf } from './strangers';
 import { campCell, campXY, notify, type Boat, type GameState, type Person, type Raid } from './state';
-import { calendar, TICKS_PER_DAY, TICKS_PER_HOUR } from './time';
+import { TICKS_PER_DAY, TICKS_PER_HOUR, calendarOf } from './time';
 import { assignBeds } from './townsfolk';
 import { boatDef, boatyardOf, fleet, freeBoat, mooring } from './boats';
 
@@ -81,7 +81,7 @@ const tell = (s: GameState, line: string, important = false) => {
 };
 const rngAt = (s: GameState, salt: string) => new Rng(hashSeed(`${s.seed}:sea:${s.tick}:${salt}`));
 const merfolk = (s: GameState) => seaTown(s);
-const dayOf = (s: GameState) => calendar(s.tick).day;
+const dayOf = (s: GameState) => calendarOf(s).day;
 
 /* ------------------------------------------------------------ the harbour, and the fleet's room */
 
@@ -104,7 +104,7 @@ const fishesDeep = (kind: BoatKind) => BOATS.findIndex((d) => d.kind === kind) >
  *  merfolk leviathan's escort. 1 without the autopilot. */
 export function catchFactor(s: GameState, b: Boat): number {
   if (s.autopilot === false) return 1;
-  const shoal = SHOALS[calendar(s.tick).season];
+  const shoal = SHOALS[calendarOf(s).season];
   const right = (shoal.ground === 'deep') === fishesDeep(b.kind);
   return shoal.rich * (right ? 1 : WRONG_GROUND) * (harbourOf(s) ? HARBOUR_CATCH : 1) * ((seaBook(s).parley ?? 0) > s.tick ? PARLEY_CATCH : 1);
 }
@@ -395,7 +395,7 @@ function sailHome(s: GameState, c: Colony, rng: Rng): void {
     return;
   }
   c.lastRun = dayOf(s);
-  const winter = calendar(s.tick).season === 'winter';
+  const winter = calendarOf(s).season === 'winter';
   if (rng.chance(COLONY_RUN_STORM * (winter ? 2 : 1) * squallShelter(s))) {
     boat.hull -= Math.round(boatDef(boat).hull * (0.25 + rng.next() * 0.35));
     if (boat.hull <= 0) {
@@ -432,7 +432,7 @@ function planHarbour(s: GameState): void {
 /** Each hour (with the autopilot on). */
 export function seafaringHourly(s: GameState): void {
   if (s.autopilot === false || s.tick % TICKS_PER_HOUR !== 0) return;
-  const { hour, season, dayOfSeason } = calendar(s.tick);
+  const { hour, season, dayOfSeason } = calendarOf(s);
   const rng = rngAt(s, 'hour');
   const book = seaBook(s);
   // (the merfolk's shore starts with a boat)
@@ -483,7 +483,7 @@ export function seafaringHourly(s: GameState): void {
 /** The Harbour tab's numbers (the snapshot). */
 export function harbourReport(s: GameState) {
   const book = seaBook(s);
-  const shoal = SHOALS[calendar(s.tick).season];
+  const shoal = SHOALS[calendarOf(s).season];
   return {
     harbour: !!harbourOf(s),
     berths: fleetMost(s),

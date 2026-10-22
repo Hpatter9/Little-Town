@@ -42,7 +42,7 @@ import { seaTown } from './sea';
 import { stakeCard, type StakeCard } from './stakes';
 import { isChild, opinion } from './social';
 import { addStock, earn, maxHp, notify, poolSize, setOutcome, type Debrief, type Expedition, type GameState, type Muster, type Person, type Prompt } from './state';
-import { calendar, TICKS_PER_DAY, TICKS_PER_HOUR } from './time';
+import { TICKS_PER_DAY, TICKS_PER_HOUR, calendarOf } from './time';
 import { weatherAt } from './weather';
 import { BUILDING_BY_ID } from '../data/buildings';
 
@@ -388,7 +388,7 @@ export function crossroads(s: GameState, e: Expedition, members: Person[], rng: 
   if (!open.length) return false;
   const c = open[rng.int(0, open.length - 1)];
   const leader = byId(s, e.leader ?? e.members[0]) ?? members[0];
-  const cal = calendar(s.tick);
+  const cal = calendarOf(s);
   const nowScene = { hour: cal.hour, season: cal.season, weather: weatherAt(s.seed, s.tick, null).kind, biome: s.biome ?? 'forest', era: s.era, sea: seaTown(s) } as const;
   const text = c.text(d, leader.name);
   const prompt: Prompt = {
@@ -484,7 +484,7 @@ export function debrief(s: GameState, e: Expedition, d: Destination): void {
       haul: e.crashed || e.wrecked ? [] : (Object.entries(e.loot) as [Material, number][]).filter(([, n]) => n > 0).map(([m, n]) => `${n} ${MATERIAL_NAMES[m]?.toLowerCase() ?? m}`),
       ending: e.crashed ? 'Their airship came down; what they found was lost with her.' : e.wrecked ? 'Their boat went down; what they found went with her.' : null,
     },
-    picture: eventPicture(`debrief:${d.id}`, 'town home square welcome', { hour: calendar(s.tick).hour, season: calendar(s.tick).season, weather: weatherAt(s.seed, s.tick, null).kind, biome: s.biome ?? 'forest', era: s.era, sea: seaTown(s) }),
+    picture: eventPicture(`debrief:${d.id}`, 'town home square welcome', { hour: calendarOf(s).hour, season: calendarOf(s).season, weather: weatherAt(s.seed, s.tick, null).kind, biome: s.biome ?? 'forest', era: s.era, sea: seaTown(s) }),
     ...(leader ? { who: leader.id } : {}),
     options: ['Welcome them home'],
     defaultOption: 0,

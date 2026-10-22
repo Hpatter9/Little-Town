@@ -10,7 +10,7 @@ import { finishPiece } from '../src/shared/sim/crafting';
 import { canSend, sendExpedition, updateExpeditions } from '../src/shared/sim/expeditions';
 import { groundAt, makeLand, touchesWater, wet } from '../src/shared/sim/land';
 import type { GameState } from '../src/shared/sim/state';
-import { calendar, TICKS_PER_DAY, TICKS_PER_HOUR } from '../src/shared/sim/time';
+import { TICKS_PER_DAY, TICKS_PER_HOUR, calendarOf } from '../src/shared/sim/time';
 import { plainGame, put } from './helpers';
 
 /** A town that has learned to build boats and knows enough of its land to reach the water. */
@@ -125,7 +125,7 @@ test('a boat at home fishes each evening', () => {
   const fishBefore = totalStock(s).fish ?? 0;
   // to the fishing hour (on the hour)
   s.tick -= s.tick % TICKS_PER_HOUR;
-  while (calendar(s.tick).hour !== FISH_HOUR) s.tick += TICKS_PER_HOUR;
+  while (calendarOf(s).hour !== FISH_HOUR) s.tick += TICKS_PER_HOUR;
   s.autopilot = false;
   boatsHourly(s, new Rng(7));
   assert.ok((totalStock(s).fish ?? 0) > fishBefore, 'fish brought in');

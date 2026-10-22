@@ -12,7 +12,7 @@ import { giveCoins, incomeOf, moneyTown } from './economy';
 import { ambitionOf } from './ambition';
 import { directionOf } from './planner';
 import { earn, notify, remember, type GameState, type Person } from './state';
-import { calendar, TICKS_PER_DAY, TICKS_PER_HOUR } from './time';
+import { TICKS_PER_DAY, TICKS_PER_HOUR, calendarOf } from './time';
 
 export const taxRate = (s: GameState): TaxRate => s.tax ?? 'fair';
 export const guardWage = (s: GameState) => Math.max(1, Math.round(GUARD_WAGE * PURSE_SCALE[s.era]));
@@ -21,7 +21,7 @@ const grownAtHome = (s: GameState) => s.people.filter((p) => p.bornTick == null 
 /** Once an hour: guards hired or stood down; at dawn, tax and the guards' wages. */
 export function treasuryHourly(s: GameState, rng: Rng): void {
   if (s.tick % TICKS_PER_HOUR !== 0 || !moneyTown(s)) return;
-  if (calendar(s.tick).hour === 6) {
+  if (calendarOf(s).hour === 6) {
     collectTax(s, rng);
     payGuards(s);
   }

@@ -11,7 +11,7 @@
 import { QUARRY_BY_ID, HUNT_DAYS } from '../data/hunts';
 import { DUNGEON_BY_ID } from '../data/dungeons';
 import { notify, type GameState } from './state';
-import { calendar, TICKS_PER_DAY, TICKS_PER_HOUR } from './time';
+import { TICKS_PER_DAY, TICKS_PER_HOUR, calendarOf } from './time';
 import { QUEST_DAYS, type Quest } from './quests';
 import { isChild } from './social';
 
@@ -45,7 +45,7 @@ const huntTitle = (quarry: string) => `Hunt: ${QUARRY_BY_ID[quarry]?.name ?? 'a 
 
 /** Write an ended quest in the log. */
 export function logQuest(s: GameState, title: string, sort: QuestSort, end: QuestEnd, text: string): void {
-  (s.questLog ??= []).unshift({ title, sort, end, day: calendar(s.tick).day, text });
+  (s.questLog ??= []).unshift({ title, sort, end, day: calendarOf(s).day, text });
   if (s.questLog.length > LOG_MOST) s.questLog.length = LOG_MOST;
 }
 

@@ -57,7 +57,7 @@ import { findSpot } from './planner';
 import { seaTown } from './sea';
 import { campCell, notify, type GameState, type Person, type Prompt } from './state';
 import type { GreatEnemyState } from './greatEnemy';
-import { calendar, TICKS_PER_DAY, TICKS_PER_HOUR } from './time';
+import { TICKS_PER_DAY, TICKS_PER_HOUR, calendarOf } from './time';
 import { weatherAt } from './weather';
 import { isChild } from './social';
 import { queueScene } from './cutscenes';
@@ -94,7 +94,7 @@ const planOfDread = (dread: number) => (dread * PLAN_AT.siege) / 100;
 /** A line in the Enemy's Chronicle (the arc's one telling: sim/greatEnemy.ts keeps the last 24). */
 function chronicle(s: GameState, e: GreatEnemyState | undefined, text: string): void {
   if (!e) return;
-  e.log.push({ day: calendar(s.tick).day, text });
+  e.log.push({ day: calendarOf(s).day, text });
   if (e.log.length > 24) e.log.splice(0, e.log.length - 24);
 }
 
@@ -180,7 +180,7 @@ export function calamitySync(s: GameState, e: GreatEnemyState): void {
 
 /** Each morning, from the Enemy's day (`g` is the Calamity's own stream): the scar widens, ward stones are raised, the
  *  cult does its deeds. */
-export function calamityDaily(s: GameState, e: GreatEnemyState, g: Rng = roll(s, 'day', calendar(s.tick).day)): void {
+export function calamityDaily(s: GameState, e: GreatEnemyState, g: Rng = roll(s, 'day', calendarOf(s).day)): void {
   calamitySync(s, e);
   const c = s.calamity;
   if (!c || c.beaten !== undefined || ended(e)) return;
@@ -331,7 +331,7 @@ export function heartCleared(s: GameState): void {
 /* ------------------------------------------------------------ telling */
 
 function tell(s: GameState, c: CalamityState, title: string, story: string, words: string, scene?: string): void {
-  const cal = calendar(s.tick);
+  const cal = calendarOf(s);
   const prompt: Prompt = {
     id: s.nextId++,
     kind: 'debrief',

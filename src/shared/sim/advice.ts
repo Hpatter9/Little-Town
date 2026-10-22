@@ -3,7 +3,7 @@
 // telling them what to click. They go in as notices, so they show as toasts and stay in the Journal.
 
 import { notify, type GameState } from './state';
-import { calendar, TICKS_PER_HOUR } from './time';
+import { TICKS_PER_HOUR, calendarOf } from './time';
 
 type Tip = { id: string; when: (s: GameState) => boolean; text: string };
 
@@ -20,7 +20,7 @@ const TIPS: Tip[] = [
   },
   {
     id: 'winter',
-    when: (s) => calendar(s.tick).season === 'autumn' && s.buildings.some((b) => b.crop),
+    when: (s) => calendarOf(s).season === 'autumn' && s.buildings.some((b) => b.crop),
     text: 'Town note: autumn is here, and winter follows in three days. Nothing grows in winter, so the town lives on what it has put by.',
   },
   {

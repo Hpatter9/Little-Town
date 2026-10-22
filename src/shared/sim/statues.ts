@@ -17,7 +17,7 @@ import { findSpot } from './planner';
 import { nameHomes, type Honoured } from './memorials';
 import { ruinsHourly } from './ruins';
 import { campCell, notify, type GameState } from './state';
-import { calendar, TICKS_PER_HOUR } from './time';
+import { TICKS_PER_HOUR, calendarOf } from './time';
 
 /** How far out from the seat a statue may stand (cells) before it goes wherever the planner would put it. */
 const SQUARE_REACH = 10;
@@ -29,7 +29,7 @@ export function memorialsHourly(s: GameState): void {
   ruinsHourly(s);
   if (s.autopilot === false || s.gameOver) return;
   unveil(s);
-  if (calendar(s.tick).hour === STATUE_HOUR) raiseStatue(s);
+  if (calendarOf(s).hour === STATUE_HOUR) raiseStatue(s);
 }
 
 /** Whom a statue stands for. */

@@ -11,7 +11,7 @@ import { sendExpedition } from '../src/shared/sim/expeditions';
 import { groundAt, wet } from '../src/shared/sim/land';
 import { kingAnger, catchFactor, claimDay, claimed, colonies, foundColony, harbourOf, harbourReport, quay, seaBook, seafaringHourly, settleable, squallSinks } from '../src/shared/sim/seafaring';
 import { newGame, makePerson, type GameState } from '../src/shared/sim/state';
-import { calendar, TICKS_PER_DAY, TICKS_PER_HOUR } from '../src/shared/sim/time';
+import { TICKS_PER_DAY, TICKS_PER_HOUR, calendarOf } from '../src/shared/sim/time';
 import { CELL } from '../src/shared/sim/land';
 import { freeSpot, plainGame, put } from './helpers';
 
@@ -36,7 +36,7 @@ function seaTownGame(seed = 'sea'): GameState {
 /** Wind the clock on to this hour of the day (on the hour). */
 function toHour(s: GameState, hour: number): void {
   s.tick -= s.tick % TICKS_PER_HOUR;
-  while (calendar(s.tick).hour !== hour) s.tick += TICKS_PER_HOUR;
+  while (calendarOf(s).hour !== hour) s.tick += TICKS_PER_HOUR;
 }
 
 test('a harbour is laid by the water once the town has a boatyard, a boat and the hands', () => {
@@ -69,14 +69,14 @@ test('a boat fishes, the season\'s shoal decides how well, and a harbour lands m
   const car = launch(s, 'carrack');
   // spring: inshore. The dugout is on the right ground; the carrack is not.
   s.tick = 0;
-  while (calendar(s.tick).season !== 'spring') s.tick += TICKS_PER_DAY;
+  while (calendarOf(s).season !== 'spring') s.tick += TICKS_PER_DAY;
   assert.equal(SHOALS.spring.ground, 'inshore');
   assert.ok(catchFactor(s, dug) > catchFactor(s, car));
   const plain = catchFactor(s, dug);
   put(s, 'harbour', 2, 2);
   assert.ok(catchFactor(s, dug) > plain, 'the harbour lands more');
   // autumn: the deep. The carrack wins.
-  while (calendar(s.tick).season !== 'autumn') s.tick += TICKS_PER_DAY;
+  while (calendarOf(s).season !== 'autumn') s.tick += TICKS_PER_DAY;
   assert.ok(catchFactor(s, car) > catchFactor(s, dug));
   // and she brings the catch in at the fishing hour
   toHour(s, 18);

@@ -9,7 +9,7 @@ import { isSeat } from '../data/seats';
 import type { Rng } from '../rng';
 import { cellAt, groundAt, idx, inMap, isOpen, seaPool, wet, type LandMap } from './land';
 import type { GameState, Person } from './state';
-import { calendar, TICKS_PER_HOUR } from './time';
+import { TICKS_PER_HOUR, calendarOf, clockTick } from './time';
 
 /** Whether the town is a shore town: its land shaped by the sea. */
 export const seaTown = (s: Pick<GameState, 'origin'>) => ORIGIN_DEFS[s.origin ?? 'settlers']?.rules.shape === 'sea';
@@ -39,7 +39,7 @@ const DAWN = 6;
 
 /** Each dawn the sea gives again: a share of the fished-out cells in the open land get a new pool. */
 export function replenishSea(s: GameState, rng: Rng): void {
-  if (!seaTown(s) || s.tick % TICKS_PER_HOUR !== 0 || calendar(s.tick).hour !== DAWN) return;
+  if (!seaTown(s) || clockTick(s) % TICKS_PER_HOUR !== 0 || calendarOf(s).hour !== DAWN) return;
   const m = s.land;
   let n = 0;
   for (let i = 0; i < m.cells.length; i++) {

@@ -11,7 +11,7 @@ import { buildingDoor } from './buildings';
 import { startRaid } from './raids';
 import { shopOf } from './shop';
 import { notify, type GameState, type Raid } from './state';
-import { calendar, TICKS_PER_HOUR } from './time';
+import { TICKS_PER_HOUR, calendarOf } from './time';
 
 /** Chance each night hour, with a shop, that a chest left there is a mimic (about one a fortnight). */
 export const MIMIC_PER_NIGHT_HOUR = 1 / 90;
@@ -24,7 +24,7 @@ export const TOME_SECRETS = 0.5;
 /** Once an hour: something may wake inside the town (never during a raid). */
 export function lurkers(s: GameState, rng: Rng): void {
   if (s.tick % TICKS_PER_HOUR !== 0 || s.raid || s.gameOver || s.tick < 2 * 24 * TICKS_PER_HOUR) return;
-  const hour = calendar(s.tick).hour;
+  const hour = calendarOf(s).hour;
   const shop = shopOf(s);
   if (shop && (hour >= 22 || hour < 4) && rng.chance(MIMIC_PER_NIGHT_HOUR)) {
     startRaid(s, RAID_KIND_BY_ID.mimic, 30, rng, buildingDoor(shop));

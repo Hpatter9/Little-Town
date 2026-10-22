@@ -36,7 +36,7 @@ import { TREASURY_KEEP } from '../data/economy';
 import { buildingDoor, buildingCentre, storages, totalStock } from './buildings';
 import { isChild, opinion } from './social';
 import { addStock, eatersOf, foodDaysFor, tireless, campXY, earn, notify, type GameState, type Person } from './state';
-import { calendar, TICKS_PER_HOUR } from './time';
+import { TICKS_PER_HOUR, calendarOf } from './time';
 import { takeSale } from './ambition';
 import { festivalOver } from './festivals';
 import { tally } from './deeds';
@@ -128,7 +128,7 @@ export function ceremoniesHourly(s: GameState): void {
   // (the town's own life: not in the tests' plain towns, with the autopilot off)
   if (s.tick % TICKS_PER_HOUR !== 0 || s.gameOver || s.autopilot === false) return;
   if (s.gathering && s.tick >= s.gathering.until) endGathering(s);
-  const cal = calendar(s.tick);
+  const cal = calendarOf(s);
   // (midsummer: a feast is due once a year, on its day)
   if (cal.season === 'summer' && cal.dayOfSeason === MIDSUMMER_DAY && cal.hour === 6 && !s.feastDue) s.feastDue = { kind: 'feast', text: 'the midsummer feast' };
   if (cal.hour !== GATHER_HOUR || s.gathering || s.raid) return;

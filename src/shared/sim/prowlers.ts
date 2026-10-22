@@ -15,7 +15,7 @@ import { raidBudget, startRaid, townEdgeX } from './raids';
 import { caughtBudget, markWatched, placeName, spotAt, watchRng } from './nightWatch';
 import { isGate, lineOf, missingPieces, ringTown } from './ringWall';
 import { campXY, notify, type GameState } from './state';
-import { calendar, TICKS_PER_DAY, TICKS_PER_HOUR } from './time';
+import { TICKS_PER_DAY, TICKS_PER_HOUR, calendarOf } from './time';
 
 /** The chance each night hour with no wall at all (scaled by the share of the ring that is missing). */
 export const PROWL_PER_NIGHT_HOUR = 1 / 36;
@@ -75,7 +75,7 @@ export function wayIn(s: GameState, rng: Rng): { at: Pt; where: string; how: 'ga
 export function prowlers(s: GameState, rng: Rng): void {
   if (s.tick % TICKS_PER_HOUR !== 0 || s.raid || s.gameOver || s.autopilot === false || s.tick < PROWL_FIRST_DAY * TICKS_PER_DAY) return;
   if (!ringTown(s) || s.people.filter((p) => p.away === null && p.type !== 'child').length < PROWL_PEOPLE) return;
-  const hour = calendar(s.tick).hour;
+  const hour = calendarOf(s).hour;
   if (hour < PROWL_FROM && hour >= PROWL_UNTIL) return;
   if (s.lastProwl !== undefined && s.tick - s.lastProwl < PROWL_GAP_HOURS * TICKS_PER_HOUR) return;
   const gap = ringGap(s);

@@ -1,7 +1,7 @@
 // The choice events' kit: the effect and event types, the shorthands the event files are written with, and the
 // `when` helpers (the events themselves are in events.ts and moreEvents*.ts).
 import type { GameState } from '../sim/state';
-import { calendar, type Season } from '../sim/time';
+import { type Season, calendarOf } from '../sim/time';
 import { ageDays, lifespanOf } from '../sim/ageing';
 import { seaTown } from '../sim/sea';
 import type { Biome } from './biomes';
@@ -153,7 +153,7 @@ export const shop = (s: GameState) => s.buildings.some((b) => !!b.shop);
 export const pens = (s: GameState) => has(s, 'chicken_coop', 'goat_pen', 'pig_sty', 'sheep_fold', 'cattle_pasture');
 export const fields = (s: GameState) => has(s, 'garden_plot', 'hydroponics_bay');
 export const take = (what: 'food' | 'stores' | 'coins', share: number): EventEffect => ({ take: what, share });
-export const season = (s: GameState, ...which: Season[]) => which.includes(calendar(s.tick).season);
+export const season = (s: GameState, ...which: Season[]) => which.includes(calendarOf(s).season);
 export const biome = (s: GameState, ...which: Biome[]) => which.includes(s.biome ?? 'forest');
 export const children = (s: GameState) => s.people.some((p) => p.bornTick != null);
 export const elders = (s: GameState) => s.people.some((p) => p.bornTick == null && !p.monster && ageDays(s, p) >= lifespanOf(s, p).elderDays);

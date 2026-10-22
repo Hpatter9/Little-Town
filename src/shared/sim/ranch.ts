@@ -29,7 +29,7 @@ import { operatorOf } from './operators';
 import { findSpot } from './planner';
 import { isChild } from './social';
 import { campXY, earn, foodDaysFor, notify, type GameState, type Person, type Raid, type Raider } from './state';
-import { calendar, TICKS_PER_DAY, TICKS_PER_HOUR } from './time';
+import { TICKS_PER_DAY, TICKS_PER_HOUR, calendarOf } from './time';
 
 export interface RanchBeast {
   id: number;
@@ -248,7 +248,7 @@ export function ranchHourly(s: GameState): void {
   const odd = s.ranch?.beasts.filter((b) => !penKind(b.kind));
   if (odd?.length) for (const b of odd) lose(s, b, 'lost', `${b.name} the ${kindName(b.kind)} was let out of the pens.`);
   if (s.ranch?.beasts.length) setJobs(s);
-  if (calendar(s.tick).hour !== RANCH_HOUR) return;
+  if (calendarOf(s).hour !== RANCH_HOUR) return;
   buildRanch(s);
   const r = s.ranch;
   if (!r?.beasts.length) return;

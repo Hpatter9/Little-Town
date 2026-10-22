@@ -27,7 +27,7 @@ import { setFire } from './fire';
 import { killPerson } from './health';
 import { castSpellFx, foodDaysFor, maxHp, notify, tireless, type GameState } from './state';
 import { totalStock } from './buildings';
-import { calendar, TICKS_PER_DAY, TICKS_PER_HOUR } from './time';
+import { calendar, TICKS_PER_DAY, TICKS_PER_HOUR, calendarOf } from './time';
 
 export interface FaithState {
   favour: Record<Domain, number>;
@@ -59,7 +59,7 @@ const roll = (s: GameState, ...salts: number[]) => (mixSeed(hashSeed(s.seed), 0x
 /** Hourly from sim.ts: the morning's offering and signs, the weekly rite. */
 export function faithHourly(s: GameState): void {
   if (s.autopilot === false || s.tick % TICKS_PER_HOUR !== 0 || s.tick === 0) return;
-  if (calendar(s.tick).hour !== FAITH_HOUR) return;
+  if (calendarOf(s).hour !== FAITH_HOUR) return;
   const f = faithOf(s);
   const home = s.people.filter((p) => p.away === null);
   if (!home.length) return;

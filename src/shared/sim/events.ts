@@ -31,7 +31,7 @@ import { killPerson } from './health';
 import { revealOccult } from './occult';
 import { equipAll } from './crafting';
 import { townFull, addStock, campX, campXY, earn, makePerson, maxHp, notify, setOutcome, type GameState, type Person } from './state';
-import { calendar, TICKS_PER_HOUR } from './time';
+import { TICKS_PER_HOUR, calendarOf } from './time';
 import { weatherAt } from './weather';
 import { seaTown } from './sea';
 import { eventPicture, sceneLine } from '../data/eventScenes';
@@ -110,7 +110,7 @@ export function maybeEvent(s: GameState, rng: Rng): void {
 /** The full-screen box's telling of an event: a line setting the scene as the town is now, the event, and the
  *  longer passage written for it; its picture; and who it's about. */
 function eventTelling(s: GameState, def: EventDef, who: Person | undefined): { story: string; picture: string; who?: number } {
-  const c = calendar(s.tick);
+  const c = calendarOf(s);
   const now = { hour: c.hour, season: c.season, weather: weatherAt(s.seed, s.tick, null).kind, biome: s.biome ?? 'forest', era: s.era, sea: seaTown(s) } as const;
   const salt = def.id.length * 31 + c.day;
   const more = EVENT_MORE[def.id];

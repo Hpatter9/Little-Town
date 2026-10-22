@@ -4,11 +4,11 @@
 import { eventPicture } from '../data/eventScenes';
 import { seaTown } from './sea';
 import { notify, type GameState, type Prompt } from './state';
-import { calendar, TICKS_PER_HOUR } from './time';
+import { TICKS_PER_HOUR, calendarOf } from './time';
 import { weatherAt } from './weather';
 
 export function tellStory(s: GameState, title: string, story: string, words: string, opts: { who?: number; ok?: string; quiet?: boolean } = {}): Prompt {
-  const cal = calendar(s.tick);
+  const cal = calendarOf(s);
   const prompt: Prompt = {
     id: s.nextId++,
     kind: 'debrief',
@@ -29,7 +29,7 @@ export function tellStory(s: GameState, title: string, story: string, words: str
 
 /** A people's own question in the event box (kind `ways`, answered by sim/heritage.ts `answerWays`). */
 export function askWays(s: GameState, ways: { system: string; about: string; id?: number }, title: string, story: string, words: string, options: string[], defaultOption: number, hours: number, who?: number): Prompt {
-  const cal = calendar(s.tick);
+  const cal = calendarOf(s);
   const prompt: Prompt = {
     id: s.nextId++,
     kind: 'ways',

@@ -44,7 +44,7 @@ import { hostEngines, hostMustered, hostOdds, siegeOver } from './war/siege';
 import { councilLine } from './war/council';
 import { warSeason } from './war/state';
 import { addStock, campXY, earn, edgeXY, makePerson, notify, setOutcome, townFull, type Faction, type GameState, type Prompt, type Raid, type Raider } from './state';
-import { calendar, paceDay, TICKS_PER_DAY, TICKS_PER_HOUR } from './time';
+import { paceDay, TICKS_PER_DAY, TICKS_PER_HOUR, calendarOf } from './time';
 import { weatherAt } from './weather';
 
 /* ------------------------------------------------------------ the powers */
@@ -170,7 +170,7 @@ export function factionsHourly(s: GameState, rng: Rng): void {
   if (s.autopilot === false || s.gameOver || s.tick % TICKS_PER_HOUR !== 0) return;
   realm(s);
   for (const f of realm(s)) if (f.host && s.tick >= f.host.at && !s.raid) launchHost(s, f, rng);
-  if (calendar(s.tick).hour === 9) factionsDaily(s, rng);
+  if (calendarOf(s).hour === 9) factionsDaily(s, rng);
 }
 
 /** The realm's day: powers met, troops grown, goodwill drifted, tribute and trade paid, wars declared, hosts mustered,
@@ -342,7 +342,7 @@ export function envoy(s: GameState, f: Faction, about: string): Prompt | null {
   const t = envoyText(s, f, about, coins);
   // (the town's council has its answer ready: the recommended one, taken if nobody answers: sim/war/council.ts)
   const advice = warAdvice(s, f, about, coins);
-  const cal = calendar(s.tick);
+  const cal = calendarOf(s);
   const now = { hour: cal.hour, season: cal.season, weather: weatherAt(s.seed, s.tick, null).kind, biome: s.biome ?? 'forest', era: s.era, sea: seaTown(s) } as const;
   const prompt: Prompt = {
     id: s.nextId++,

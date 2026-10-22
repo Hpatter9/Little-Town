@@ -18,7 +18,7 @@ import { godOf } from './faith';
 import { isChild } from './social';
 import { campXY, notify, tireless, type GameState } from './state';
 import { seaTown } from './sea';
-import { calendar, TICKS_PER_DAY, TICKS_PER_HOUR } from './time';
+import { TICKS_PER_DAY, TICKS_PER_HOUR, calendarOf } from './time';
 
 /** What was last read, so each day counts only what is new. */
 export interface CultureSeen {
@@ -132,7 +132,7 @@ const dishWant = (s: GameState) => Math.min(DISH_MOST, 2 + Math.floor(s.people.f
 /** Each hour: a held trait's dish is ordered at the fire in its season's first days, and its custom kept on its day. */
 function customsHourly(s: GameState): void {
   const c = cultureOf(s);
-  const cal = calendar(s.tick);
+  const cal = calendarOf(s);
   for (const id of c.held) {
     const t = TRAIT_BY_ID[id];
     if (t.custom.season !== cal.season) continue;
@@ -180,7 +180,7 @@ function remarksHourly(s: GameState): void {
 /** From sim.ts, every tick: the daily reading, the customs, the remarks. */
 export function cultureHourly(s: GameState): void {
   if (s.tick % TICKS_PER_HOUR !== 0 || s.gameOver || s.autopilot === false) return;
-  const cal = calendar(s.tick);
+  const cal = calendarOf(s);
   // (a town has no ways of its own in its first days: culture comes of months of history)
   if (cal.day < CULTURE_FROM_DAY) return;
   if (cal.hour === HOUR_READ) cultureDaily(s);

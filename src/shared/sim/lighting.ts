@@ -19,7 +19,7 @@ import { CELL, groundAt, idx, inMap, isRoad, wet, type Rect } from './land';
 import { clearLine, lightSources, occluders } from './lightField';
 import { isChild } from './social';
 import { tireless, type GameState, type Person } from './state';
-import { calendar, TICKS_PER_HOUR } from './time';
+import { TICKS_PER_HOUR, calendarOf } from './time';
 
 export interface Torch {
   id: number;
@@ -54,7 +54,7 @@ export function streetCells(land: GameState['land']): { x: number; y: number }[]
 }
 
 /** Is it night (or dusk) now? */
-export const isNight = (s: GameState) => calendar(s.tick).daylight < DARK_BELOW;
+export const isNight = (s: GameState) => calendarOf(s).daylight < DARK_BELOW;
 
 /** The cell's castle region, if it's in a castle or hold. */
 function regionAt(s: GameState, x: number, y: number): number | undefined {
@@ -67,7 +67,7 @@ function darkThere(s: GameState, t: Torch): boolean {
   if (t.room !== undefined) {
     // (a room's sconce is lit only while someone is in the room; under the mountain at any hour but while the hold
     // sleeps, in a castle by night)
-    const dark = holdOf(s) === 'mountain' ? calendar(s.tick).hour >= CAVE_WAKE && calendar(s.tick).hour < CAVE_SLEEP : isNight(s);
+    const dark = holdOf(s) === 'mountain' ? calendarOf(s).hour >= CAVE_WAKE && calendarOf(s).hour < CAVE_SLEEP : isNight(s);
     return dark && someoneIn(s, t.room);
   }
   return isNight(s);
@@ -281,7 +281,7 @@ export function outdoorCells(s: GameState, standing: { x: number; y: number }[],
  *  nearest first; null if none or there's nothing to feed it with, or it isn't the lamplighters' hours. */
 export function lightToFeed(s: GameState, p: Person): Torch | null {
   if (!lightingOn(s) || !needsFuel(s) || isChild(p)) return null;
-  const h = calendar(s.tick).hour;
+  const h = calendarOf(s).hour;
   const cave = holdOf(s) === 'mountain';
   if (!cave && (h < FEED_FROM || h >= FEED_UNTIL)) return null;
   const fuel = kindOf(s).fuel!;

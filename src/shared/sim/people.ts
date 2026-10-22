@@ -60,7 +60,7 @@ import { isSeat } from '../data/seats';
 import { holderOf, holds, jobOf as heldJob } from './operators';
 import { HOLDER_EDGE } from '../data/operators';
 import { tireless, remember, addStock, campXY, cellXY, dist, BUILD_MULTIPLIER, carryCapacity, notify, RESEARCH_MULTIPLIER, poolSize, buildingById, type Building, type GameState, type Person, type Raider, type Task } from './state';
-import { calendar, TICK_HZ, TICKS_PER_HOUR } from './time';
+import { TICK_HZ, TICKS_PER_HOUR, calendarOf } from './time';
 import { stabilize } from './health';
 import { mended, needsSickbed, sickbedFor } from './sickbeds';
 import { drainNeeds, gainSkill, GROUND_SLEEP, HUNGRY, SLEEP_PER_HOUR, SULK_MORALE, wantsSleep, wantsToWake, workFactor } from './townsfolk';
@@ -623,7 +623,7 @@ export function onShift(s: GameState, p: Person): boolean {
   if (p.priorities.defend !== 1 || p.bornTick != null) return false;
   // (a hired guard (sim/treasury.ts) keeps watch without a barracks)
   if (!p.guard && !s.buildings.some((b) => b.def === 'barracks' && b.status === 'done')) return false;
-  const h = calendar(s.tick).hour;
+  const h = calendarOf(s).hour;
   const day = h >= 6 && h < 18;
   return (p.id % 2 === 0) === day;
 }
@@ -636,7 +636,7 @@ const WALL_WATCH_UNTIL = 6;
  *  from where they are, then on again, so the torches go round the wall (sim/ringWall.ts's line, each cell's inner
  *  neighbour). Null by day, or with no ring standing. */
 function wallWalk(s: GameState, p: Person): Pt | null {
-  const h = calendar(s.tick).hour;
+  const h = calendarOf(s).hour;
   if (!s.ring?.done || (h < WALL_WATCH_FROM && h >= WALL_WATCH_UNTIL)) return null;
   const line = lineOf(s.ring);
   if (line.length < 8) return null;
@@ -660,7 +660,7 @@ function wallWalk(s: GameState, p: Person): Pt | null {
  *  the rest walk the wall; a lone guard on watch climbs up every other hour, a different gate each time. The gate it
  *  is (the guard stands on its beam, over its middle: the map lifts them up there), or null. */
 export function gatePost(s: GameState, p: Person): Building | null {
-  const h = calendar(s.tick).hour;
+  const h = calendarOf(s).hour;
   if (!s.ring?.done || (h < WALL_WATCH_FROM && h >= WALL_WATCH_UNTIL)) return null;
   const gen = s.ring.gen;
   const gates = s.buildings.filter((b) => b.ring === gen && b.status === 'done' && isGate(b.def));
@@ -701,7 +701,7 @@ function patrolTask(s: GameState, p: Person): Task {
 /** With the ring wall not yet standing all round, the first half of the watch (by id) holds the town's edge by night, on
  *  one side and the other in turn. Null by day, in a town that has a wall, or for the rest. */
 function edgePost(s: GameState, p: Person): Pt | null {
-  const h = calendar(s.tick).hour;
+  const h = calendarOf(s).hour;
   if (s.ring?.done || !ringTown(s) || (h < WALL_WATCH_FROM && h >= WALL_WATCH_UNTIL)) return null;
   const watch = s.people.filter((q) => q.away === null && !q.downed && onShift(s, q)).sort((a, b) => a.id - b.id);
   const i = watch.indexOf(p);
@@ -1304,7 +1304,7 @@ function chooseTask(s: GameState, p: Person): Task | null {
   }
   if (p.morale < SULK_MORALE || p.breakdown) return null; // sulking (or in the middle of a break)
   // The night watch (sim/nightWatch.ts): a hired guard on the night shift and a townsperson on its roster walk the beat or stands a post before their own work.
-  if (!s.raid && (onNightWatch(s, p) || (p.guard && watchHour(calendar(s.tick).hour) && onShift(s, p)))) return p.task?.type === 'patrol' && p.task.band === undefined ? p.task : patrolTask(s, p);
+  if (!s.raid && (onNightWatch(s, p) || (p.guard && watchHour(calendarOf(s).hour) && onShift(s, p)))) return p.task?.type === 'patrol' && p.task.band === undefined ? p.task : patrolTask(s, p);
   // (hands already full, whatever they're doing: no more gathering or fetching on top)
   if (poolSize(p.carrying) >= carryCapacity(s, p)) handsFull = true;
   // The lamplighter's round (sim/lighting.ts): a light running low and the dark coming, one or two of the town go

@@ -44,7 +44,7 @@ import { woundPerson } from './injuries';
 import { raidBudget, startRaid } from './raids';
 import { queueScene } from './cutscenes';
 import { addStock, maxHp, notify, type Building, type GameState, type Person } from './state';
-import { calendar, TICKS_PER_HOUR } from './time';
+import { TICKS_PER_HOUR, calendarOf } from './time';
 
 export interface DeepLevel {
   depth: number;
@@ -345,7 +345,7 @@ export function deepHourly(s: GameState): void {
   d.stir = Math.max(0, d.stir - STIR_SETTLES);
   const shaft = shaftOf(s);
   if (!shaft) return;
-  if (calendar(s.tick).hour === DEEP_DAWN) {
+  if (calendarOf(s).hour === DEEP_DAWN) {
     const { farms, lakes } = deepFarms(d);
     const food: Stock = {};
     if (farms) food.vegetables = farms * FUNGUS_FOOD;

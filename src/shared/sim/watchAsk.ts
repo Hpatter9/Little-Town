@@ -8,7 +8,7 @@
 import { ENEMIES } from '../data/enemies';
 import { the, type Destination } from '../data/expeditions';
 import { eventPicture } from '../data/eventScenes';
-import { calendar, TICKS_PER_HOUR } from './time';
+import { TICKS_PER_HOUR, calendarOf } from './time';
 import { weatherAt } from './weather';
 import { seaTown } from './sea';
 import { notify, type Expedition, type GameState, type Prompt } from './state';
@@ -37,7 +37,7 @@ export function askToWatch(s: GameState, e: Expedition, d: Destination, group: R
   const bit = boss ? BOSS : SITE;
   if ((e.watchAsked ?? 0) & bit) return false;
   e.watchAsked = (e.watchAsked ?? 0) | bit | (boss ? SITE : 0);
-  const cal = calendar(s.tick);
+  const cal = calendarOf(s);
   const where = the(d.name);
   const title = e.assault ? `The storming of ${d.name.replace(/^Storm /, '')}` : boss ? `A great foe at ${where}` : `A battle at ${where}`;
   const lead = s.people.find((p) => p.id === (e.leader ?? e.members[0]));

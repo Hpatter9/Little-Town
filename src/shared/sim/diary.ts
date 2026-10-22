@@ -17,7 +17,7 @@ import { mood } from './townsfolk';
 import { faithDiaryLine } from './religion';
 import { secretsAbout } from './intrigue';
 import { tireless, type GameState, type Person } from './state';
-import { calendar, TICKS_PER_HOUR, type Season } from './time';
+import { calendar, TICKS_PER_HOUR, type Season, calendarOf } from './time';
 import { weatherAt, type Weather } from './weather';
 import { CELL } from './land';
 
@@ -158,7 +158,7 @@ export interface DiaryFacts {
 
 /** The facts of someone's day. */
 export function diaryFacts(s: GameState, p: Person): DiaryFacts {
-  const c = calendar(s.tick);
+  const c = calendarOf(s);
   const today = c.day;
   const d = p.diary?.day === today ? p.diary : null;
   const doing = d ? (Object.entries(d.hours).filter(([k]) => !NOT_WORK.has(k) && k !== 'sleep') as [string, number][]).sort((a, b) => b[1] - a[1] || (a[0] < b[0] ? -1 : 1)) : [];

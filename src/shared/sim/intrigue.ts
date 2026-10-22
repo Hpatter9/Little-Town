@@ -45,7 +45,7 @@ import { blocOf, lawOn, politicsOf, stanceOn, trial } from './politics';
 import { landPrice, materialsPrice } from './property';
 import { enemiesOf, isChild, opinion } from './social';
 import { earn, notify, remember, type Building, type GameState, type Person } from './state';
-import { calendar, TICKS_PER_DAY, TICKS_PER_HOUR } from './time';
+import { TICKS_PER_DAY, TICKS_PER_HOUR, calendarOf, clockTick } from './time';
 import { assignBeds } from './townsfolk';
 
 export type HoldHow = 'bribe' | 'blackmail' | 'fear';
@@ -868,7 +868,7 @@ function swayDay(s: GameState, rng: Rng): void {
 
 /** Once a day in the small hours: the books, the buying, the ring, the schemes and what comes to light. */
 export function intrigueHourly(s: GameState): void {
-  if (s.tick % TICKS_PER_HOUR !== 0 || off(s) || s.gameOver || calendar(s.tick).hour !== INTRIGUE_HOUR) return;
+  if (clockTick(s) % TICKS_PER_HOUR !== 0 || off(s) || s.gameOver || calendarOf(s).hour !== INTRIGUE_HOUR) return;
   if (grownAtHome(s).length < INTRIGUE_PEOPLE) return;
   const rng = new Rng(hashSeed(`${s.seed}:intrigue:${s.tick}`));
   if (day(s) < INTRIGUE_FROM_DAY) return; // (a young town keeps its state as it was)

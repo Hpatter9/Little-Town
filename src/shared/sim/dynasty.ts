@@ -34,7 +34,7 @@ import { hashSeed, Rng } from '../rng';
 import { heirOfEstate, lineGroups, lineRenown, type KinRecord } from './lineage';
 import { adjust, brawl, isChild, opinion } from './social';
 import { notify, tireless, type GameState, type Person } from './state';
-import { calendar, TICKS_PER_DAY, TICKS_PER_HOUR } from './time';
+import { TICKS_PER_DAY, TICKS_PER_HOUR, calendarOf, clockTick } from './time';
 import { politicsOf } from './politics';
 import { intrigueYearLines, wealthStrength } from './intrigue';
 
@@ -638,7 +638,7 @@ function heirloomsDay(s: GameState, h: Houses): void {
 
 /** Once a day at dawn: the town's weather noted for the children, then feuds, bonds, the ruling house and heirlooms. */
 export function dynastyHourly(s: GameState): void {
-  if (s.tick % TICKS_PER_HOUR !== 0 || off(s) || s.gameOver || calendar(s.tick).hour !== 5) return;
+  if (clockTick(s) % TICKS_PER_HOUR !== 0 || off(s) || s.gameOver || calendarOf(s).hour !== 5) return;
   if (!s.people.length) return;
   const d = dynastyOf(s);
   const rng = new Rng(hashSeed(`${s.seed}:dynasty:${s.tick}`));

@@ -8,7 +8,7 @@ import { rulesOf } from '../data/origins';
 import { FULL_MOON_PHASE, moonPhaseOf } from './monsters';
 import { researchMods } from './research';
 import type { GameState, Person } from './state';
-import { calendar } from './time';
+import { calendarOf } from './time';
 
 /** The product of the choice events' marks on a lever right now (1 when there are none; sim/events.ts). */
 export function markMult(s: GameState, lever: Lever): number {
@@ -24,10 +24,10 @@ export const moraleMarks = (s: GameState): [string, number][] => (s.marks ?? [])
 export const buffOn = (s: GameState, id: string) => (s.buffs?.[id] ?? -1) > s.tick;
 
 const night = (s: GameState) => {
-  const h = calendar(s.tick).hour;
+  const h = calendarOf(s).hour;
   return h >= 20 || h < 5;
 };
-const fullMoonNow = (s: GameState) => moonPhaseOf(calendar(s.tick).day) === FULL_MOON_PHASE;
+const fullMoonNow = (s: GameState) => moonPhaseOf(calendarOf(s).day) === FULL_MOON_PHASE;
 
 /** What the town's research adds to each lever (1 where nothing does). */
 const learned = (s: GameState) => researchMods(s.research).rules;

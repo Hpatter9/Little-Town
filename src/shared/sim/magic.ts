@@ -37,7 +37,7 @@ import { tearRift } from './portals';
 import { isChild } from './social';
 import { assignBeds } from './townsfolk';
 import { campCell, castSpellFx, maxHp, notify, tireless, type Building, type GameState, type Person, type Prompt } from './state';
-import { calendar, TICKS_PER_DAY, TICKS_PER_HOUR } from './time';
+import { TICKS_PER_DAY, TICKS_PER_HOUR, calendarOf } from './time';
 import { CELL } from './land';
 import { manaRest } from './mana';
 
@@ -265,7 +265,7 @@ export function manaCap(s: GameState): number {
 /** Mana gathered this hour: the towers by the ley under each, and each caster at home. */
 export function manaPerHour(s: GameState): number {
   const fl = flavourOf(s);
-  const hour = calendar(s.tick).hour;
+  const hour = calendarOf(s).hour;
   const night = hour >= 20 || hour < 5;
   let n = 0;
   for (const b of done(s, MAGE_TOWER)) n += TOWER_MANA * (TOWER_BASE + leyOfBuilding(s, b));
@@ -309,7 +309,7 @@ export function magicHourly(s: GameState): void {
 function placeTower(s: GameState): void {
   if (!s.townBuilds) return; // (the founder orders the tower; the town picks the ley)
   // (looked to every six hours: the queue may be full, and the planner may lay one first)
-  if (calendar(s.tick).hour % 6 !== 0 || s.buildings.some((b) => b.def === MAGE_TOWER)) return;
+  if (calendarOf(s).hour % 6 !== 0 || s.buildings.some((b) => b.def === MAGE_TOWER)) return;
   // (never in the way of the town's homes and food: a few hands first, and a spare slot in the queue)
   if (s.people.filter((p) => !isChild(p)).length < TOWER_PEOPLE || blueprintCount(s) >= buildSlots(s) - 1) return;
   const c = campCell(s);

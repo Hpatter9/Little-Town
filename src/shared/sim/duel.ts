@@ -20,7 +20,7 @@ import { matchupOf, powerLine, powerOfFighter, powerOfPerson, type Matchup } fro
 import { politicsOf, striking } from './politics';
 import { isChild, opinion } from './social';
 import { maxHp, notify, type Expedition, type GameState, type Person, type Prompt } from './state';
-import { TICKS_PER_DAY, TICKS_PER_HOUR, calendar } from './time';
+import { TICKS_PER_DAY, TICKS_PER_HOUR, calendarOf } from './time';
 import { gainSkill } from './townsfolk';
 
 export type DuelTerms = 'yield' | 'death';
@@ -250,7 +250,7 @@ export function endDuel(s: GameState, d: DuelState, outcome: 'won' | 'lost'): vo
 /** A rival challenges the founder, now and then: a question that holds the game until it is answered. */
 export function duelHourly(s: GameState): void {
   if (s.tick % TICKS_PER_HOUR !== 0 || s.autopilot === false || s.gameOver) return;
-  if (calendar(s.tick).hour !== CHALLENGE_HOUR) return;
+  if (calendarOf(s).hour !== CHALLENGE_HOUR) return;
   const f = founderOf(s);
   if (!f || duelBlock(s) || s.prompts.some((q) => q.kind === 'duel')) return;
   const last = s.duelChallenged;

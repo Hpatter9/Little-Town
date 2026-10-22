@@ -61,7 +61,7 @@ import { herdOf, isPen } from './livestock';
 import { sheltered, spawnRoamerAt, townReachCells } from './roamers';
 import { isChild } from './social';
 import { notify, type GameState } from './state';
-import { calendar, TICKS_PER_DAY, TICKS_PER_HOUR, type Calendar } from './time';
+import { TICKS_PER_DAY, TICKS_PER_HOUR, type Calendar, calendarOf } from './time';
 import { drought } from './doom';
 import { raining, startDisaster, woodsNear } from './disasters';
 
@@ -202,7 +202,7 @@ function nearestHerd(w: Wild, x: number, y: number, within = Infinity): Herd | n
 export function wildHourly(s: GameState): void {
   if (s.autopilot === false || s.tick % TICKS_PER_HOUR !== 0) return;
   const w = s.wild ?? seed(s);
-  const cal = calendar(s.tick);
+  const cal = calendarOf(s);
   const g = rngFor(s, s.tick);
   // (the wind turns a little each day)
   if (w.windDay !== cal.day) {
@@ -285,7 +285,7 @@ function stepPack(s: GameState, w: Wild, p: Pack, g: Rng): void {
   const resting = p.rest !== undefined && s.tick < p.rest;
   const prey = nearestHerd(w, p.x, p.y, 40);
   const grown = s.people.filter((q) => q.away === null && !isChild(q)).length;
-  const ready = calendar(s.tick).day - 1 >= ROAM_FIRST_DAY && grown >= ROAM_PEOPLE && !s.raid && s.origin !== 'lich' && s.origin !== 'vampire';
+  const ready = calendarOf(s).day - 1 >= ROAM_FIRST_DAY && grown >= ROAM_PEOPLE && !s.raid && s.origin !== 'lich' && s.origin !== 'vampire';
   // (hungry, and no game near enough, or starving: it turns on the town)
   if (ready && !resting && p.hunger >= HUNGRY_AT && (!prey || Math.hypot(prey.x - p.x, prey.y - p.y) > 30 || p.hunger >= 0.9)) {
     const c = campCells(s);
@@ -450,7 +450,7 @@ function growTrees(m: GameState['land'], i: number, x: number, y: number, g: Rng
 /** Whether this year is a dry one (a share of years, and every drought). */
 export function dryYear(s: GameState): boolean {
   if (drought(s)) return true;
-  return (hashSeed(`${s.seed}:dry:${calendar(s.tick).year}`) % 1000) / 1000 < DRY_YEAR;
+  return (hashSeed(`${s.seed}:dry:${calendarOf(s).year}`) % 1000) / 1000 < DRY_YEAR;
 }
 
 /** In a dry summer, now and then the woods catch (a disaster's wildfire, which the wind drives: sim/disasters.ts). */

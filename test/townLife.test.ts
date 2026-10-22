@@ -9,7 +9,7 @@ import { newTickContext, updatePerson } from '../src/shared/sim/people';
 import { Rng } from '../src/shared/rng';
 import { CELL } from '../src/shared/sim/land';
 import { maxHp, type GameState, type Person } from '../src/shared/sim/state';
-import { calendar, TICKS_PER_HOUR } from '../src/shared/sim/time';
+import { calendar, TICKS_PER_HOUR, calendarOf } from '../src/shared/sim/time';
 import {
   changingWatch, darkHomes, fallenNow, FALL_FOR, habitNow, HABIT_AFTER, snowballNow, snowballPairs, snowmanHomes, snowmanLeft,
   songNow, torchHours, yawningNow,
@@ -125,7 +125,7 @@ test('a funeral carries the coffin from the home of the dead to the graveyard be
   do {
     s.tick += TICKS_PER_HOUR;
     ceremoniesHourly(s);
-  } while (calendar(s.tick).hour !== GATHER_HOUR);
+  } while (calendarOf(s).hour !== GATHER_HOUR);
   const g = s.gathering!;
   assert.ok(g && g.walk, 'it begins as a procession');
   assert.ok(processing(g, s.tick));
@@ -171,7 +171,7 @@ test('a wedding party walks from the couple\'s door to the feast, the couple at 
   do {
     s.tick += TICKS_PER_HOUR;
     ceremoniesHourly(s);
-  } while (calendar(s.tick).hour !== GATHER_HOUR);
+  } while (calendarOf(s).hour !== GATHER_HOUR);
   const g = s.gathering!;
   assert.equal(g.kind, 'wedding');
   assert.deepEqual(g.ids.slice(0, 2).sort(), [a.id, b.id].sort(), 'the couple lead');
@@ -212,7 +212,7 @@ test('by night a guard on watch walks the inside of the ring wall', () => {
   g.priorities = Object.fromEntries(Object.keys(g.priorities).map((k) => [k, 4])) as unknown as Person['priorities'];
   g.priorities.defend = 1;
   g.needs = { food: 1, rest: 1 };
-  while (calendar(s.tick).hour !== 22) s.tick += TICKS_PER_HOUR;
+  while (calendarOf(s).hour !== 22) s.tick += TICKS_PER_HOUR;
   g.task = null;
   updatePerson(s, g, new Rng(3), newTickContext());
   assert.equal((g.task as { type?: string } | null)?.type, 'patrol');

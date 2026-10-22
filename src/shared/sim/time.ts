@@ -64,3 +64,9 @@ function smooth(x: number): number {
 /** The day as the dangers count it (data/pace.ts): the game runs to generations, so what grows with the day grows
  *  DANGER_PACE times slower. */
 export const paceDay = (tick: number) => tick / TICKS_PER_DAY / DANGER_PACE;
+
+/** The calendar as the town lives it: the day's clock stands still while the town is held for a fight on screen
+ *  (`GameState.fightTicks` counts those ticks; sim/popups.ts `fightClock`), so the hour and the light wait. `s.tick`
+ *  itself keeps counting, for the battle's own timers. */
+export const clockTick = (s: { tick: number; fightTicks?: number }): number => s.tick - (s.fightTicks ?? 0);
+export const calendarOf = (s: { tick: number; fightTicks?: number }): Calendar => calendar(clockTick(s));

@@ -56,7 +56,7 @@ import { seedPlaces, type MapPlace } from './places';
 import { isChild } from './social';
 import { addStock, campCell, earn, maxHp, notify, setOutcome, type GameState, type Person, type Prompt, type Raid, type Raider } from './state';
 import { askWays, tellStory } from './telling';
-import { calendar, TICKS_PER_DAY, TICKS_PER_HOUR } from './time';
+import { TICKS_PER_DAY, TICKS_PER_HOUR, calendarOf } from './time';
 
 export interface Spirit {
   name: string;
@@ -273,7 +273,7 @@ export function ancestorsHourly(s: GameState): void {
   if (s.autopilot === false || s.tick % TICKS_PER_HOUR !== 0 || s.gameOver) return;
   const a = s.ancestry;
   if (!a) return;
-  const cal = calendar(s.tick);
+  const cal = calendarOf(s);
   const rng = new Rng(hashSeed(`${s.seed}:ancestors:${s.tick}`));
   if (cal.hour === VISIT_HOUR) visitTonight(s, a, rng);
   if (cal.hour === CURSE_HOUR) curseMorning(s, a, rng);

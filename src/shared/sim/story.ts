@@ -8,7 +8,7 @@ import { DEBRIEF_HOURS } from '../data/muster';
 import { isChild } from './social';
 import type { Fallen } from './annals';
 import { notify, type GameState, type Person, type Prompt } from './state';
-import { calendar, TICKS_PER_HOUR } from './time';
+import { TICKS_PER_HOUR, calendarOf } from './time';
 
 export type ChapterKind = 'founding' | 'quest' | 'shop' | 'marriage' | 'child' | 'family' | 'raid' | 'title' | 'death' | 'heir';
 
@@ -52,7 +52,7 @@ export function writeChapter(s: GameState, kind: ChapterKind, title: string, lin
   const f = about ?? founder(s);
   if (!f) return;
   const story = (s.story ??= { chapters: [] });
-  story.chapters.push({ who: f.id, name: f.name, kind, title, lines: lines.slice(0, 4), day: calendar(s.tick).day, tick: s.tick });
+  story.chapters.push({ who: f.id, name: f.name, kind, title, lines: lines.slice(0, 4), day: calendarOf(s).day, tick: s.tick });
   if (story.chapters.length > CHAPTERS_MOST) story.chapters.splice(0, story.chapters.length - CHAPTERS_MOST);
   if (quiet) return; // (the game over card tells the last one)
   const prompt: Prompt = {

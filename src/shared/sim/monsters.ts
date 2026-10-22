@@ -28,7 +28,7 @@ import type { Rng } from '../rng';
 import { grieve } from './social';
 import { depositNear } from './buildings';
 import { maxHp, notify, type GameState, type Person } from './state';
-import { calendar, TICKS_PER_HOUR } from './time';
+import { calendar, TICKS_PER_HOUR, calendarOf } from './time';
 
 const inTown = (s: GameState) => s.people.filter((p) => p.away === null);
 export const monsters = (s: GameState) => s.people.filter((p) => p.monster);
@@ -52,7 +52,7 @@ export function nightDay(tick: number): number {
 }
 
 /** Full moon tonight? */
-export const fullMoon = (s: GameState) => moonPhaseOf(calendar(s.tick).day) === FULL_MOON_PHASE;
+export const fullMoon = (s: GameState) => moonPhaseOf(calendarOf(s).day) === FULL_MOON_PHASE;
 
 /** The founder is a werewolf, at home (hidden: the Moon Rite). */
 export const packLeader = (s: GameState) => s.people.some((p) => p.id === s.mainId && p.monster === 'werewolf' && p.away === null);
@@ -74,7 +74,7 @@ export function runWithThePack(s: GameState, raiders: { kind: string; ally?: boo
 /** Once an hour: moonlit rampages, feeding, and the Guild's mood. */
 export function updateMonsters(s: GameState, rng: Rng, startGuildRaid: (target: Person) => void): void {
   if (s.tick % TICKS_PER_HOUR !== 0) return;
-  const hour = calendar(s.tick).hour;
+  const hour = calendarOf(s).hour;
   let packHunted = false;
   for (const m of monsters(s)) {
     if (m.away !== null || m.downed) continue;

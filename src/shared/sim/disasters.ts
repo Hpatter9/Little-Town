@@ -16,7 +16,7 @@ import { noteCleared } from './regrow';
 import { maybeShiftRiver } from './rivers';
 import { RICH_DAYS } from '../data/wild';
 import { campCell, castSpellFx, maxHp, notify, tireless, type GameState, type Person } from './state';
-import { calendar, TICKS_PER_DAY, TICKS_PER_HOUR } from './time';
+import { TICKS_PER_DAY, TICKS_PER_HOUR, calendarOf } from './time';
 import { weatherAt } from './weather';
 import { swims } from './sea';
 import type { Material } from '../data/materials';
@@ -92,7 +92,7 @@ export function disastersTick(s: GameState): void {
 
 /** What the land and the season allow now. */
 function possible(s: GameState): DisasterKind[] {
-  const season = calendar(s.tick).season;
+  const season = calendarOf(s).season;
   const out: DisasterKind[] = ['quake'];
   if (waterNear(s).length) out.push('flood');
   if (season !== 'winter' && !raining(s) && woodsNear(s).length) out.push('wildfire');

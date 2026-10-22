@@ -37,7 +37,7 @@ import { minorWound } from './injuries';
 import { isChild } from './social';
 import { addStock, earn, maxHp, notify, type GameState, type Person } from './state';
 import { tellStory } from './telling';
-import { calendar, TICKS_PER_DAY, TICKS_PER_HOUR } from './time';
+import { TICKS_PER_DAY, TICKS_PER_HOUR, calendarOf } from './time';
 
 export interface WorkState {
   progress: number;
@@ -63,7 +63,7 @@ const name = (m: Material) => MATERIAL_NAMES[m].toLowerCase();
 const eraAtLeast = (s: GameState, e: string) => ERAS.indexOf(s.era) >= ERAS.indexOf(e as never);
 
 function log(s: GameState, w: WorkState, text: string): void {
-  w.log.unshift(`Day ${calendar(s.tick).day}: ${text}`);
+  w.log.unshift(`Day ${calendarOf(s).day}: ${text}`);
   if (w.log.length > 10) w.log.length = 10;
 }
 
@@ -79,7 +79,7 @@ export function workHourly(s: GameState): void {
   if (s.autopilot === false || s.tick % TICKS_PER_HOUR !== 0) return;
   const w = workOf(s);
   if (!w) return;
-  const cal = calendar(s.tick);
+  const cal = calendarOf(s);
   if (cal.hour !== WORK_HOUR) return;
   homunculi(s, w);
   if (cal.day % WEEKLY_DAY === 0) weekly(s, w);

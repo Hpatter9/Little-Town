@@ -11,7 +11,7 @@ import { faithOf } from '../src/shared/sim/faith';
 import { Sim } from '../src/shared/sim/sim';
 import { addStock, maxHp, newGame, type GameState, type Person } from '../src/shared/sim/state';
 import { storages } from '../src/shared/sim/buildings';
-import { calendar, SEASONS, TICKS_PER_DAY, TICKS_PER_HOUR } from '../src/shared/sim/time';
+import { SEASONS, TICKS_PER_DAY, TICKS_PER_HOUR, calendarOf } from '../src/shared/sim/time';
 import { plainGame } from './helpers';
 
 function town(seed: string, n: number, origin?: string): GameState {
@@ -37,7 +37,7 @@ function to(s: GameState, day: number, hour: number) {
     ceremoniesHourly(s);
     festivalsHourly(s);
     if (++guard > 24 * 50) throw new Error('never got there');
-  } while (!(calendar(s.tick).dayOfSeason === day && calendar(s.tick).hour === hour));
+  } while (!(calendarOf(s).dayOfSeason === day && calendarOf(s).hour === hour));
 }
 const feed = (s: GameState, n = 200) => addStock(storages(s)[0].store, 'berries', n);
 
@@ -58,7 +58,7 @@ test('the town makes ready: the food and ware are ordered at the fire before the
   const s = town('fest1', 5);
   feed(s);
   to(s, FESTIVAL_DAY - PREP_DAYS, 7);
-  const f = festivalFor(s.origin, calendar(s.tick).season);
+  const f = festivalFor(s.origin, calendarOf(s).season);
   assert.equal(s.festival?.id, f.id);
   assert.equal(s.festival?.phase, 'prep');
   assert.ok(festivalSoon(s));
@@ -74,7 +74,7 @@ test('on its day travellers come, the town gathers and dances, and it leaves a b
   const s = town('fest2', 5);
   feed(s);
   to(s, FESTIVAL_DAY - PREP_DAYS, 7);
-  const f = festivalFor(s.origin, calendar(s.tick).season);
+  const f = festivalFor(s.origin, calendarOf(s).season);
   // (as if the crafters had made them)
   s.items[foodId(f)] = 5;
   s.items[wareId(f)] = 5;
@@ -106,7 +106,7 @@ test('skipped for want of food: the town is sore and the god offended', () => {
   const s = town('fest3', 5);
   for (const st of storages(s)) st.store = {};
   to(s, FESTIVAL_DAY - PREP_DAYS, 7);
-  const f = festivalFor(s.origin, calendar(s.tick).season);
+  const f = festivalFor(s.origin, calendarOf(s).season);
   const before = faithOf(s).favour[f.god];
   to(s, FESTIVAL_DAY, FESTIVAL_HOUR + 1);
   assert.notEqual(s.gathering?.kind, 'festival');
@@ -121,7 +121,7 @@ test('a town of the dead keeps its festivals: nobody eats, so it is never skippe
   for (const st of storages(s)) st.store = {};
   to(s, FESTIVAL_DAY, FESTIVAL_HOUR);
   assert.equal(s.gathering?.kind, 'festival');
-  assert.equal(festivalFor('lich', calendar(s.tick).season).origin, 'lich');
+  assert.equal(festivalFor('lich', calendarOf(s).season).origin, 'lich');
 });
 
 test('nothing with the autopilot off (the tests\' plain towns)', () => {

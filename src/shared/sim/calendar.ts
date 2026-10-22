@@ -14,7 +14,7 @@ import { QUARRY_BY_ID } from '../data/hunts';
 import { MYTHIC_CALLINGS, mythicNodes } from '../data/mythic';
 import { nameDays } from './favourites';
 import type { GameState, Person } from './state';
-import { calendar, DAYS_PER_SEASON, SEASONS, START_HOUR, TICKS_PER_DAY, TICKS_PER_HOUR, type Season } from './time';
+import { DAYS_PER_SEASON, SEASONS, START_HOUR, TICKS_PER_DAY, TICKS_PER_HOUR, type Season, calendarOf } from './time';
 
 export type CalendarKind = 'festival' | 'season' | 'rite' | 'caravan' | 'hunt' | 'omen' | 'name-day' | 'other';
 
@@ -92,7 +92,7 @@ export function upcoming(s: GameState, days = CALENDAR_DAYS): CalendarDay[] {
   const today = dayIdx(s.tick);
   const last = today + days - 1;
   const entries: CalendarEntry[] = [];
-  const cal = calendar(s.tick);
+  const cal = calendarOf(s);
   const auto = s.autopilot !== false;
   const names = nameDays(s);
   for (let idx = today; idx < today + days; idx++) {

@@ -13,7 +13,7 @@ import { skillSpeed } from '../data/skills';
 import type { Rng } from '../rng';
 import { buildingCentreX, depositNear, storages, totalStock } from './buildings';
 import { addStock, foodDaysFor, carryCapacity, notify, poolSize, type Building, type GameState, type Person } from './state';
-import { calendar, TICK_HZ, TICKS_PER_HOUR } from './time';
+import { TICK_HZ, TICKS_PER_HOUR, calendarOf } from './time';
 import { gainSkill, workFactor } from './townsfolk';
 
 const TEND_XP_PER_SEC = 2;
@@ -156,7 +156,7 @@ function takeGrain(s: GameState, n: number): number {
 /** Every game hour: the herds breed (not in winter), and in winter they eat grain, starving without it. */
 export function tendHerds(s: GameState): void {
   if (s.tick % TICKS_PER_HOUR !== 0) return;
-  const season = calendar(s.tick).season;
+  const season = calendarOf(s).season;
   for (const b of s.buildings) {
     if (!isPen(b)) continue;
     const def = HERDS[b.def];

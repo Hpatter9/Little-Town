@@ -6,7 +6,7 @@ import { Sim } from '../src/shared/sim/sim';
 import { campXY, makePerson, maxHp, type GameState, type Person } from '../src/shared/sim/state';
 import { Rng } from '../src/shared/rng';
 import { snapshot } from '../src/shared/sim/snapshot';
-import { calendar, TICKS_PER_HOUR } from '../src/shared/sim/time';
+import { TICKS_PER_HOUR, calendarOf } from '../src/shared/sim/time';
 import { campPx, plainGame } from './helpers';
 
 function addPerson(s: GameState, type = 'hunter'): Person {
@@ -17,7 +17,7 @@ function addPerson(s: GameState, type = 'hunter'): Person {
   return p;
 }
 
-const hourOf = (s: { tick: number }) => calendar(s.tick).hour;
+const hourOf = (s: { tick: number }) => calendarOf(s).hour;
 
 test('a band comes out on the land beyond the town, and travellers come less while it roams', () => {
   const s = plainGame('roam-spawn');

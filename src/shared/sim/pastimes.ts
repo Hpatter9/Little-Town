@@ -5,7 +5,7 @@
 // only changes where an idle wander goes and how the wait is spent: nobody is taken from work.
 
 import { CELL } from './land';
-import { calendar } from './time';
+import { calendarOf } from './time';
 import { campXY, type Activity, type GameState, type Person } from './state';
 import { benchSpot, busks, buskSpot, BUSK_EVERY, BUSK_FROM, BUSK_PEOPLE, BUSK_UNTIL, eavesSpot, EAVES_PEOPLE, fairNow, PIGEON_EVERY, PIGEON_FROM, PIGEON_UNTIL, puddleSpot, RIVER_FROM, RIVER_UNTIL, riverSpot, playingKids, someoneBusking, tagIt, tagTarget, wetNow } from './idleScenes';
 import { isChild } from './social';
@@ -25,7 +25,7 @@ const MARKET_SQUARE = ['market', 'trading_post', 'general_store', 'emporium'];
 
 /** Whether it's market day now (the day and the hour, the town big enough, no raid). */
 export function marketOn(s: GameState): boolean {
-  const c = calendar(s.tick);
+  const c = calendarOf(s);
   if (c.day % MARKET_EVERY !== MARKET_DAY % MARKET_EVERY || c.hour < MARKET_FROM || c.hour >= MARKET_UNTIL || s.raid) return false;
   return s.people.filter((p) => !isChild(p) && p.away === null).length >= MARKET_PEOPLE;
 }
@@ -162,7 +162,7 @@ export function pastimeFor(s: GameState, p: Person, slot: number): { x: number; 
       return { x: d.x + 0.4 * CELL, y: d.y + 0.5 * CELL, pastime: 'rounds' };
     }
   }
-  const hour = calendar(s.tick).hour;
+  const hour = calendarOf(s).hour;
   // (rain: under the eaves of the nearest roof till it passes: sim/idleScenes.ts)
   const grown = s.people.filter((q) => q.away === null && !isChild(q)).length;
   if (wet && grown >= EAVES_PEOPLE) {
@@ -181,8 +181,8 @@ export function pastimeFor(s: GameState, p: Person, slot: number): { x: number; 
   }
   const partner = p.partner != null ? s.people.find((q) => q.id === p.partner && q.away === null) : undefined;
   // (at dusk, every other evening, a couple sits together by the water: sim/idleScenes.ts)
-  if (partner && fairNow(s) && hour >= RIVER_FROM && hour < RIVER_UNTIL && (calendar(s.tick).day + Math.min(p.id, partner.id)) % 2 === 0) {
-    const bank = calendar(s.tick).season === 'winter' ? null : riverSpot(s, Math.min(p.id, partner.id));
+  if (partner && fairNow(s) && hour >= RIVER_FROM && hour < RIVER_UNTIL && (calendarOf(s).day + Math.min(p.id, partner.id)) % 2 === 0) {
+    const bank = calendarOf(s).season === 'winter' ? null : riverSpot(s, Math.min(p.id, partner.id));
     if (bank) return { x: bank.x + (p.id < partner.id ? -0.32 : 0.32) * CELL, y: bank.y, pastime: 'riverside' };
   }
   if (partner && hour >= STROLL_FROM && hour < STROLL_UNTIL) {

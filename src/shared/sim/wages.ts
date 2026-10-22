@@ -17,7 +17,7 @@ import { carriesKit, kitWant } from './kit';
 import { KIT_BY_ID } from '../data/kitItems';
 import { isChild } from './social';
 import { earn, notify, remember, type GameState, type Person } from './state';
-import { calendar, TICKS_PER_HOUR } from './time';
+import { TICKS_PER_HOUR, calendarOf } from './time';
 
 /** What a day's pay for work might come to, a head (times the era's scale): the treasury keeps about this back. */
 export const PAY_A_HEAD = 2;
@@ -46,7 +46,7 @@ export const localPrice = (i: ItemDef, q: number) => Math.max(1, Math.round(item
 export function updateWages(s: GameState): void {
   if (!moneyTown(s)) return;
   if (s.tick % TICKS_PER_HOUR !== 0) return;
-  const hour = calendar(s.tick).hour;
+  const hour = calendarOf(s).hour;
   if (hour === TAVERN_HOUR) nightOut(s); // (sim/nightOut.ts: they go there and drink)
   buyGear(s);
   buyKit(s);
