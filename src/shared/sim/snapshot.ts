@@ -162,6 +162,7 @@ import { destinationHidden, destinationOf, destinationUnlocked, foodNeeded, part
 import { OFFER_WAIT_TICKS } from './researchOffer';
 import { modifiers, researchStation, researchStations, seatStageNow } from './research';
 import { tireless, carryCapacity, MAX_JOURNAL, ERA_MULTIPLIER, FX_TICKS, maxHp, RESEARCH_MULTIPLIER, poolSize, type PersonFx, type RaiderHitFx, type SpellTarget, SPELL_FX_TICKS, type Activity, type Building, type CraftOrder, type Debrief, type Expedition, type ExpeditionPhase, type GameState, type JournalEntry, type Ledger, type Needs, type Notice, type Person, type TileState, campCell, campX, campXY, BLOOD_LASTS, DEBRIS_LASTS, type DebrisKind, type ShopTalk } from './state';
+import { sightNow } from './fog';
 import { cellAt, groundAt, inMap, type LandMap, wet, CELL } from './land';
 import { uniqueViews, type UniqueView } from './provenance';
 import { calendar, TICK_HZ, TICKS_PER_HOUR, type Calendar } from './time';
@@ -1016,6 +1017,9 @@ export interface Snapshot {
   storageCapacity: number;
   /** The land (sim/land.ts): the renderer reads it, never changes it. */
   land: LandMap;
+  /** Fog of war (sim/fog.ts): the cells ever seen and the cells in sight now, a character each ('1' yes). */
+  explored: string | undefined;
+  sight: string;
   /** The old strip's tiles (empty now; the land replaces them). */
   tileRev: number;
   tiles: TileState[];
@@ -1451,6 +1455,8 @@ export function snapshot(s: GameState): Snapshot {
     storageUsed: poolSize(stock),
     storageCapacity: totalCapacity(s),
     land: s.land,
+    sight: sightNow(s),
+    explored: s.explored,
     tileRev: s.land.version,
     tiles: [],
     workingAt: workingAt(s),

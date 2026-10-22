@@ -46,6 +46,7 @@ import { battleGo, fightSpeedTick, placeFighter, setAutoBattle, setBattleSpeed, 
 import { castAt } from './powers';
 import { Rng } from '../rng';
 import { demolish, discardStock, placeBlueprint, townRadius, upgrade } from './buildings';
+import { fogTick } from './fog';
 import { cellAt, groundAt, isMarked, setGround, setMarked, type Pt, decayWear } from './land';
 import { MARK_CLEAR_CAP, type Command } from './commands';
 import { restockKits } from './kit';
@@ -212,6 +213,7 @@ export class Sim {
       checkBleeding(s, p);
       if (s.gameOver) break;
     }
+    fogTick(s); // (the fog of war: what has been seen, and what is in sight: sim/fog.ts)
     syncRing(s); // (every piece of the wall going up shows its one progress: sim/ringWall.ts)
     updateExpeditions(s, this.rng);
     roamersTick(s); // (bands roaming the land, and the fights they start: sim/roamers.ts)

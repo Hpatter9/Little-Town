@@ -1109,6 +1109,8 @@ export interface GameState {
   era: Era;
   /** The land, seen from above (sim/land.ts): its cells, pools, roads, the open area and the camp. */
   land: LandMap;
+  /** Fog of war (sim/fog.ts): the land cells ever seen, a character each ('1' seen). Absent in a save from before. */
+  explored?: string;
   /** Every building and blueprint, in placement order (which is also construction priority). */
   buildings: Building[];
   people: Person[];
