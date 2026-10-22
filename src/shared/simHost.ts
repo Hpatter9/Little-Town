@@ -216,7 +216,7 @@ export function startSimHost(post: (m: FromHost) => void): (m: ToHost) => void {
         }
         const fresh = !state;
         const biome = BIOMES.find((b) => b === m.biome);
-        game = new GameLoop(state ?? newGame(m.seed ?? randomSeed(), biome ? { biome } : {}), send);
+        game = new GameLoop(state ?? newGame(m.seed ?? randomSeed(), { ...(biome ? { biome } : {}), valleys: true }), send);
         game.hidden = hidden;
         if (m.held) {
           game.held = true;
@@ -265,7 +265,7 @@ export function startSimHost(post: (m: FromHost) => void): (m: ToHost) => void {
         // (the Great Enemy goes on the legend: a descendant whose forebears it broke meets it again)
         const foe = legend ? enemyLegend(old) : undefined;
         if (legend && foe) legend.enemy = foe;
-        const town = newGame(randomSeed(), opts);
+        const town = newGame(randomSeed(), { ...opts, valleys: true });
         if (m.heir) inherit(town, m.heir);
         if (m.heir) inheritEnemy(town, (m.heir as Legend & { enemy?: EnemyLegend }).enemy, m.heir.founder);
         leaving = true; // (nothing saves the old town over the new one now)

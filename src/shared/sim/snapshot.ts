@@ -1277,6 +1277,8 @@ export interface Snapshot {
   foreshadow?: import('./foreshadow').Hint[];
   upcoming?: import('./calendar').CalendarDay[];
   biome: Biome;
+  /** The starting valley drawn by hand the town was founded in (sim/startValleys.ts): its landmarks are drawn. */
+  valley?: string;
   ironman: boolean;
   mainId: number;
   /** The founder's orders and heir (sim/founder.ts): what they were told to do, who would lead after them, and who could be named. */
@@ -1699,6 +1701,7 @@ function snapshotOf(s: GameState): Snapshot {
     align: alignView(s),
     gameOver: s.gameOver ? { text: s.gameOver.text, won: !!s.gameOver.won, ...(s.gameOver.founder ? { founder: s.gameOver.founder, days: s.gameOver.days, cause: s.gameOver.cause } : {}) } : null,
     biome: s.biome ?? 'forest',
+    ...(s.valley ? { valley: s.valley } : {}),
     turnable: turnable(s),
     bossBar: bossBar(s),
     bossShake: s.bossShake ?? -1,

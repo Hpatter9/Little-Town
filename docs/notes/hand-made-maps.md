@@ -4,7 +4,8 @@ The owner's ask, after the hand-made raid boards (docs/notes/raid-boards-ldtk.md
 places, made the same way (an LDtk project the owner can open and edit, a converter to the compact data the game
 imports, a test that the two never drift, the generated version kept as the fallback) and dressed with real character.
 Done in phases: the dungeons' floors first, then the story places, the scenarios' starting valleys and the buildings'
-rooms.
+rooms. All four are done (the floors and the story places merged as 0.190.0 and 0.191.0; the valleys and the rooms on
+this branch, merged up to date with main).
 
 **One converter for every kind.** `sim/handMaps.ts` says what a kind of map reads (`MapKindSpec`: its LDtk project and
 data file, its IntGrid layers with the char each value's identifier is written as, its entities and their fields, and
@@ -162,3 +163,115 @@ six places, each walked from the way in to every spot in turn, props on open gro
 four in daylight; trips are matched by destination, words and the kind of place (a dragon's lair, five sagas' places,
 a robbed cart, old ruins; a cave and a wolf's den by none), at least half the sagas' trips come to one; among several
 places the pick is the same for a trip, either by the trip, and never draws on the town's stream.
+
+## The starting valleys, drawn by hand
+
+Four starting valleys are drawn in `maps/start-valleys.ldtk` (48x48 cells a valley, a cell a land cell), and a town
+founded from the New town panel may start in one, laid over the land the seed makes round its camp. This changes HISTORY
+"The wide land" (`makeLand`) and "Mountains in every land" (the relief), and the founding (`newGame`).
+
+**The format** (`VALLEY_SPEC` in `sim/startValleys.ts`): **Ground** (IntGrid: the land's own grounds, written as the land
+writes them, `VALLEY_GROUNDS`; an empty cell keeps the land's own, so each valley's edge is frayed into the land round
+it), **Relief** (IntGrid: level, downs, rocky, high, ramp, range, `VALLEY_RELIEF`; empty is level where the valley lays
+ground), **Things** (one `Camp`, laid on the land's camp cell; `Landmark`s, `LANDMARK_KINDS`: old walls, ruins, pillars,
+a statue, a well, boulders, bones, a skeleton, stumps, reeds, flowers, an old cart, a signpost), and the level fields
+`name`, `about`, `biomes` (the lands it's a start in) and `scenarios` (data/founding.ts; none: any).
+
+**The valleys** (`docs/notes/hand-made-maps/valley-*-tall.png` in the game at 393x852, `valley-old-ruin-wide.png` at
+852x393):
+- **The River Valley** (forest, steppe, jungle, taiga, swamp, highlands): a river down the west side with a ford by an
+  old signpost, rich banks, a wood on the rising ground east, rocky hills north.
+- **The Old Ruin** (forest, steppe, highlands, desert, ashlands, taiga; lone, band and supplied starts): the ring of a
+  town that was here before, stretches of its wall still standing (drawn along their runs), the rest rubble to quarry,
+  old foundations, its gate's pillars, a statue, a well, the wild come back inside.
+- **The Mountain Shelf** (highlands, taiga, tundra): a level shelf under a range, a stream down from it to a tarn, high
+  ground east climbed by a ramp, downs falling away south.
+- **The Coastal Cove** (coast): a cove between two headlands, sand and shallows, a stream to the beach, a wood behind.
+Each keeps an open, level meadow round the camp and at least `MIN_KIND_NEAR` of every wild kind within `OPEN_START`, so
+nothing the land does afterwards changes a cell of it.
+
+**In the sim** (land-making and founding only). `newGame` with the new `NewGameOptions.valleys` (set by the New town
+panel and the first launch in `shared/simHost.ts`; the tests' towns leave it out, so they're on the seed's own land as
+before) asks `pickValley(seed, biome, scenario)`: the valleys for the land and scenario (`valleysFor`), picked
+`HAND_VALLEY_SHARE` (0.6) of the time from `new Rng(hashSeed(`${seed}:valley`))`, never for a hold or a shore town (they
+have their own shapes). `NewGameOptions.valley` names one (previews, tests; `VALLEY=` in tools/make-save.mjs). `makeLand`
+takes it: `layValley` lays its ground after the land's rivers, shores and the camp's clearing (and carries water that
+runs off its edge, more than `RUN_CORNER` from a corner, on to the land's edge, wandering and banked); the wild kinds
+near the camp, the pools and the relief are made as on any land; then the valley's ground is laid again where the
+relief changed it (pools filled on its own stream, `${seed}:valley:pools`) and its relief over the land's
+(`layValleyRelief`). The town keeps `GameState.valley` (optional; older towns have none), and the snapshot has it.
+Regions, places, fog and where the town puts things are worked out as for any land.
+
+**On the map** (`iso/isoView.ts`): `setValley` reads the valley's landmarks (`valleyLandmarks`) and draws each with a kit
+piece (`LANDMARK_PIECES`: the raid boards' `wild/` ruins, pillars, statue, bones, stumps, reeds and flowers, the
+settlers' stone wall, well, cart and signpost, the dwarves' boulders) in place of the cell's scenery, while the cell's
+ground is as the valley left it and nothing is built on it; a stretch of wall is mirrored to lie along its run.
+
+**Tests** (`test/startValleys.test.ts`): the data is the converter's make of the project, which is LDtk 1.5 JSON with
+the game's own lists; each valley has one camp in an open, level meadow, its range on mountain rock, its ramps leading up,
+landmarks on its own ground, its edge frayed; laid on each of its lands it stands as drawn, every wild kind near the
+camp, every wild cell holding something, and most of the wide land walked to; the pick is the seed's, about 0.6, by
+land and scenario; the tests' towns have none; a town founded in one keeps it, has the founder its seed makes, its
+camp where it was, regions, and spots found for its first buildings; a hold and a shore town never have one.
+
+## The buildings' rooms, furnished by hand
+
+Seven rooms are furnished by hand in `maps/rooms.ldtk` (16px cells, a cell a floor tile; the back wall is drawn above
+the top row), and a building looked into (`Look inside`) is furnished as the room drawn for it. This changes HISTORY
+"Inside every building" (interior/interiorView.ts); no rule changes, nothing saved.
+
+**The format** (`ROOM_SPEC` in `renderer/interior/handRooms.ts`; the data is `data/interiorRooms.ts`): **Floor** (IntGrid:
+planks, the default; flagstones; the red rug, laid by its neighbours from DawnLike's nine rug pieces), **Things**:
+`Furniture` (`FURNITURE`: beds, chairs (`chair_r` faces the other way, `chair_up` from behind), tables round, plain and
+long (three cells), the throne, candles, a candelabra, shelves, bookshelves, a cupboard, desks, the cross, pots, barrels,
+crates, chests, the gold, racks of weapons, shields, potions, plants, jars, a book, a stool, a tall shelf, a grey rug;
+DawnLike's decor cells and the dungeon packs' clutter the view already drew with), standing on the bottom of its cell;
+`Spot` (`bed`, `station`, `desk`, `seat`, `hearth`: where the folk go, as the view's own layouts have them) and `Fire`
+(a furnace or a brazier). Level fields: `name`, `about`, `kinds` (what kind of room it is for: map/roomKinds.ts's, and the
+view's temple and barracks) and `defs` (buildings it's for by id, before any kind).
+
+**The rooms** (`docs/notes/hand-made-maps/room-*-tall.png` in the game at 393x852, `room-tavern-wide.png` at 852x393;
+the townsfolk sheltering from the rain sat at their places):
+- **The Common Room** (the brewery): the bar with its kegs and stools, the hearth and its rug, a long table, a round one.
+- **The Town Hall** (every people's seat, the town hall): flagstones, a red runner to the founder's chair, the
+  strongboxes and the gold, bookshelves, the council's long tables.
+- **The Shop** (the market hall): shelves, jars and potions along the back, the counter with two places behind it,
+  crates, barrels and a chest of stock.
+- **The Smithy** (every forge: the smithy, bloomery, kiln, armourer, gunsmith...): the furnace, racks of blades and
+  shields, the quench barrel, a bench, three places to work.
+- **The Chapel** (the temple, the cathedral): the aisle up to the cross, candles, eight pews.
+- **A Cottage** (homes of up to three): three beds, the hearth, a table and two chairs on a rug.
+- **A Longhouse** (homes of up to six): six beds down both walls, the fire in the middle, the long table.
+
+**Picking** (`handRoomFor(def, kind, beds, building)`, pure): the rooms for the building by id (`defs`), else by its
+kind (`roomsFor`; a home's only with a bed spot for everyone who sleeps there); the smallest that does, and among those
+the building's own id picks (`hashSeed(`room:${building}`)`), so a building is always the same room. None (a study, a
+block of flats, a barracks...) is furnished as it always was (`layout`): the fallback.
+
+**The drawing** (`interior/interiorView.ts`): `handLayout` turns the room into the view's own `Layout`: its pieces
+(`FURNITURE_PIC`), its beds, stations, desks, seats and hearth, its fire, and its floor drawn cell by cell. The folk go
+to those spots as they go to the generated rooms' (asleep in the beds, at the stations working, reading at desks, at the
+seats and the hearth, the rest about the floor).
+
+**Left for the owner.** The inns (the Fireside Inn, the Tavern) and the shops (the Trading Post, the General Store and
+the specialty shops) have no `Look inside`: their own window shows them, furnished piece by piece with what the town
+buys (and `test/interiors.test.ts` keeps it so). So the hand-made Common Room and Shop name them in their `defs` but are
+seen at the brewery and the market hall. If the owner wants the inns' and shops' own windows drawn from these rooms (or
+a `Look inside` on them as well), that's a change to the venues' window (panel/shopPanel.ts).
+
+**Previews.** `__room('Tavern')` in the strip's console (the iframe's window) furnishes every building looked into as
+that room (`roomPreview`, never set in play). `HOME_DEF=longhouse` in tools/make-save.mjs builds a home at the start
+with everyone's bed in it.
+
+**Tests** (`test/interiorRooms.test.ts`): the data is the converter's make of the project, which is LDtk 1.5 JSON with
+the game's own lists; every room fits the screen, one piece a cell, a long table on the floor, somewhere for its folk, at
+most one fire, a home's bed spots on its beds, every building it names real; the brewery, the market, the town hall,
+every seat, the smithy, the temple, a cottage (three beds) and a longhouse (six) get their rooms, a block of flats and a
+library the old layouts, each a building the town can look into; the pick is the same for a building each time.
+
+## The whole of it
+
+`node tools/ldtk-maps.mjs` makes every hand-made map's data (raid boards, floors, story places, valleys, rooms) from
+`maps/*.ldtk`; `node tools/floor-preview.mjs` draws the floors and story places whole; `python3
+tools/compose-floor-art.py` cuts the DawnLike sheet every one of them (and the LDtk editor) draws with. The scratch
+authoring scripts that first laid the maps out are not kept: the LDtk projects are the maps now.

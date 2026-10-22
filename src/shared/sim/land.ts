@@ -11,6 +11,8 @@ import type { Material } from '../data/materials';
 import { TERRAIN } from '../data/terrain';
 import { hashSeed, Rng } from '../rng';
 import { climbs, layRelief, RAMP, RELIEF_COST } from './relief';
+import { layValley, layValleyRelief, valleyCells } from './startValleys';
+import type { HandMap } from './handMaps';
 
 /** One cell's side, in world px (a building's width in cells is its width in the old tiles). */
 export const CELL = 32;
@@ -232,7 +234,7 @@ const TARN_OFF = 9;
 const TARN_DOWN = 5;
 const TARN_R = 2.6;
 
-export function makeLand(seed: string, biome: Biome = 'forest', shape?: LandShape, relief = false): LandMap {
+export function makeLand(seed: string, biome: Biome = 'forest', shape?: LandShape, relief = false, valley?: HandMap): LandMap {
   const seedHash = hashSeed(seed);
   const w = LAND_W;
   const h = LAND_H;
@@ -454,6 +456,9 @@ export function makeLand(seed: string, biome: Biome = 'forest', shape?: LandShap
     }
   }
 
+  // a starting valley drawn by hand (sim/startValleys.ts), laid over the land round the camp
+  if (valley) layValley(grid, w, h, camp, valley, seed);
+
   // every kind of wild land within reach of the camp: a town must find wood, stone, clay and fiber close by. A kind
   // the open land is short of takes over a patch of the commonest kind, nearest the camp first.
   const openWild = () => {
@@ -509,7 +514,28 @@ export function makeLand(seed: string, biome: Biome = 'forest', shape?: LandShap
   });
 
   // the hills and mountains (sim/relief.ts): laid last, on streams of their own, so the rest is as the seed made it
-  const lie = relief ? layRelief(grid, pools, w, h, camp, biome, seed, noise) : undefined;
+  let lie = relief ? layRelief(grid, pools, w, h, camp, biome, seed, noise) : undefined;
+  // (and the valley's own hills over them: its ground laid again where the relief changed it, and what that ground
+  // holds, on the valley's own stream)
+  if (valley) {
+    const fill = Rng.from(hashSeed(`${seed}:valley:pools`), 1);
+    for (const [i, g] of valleyCells(valley, w, h, camp)) {
+      if (grid[i] !== g) {
+        grid[i] = g;
+        delete pools[i];
+      }
+      if (!WILD.includes(g)) delete pools[i];
+      else if (!pools[i]) {
+        const pool: Partial<Record<Material, number>> = {};
+        for (const [mat, [lo, hi]] of Object.entries(TERRAIN[g as keyof typeof TERRAIN].pool) as [Material, [number, number]][]) {
+          const n = fill.int(lo, hi);
+          if (n > 0) pool[mat] = n;
+        }
+        pools[i] = pool;
+      }
+    }
+    if (lie) lie = layValleyRelief(lie, w, h, camp, valley);
+  }
 
   return { w, h, cells: grid.map((g) => CODE[g]).join(''), pools, roads: '.'.repeat(w * h), marked: [], camp, open: shape === 'sea' ? OPEN_START_SEA : OPEN_START, version: 0, regions, seedHash, ...(lie ? { relief: lie } : {}) };
 }

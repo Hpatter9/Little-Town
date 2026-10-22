@@ -26,6 +26,7 @@ import type { AmbitionId } from '../data/ambitions';
 import type { NatureId } from '../data/natures';
 import { FOUNDER_CLASS } from '../data/founderClasses';
 import { founderRoot } from '../data/paths';
+import { pickValley, valleyById } from './startValleys';
 import { CELL, FOG_BAND, findPath, groundAt, makeLand, MOUNTAIN_FOOT, setGround, stepCost, type LandMap, type Pt } from './land';
 import { SEAT_D, seatId } from '../data/seats';
 import type { Delve } from './delves';
@@ -1128,6 +1129,8 @@ export interface GameState {
   era: Era;
   /** The land, seen from above (sim/land.ts): its cells, pools, roads, the open area and the camp. */
   land: LandMap;
+  /** The starting valley drawn by hand the town was founded in (sim/startValleys.ts), if any. */
+  valley?: string;
   /** Fog of war (sim/fog.ts): the land cells ever seen, a character each ('1' seen). Absent in a save from before. */
   explored?: string;
   /** Every building and blueprint, in placement order (which is also construction priority). */
@@ -1769,6 +1772,11 @@ export interface NewGameOptions {
   realms?: number;  /** The land's hills and mountains (sim/relief.ts): every town founded now has them; false founds a level land, as
    *  towns were before (tools/sim-hash.mjs keeps its older towns so). */
   relief?: boolean;
+  /** The town may start in a valley drawn by hand that fits its land and scenario (sim/startValleys.ts): towns founded
+   *  from the New town panel; left out (the tests' towns), the land is the seed's own. */
+  valleys?: boolean;
+  /** This valley, whatever the dice say (previews and tests). */
+  valley?: string;
 }
 
 /** Give the rolled founder the player's choices. */
@@ -1812,7 +1820,10 @@ export function newGame(seed: string, opts: NewGameOptions = {}): GameState {
   const hold = rules.hold;
   // (a shore town is always on the coast)
   const biome = rules.shape === 'sea' ? 'coast' : opts.biome;
-  const land = makeLand(seed, biome, hold ?? rules.shape, opts.relief !== false);
+  // (a starting valley drawn by hand, on a land of no special shape)
+  const scenarioId = SCENARIO_BY_ID[opts.scenario ?? 'lone'] ? (opts.scenario ?? 'lone') : 'lone';
+  const valley = hold || rules.shape ? null : (valleyById(opts.valley) ?? (opts.valleys ? pickValley(seed, biome ?? 'forest', scenarioId) : null));
+  const land = makeLand(seed, biome, hold ?? rules.shape, opts.relief !== false, valley ?? undefined);
   const rng = new Rng(mixSeed(hashSeed(seed), 0x5eed));
   const camp = land.camp;
   const campPx = (dx: number, dy = 0): Pt => ({ x: (camp.x + 0.5 + dx) * CELL, y: (camp.y + 0.5 + dy) * CELL });
@@ -1912,6 +1923,7 @@ export function newGame(seed: string, opts: NewGameOptions = {}): GameState {
     paused: false,
     era: 'neolithic',
     land,
+    ...(valley ? { valley: valley.id } : {}),
     buildings,
     ...(nomad ? { nomad } : {}),
     people,
