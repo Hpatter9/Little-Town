@@ -468,7 +468,8 @@ async function start(): Promise<void> {
   const penned = new MapRaiders(lay); // (the ranch's beasts in their pens: sim/ranch.ts)
   const beast = new MapCreature(lay); // (the town's great creature: sim/creature.ts)
   (window as unknown as { __beast?: MapCreature }).__beast = beast; // (for previews)
-  const beastAsk = createBeastAsk((praise) => bridge.command({ type: 'creature', op: praise ? 'praise' : 'scold' }));
+  // (on the phone the page around the strip shows it, at its own size: mobile/mobile.ts)
+  const beastAsk = phone ? { show: () => undefined, hide: () => undefined } : createBeastAsk((praise) => bridge.command({ type: 'creature', op: praise ? 'praise' : 'scold' }));
   (window as unknown as { __penned?: unknown }).__penned = penned; // (for previews)
   const herds = new MapHerds(lay);
   const boats = new MapBoats(map.things);

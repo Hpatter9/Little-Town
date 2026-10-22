@@ -163,7 +163,7 @@ const lerp = (a: number, b: number, t: number) => Math.round(a + (b - a) * t);
 const mix = (from: number, to: number, t: number) =>
   (lerp((from >> 16) & 255, (to >> 16) & 255, t) << 16) | (lerp((from >> 8) & 255, (to >> 8) & 255, t) << 8) | lerp(from & 255, to & 255, t);
 /** The tint at the good end (a bright, warm gold), the middle (none), and the evil end (a dark red-black). */
-export const TINT_GOOD = 0xffe7a0;
+export const TINT_GOOD = 0xffd768;
 export const TINT_EVIL = 0x5a1a1e;
 /** Its look by its good or evil rating (-100 to 100): smoothly from warm and bright to dark and red. */
 export function creatureTint(align: number): number {

@@ -68,12 +68,14 @@ export function createBeastAsk(answer: (praise: boolean) => void): BeastAsk {
   const row = document.createElement('div');
   row.style.cssText = 'display:flex;gap:6px;margin-top:5px';
   let shown = -1;
+  let answered = false;
   const btn = (label: string, praise: boolean, bg: string) => {
     const b = document.createElement('button');
     b.textContent = label;
     b.style.cssText = `flex:1;padding:5px 0;border:0;border-radius:5px;font:bold 12px sans-serif;color:#fff;background:${bg}`;
     b.addEventListener('click', () => {
       answer(praise);
+      answered = true;
       el.hidden = true;
     });
     return b;
@@ -84,7 +86,8 @@ export function createBeastAsk(answer: (praise: boolean) => void): BeastAsk {
   return {
     show(id, t) {
       // (once answered it stays gone, even before the next snapshot drops the question)
-      if (id === shown) return;
+      if (id === shown && answered) return;
+      if (id !== shown) answered = false;
       shown = id;
       text.textContent = t;
       el.hidden = false;
