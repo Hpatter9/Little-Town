@@ -7,9 +7,9 @@ import { Container, Sprite, type Texture } from 'pixi.js';
 import { ITEM_BY_ID } from '../../shared/data/items';
 import { loadFolkSet, type FolkSet } from './folkLoader';
 import {
-  armedSuffix, dressOf, facingFromVector, frameAt, isFighting, lookPath, pickLook, play, wantedAnim, type FolkDir, type FolkPlay, type FolkState,
+  armedSuffix, facingFromVector, frameAt, isFighting, lookPath, play, wantedAnim, type FolkDir, type FolkPlay, type FolkState,
 } from './folkRules';
-import { variantOf } from './folkTint';
+import { folkWho } from './folkWho';
 
 /** The Moon Pack's wolf-headed look, worn in the werewolf's form (not in FOLK_LOOKS: never an everyday pick). */
 const WOLF_LOOK = 'man_beast';
@@ -65,11 +65,11 @@ export class FolkSprite extends Container {
     const weapon = st.gear.weapon ? ITEM_BY_ID[st.gear.weapon] : undefined;
     const family = weapon?.family;
     const suffix = wolf ? null : armedSuffix(st, family, isFighting(st));
-    const body = st.gear.body ? ITEM_BY_ID[st.gear.body] : undefined;
-    const pick = wolf ? { people: 'werewolf', look: WOLF_LOOK } : pickLook(st, undefined, dressOf(body?.weight));
+    const who = folkWho(st);
+    const pick = wolf ? { people: 'werewolf', look: WOLF_LOOK } : who.pick;
     const bare = lookPath(pick, null);
     const wanted = lookPath(pick, suffix);
-    const variant = variantOf(st.id);
+    const variant = who.variant;
     this.ensure(bare, wanted, variant);
 
     // an armed look that isn't here (yet) is the bare one

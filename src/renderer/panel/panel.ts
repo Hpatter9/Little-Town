@@ -26,6 +26,7 @@ import { renderStory, storyKey } from './storyPanel';
 import { renderNewGame, restartNewGame } from './newGamePanel';
 import { isVenuePanel, renderShop, shopKey, venueView } from './shopPanel';
 import { hkKnow } from '../art/hkFolk';
+import { folkKnow } from '../art/folkPortrait';
 import { countsFor } from './counts';
 import { ensureStructureStyle, foldSections, installSwipe } from './structure';
 import { noteFood } from './dashboard';
@@ -158,6 +159,7 @@ function render(): void {
   else if (snap && shown === 'war') body.replaceChildren(...tabbed(renderWar(snap, bridge, render)));
   else if (shown === 'alerts') body.replaceChildren(...renderAlerts(bridge));
   else if (snap && shown === 'founder') {
+    folkKnow(snap.people);
     hkKnow(snap.people);
     body.replaceChildren(...tabbed([...renderFounder(snap, bridge, render), ...renderStory(snap)]));
   }

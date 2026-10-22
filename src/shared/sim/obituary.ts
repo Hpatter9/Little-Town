@@ -7,6 +7,7 @@
 import type { DeedKind } from '../data/deeds';
 import { natureOf, type Topic } from '../data/natures';
 import type { ClassId } from '../data/classes';
+import type { OriginId } from '../data/origins';
 import type { Slot } from '../data/items';
 import { hashSeed, Rng } from '../rng';
 import { ageYears } from './ageing';
@@ -28,6 +29,8 @@ export interface Obituary {
   cls: ClassId | null;
   stage: number;
   founder: boolean;
+  /** Their people, for the iso portrait (older saves have none: drawn as settlers). */
+  origin?: OriginId;
 }
 
 /** What they would say, by how they died. */
@@ -93,6 +96,7 @@ export function buildObituary(s: GameState, p: Person, cause: string, stage: num
     cls: p.cls ?? null,
     stage,
     founder: !!p.fcls,
+    origin: p.origin ?? s.origin ?? 'settlers',
   };
 }
 
