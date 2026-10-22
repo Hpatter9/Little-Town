@@ -14,6 +14,7 @@ import { emblemCanvas } from '../art/emblems';
 import { playEventScene } from '../panel/eventScenePlay';
 import { addCardStyles } from '../panel/cardsStyles';
 import { reducedMotion } from '../ui/motion';
+import { beastLineup, type BeastLineup, type SheetOf } from './beastLineup';
 
 const W = 576;
 const H = 324;
@@ -63,7 +64,9 @@ export function createEventSheet(
   const read = new Set<number>();
   /** Waiting this long (real ms) with nothing come of it, the box says so and lets you go on. */
   const QUIET_MS = 2500;
-  const win = () => strip.contentWindow as (Window & { __eventSheet?: boolean; __picture?: (h: { person?: number }) => HTMLCanvasElement | null }) | null;
+  const win = () => strip.contentWindow as (Window & { __eventSheet?: boolean; __picture?: (h: { person?: number }) => HTMLCanvasElement | null; __sheetOf?: SheetOf }) | null;
+  /** The great creature's lineup while its pick is up (stopped when the box goes or shows another question). */
+  let lineup: BeastLineup | null = null;
 
   /** The corner ✕: closes the box. A choice is closed unanswered and waits behind the choices button (the town goes on,
    *  unless the choice holds it); a debrief is read; the page of what came of an answer is gone on from. */
@@ -80,11 +83,15 @@ export function createEventSheet(
     if (p.kind === 'debrief') onAnswer(p.id, p.defaultOption);
     else onPark(p.id);
     if (p.kind === 'debrief') read.add(p.id);
+    lineup?.stop();
+    lineup = null;
     shown = -1;
     el.hidden = true;
     document.body.classList.remove('event-open');
   });
   const goOn = () => {
+    lineup?.stop();
+    lineup = null;
     answered = null;
     shown = -1;
     el.hidden = true;
@@ -94,14 +101,20 @@ export function createEventSheet(
   const build = (p: PromptView) => {
     shown = p.id;
     current = p;
+    lineup?.stop();
+    lineup = null;
     addCardStyles();
     const art = document.createElement('div');
     art.className = 'event-art';
     // a short moving scene of what the event is about, with the townsfolk in it (panel/eventScenePlay.ts)
     const scene = document.createElement('div');
     scene.className = 'ev-scene';
-    const played = p.kind !== 'evolve' && lastSnap ? playEventScene(scene, p, lastSnap) : null;
-    if (played) art.append(scene);
+    // (the great creature's pick: the five in a row in the clearing, the one tapped stepping out: beastLineup.ts)
+    const sheetOf = p.beasts ? win()?.__sheetOf : undefined;
+    if (sheetOf) lineup = beastLineup(sheetOf, p.picture ? backdrop(p.picture) : null, (i) => choose(p.options[i] ?? '', i));
+    const played = !lineup && p.kind !== 'evolve' && lastSnap ? playEventScene(scene, p, lastSnap) : null;
+    if (lineup) art.append(lineup.scene);
+    else if (played) art.append(scene);
     else if (p.picture) {
       void backdrop(p.picture).then((c) => {
         if (shown !== p.id) return;
@@ -110,7 +123,7 @@ export function createEventSheet(
       });
     }
     // the townsperson it's about, stood in the picture (the scene has them in it already)
-    if (p.who != null && !played) {
+    if (p.who != null && !played && !lineup) {
       const face = win()?.__picture?.({ person: p.who });
       if (face) {
         face.className = 'event-who';
@@ -233,7 +246,8 @@ export function createEventSheet(
         options.append(b);
       });
     }
-    if (!evolve) p.options.forEach((label, i) => {
+    if (lineup) options.append(lineup.card);
+    if (!evolve && !lineup) p.options.forEach((label, i) => {
       const b = document.createElement('button');
       b.className = i === p.defaultOption ? 'event-option default' : 'event-option';
       if (i === p.recommended) b.classList.add('recommended');
@@ -448,7 +462,9 @@ export function createEventSheet(
         shown = -1;
         return;
       }
-      if (p.id !== shown) build(p);
+      // (the great creature's pick is drawn again once the strip has its creature sheets to lend: on a fresh start the box
+      // can come up before the strip has loaded)
+      if (p.id !== shown || (p.beasts && !lineup && !answered && win()?.__sheetOf)) build(p);
       if (count) count.textContent = p.secondsLeft === null ? '' : `If nobody chooses: "${p.options[p.defaultOption]}" in ${Math.ceil(p.secondsLeft)}s`;
     },
   };

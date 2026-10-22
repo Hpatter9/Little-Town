@@ -8,6 +8,7 @@ import type { Portal } from './portals';
 import type { RealmId } from '../data/portals';
 import type { SceneRun } from './cutscenes';
 import type { DragonState } from './dragon';
+import type { CreatureState } from './creature';
 // The complete simulation state. Plain JSON data only: it is what gets saved, and replaying the same
 // commands from the same state must always produce the same result.
 
@@ -343,6 +344,8 @@ export interface Raider {
   guardian?: number;
   /** One of the ranch's beasts let out to guard the town (sim/ranch.ts), by its id. */
   ranch?: number;
+  /** The town's great creature fighting for it (sim/creature.ts `creatureAllies`). */
+  creature?: boolean;
   /** (a fallen raider a necromancer has already looked at) */
   raiseChecked?: boolean;
   /** Epic bosses: raging, called for help, blows struck, trophy handed over. */
@@ -842,6 +845,8 @@ export interface Prompt {
   road?: string;
   /** A saga's question: the run it belongs to (sim/sagas.ts). */
   saga?: number;
+  /** The great creature's pick: its options are the five kinds in `CREATURE_KINDS`' order (shown as a lineup). */
+  beasts?: boolean;
   /** A road question on a trip the founder is on: no timer, no default, and the game is held until it is answered
    *  (sim/founderQuests.ts). */
   waits?: boolean;
@@ -1211,6 +1216,8 @@ export interface GameState {
   /** The dragon in the hills (sim/dragon.ts), and whether dragons come at all (the tests turn them off). */
   dragon?: DragonState;
   dragons?: boolean;
+  /** The town's great creature (sim/creature.ts): it comes in a saga after Great Beasts is studied. */
+  creature?: CreatureState;
   /** The kinds of foe the town has met, in raids or on the road (the Bestiary: `meet`). */
   met?: string[];
   lastHunt?: number;

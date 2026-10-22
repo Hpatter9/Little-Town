@@ -39,6 +39,7 @@ import { dragonTick } from './dragon';
 import { holdForFight } from './raidWait';
 import { fightClock, openPrompt, parkPrompt, stoodTick, type Hold } from './popups';
 import { leadQuest, waitingOnFounder } from './founderQuests';
+import { creatureArrives, creatureTick, feedCreature, restCreature, teachCreature } from './creature';
 import { stewardTick } from './steward';
 import { storyHourly } from './story';
 import { maybeEvent } from './events';
@@ -334,6 +335,8 @@ export class Sim {
     sagasHourly(s);
     huntsHourly(s);
     dragonTick(s); // (the dragon in the hills: sim/dragon.ts)
+    creatureTick(s); // (the town's great creature: sim/creature.ts)
+    creatureArrives(s); // (and the saga it comes in, once Great Beasts is studied)
     factionsHourly(s, this.rng);
     risingHourly(s); // (the rising powers' own moves: sim/risingPowers.ts)
     if (CONQUEST.on) warHourly(s); // (the seasons of war: the realm's wars, the town drawn in, its borders on the War tab: sim/war/)
@@ -695,6 +698,11 @@ export class Sim {
         break;
       case 'openPrompt':
         openPrompt(s, c.prompt);
+        break;
+      case 'creature':
+        if (c.op === 'feed') feedCreature(s);
+        else if (c.op === 'rest') restCreature(s);
+        else teachCreature(s, c.op === 'praise');
         break;
       case 'recallExpedition':
         recallExpedition(s, c.expedition);

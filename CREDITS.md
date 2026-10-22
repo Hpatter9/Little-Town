@@ -334,6 +334,9 @@ Horses are from **whtdragon**'s RPG Maker MV animal sprites (see Creatures above
 - The Deep Freeze: whtdragon's *golems2* (the ice golem) and *snowmonkey* (the frost yeti) (same licence note as
   Creatures); the ice mages' frost bursts and casting vortex are from the **ICE skills** pack (no licence file in the
   folder: check the author's terms before any public release).
+- The great creature (`sim/creature.ts`), until its own art comes, is drawn with sheets already here: whtdragon's
+  *snowmonkey* (the Ape), *bear* and *golems* (the Golem) (same licence note as Creatures), and Craftpix's white
+  werewolf (the Wolf) and minotaur (the Bull) (`art/creatures/packs/`).
 
 ## Terrain and scenery
 

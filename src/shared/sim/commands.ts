@@ -21,6 +21,9 @@ import { cleanName } from './naming';
 import { DIRECTIONS, type Direction } from './planner';
 import { PATH_CAP } from './pathPlans';
 
+export type CreatureOp = 'feed' | 'rest' | 'praise' | 'scold';
+const CREATURE_OPS: readonly CreatureOp[] = ['feed', 'rest', 'praise', 'scold'];
+
 export type MusterOp = 'raise' | 'add' | 'drop' | 'lead' | 'persuade' | 'order' | 'set' | 'send' | 'cancel';
 const MUSTER_OPS: readonly MusterOp[] = ['raise', 'add', 'drop', 'lead', 'persuade', 'order', 'set', 'send', 'cancel'];
 
@@ -99,6 +102,8 @@ export type Command =
   /** Close a question unanswered (it waits behind the choices button), or open a waiting one again (sim/popups.ts). */
   | { type: 'parkPrompt'; prompt: number }
   | { type: 'openPrompt'; prompt: number }
+  /** The great creature (sim/creature.ts): feed it, send it to rest, or praise or scold its last deed. */
+  | { type: 'creature'; op: CreatureOp }
   /** Keep one of the origin's powers back to cast yourself (null: let the town cast them all), and cast it. */
   | { type: 'holdPower'; power: string | null }
   | { type: 'castHeld' }
@@ -417,6 +422,8 @@ export function parseCommand(raw: unknown): Command | null {
     case 'parkPrompt':
     case 'openPrompt':
       return Number.isInteger(c.prompt) ? { type: c.type, prompt: c.prompt as number } : null;
+    case 'creature':
+      return CREATURE_OPS.includes(c.op as CreatureOp) ? { type: 'creature', op: c.op as CreatureOp } : null;
     case 'recallExpedition':
       return Number.isInteger(c.expedition) ? { type: 'recallExpedition', expedition: c.expedition as number } : null;
     case 'acceptVisitor':

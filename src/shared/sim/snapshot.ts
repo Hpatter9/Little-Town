@@ -185,6 +185,7 @@ import { packDestinations, packView, type PackView } from './pack';
 import { sagaDestinations, sagasView, type SagaView, type SagaDoneView } from './sagas';
 import { huntDestinations, huntsView, type HuntView, type ForgeView } from './hunts';
 import { dragonDestinations, dragonView, type DragonView } from './dragon';
+import { creatureView, type CreatureView } from './creature';
 import { villageBuildings, villageDestinations, villageViews, type VillageView } from './villages';
 import { interiorView, type InteriorView } from './interiors';
 import { dynastyView, type DynastyView } from './dynasty';
@@ -630,6 +631,8 @@ export interface PromptView {
   /** An evolution's roads (data/paths.ts, data/pathLore.ts): each with its archetype's role, its telling and its
    *  signature skill, in the options' order. */
   roads?: RoadView[];
+  /** The great creature's pick (sim/creature.ts): the options are the five kinds in order, shown as a lineup. */
+  beasts?: boolean;
 }
 export interface RoadView {
   id: string;
@@ -1176,6 +1179,8 @@ export interface Snapshot {
   hunts: { guild: boolean; hunts: HuntView[]; forge: ForgeView[]; won: number };
   /** The dragon in the hills (sim/dragon.ts): its phase, health, tribute and flight. */
   dragon: DragonView | null;
+  /** The town's great creature (sim/creature.ts), if it has one: where, how big, its nature, mood, needs and lessons. */
+  creature: CreatureView | null;
   /** Daughter villages (sim/villages.ts), and their houses and fields for the map (ids below zero). */
   villages: VillageView[];
   /** The town's politics and law (sim/politics.ts): null until the town has three grown-ups. */
@@ -1567,6 +1572,7 @@ function snapshotOf(s: GameState): Snapshot {
     world: worldView(s),
     hunts: brief(s, 'hunts', () => huntsView(s)),
     dragon: dragonView(s),
+    creature: creatureView(s),
     villages: villageViews(s),
     politics: brief(s, 'politics', () => politicsView(s)),
     villageBuildings: villageBuildings(s),
@@ -1650,6 +1656,7 @@ function snapshotOf(s: GameState): Snapshot {
       secondsLeft: p.expiresTick >= Number.MAX_SAFE_INTEGER ? null : Math.max(0, (p.expiresTick - s.tick) / TICK_HZ),
       ...(p.parked ? { parked: true } : {}),
       ...(p.roads ? { roads: p.roads.map(roadOf).filter((r): r is RoadView => !!r) } : {}),
+      ...(p.beasts ? { beasts: true } : {}),
     })),
     raid: s.raid && !s.raid.veil
       ? {
