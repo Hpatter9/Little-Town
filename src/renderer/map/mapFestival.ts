@@ -12,6 +12,8 @@ import { campfirePack } from '../art/fieldTiles';
 import { loadImage } from '../art/loadImage';
 import { glowTexture } from '../town/layer';
 import type { Snapshot } from '../../shared/sim/snapshot';
+import { ISO_TH, ISO_TW } from '../iso/isoMath';
+import { CELL } from '../../shared/sim/land';
 import { FESTIVAL_BY_ID, type DecorKit } from '../../shared/data/festivals';
 import candelabraUrl from '../art/seats/dl_candelabra.png';
 import skullsUrl from '../art/seats/ud_skulls.png';
@@ -157,6 +159,12 @@ export class MapFestival {
   private lantern: number[] = LANTERN;
   private festival = false;
 
+  /** In the isometric view (iso/isoView.ts) everything is drawn as loose pieces in the iso view's `things` (which puts
+   *  them on the diamonds as `placeLoose` does for the townsfolk): the glows too, in place of the lights layer, scaled by
+   *  `glowK` (how dark it is) since that layer isn't there to dim them. */
+  private iso = false;
+  glowK = 1;
+
   constructor(
     private things: Container,
     over: Container,
@@ -168,6 +176,32 @@ export class MapFestival {
       this.key = '';
       if (this.g) this.sync(this.g);
     };
+  }
+
+  /** Draw into the iso view's sorted `things` instead of the top-down map's. */
+  useIso(things: Container): void {
+    this.iso = true;
+    this.things = things;
+    things.addChild(this.confettiGfx, this.fireGfx);
+    this.clear();
+    this.key = '';
+  }
+
+  /** A glow that flickers or fades with the night: in the lights layer, or (iso) loose in `things` at the ground point
+   *  (x, y) and lifted `rise` px, a sprite's anchor doing the lifting. */
+  private addGlow(glow: Sprite, x: number, y: number, rise: number, size: number): void {
+    glow.anchor.set(0.5);
+    glow.width = glow.height = size;
+    if (!this.iso) {
+      this.lights.addChild(glow);
+      glow.position.set(x, y - rise);
+      return;
+    }
+    this.things.addChild(glow);
+    glow.blendMode = 'add';
+    glow.anchor.set(0.5, 0.5 + rise / size);
+    glow.position.set(x, y);
+    glow.zIndex = y + 0.5;
   }
 
   /** The gathering now (null: none), and a festival being made ready (null: none): the dressing is laid out again
@@ -273,11 +307,9 @@ export class MapFestival {
       a.position.set(Math.round(g.x), Math.round(g.y));
       a.zIndex = g.y;
       this.standing.push(a);
-      const glow = this.lights.addChild(new Sprite(glowTexture()));
-      glow.anchor.set(0.5);
-      glow.width = glow.height = 90;
+      const glow = new Sprite(glowTexture());
       glow.tint = 0xffa040;
-      glow.position.set(g.x, g.y - 8);
+      this.addGlow(glow, g.x, g.y, 8, 90);
       this.lanternGlows.push({ s: glow, i: 99 });
     }
     this.dressPoles(g);
@@ -300,16 +332,20 @@ export class MapFestival {
       // (its string to the next pole, sorted with the nearer of the two)
       const q = poles[(i + 1) % POLES];
       const gfx = this.things.addChild(new Graphics());
-      gfx.position.set(Math.min(p.x, q.x), Math.min(p.y, q.y) - POLE_H);
-      gfx.zIndex = Math.max(p.y, q.y) - 0.5;
+      if (this.iso) {
+        // (drawn in screen px about the string's middle on the ground: `drawString`)
+        gfx.position.set((p.x + q.x) / 2, (p.y + q.y) / 2);
+        gfx.zIndex = (p.y + q.y) / 2 + 0.4;
+      } else {
+        gfx.position.set(Math.min(p.x, q.x), Math.min(p.y, q.y) - POLE_H);
+        gfx.zIndex = Math.max(p.y, q.y) - 0.5;
+      }
       this.standing.push(gfx);
       this.strings.push({ gfx, from: p, to: q, front: Math.max(p.y, q.y) > g.y, i });
       // (a paper lantern hangs at the middle of each string, and glows after dark)
-      const glow = this.lights.addChild(new Sprite(glowTexture()));
-      glow.anchor.set(0.5);
-      glow.width = glow.height = 26;
+      const glow = new Sprite(glowTexture());
       glow.tint = this.lantern[i % this.lantern.length];
-      glow.position.set((p.x + q.x) / 2, (p.y + q.y) / 2 - POLE_H + 9);
+      this.addGlow(glow, (p.x + q.x) / 2, (p.y + q.y) / 2, POLE_H - 9, 26);
       this.lanternGlows.push({ s: glow, i });
     });
   }
@@ -347,11 +383,9 @@ export class MapFestival {
       s.position.set(p.x, p.y);
       s.zIndex = p.y;
       this.standing.push(s);
-      const glow = this.lights.addChild(new Sprite(glowTexture()));
-      glow.anchor.set(0.5);
-      glow.width = glow.height = 30;
+      const glow = new Sprite(glowTexture());
       glow.tint = 0xffd890;
-      glow.position.set(p.x, p.y - 6);
+      this.addGlow(glow, p.x, p.y, 6, 30);
       this.candles.push({ s, glow, seed: i * 1.7 });
     }
   }
@@ -369,12 +403,13 @@ export class MapFestival {
       this.flutterAt = frame;
       for (const s of this.strings) this.drawString(s);
     }
-    for (const l of this.lanternGlows) l.s.alpha = 0.75 + 0.25 * Math.sin(this.t * 3 + l.i * 1.9);
+    const gk = this.iso ? this.glowK : 1;
+    for (const l of this.lanternGlows) l.s.alpha = (0.75 + 0.25 * Math.sin(this.t * 3 + l.i * 1.9)) * gk;
     for (const c of this.candles) {
       const f = Math.floor(this.t * 8 + c.seed * 3) % 6;
       const src = c.s.texture;
       if (src.frame.y !== f * 32) c.s.texture = new Texture({ source: src.source, frame: new Rectangle(src.frame.x, f * 32, 32, 32) });
-      c.glow.alpha = 0.7 + 0.3 * Math.sin(this.t * 7 + c.seed * 5);
+      c.glow.alpha = (0.7 + 0.3 * Math.sin(this.t * 7 + c.seed * 5)) * gk;
     }
     // (while it's being made ready: no confetti or fireworks yet)
     if (!festive || calm || this.key.startsWith('prep|')) {
@@ -391,10 +426,16 @@ export class MapFestival {
     const ox = gfx.position.x;
     const oy = gfx.position.y;
     gfx.clear();
-    const ax = from.x - ox;
-    const ay = from.y - POLE_H - oy;
-    const bx = to.x - ox;
-    const by = to.y - POLE_H - oy;
+    // (iso: the poles' feet on the diamonds, about the middle between them)
+    const mx = (from.x + to.x) / 2;
+    const my = (from.y + to.y) / 2;
+    const sc = (x: number, y: number) => ({ x: (((x - mx) - (y - my)) / CELL) * (ISO_TW / 2), y: (((x - mx) + (y - my)) / CELL) * (ISO_TH / 2) - POLE_H });
+    const a = this.iso ? sc(from.x, from.y) : { x: from.x - ox, y: from.y - POLE_H - oy };
+    const b = this.iso ? sc(to.x, to.y) : { x: to.x - ox, y: to.y - POLE_H - oy };
+    const ax = a.x;
+    const ay = a.y;
+    const bx = b.x;
+    const by = b.y;
     const sag = 7 + Math.hypot(bx - ax, by - ay) * 0.06;
     const at = (u: number) => ({ x: ax + (bx - ax) * u, y: ay + (by - ay) * u + Math.sin(u * Math.PI) * sag });
     // the cord
@@ -433,6 +474,7 @@ export class MapFestival {
     const c = this.confettiGfx;
     c.position.set(g.x, g.y);
     c.zIndex = 1e7;
+    c.visible = true;
     c.clear();
     for (let i = this.confetti.length - 1; i >= 0; i--) {
       const b = this.confetti[i];
@@ -452,18 +494,29 @@ export class MapFestival {
 
   private drawFireworks(g: Gathering, dt: number, night: boolean): void {
     const f = this.fireGfx;
-    f.position.set(0, 0);
+    // (iso: the sparks are drawn in screen px about the ring's middle, the figure loose among the things)
+    const bx = this.iso ? g.x : 0;
+    const by = this.iso ? g.y : 0;
+    f.position.set(bx, by);
+    if (this.iso) f.zIndex = 1e7;
     if (night) {
       this.nextBurst -= dt;
       if (this.nextBurst <= 0) {
         this.nextBurst = FIREWORK_EVERY * (0.5 + Math.random());
-        const glow = this.lights.addChild(new Sprite(glowTexture()));
+        const glow = new Sprite(glowTexture());
         glow.anchor.set(0.5);
         const color = this.festival ? this.colours[Math.floor(Math.random() * this.colours.length)] : [0xff5050, 0x60d0ff, 0xffd040, 0x80ff80, 0xff80ff, 0xffffff][Math.floor(Math.random() * 6)];
         glow.tint = color;
         const x = g.x + (Math.random() - 0.5) * 160;
         const y = g.y - 90 - Math.random() * 70;
-        glow.position.set(x, y);
+        if (this.iso) {
+          glow.blendMode = 'add';
+          f.addChild(glow);
+          glow.position.set(x - bx, y - by);
+        } else {
+          this.lights.addChild(glow);
+          glow.position.set(x, y);
+        }
         this.bursts.push({ x, y, age: 0, color, glow, sparks: Array.from({ length: SPARKS }, (_, k) => ({ a: (k / SPARKS) * Math.PI * 2 + Math.random() * 0.2, v: 34 + Math.random() * 22 })) });
       }
     }
@@ -480,12 +533,12 @@ export class MapFestival {
       const fade = 1 - b.age / life;
       // (the bloom of light, big at first and dying)
       b.glow.width = b.glow.height = 70 * (0.4 + b.age) * fade + 8;
-      b.glow.alpha = fade;
+      b.glow.alpha = fade * (this.iso ? this.glowK : 1);
       // (the sparks fly out, slow and fall)
       for (const s of b.sparks) {
         const d = s.v * (1 - Math.exp(-b.age * 2.6));
-        const x = b.x + Math.cos(s.a) * d;
-        const y = b.y + Math.sin(s.a) * d * 0.85 + b.age * b.age * 14;
+        const x = b.x - bx + Math.cos(s.a) * d;
+        const y = b.y - by + Math.sin(s.a) * d * 0.85 + b.age * b.age * 14;
         f.rect(x - 1, y - 1, 2, 2).fill({ color: b.color, alpha: fade });
         f.rect(x - 0.5, y - 0.5 - 3 * fade, 1, 3 * fade).fill({ color: 0xffffff, alpha: fade * 0.6 });
       }

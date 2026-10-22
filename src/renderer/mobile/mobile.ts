@@ -6,6 +6,7 @@ import { applyGivenNames } from '../art/givenNames';
 import { readLevel, saveLevel, type VolumeKind } from '../volume';
 import { readVibrate, saveVibrate } from '../vibration';
 import { startNotices } from './notices';
+import { startStoresReadout } from './storesReadout';
 import { watchFavourites } from './obituaryReveal';
 import { createEventSheet } from './eventSheet';
 import { revealsOn, setItemOpener, setRevealsOn, showReveal, startReveals } from './revealCard';
@@ -404,6 +405,9 @@ void bridge.getState().then(applyState); // (a first run opens on the New town p
   const { bubble, sheet: news } = startNotices(bridge, strip);
   document.body.append(bubble, news);
 }
+
+// (the owner's ask: the town's coins and main materials at the top right; a tap opens the Town menu's Stores tab)
+document.body.append(startStoresReadout(bridge));
 
 // (a favourite's death: their obituary card, once: mobile/obituaryReveal.ts)
 bridge.onSnapshot(watchFavourites(strip));

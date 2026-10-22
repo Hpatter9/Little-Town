@@ -164,6 +164,9 @@ export class MapWildlife {
     return this.beasts.length;
   }
 
+  /** The fog of war: whether a point (px) is in sight; the beasts out of it are not drawn. */
+  seen: (x: number, y: number) => boolean = () => true;
+
   render(dt: number, now: number): void {
     const want = this.on && !this.map.calm && this.land && frames ? MOST : 0;
     const { x, y, w, h } = this.map.view;
@@ -237,10 +240,10 @@ export class MapWildlife {
       // (DawnLike's beasts face left)
       if (Math.abs(b.vx) > 0.5) b.s.scale.x = (b.vx > 0 ? -1 : 1) * d.scale;
       b.s.scale.y = d.scale;
-      b.s.alpha = b.fade;
+      b.s.alpha = this.seen(b.x, b.y) ? b.fade : 0; // (out of sight in the fog: not drawn)
       b.s.position.set(Math.round(b.x), Math.round(b.y - lift));
       b.s.zIndex = b.y;
-      b.sh.alpha = 0.3 * b.fade * (1 - Math.min(0.6, lift / 20));
+      b.sh.alpha = (this.seen(b.x, b.y) ? 0.3 : 0) * b.fade * (1 - Math.min(0.6, lift / 20));
       b.sh.position.set(Math.round(b.x), Math.round(b.y));
       b.sh.zIndex = b.y - 0.5;
       void now;
@@ -363,10 +366,10 @@ export class MapWildlife {
     // (DawnLike's beasts face left)
     if (Math.abs(b.vx) > 0.5) b.s.scale.x = (b.vx > 0 ? -1 : 1) * d.scale;
     b.s.scale.y = d.scale;
-    b.s.alpha = b.fade;
+    b.s.alpha = this.seen(b.x, b.y) ? b.fade : 0; // (out of sight in the fog: not drawn)
     b.s.position.set(Math.round(b.x), Math.round(b.y - lift));
     b.s.zIndex = b.y;
-    b.sh.alpha = 0.3 * b.fade * (1 - Math.min(0.6, lift / 20));
+    b.sh.alpha = (this.seen(b.x, b.y) ? 0.3 : 0) * b.fade * (1 - Math.min(0.6, lift / 20));
     b.sh.position.set(Math.round(b.x), Math.round(b.y));
     b.sh.zIndex = b.y - 0.5;
   }

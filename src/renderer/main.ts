@@ -56,6 +56,7 @@ import type { Signpost } from './map/signRules';
 import { plagueOn } from '../shared/sim/pastimes';
 import { StreetLamps } from './map/streetLamps';
 import { LightMap } from './map/lightMap';
+import { FogLayer } from './map/fogLayer';
 import { MapSkiffs } from './map/mapSkiffs';
 import { RoadTraffic } from './map/roadTraffic';
 import { BloodPools } from './map/bloodPools';
@@ -182,6 +183,7 @@ import { loadStills } from './art/stills';
 import { loadLpc, loadLpcFaces, lpcFrame } from './art/lpc/lpc';
 import { topDownArt } from './art/topDown';
 import { buildingPicture } from './art/buildingPicture';
+import { isoPicture } from './art/isoPicture';
 import { pickCovered } from './map/packBuildings';
 import { airFor } from './town/ambientView';
 import { textureCanvas } from './art/pixelArt';
@@ -437,6 +439,13 @@ async function start(): Promise<void> {
   (window as unknown as { __lightMap: LightMap }).__lightMap = lightMap;
   if (iso) iso.lightLayer.addChild(lightMap.sprite);
   else map.world.addChildAt(lightMap.sprite, map.world.getChildIndex(map.over));
+  // (the fog of war, over the land and the lights: black until explored, grey once left, clear in sight: map/fogLayer.ts)
+  const fog = new FogLayer();
+  if (iso) iso.lightLayer.addChild(fog.sprite);
+  else map.world.addChild(fog.sprite);
+  (window as unknown as { __fog?: FogLayer }).__fog = fog; // (for previews)
+  /** What is out of sight in the fog is hidden: creatures, raiders, roaming bands, strangers. */
+  const inSightOnly = <T extends { x: number; y: number }>(list: readonly T[]): readonly T[] => (fog.on ? list.filter((t) => fog.seen(t.x, t.y)) : list);
   (window as unknown as { __map?: MapView }).__map = map; // (for previews and profiling)
   (window as unknown as { __topDownArt?: typeof topDownArt }).__topDownArt = topDownArt; // (for previews: a gallery of the painted buildings)
   const pools = new BloodPools(map.under); // (blood on the ground where someone fell)
@@ -465,6 +474,7 @@ async function start(): Promise<void> {
   let buskDue = 0;
   const butterflies = new MapButterflies(lay, map);
   const wildlife = new MapWildlife(lay, map);
+  wildlife.seen = (x, y) => fog.seen(x, y);
   (window as unknown as { __wildlife?: MapWildlife }).__wildlife = wildlife; // (for previews)
   const water = new MapWater(map.things, map.under, map.over, map.root, map);
   // footprints in the snow, the sand and the rain's mud, and breath in the cold (map/mapTracks.ts)
@@ -489,7 +499,7 @@ async function start(): Promise<void> {
   const townLife = new MapTownLife(lay, map.over, map.lights, (id) => people.posOf(id));
   (window as unknown as { __townLife?: MapTownLife }).__townLife = townLife; // (previews)
   (window as unknown as { __graves?: MapGraves }).__graves = graves; // (previews)
-  const market = new MapMarket(map.things); // (market day's stalls)
+  const market = new MapMarket(lay); // (market day's stalls)
   const decor = new SeasonDecor(map.things, map.lights); // (the doors dressed for the season)
   const homes = new HomeDecor(map.things); // (homes showing their folk's means, and the plague's marked doors)
   (window as unknown as { __homes?: HomeDecor }).__homes = homes; // (previews)
@@ -504,7 +514,7 @@ async function start(): Promise<void> {
   const skiffs = new MapSkiffs(map.things); // (boats along the rivers)
   // work you can see: trees falling and their stumps, the stockpile's heaps, gains floating up, the harvest left in the
   // field, the well and the washing (map/workSeen.ts)
-  const felling = new MapFelling(map.things);
+  const felling = new MapFelling(lay);
   /** The least time between two falls heard (ms). */
   const FELL_HEARD_MS = 1500;
   let lastFelled = 0;
@@ -518,9 +528,20 @@ async function start(): Promise<void> {
     lastFelled = now;
     if (view.music && !view.hidden && x >= mv.x && x <= mv.x + mv.w && y >= mv.y && y <= mv.y + mv.h) ambience.cue(kind === 'tree' ? 'timber' : 'crumble', ((x - mv.x) / Math.max(1, mv.w)) * 1.6 - 0.8);
   };
-  const stockpile = new MapStockpile(map.things, map.artHidden);
+  const stockpile = new MapStockpile(lay, iso ? iso.artHidden : map.artHidden);
   const gainsView = new MapGains(map.over);
-  const chores = new MapChores(map.things);
+  const chores = new MapChores(lay);
+  if (iso) {
+    // (the work and festival layers drawn in world px on top-down building sprites: here on the diamonds instead;
+    //  what rises upright goes through `isoOf`, into `screenFx`)
+    const at = (x: number, y: number) => iso.isoOf(x, y);
+    map.festival.useIso(iso.things);
+    felling.useIso(iso.things);
+    chores.useIso(iso.things);
+    gainsView.useIso(iso.screenFx, { at, top: (id) => iso.topOf(id) });
+    map.smokeColumns.useIso(iso.screenFx, at);
+    map.workFx.useIso(iso.screenFx, iso.glow, at);
+  }
   (window as unknown as { __workSeen?: unknown }).__workSeen = { felling, stockpile, gains: gainsView, chores, people }; // (previews)
   const traffic = new RoadTraffic(map.things); // (carts along the roads)
   (window as unknown as { __traffic?: unknown }).__traffic = { skiffs, traffic, ground: map.groundWeather }; // (previews)
@@ -2013,7 +2034,20 @@ async function start(): Promise<void> {
       if (gone) return fallenFace(gone, 64);
       const who = h.person != null ? next.people.find((p) => p.id === h.person) : undefined;
       if (who) return personPicture(who);
-      if (h.building && BUILDING_BY_ID[h.building]) return buildingPicture(h.building, buildStyle || 'town', 96, 64);
+      if (h.building && BUILDING_BY_ID[h.building]) {
+        const old = buildingPicture(h.building, buildStyle || 'town', 96, 64);
+        if (!isoViewOn()) return old;
+        // (the isometric view: the kit piece the map draws; until its image is in, a copy of the old picture that the
+        // menu asks for again, not keeps)
+        const iso = isoPicture(h.building, next.origin.id, next.theme, 96, 64);
+        if (iso) return iso;
+        if (!old) return null;
+        const copy = document.createElement('canvas');
+        copy.width = old.width;
+        copy.height = old.height;
+        copy.getContext('2d')!.drawImage(old, 0, 0);
+        return copy;
+      }
       return null;
     };
     const q = next.prompts[0];
@@ -2039,6 +2073,7 @@ async function start(): Promise<void> {
       map.setBuildingStyle(buildingTint(next.theme), style);
     }
     map.syncLand(next.land, next.calendar.season, next.biome, next.era); // (paints again only what changed)
+    stockpile.sync(next.buildings); // (before the buildings, so a stockpile's own picture is hidden at once)
     if (iso) {
       iso.syncLand(next.land);
       iso.setKit(kitNameFor(next.origin.id, next.theme));
@@ -2047,12 +2082,13 @@ async function start(): Promise<void> {
       iso.syncBuildings(next.buildings);
     }
     minimap.setLand(next.land, next.calendar.season);
+    fog.sync(next.land.w, next.land.h, next.explored, next.sight);
+    minimap.fog = fog.on ? fog.canvas : null;
     map.tick = next.tick;
     if (iso) {
-      iso.setWalkers([...next.people.filter((p) => p.away === null && !p.indoors), ...(next.raid?.phase === 'active' ? next.raid.raiders : [])]);
-      iso.setLamps(next.lights ? next.lights.lights.filter((l) => l.lit && l.room === null) : []);
+      iso.setWalkers([...next.people.filter((p) => p.away === null && !p.indoors), ...inSightOnly(next.raid?.phase === 'active' ? next.raid.raiders : [])]);
+      iso.setLamps(next.lights ? next.lights.lights.filter((l) => l.room === null) : [], next.era);
     }
-    stockpile.sync(next.buildings); // (before the buildings, so a stockpile's own picture is hidden at once)
     // (the gates shut at night and when raiders come: the palisade's are drawn closed)
     map.gatesShut = next.calendar.hour >= GATES_SHUT_FROM || next.calendar.hour < GATES_OPEN_AT || !!next.raid;
     map.syncBuildings(next.villageBuildings.length ? [...next.buildings, ...next.villageBuildings] : next.buildings);
@@ -2195,12 +2231,12 @@ async function start(): Promise<void> {
     people.revived = next.revived ? { ...next.revived, at: performance.now() } : null;
     people.fx = next.fx.map((f) => ({ ...f, at: performance.now() }));
     people.update(
-      [...next.people.filter((p) => p.away === null), ...next.travellers.map(travellerPerson), ...(next.envoyRider ? [envoyPerson(next.envoyRider)] : []), ...villagerFigures(next, performance.now()), ...wide.riders().map(courierPerson)],
+      [...next.people.filter((p) => p.away === null), ...inSightOnly([...next.travellers.map(travellerPerson), ...(next.envoyRider ? [envoyPerson(next.envoyRider)] : []), ...villagerFigures(next, performance.now()), ...wide.riders().map(courierPerson)])],
       next.visitor,
       performance.now(),
     );
-    raiders.update(next.raid?.phase === 'active' ? next.raid.raiders : [], performance.now());
-    roamers.update(roamerFigures(next.roamers), performance.now());
+    raiders.update(inSightOnly(next.raid?.phase === 'active' ? next.raid.raiders : []) as RaiderView[], performance.now());
+    roamers.update(inSightOnly(roamerFigures(next.roamers)) as RaiderView[], performance.now());
     penned.update(ranchFigures(next.ranchPens ?? [], performance.now()), performance.now());
     spells.update(next.spells, next.camp, performance.now());
     if (hover || placing) refreshHover(); // tooltip contents change as work progresses
@@ -2299,7 +2335,7 @@ async function start(): Promise<void> {
     if (snap && minimap.shown)
       minimap.render({
         people: snap.people.filter((p) => p.away === null).map((p) => ({ x: p.x, y: p.y })),
-        raiders: snap.raid?.phase === 'active' ? snap.raid.raiders.map((r) => ({ x: r.x, y: r.y })) : [],
+        raiders: snap.raid?.phase === 'active' ? inSightOnly(snap.raid.raiders).map((r) => ({ x: r.x, y: r.y })) : [],
         places: snap.places.filter((p) => p.found).map((p) => ({ x: p.x, y: p.y, waiting: !!p.dest, nest: !!p.nest })),
         heart: snap.calamity?.heartAt ? { x: (snap.calamity.heartAt.x + 0.5) * 32, y: (snap.calamity.heartAt.y + 0.5) * 32 } : null,
         buildings: [...snap.buildings, ...snap.villageBuildings].map((b) => {
@@ -2327,6 +2363,7 @@ async function start(): Promise<void> {
       }
     }
     lightMap.render(map.view, lightDaylight);
+    fog.render(performance.now());
     pets.render(ticker.deltaMS / 1000);
     critters.cats = pets.cats();
     pets.prey = critters.prey();

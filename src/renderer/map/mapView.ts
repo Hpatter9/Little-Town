@@ -1347,6 +1347,7 @@ export class MapView {
     this.cloudShadows(dt);
     this.fallingLeaves(dt);
     if (this.castle?.flames.length) flickerCastle(this.castle.flames, (this.flick += dt));
+    this.festival.glowK = this.lights.alpha;
     this.festival.render(dt, this.lights.alpha > 0.3, this.calm);
     this.workFx.render(dt, this.view, this.calm, this.wind());
     this.nightSky.render(dt, this.view, this.land, this.lights.alpha, this.calm);

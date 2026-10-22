@@ -28,6 +28,8 @@ const CLIMB = SMOKE_HIGH / 7;
 const DARK = [0x3a3634, 0x4a4542, 0x2c2a2a];
 const START = 18;
 const END = 80;
+/** In the iso view, how far over the ground (px) a fire's smoke starts: about a roof's height. */
+const ISO_LIFT = 26;
 
 export class SmokeColumns {
   readonly root = new Container();
@@ -35,8 +37,17 @@ export class SmokeColumns {
   private readonly spare: Sprite[] = [];
   private fires: { x: number; y: number; due: number }[] = [];
 
+  /** The iso view: a ground point (world px) to the screen. The puffs then climb straight up in iso px, from the building's
+   *  middle lifted a little, not squashed along the ground with the map's `over`. */
+  private at: ((x: number, y: number) => { x: number; y: number }) | null = null;
+
   constructor(layer: Container) {
     layer.addChild(this.root);
+  }
+
+  useIso(fx: Container, at: (x: number, y: number) => { x: number; y: number }): void {
+    fx.addChild(this.root);
+    this.at = at;
   }
 
   /** The buildings alight now (each snapshot). */
@@ -56,7 +67,8 @@ export class SmokeColumns {
       f.due -= dt;
       if (f.due > 0 || this.puffs.length >= PUFFS_MOST) continue;
       f.due += every;
-      this.emit(f.x, f.y, wind);
+      const p = this.at ? this.at(f.x, f.y + 10) : f;
+      this.emit(p.x, this.at ? p.y - ISO_LIFT : p.y, wind);
     }
     const frames = pixelFxFrames('white-smoke');
     for (let i = this.puffs.length - 1; i >= 0; i--) {

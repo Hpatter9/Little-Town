@@ -38,9 +38,19 @@ export class WorkFx {
   private readonly glows = new Map<number, Sprite>();
   private t = 0;
 
+  /** The iso view: a ground point (world px) to the screen. The motes then rise upright in iso px from the building's
+   *  door (not squashed along the ground in the map's `over`) and the forge's glow sits in the view's night glow. */
+  private at: ((x: number, y: number) => { x: number; y: number }) | null = null;
+
   constructor(over: Container, lights: Container) {
     over.addChild(this.layer);
     lights.addChild(this.glowLayer);
+  }
+
+  useIso(fx: Container, glow: Container, at: (x: number, y: number) => { x: number; y: number }): void {
+    fx.addChild(this.layer);
+    glow.addChild(this.glowLayer);
+    this.at = at;
   }
 
   /** The buildings at work now (per snapshot). */
@@ -88,7 +98,8 @@ export class WorkFx {
         g.visible = inView;
         g.width = g.height = 46 + 10 * Math.sin(this.t * 5 + q.id);
         g.alpha = 0.55 + 0.25 * Math.sin(this.t * 3.3 + q.id * 2);
-        g.position.set(q.x, q.door - 4);
+        const gp = this.at ? this.at(q.x, q.door - 4) : { x: q.x, y: q.door - 4 };
+        g.position.set(gp.x, this.at ? gp.y - 10 : gp.y);
       }
       if (!inView) continue;
       let due = (this.due.get(q.id) ?? Math.random()) + RATE[q.look] * dt;
@@ -247,6 +258,12 @@ export class WorkFx {
         s.width = s.height = 2;
         s.tint = 0xfff0a0;
         break;
+    }
+    if (this.at) {
+      // (the same offsets from the door, on the screen)
+      const p = this.at(q.x, q.door);
+      m.x += p.x - q.x;
+      m.y += p.y - q.door;
     }
     s.position.set(m.x, m.y);
     this.motes.push(m);
