@@ -1516,6 +1516,93 @@
         text-align: center;
         color: #d9c7a0;
       }
+      /* the great creature's pick: the five in a row in the clearing, and the card of the one stepped out (beastLineup.ts) */
+      .beast-scene {
+        position: absolute;
+        inset: 0;
+      }
+      .beast-canvas {
+        width: 100%;
+        height: 100%;
+        display: block;
+        cursor: pointer;
+        image-rendering: pixelated;
+      }
+      .beast-card {
+        border: 2px solid #8a6a3a;
+        border-radius: 6px;
+        background: #2a1f14cc;
+        padding: 8px 10px;
+        color: #f0e2c0;
+      }
+      .beast-hint {
+        text-align: center;
+        color: #d9c7a0;
+        font-style: italic;
+      }
+      .beast-head {
+        display: flex;
+        align-items: baseline;
+        justify-content: space-between;
+        gap: 8px;
+        margin-bottom: 4px;
+      }
+      .beast-name {
+        font-size: 1.15em;
+        font-weight: bold;
+        color: #ffe08a;
+      }
+      .beast-title {
+        font-style: italic;
+        color: #d9c7a0;
+      }
+      .beast-flavour {
+        margin: 0 0 4px;
+        font-size: 0.92em;
+        line-height: 1.35;
+      }
+      .beast-bars {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 3px 12px;
+        margin: 6px 0;
+      }
+      .beast-bar {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        font-size: 0.85em;
+      }
+      .beast-bar span:first-child {
+        width: 5.2em;
+      }
+      .beast-track {
+        flex: 1;
+        height: 7px;
+        border-radius: 4px;
+        background: #0006;
+        border: 1px solid #8a6a3a;
+        overflow: hidden;
+      }
+      .beast-track i {
+        display: block;
+        height: 100%;
+        background: linear-gradient(90deg, #c79a55, #ffe08a);
+      }
+      .beast-line {
+        font-size: 0.88em;
+        margin: 2px 0;
+      }
+      .beast-act {
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+        margin-top: 8px;
+      }
+      .beast-sure {
+        text-align: center;
+        color: #ffd0a0;
+      }
       /* on its side: the picture on the left, the telling beside it */
       @media (orientation: landscape) and (max-height: 560px) {
         #event-sheet {

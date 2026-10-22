@@ -26,6 +26,7 @@ import { killPerson } from './health';
 import { minorWound } from './injuries';
 import { addItems } from './crafting';
 import { describeFoes } from './places';
+import { adoptCreature, learn } from './creature';
 
 const hours = (h: number) => Math.round(h * TICKS_PER_HOUR);
 const streamOf = (s: GameState, run: SagaRun, salt: number) => Rng.from(hashSeed(s.seed), run.run, s.tick, salt);
@@ -49,6 +50,7 @@ export function sagaText(s: GameState, r: SagaRun, text: string): string {
     .replace(/\{founder\}/g, founder?.name ?? 'the founder')
     .replace(/\{a\}/g, person(s, r.a)?.name ?? 'one of them')
     .replace(/\{b\}/g, person(s, r.b)?.name ?? 'the other')
+    .replace(/\{beast\}/g, s.creature?.name ?? 'the beast')
     .replace(/\{town\}/g, 'the town');
   return out.replace(/(^|[.!?]["”]?\s+)the town/g, '$1The town');
 }
@@ -65,11 +67,12 @@ export function sagasHourly(s: GameState): void {
 }
 
 function maybeBegin(s: GameState): void {
-  const running = s.sagas ?? [];
+  // (a saga apart, the great creature's, runs beside the others: data/sagas.ts `apart`)
+  const running = (s.sagas ?? []).filter((r) => !SAGA_BY_ID[r.id]?.apart);
   if (running.length >= MAX_SAGAS || s.gameOver) return;
   if (s.tick < SAGA_FIRST_DAY * TICKS_PER_DAY) return;
   // (the break runs from the end of the last one: a long saga doesn't eat into it)
-  const ended = Math.max(s.lastSaga ?? -Infinity, ...(s.sagasDone ?? []).map((d) => d.tick));
+  const ended = Math.max(s.lastSaga ?? -Infinity, ...(s.sagasDone ?? []).filter((d) => !SAGA_BY_ID[d.id]?.apart).map((d) => d.tick));
   if (s.tick - ended < SAGA_GAP_DAYS * TICKS_PER_DAY) return;
   const rng = Rng.from(hashSeed(s.seed), s.tick, 0x5a6a);
   if (!rng.chance(SAGA_DAILY)) return;
@@ -112,7 +115,7 @@ export function beginSaga(s: GameState, id: string): SagaRun | null {
     run.b = b;
   }
   (s.sagas ??= []).push(run);
-  s.lastSaga = s.tick;
+  if (!def.apart) s.lastSaga = s.tick;
   notify(s, `A saga begins: ${def.title}. ${sagaText(s, run, def.blurb)} Follow it under Trips, in Quests.`, true);
   enter(s, run, def.first);
   return run;
@@ -154,7 +157,9 @@ function enter(s: GameState, r: SagaRun, id: string): void {
         who: heroOf(s, r)?.id,
         options: c.options.map((o) => sagaText(s, r, o.label)),
         defaultOption: c.default ?? 0,
-        expiresTick: s.tick + hours(SAGA_ASK_HOURS),
+        expiresTick: c.waits ? Number.MAX_SAFE_INTEGER : s.tick + hours(SAGA_ASK_HOURS),
+        ...(c.waits ? { waits: true } : {}),
+        ...(c.beasts ? { beasts: true } : {}),
       });
       break;
     }
@@ -353,6 +358,13 @@ function effects(s: GameState, r: SagaRun, list: readonly SagaEffect[]): string[
         (h.titles ??= []).push(e.title);
         out.push(`${h.name} is called ${e.title}`);
       }
+    } else if ('creature' in e) {
+      adoptCreature(s, e.creature);
+    } else if ('creatureAlign' in e) {
+      if (s.creature && !s.creature.dead) s.creature.align = Math.max(-100, Math.min(100, s.creature.align + e.creatureAlign));
+      out.push(e.creatureAlign >= 0 ? 'the beast is gentler for it' : 'the beast is crueller for it');
+    } else if ('creatureTeach' in e) {
+      if (s.creature && !s.creature.dead) learn(s.creature, e.creatureTeach, e.by);
     } else if ('unique' in e) {
       if (ITEM_BY_ID[e.unique] && !(s.uniques ?? []).includes(e.unique)) {
         (s.uniques ??= []).push(e.unique);

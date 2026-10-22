@@ -7,6 +7,7 @@ import { readLevel, saveLevel, type VolumeKind } from '../volume';
 import { readVibrate, saveVibrate } from '../vibration';
 import { startNotices } from './notices';
 import { startStoresReadout } from './storesReadout';
+import { createBeastAsk } from '../overlayUi';
 import { watchFavourites } from './obituaryReveal';
 import { createEventSheet } from './eventSheet';
 import { startPopupHold } from './popupHold';
@@ -422,6 +423,10 @@ void bridge.getState().then(applyState); // (a first run opens on the New town p
 
 // (the owner's ask: the town's coins and main materials at the top right; a tap opens the Town menu's Stores tab)
 document.body.append(startStoresReadout(bridge));
+// the great creature's Praise or Scold for its last deed (sim/creature.ts): a small card that never holds the town
+const beastAsk = createBeastAsk((praise) => bridge.command?.({ type: 'creature', op: praise ? 'praise' : 'scold' }));
+// (it stands aside while a tap card is up: the creature's own card has Praise and Scold too)
+bridge.onSnapshot((snap) => (snap.creature?.ask && document.getElementById('inspect')?.hidden !== false ? beastAsk.show(snap.creature.ask.id, snap.creature.ask.text) : beastAsk.hide()));
 
 // (a favourite's death: their obituary card, once: mobile/obituaryReveal.ts)
 bridge.onSnapshot(watchFavourites(strip));
