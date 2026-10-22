@@ -16,6 +16,20 @@ The saga is **apart** (`SagaDef.apart`): it is begun only by its system, never d
 `SAGA_BY_ID`), and does not count against `MAX_SAGAS` or the gap between sagas, so the other sagas go on beside it.
 `{beast}` in a saga's words is the creature's name.
 
+**The pick as a lineup** (the owner's ask: "all five in a row standing idle; when you click on one, it steps forward
+out of the lineup and does an action move; the details show up below it"). The nest's question carries `beasts`
+(`Chapter.beasts` → `Prompt.beasts` → `PromptView.beasts`; its options are the kinds in `CREATURE_KINDS`' order), and the
+phone's event box (mobile/eventSheet.ts) draws it with `mobile/beastLineup.ts` instead of option buttons: the five stand
+idle in the clearing (the question's picture) on one canvas; a tap walks one forward out of the line (`STEP_MS`, drawn
+`NEARER` bigger, the rest put in the shade), then it plays its move (`MOVE_MS`: the wolf and the bull their strips' attack
+rows with a lunge, the bear rears up, the golem stamps and raises dust, the ape spins and hops) and settles idle in front.
+Its card shows in the box's body: name and title, two lines of what it's like (`title`, `flavour`), bars for learning,
+strength, temper and appetite (`kindStats`), what it's best at and needs most (`goodAt`, `needsMost`), and Choose, then a
+second step to confirm (the pick is for good) or look again. Tapping another sends the first back into line. The
+pictures are the strip's own sheets, lent to the page (`__sheetOf`, main.ts), so the page carries no copies; the box is
+drawn again once they're there. It holds the town like any question that waits. When the kinds' own art comes, it is
+read from the same `look` and the same moves (idle, walk, attack).
+
 **The five kinds** (`CREATURE_DEFS`, data/creature.ts): the **Ape** learns fastest (`learn` 1.8; play, healing, the
 fields; craves company, steals), the **Wolf** hunts (and guards; hungry, quick tempered), the **Bear** guards and fights
 (sleeps long, likes the crops), the **Bull** hauls (and ploughs and builds; short temper), the stone **Golem** builds
@@ -55,7 +69,7 @@ map leaves it to the raid's drawing (`CreatureView.fighting`).
 
 **Seen.** `snapshot.creature` (`creatureView`). `map/mapCreature.ts` draws it in the iso view's things (moved onto the
 diamonds by `placeLoose`): its kind's stand-in (`CREATURE_DEFS[k].look`: the snow ape `snowmonkey` block 0, the white
-werewolf `werewolf_white`, the bear `bear` block 5, the minotaur `minotaur_1`, the stone golem `golems` block 1; all
+werewolf `werewolf_white`, the brown bear `bear` block 0, the minotaur `minotaur_1`, the stone golem `golems` block 1; all
 already in the game and credited), scaled by `drawScale(size)` (0.9 to 2.5 a person's height), tinted by
 `creatureTint(align)` (white in the middle, to `TINT_GOOD` gold, to `TINT_EVIL` red-black); a good beast is also
 brightened (a ColorMatrix filter, set only when it changes by a tenth) and stands in a gold aura, since a tint only
@@ -85,4 +99,5 @@ moods, starving, the player's commands, work, raids, old saves).
   them.
 
 Pictures (phone sizes, 393x852 and 852x393) in `docs/notes/great-creature/`: the saga's start in the news, the pick,
-the beast young and good and huge and cruel on the map, side by side close up, and its card.
+the pick's lineup (upright and sideways, the wolf lunging and stepped forward with its card, the confirm step), the beast
+young and good and huge and cruel on the map, side by side close up, and its card.

@@ -159,6 +159,7 @@ function enter(s: GameState, r: SagaRun, id: string): void {
         defaultOption: c.default ?? 0,
         expiresTick: c.waits ? Number.MAX_SAFE_INTEGER : s.tick + hours(SAGA_ASK_HOURS),
         ...(c.waits ? { waits: true } : {}),
+        ...(c.beasts ? { beasts: true } : {}),
       });
       break;
     }

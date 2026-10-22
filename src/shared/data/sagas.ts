@@ -50,7 +50,8 @@ export type Foes = Record<string, number> | ((s: GameState) => Partial<Record<st
 
 export type Chapter =
   /** (`waits`: the game is held until it is answered, like a question on the founder's own trip.) */
-  | { kind: 'choice'; text: string; picture: BackdropId; options: SagaOption[]; default?: number; waits?: boolean }
+  /** (`beasts`: the great creature's pick, shown as its lineup of the five: renderer/mobile/beastLineup.ts) */
+  | { kind: 'choice'; text: string; picture: BackdropId; options: SagaOption[]; default?: number; waits?: boolean; beasts?: boolean }
   | {
       kind: 'trip';
       /** The place on the Expedition Board, and what the board says of it. */

@@ -845,6 +845,8 @@ export interface Prompt {
   road?: string;
   /** A saga's question: the run it belongs to (sim/sagas.ts). */
   saga?: number;
+  /** The great creature's pick: its options are the five kinds in `CREATURE_KINDS`' order (shown as a lineup). */
+  beasts?: boolean;
   /** A road question on a trip the founder is on: no timer, no default, and the game is held until it is answered
    *  (sim/founderQuests.ts). */
   waits?: boolean;

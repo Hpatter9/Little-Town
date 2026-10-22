@@ -26,6 +26,7 @@ import { footprint as footprintOf } from '../shared/sim/buildings';
 import { regionOfCell } from '../shared/sim/land';
 import { MapDragon } from './map/mapDragon';
 import { MapCreature } from './map/mapCreature';
+import { SHEETS, type CreatureSheet, type SheetDef } from './art/creatureSheets';
 import { creatureCard } from './map/creatureCard';
 import { MapSky, skyFor } from './map/mapSky';
 import { MapPets, type PetHome } from './map/mapPets';
@@ -468,6 +469,9 @@ async function start(): Promise<void> {
   const penned = new MapRaiders(lay); // (the ranch's beasts in their pens: sim/ranch.ts)
   const beast = new MapCreature(lay); // (the town's great creature: sim/creature.ts)
   (window as unknown as { __beast?: MapCreature }).__beast = beast; // (for previews)
+  // (the creature sheets, for the page's lineup of the great creature's pick: mobile/beastLineup.ts; the page borrows
+  // the strip's pictures rather than carrying its own copies)
+  (window as unknown as { __sheetOf?: (id: string) => SheetDef | undefined }).__sheetOf = (id) => SHEETS[id as CreatureSheet];
   // (on the phone the page around the strip shows it, at its own size: mobile/mobile.ts)
   const beastAsk = phone ? { show: () => undefined, hide: () => undefined } : createBeastAsk((praise) => bridge.command({ type: 'creature', op: praise ? 'praise' : 'scold' }));
   (window as unknown as { __penned?: unknown }).__penned = penned; // (for previews)

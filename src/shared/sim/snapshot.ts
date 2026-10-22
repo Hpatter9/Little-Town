@@ -630,6 +630,8 @@ export interface PromptView {
   /** An evolution's roads (data/paths.ts, data/pathLore.ts): each with its archetype's role, its telling and its
    *  signature skill, in the options' order. */
   roads?: RoadView[];
+  /** The great creature's pick (sim/creature.ts): the options are the five kinds in order, shown as a lineup. */
+  beasts?: boolean;
 }
 export interface RoadView {
   id: string;
@@ -1651,6 +1653,7 @@ function snapshotOf(s: GameState): Snapshot {
       secondsLeft: p.expiresTick >= Number.MAX_SAFE_INTEGER ? null : Math.max(0, (p.expiresTick - s.tick) / TICK_HZ),
       ...(p.parked ? { parked: true } : {}),
       ...(p.roads ? { roads: p.roads.map(roadOf).filter((r): r is RoadView => !!r) } : {}),
+      ...(p.beasts ? { beasts: true } : {}),
     })),
     raid: s.raid && !s.raid.veil
       ? {

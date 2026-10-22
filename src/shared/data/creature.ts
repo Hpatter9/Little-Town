@@ -21,6 +21,12 @@ export interface CreatureKindDef {
   name: string;
   /** One line for the pick. */
   blurb: string;
+  /** For the pick's lineup (mobile/beastLineup.ts): its title, a few lines of what it's like, the work it's best at
+   *  and what it needs most. */
+  title: string;
+  flavour: string[];
+  goodAt: string;
+  needsMost: string;
   /** How fast praise and scolding sink in (1 is the usual). */
   learn: number;
   /** What it is good at: each deed's weight and its work multiplied by this (1 when left out). */
@@ -46,6 +52,10 @@ export const CREATURE_DEFS: Readonly<Record<CreatureKind, CreatureKindDef>> = {
   ape: {
     name: 'Ape',
     blurb: 'Quick to learn and clever with its hands; it craves company and gets up to mischief.',
+    title: 'The Clever One',
+    flavour: ['It watches everything and copies it: it will learn whatever you teach it, good or bad, faster than any other.', 'Playful and fond of the children; left alone it grows lonely, and a lonely ape gets into the stores.'],
+    goodAt: 'the fields, healing the hurt, playing with the children',
+    needsMost: 'company: play with it, praise it',
     learn: 1.8,
     strengths: { play: 2, heal: 1.8, farm: 1.4, haul: 1.1, steal: 1.5 },
     hunger: 3, rest: 2.5, play: 5, temper: 0.4,
@@ -55,6 +65,10 @@ export const CREATURE_DEFS: Readonly<Record<CreatureKind, CreatureKindDef>> = {
   wolf: {
     name: 'Wolf',
     blurb: 'A born hunter that keeps the larder full and the edges watched; hungry, and quick to bare its teeth.',
+    title: 'The Hunter',
+    flavour: ['It hunts from the day it can walk, and the larder is never empty while it runs.', 'Loyal and watchful at the edges of the town, but always hungry, and quick to bare its teeth.'],
+    goodAt: 'hunting, standing guard',
+    needsMost: 'food, and plenty of it',
     learn: 1.1,
     strengths: { hunt: 2.6, guard: 1.4, fight: 1.3, scare: 1.3 },
     hunger: 5, rest: 2.5, play: 3, temper: 0.6,
@@ -64,15 +78,23 @@ export const CREATURE_DEFS: Readonly<Record<CreatureKind, CreatureKindDef>> = {
   bear: {
     name: 'Bear',
     blurb: 'A great guard and a terror in a fight; it sleeps long and has a taste for the fields.',
+    title: 'The Guardian',
+    flavour: ['Slow to rouse and terrible when roused: nothing comes over the wall while it stands there.', 'It sleeps long, and has a weakness for the honey and the crops.'],
+    goodAt: 'guarding, fighting raiders',
+    needsMost: 'rest: it sleeps long',
     learn: 1,
     strengths: { guard: 2.6, fight: 1.5, hunt: 1.2, eat_crops: 1.4, sleep: 1.5 },
     hunger: 4.5, rest: 4, play: 2, temper: 0.5,
     hp: 190, attack: 17, eats: 'food',
-    look: { sheet: 'bear', block: 5, scale: 1.2 },
+    look: { sheet: 'bear', block: 0, scale: 1.2 },
   },
   bull: {
     name: 'Bull',
     blurb: 'A horned beast like the minotaurs of old: it hauls and ploughs like ten oxen, and its temper is short.',
+    title: 'The Strong Back',
+    flavour: ['Horned and huge like the minotaurs of old, it hauls and ploughs like ten oxen.', 'It does not forgive a slight, and its temper is the shortest of the five.'],
+    goodAt: 'hauling, the fields, building',
+    needsMost: 'food, and a calm hand',
     learn: 0.9,
     strengths: { haul: 2.6, farm: 1.5, build: 1.3, scare: 1.2 },
     hunger: 4, rest: 2, play: 2, temper: 0.8,
@@ -82,6 +104,10 @@ export const CREATURE_DEFS: Readonly<Record<CreatureKind, CreatureKindDef>> = {
   golem: {
     name: 'Golem',
     blurb: 'Stone that walks: a tireless builder that eats rock, slow to learn and slow to anger.',
+    title: 'The Builder',
+    flavour: ['Stone that walks, and works without tiring: walls go up wherever it goes.', 'It eats rock, learns slowly and is slow to anger, and it never forgets.'],
+    goodAt: 'building, hauling stone',
+    needsMost: 'stone to eat',
     learn: 0.6,
     strengths: { build: 2.8, haul: 1.6, guard: 1.2 },
     hunger: 1.5, rest: 1.5, play: 1.5, temper: 0.3,
@@ -206,3 +232,15 @@ export const CREATURE_ENEMIES: Record<string, EnemyDef> = Object.fromEntries(
 );
 /** The kind a board unit is, or null. */
 export const unitKind = (id: string): CreatureKind | null => (CREATURE_KINDS.find((k) => creatureUnit(k) === id) ?? null);
+
+/** The pick's bars at a glance (0 to 1): how fast it learns, how strong it grows, its temper, its appetite. */
+export function kindStats(k: CreatureKind): { label: string; value: number }[] {
+  const d = CREATURE_DEFS[k];
+  const most = Math.max(...CREATURE_KINDS.map((q) => CREATURE_DEFS[q].hp * CREATURE_DEFS[q].attack));
+  return [
+    { label: 'Learning', value: d.learn / 1.8 },
+    { label: 'Strength', value: (d.hp * d.attack) / most },
+    { label: 'Temper', value: d.temper },
+    { label: 'Appetite', value: d.hunger / 5 },
+  ];
+}

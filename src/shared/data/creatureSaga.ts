@@ -33,6 +33,7 @@ export const CREATURE_SAGA_DEF: SagaDef = {
       kind: 'choice',
       picture: 'forest_3',
       waits: true,
+      beasts: true,
       text: 'In the hollow lies a broken nest of the old great beasts, the mother long gone. Five young survive, each of a different kind, hungry and watching {founder}. The town can raise only one. Which will {founder} take home?',
       options: CREATURE_KINDS.map((k) => ({
         label: `The ${CREATURE_DEFS[k].name}: ${CREATURE_DEFS[k].blurb}`,

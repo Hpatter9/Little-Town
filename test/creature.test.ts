@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { ASK_HOURS, CREATURE_KINDS, CREATURE_SAGA, CREATURE_TOPIC, GROW_PACED_DAYS, TINT_GOOD, creatureTint } from '../src/shared/data/creature';
+import { ASK_HOURS, CREATURE_DEFS, CREATURE_KINDS, kindStats, CREATURE_SAGA, CREATURE_TOPIC, GROW_PACED_DAYS, TINT_GOOD, creatureTint } from '../src/shared/data/creature';
 import { forgone } from '../src/shared/data/originResearch';
 import { ORIGINS } from '../src/shared/data/origins';
 import { DANGER_PACE } from '../src/shared/data/pace';
@@ -64,6 +64,14 @@ test('the saga begins only after the research, and its pick holds the game for t
   const q = s.prompts.find((p) => p.kind === 'saga')!;
   assert.ok(q, 'the pick is asked');
   assert.equal(q.options.length, 5);
+  assert.ok(q.beasts && snapshot(s).prompts.find((p) => p.id === q.id)?.beasts, 'shown as the lineup of the five');
+  CREATURE_KINDS.forEach((k, i) => assert.match(q.options[i], new RegExp(CREATURE_DEFS[k].name), 'the options in the kinds\' order'));
+  for (const k of CREATURE_KINDS) {
+    const d = CREATURE_DEFS[k];
+    assert.ok(d.title && d.flavour.length >= 2 && d.goodAt && d.needsMost, `${k} has its card`);
+    for (const b of kindStats(k)) assert.ok(b.value > 0 && b.value <= 1, `${k} ${b.label}`);
+  }
+  assert.equal(kindStats('ape')[0].value, 1, 'the ape learns fastest');
   assert.ok(q.waits && q.expiresTick === Number.MAX_SAFE_INTEGER, 'it waits for the player');
   assert.ok(waitingOnFounder(s), 'the game is held');
   const bear = q.options.findIndex((o) => /Bear/.test(o));
