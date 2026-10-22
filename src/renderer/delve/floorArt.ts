@@ -25,6 +25,7 @@ export interface Laid {
 }
 
 const LIQUIDS: Record<string, string> = { '~': 'water', W: 'deep', P: 'chasm', L: 'lava' };
+const OUTDOORS: Record<string, string> = { g: 'grass', d: 'dirt', s: 'sand', n: 'snow' };
 
 /** The ground and walls of a floor (`found`: the secret doors found, by cell). */
 export function groundTiles(m: HandMap, found: ReadonlySet<number> = new Set()): Laid[] {
@@ -60,6 +61,7 @@ export function groundTiles(m: HandMap, found: ReadonlySet<number> = new Set()):
         continue;
       }
       if (c === 'i') out.push({ name: 'ice', u, v });
+      else if (OUTDOORS[c]) out.push({ name: c === 'g' && (((u * 73856093) ^ (v * 19349663)) >>> 0) % 17 === 0 ? 'grass_dark' : OUTDOORS[c], u, v });
       else if (c === '=') {
         // (a bridge over whatever it crosses: the liquid beside it)
         const under = [at(u - 1, v), at(u + 1, v), at(u, v - 1), at(u, v + 1)].find((x) => LIQUIDS[x]);
