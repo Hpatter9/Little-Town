@@ -5,7 +5,7 @@
 //   tavern's hubbub (all day, loud of an evening and while folk are drinking there) and a fiddle tune at night or with
 //   drinkers in; the market's chatter (the shops open by day, the square on market day); hymns at the shrine or temple
 //   (a rite, and of a morning); the forge's clang and the workshops' noise while an order is being made at them
-//   (`workingAt`); the pens' herds lowing, bleating, grunting or clucking.
+//   (`workingAt`); a festival's crowd; the pens' herds lowing, bleating, grunting or clucking.
 // - `zoneMix(sources, view)`: how loud each kind is heard and where across the screen: by how near the middle of the
 //   view each source is (`HEAR`: a little past its edge is still heard, faintly) and by the zoom (`ZOOM_REF`: zoomed
 //   out, the view is wider and everything a little quieter; zoomed in, louder), panned left and right by where it is.
@@ -16,8 +16,8 @@ import { buildingCentre } from '../shared/sim/buildings';
 import type { Building } from '../shared/sim/state';
 import { stationCue } from './sfx';
 
-export type ZoneKind = 'tavern' | 'fiddle' | 'market' | 'hymns' | 'forge' | 'workshop' | 'herd';
-export const ZONE_KINDS: readonly ZoneKind[] = ['tavern', 'fiddle', 'market', 'hymns', 'forge', 'workshop', 'herd'];
+export type ZoneKind = 'tavern' | 'fiddle' | 'market' | 'hymns' | 'forge' | 'workshop' | 'herd' | 'festival';
+export const ZONE_KINDS: readonly ZoneKind[] = ['tavern', 'fiddle', 'market', 'hymns', 'forge', 'workshop', 'herd', 'festival'];
 /** Which herd is heard: each its own call. */
 export type Animal = 'cattle' | 'sheep' | 'goat' | 'pig' | 'hen';
 
@@ -44,7 +44,7 @@ export interface ZoneTown {
   buildings: Pick<Building, 'id' | 'def' | 'tile' | 'row' | 'status' | 'herd' | 'wide' | 'turned'>[];
   workingAt: number[];
   market: { x: number; y: number } | null;
-  gathering: { kind: string } | null;
+  gathering: { kind: string; x?: number; y?: number } | null;
   people: { activity: string; away: unknown }[];
   raid: { phase: string } | null;
 }
@@ -112,6 +112,12 @@ export function zoneSources(t: ZoneTown): ZoneSource[] {
       const day = t.calendar.daylight > 0.3 ? 1 : 0.3;
       out.push({ kind: 'herd', ...at, strength: Math.min(1, 0.3 + b.herd!.head / 8) * day, animal });
     }
+  }
+  // a festival, a feast or a wedding: the crowd (and bunting flapping) at the ring, and a fiddle playing for it
+  const g = t.gathering;
+  if (g && g.x !== undefined && g.y !== undefined && (g.kind === 'festival' || g.kind === 'feast' || g.kind === 'wedding')) {
+    const s = g.kind === 'festival' ? 1 : 0.5;
+    out.push({ kind: 'festival', x: g.x, y: g.y, strength: s }, { kind: 'fiddle', x: g.x, y: g.y, strength: 0.6 * s });
   }
   // market day: the square full of stalls and cries
   if (t.market) out.push({ kind: 'market', x: t.market.x, y: t.market.y, strength: 1 });
