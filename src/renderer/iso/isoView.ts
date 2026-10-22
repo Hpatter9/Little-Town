@@ -71,9 +71,14 @@ export class IsoView {
   readonly flat = new Container();
   /** The top-down map's `over` (effects over everything: ash, flood spray, confetti, spells), on the diamonds too. */
   readonly overFlat = new Container();
+  /** Effects that rise upright from a point on the land (smoke, sparks, steam, the gains floating up): drawn in iso px
+   *  (not squashed with the ground), over the things. Callers put a point on the screen with `isoOf`. */
+  readonly screenFx = new Container();
+  /** Buildings whose kit piece is not drawn because something else shows them (a stockpile's heaps). */
+  readonly artHidden = new Set<number>();
   readonly lightLayer = new Container();
   /** After dark: the windows' and lamps' glow (added), the marked cells for clearing, the doors and gates. */
-  private readonly glow = new Container();
+  readonly glow = new Container();
   /** (over the light map, so the marks show plainly at night too) */
   private readonly marks = new Graphics();
   /** Fog and the like that drifts over the land in screen px (the sky's banks: map/mapSky.ts). */
@@ -103,7 +108,8 @@ export class IsoView {
     this.lightLayer.eventMode = 'none';
     this.flat.eventMode = 'none';
     this.overFlat.eventMode = 'none';
-    this.world.addChild(this.ground, this.overlay, this.flat, this.things, this.overFlat, this.lightLayer, this.glow, this.marks);
+    this.screenFx.eventMode = 'none';
+    this.world.addChild(this.ground, this.overlay, this.flat, this.things, this.overFlat, this.screenFx, this.lightLayer, this.glow, this.marks);
     this.root.addChild(this.world, this.air);
   }
 
@@ -277,7 +283,7 @@ export class IsoView {
         }
       }
       const tex = this.texOf(piece);
-      const key = `${this.kit.name}:${piece}:${flip ? 'f' : ''}:${b.status}:${b.fire !== undefined ? 1 : 0}:${foot.x},${foot.y},${foot.w},${foot.h}:${tex ? 1 : 0}:${this.texGen}`;
+      const key = `${this.kit.name}:${piece}:${flip ? 'f' : ''}:${b.status}:${b.fire !== undefined ? 1 : 0}:${this.artHidden.has(b.id) ? 'h' : ''}:${foot.x},${foot.y},${foot.w},${foot.h}:${tex ? 1 : 0}:${this.texGen}`;
       let d = this.buildings.get(b.id);
       if (!d) {
         const sprite = new Sprite();
@@ -291,7 +297,7 @@ export class IsoView {
       if (d.key === key) continue;
       d.key = key;
       const s = d.sprite;
-      s.visible = !!tex;
+      s.visible = !!tex && !this.artHidden.has(b.id);
       if (!tex) continue;
       s.texture = tex;
       const span = footWidth(foot);
@@ -629,6 +635,12 @@ export class IsoView {
     return worldToIso(wx, wy, this.ox);
   }
 
+  /** The top of a building's picture (iso px, the middle of its width), for what flies over it: null if it isn't drawn. */
+  topOf(id: number): { x: number; y: number } | null {
+    const s = this.buildings.get(id)?.sprite;
+    return s?.visible ? { x: s.x, y: s.y - s.height } : null;
+  }
+
   /** The building whose picture is under a screen point, the front-most first (a roof hides what's behind it). */
   buildingAt(sx: number, sy: number): number | null {
     const x = sx - this.world.x - this.root.x;
@@ -638,7 +650,7 @@ export class IsoView {
     if (room !== null) best = { id: room, z: -1 };
     for (const [id, d] of this.buildings) {
       const s = d.sprite;
-      if (!s.visible) continue;
+      if (!s.visible && !(this.artHidden.has(id) && s.texture.width > 1)) continue;
       const w = s.width;
       const h = s.height;
       if (x < s.x - w / 2 || x > s.x + w / 2 || y < s.y - h || y > s.y) continue;

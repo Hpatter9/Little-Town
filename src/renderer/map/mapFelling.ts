@@ -28,6 +28,8 @@ const AUTUMN_TINTS = [0xd09030, 0xc06028, 0xe0b040, 0x9a5a28];
 interface Falling {
   s: Sprite;
   kind: 'tree' | 'rock';
+  /** In the iso view, the stage it and its leaves, chips and dust are on (see `Stage`). */
+  box: Container | null;
   way: 1 | -1;
   age: number;
   x: number;
@@ -46,7 +48,19 @@ interface Mote {
   leaf: boolean;
 }
 
+/** In the iso view a fall has a stage of its own: a container loose in the sorted things at the foot of the tree, its
+ *  pieces moving in screen px about it (the top-down map moves them in world px). */
+interface Stage {
+  box: Container;
+  x: number;
+  y: number;
+}
+
 export class MapFelling {
+  private iso = false;
+  private readonly stages = new Set<Container>();
+  /** The stage the pieces being made now go on (none: in the top-down map). */
+  private at: Stage | null = null;
   private readonly falling: Falling[] = [];
   private readonly motes: Mote[] = [];
   private readonly stumps = new Map<number, Sprite>();
@@ -55,18 +69,40 @@ export class MapFelling {
   /** The season (autumn's leaves fly gold), from MapView. */
   season = 'summer';
 
-  constructor(private readonly things: Container) {
+  constructor(private things: Container) {
     choresTex(() => (this.key = ''));
+  }
+
+  /** Draw in the iso view's `things` instead (each fall on its own stage). */
+  useIso(things: Container): void {
+    this.things = things;
+    this.iso = true;
+    this.key = '';
+  }
+
+  private stageOf(f: Falling): Stage | null {
+    return f.box ? { box: f.box, x: f.x, y: f.y } : null;
   }
 
   /** A tree or a rock the map drew on a cell just cleared: it falls or breaks where it stood. */
   fall(tex: Texture, fx: number, fy: number, kind: 'tree' | 'rock', cell: number, calm: boolean): void {
     if (calm || this.falling.length >= MOST_FALLING) return;
-    const s = this.things.addChild(new Sprite(tex));
+    let box: Container | null = null;
+    if (this.iso) {
+      box = this.things.addChild(new Container());
+      box.position.set(fx, fy);
+      box.zIndex = fy + 0.5;
+      this.stages.add(box);
+    }
+    this.at = box ? { box, x: fx, y: fy } : null;
+    const s = (box ?? this.things).addChild(new Sprite(tex));
     s.anchor.set(0.5, 0.95);
-    s.position.set(fx, fy);
-    s.zIndex = fy + 0.5;
-    this.falling.push({ s, kind, way: fallWay(cell), age: 0, x: fx, y: fy, landed: false });
+    if (box) s.position.set(0, 0);
+    else {
+      s.position.set(fx, fy);
+      s.zIndex = fy + 0.5;
+    }
+    this.falling.push({ s, kind, box, way: fallWay(cell), age: 0, x: fx, y: fy, landed: false });
     if (kind === 'rock') this.dust(fx, fy - 6, 6, 0xb8b0a0);
   }
 
@@ -126,6 +162,7 @@ export class MapFelling {
   render(dt: number, calm: boolean, wind: number): void {
     for (let i = this.falling.length - 1; i >= 0; i--) {
       const f = this.falling[i];
+      this.at = this.stageOf(f);
       f.age += dt;
       if (calm) f.age = 99;
       if (f.kind === 'tree') {
@@ -148,7 +185,7 @@ export class MapFelling {
         }
       } else {
         // (a shake, then it breaks: shrinking into the ground in a burst of chips)
-        if (f.age < SHAKE_S) f.s.x = f.x + Math.sin(f.age * 90) * 1.5;
+        if (f.age < SHAKE_S) f.s.x = (f.box ? 0 : f.x) + Math.sin(f.age * 90) * 1.5;
         else {
           if (!f.landed) {
             f.landed = true;
@@ -196,17 +233,24 @@ export class MapFelling {
       }
       m.s.alpha = (m.leaf || m.floor ? 1 : 0.35) * (k > 0.6 ? 1 - (k - 0.6) / 0.4 : 1);
     }
+    // (a stage with nothing left on it is taken down)
+    for (const box of this.stages)
+      if (!box.children.length) {
+        box.destroy();
+        this.stages.delete(box);
+      }
   }
 
   private mote(x: number, y: number, tex: Texture, o: Partial<Mote> & { tint: number; size: number }): void {
     if (this.motes.length >= MOTES_MOST) return;
-    const s = this.things.addChild(new Sprite(tex));
+    const at = this.at;
+    const s = (at?.box ?? this.things).addChild(new Sprite(tex));
     s.anchor.set(0.5);
     s.width = s.height = o.size;
     s.tint = o.tint;
-    s.position.set(x, y);
+    s.position.set(x - (at?.x ?? 0), y - (at?.y ?? 0));
     s.zIndex = y + 40;
-    this.motes.push({ s, vx: o.vx ?? 0, vy: o.vy ?? 0, age: 0, life: o.life ?? 1, spin: o.spin ?? 0, floor: o.floor ?? 0, leaf: o.leaf ?? false });
+    this.motes.push({ s, vx: o.vx ?? 0, vy: o.vy ?? 0, age: 0, life: o.life ?? 1, spin: o.spin ?? 0, floor: o.floor ? o.floor - (at?.y ?? 0) : 0, leaf: o.leaf ?? false });
   }
 
   private leaves(x: number, y: number, n: number): void {

@@ -91,10 +91,20 @@ export class MapGains {
   private readonly puffs: Puff[] = [];
   private t = 0;
 
+  /** The iso view: a ground point (world px) to its place on the screen, and the top of a building's picture. The gains
+   *  then float up straight in iso px, from the point on the diamonds (iso/isoView.ts `isoOf`, `topOf`). */
+  private iso: { at: (x: number, y: number) => { x: number; y: number }; top: (id: number) => { x: number; y: number } | null } | null = null;
+
   constructor(over: Container) {
     over.addChild(this.layer);
     // (the pictures asked for early, so the first load stored or sale has them)
     for (const m of MATERIALS) iconTexture(materialIconSpot(m));
+  }
+
+  /** Draw in the iso view's `fx` layer (upright, over the things), through the projections in `iso`. */
+  useIso(fx: Container, iso: NonNullable<MapGains['iso']>): void {
+    fx.addChild(this.layer);
+    this.iso = iso;
   }
 
   /** What rose between two snapshots, and what was finished. */
@@ -118,8 +128,9 @@ export class MapGains {
         label.position.set(-w / 2 + iw + 1, 0);
         box.addChild(label);
       }
-      const y = g.y - (g.kind === 'stored' ? 40 : g.kind === 'made' ? 30 : 22);
-      box.position.set(Math.round(g.x), y);
+      const from = this.iso ? this.iso.at(g.x, g.y) : g;
+      const y = from.y - (g.kind === 'stored' ? 40 : g.kind === 'made' ? 30 : 22);
+      box.position.set(Math.round(from.x), y);
       this.rising.push({ box, age: 0, y });
     }
     for (const f of finished) {
@@ -127,8 +138,9 @@ export class MapGains {
       if (tex) {
         const s = this.layer.addChild(new Sprite(tex));
         s.anchor.set(0.5, 1);
-        s.position.set(f.x, f.top);
-        this.banners.push({ s, age: 0, x: f.x, top: f.top });
+        const flag = this.iso ? this.iso.top(f.id) ?? { x: this.iso.at(f.x, f.y).x, y: this.iso.at(f.x, f.y).y - 50 } : { x: f.x, y: f.top };
+        s.position.set(flag.x, flag.y);
+        this.banners.push({ s, age: 0, x: flag.x, top: flag.y });
       }
       // (dust thrown up along its front, as the last scaffold comes down)
       const r = Math.random;
@@ -137,7 +149,8 @@ export class MapGains {
         s.anchor.set(0.5);
         s.tint = 0xd8c8a8;
         s.width = s.height = 10 + r() * 8;
-        s.position.set(f.x + (r() - 0.5) * f.w, f.y - r() * 8);
+        const base = this.iso ? this.iso.at(f.x, f.y) : f;
+        s.position.set(base.x + (r() - 0.5) * f.w, base.y - r() * 8);
         this.puffs.push({ s, vx: (r() - 0.5) * 40, vy: -8 - r() * 14, age: 0, life: 1 + r() * 0.8 });
       }
     }

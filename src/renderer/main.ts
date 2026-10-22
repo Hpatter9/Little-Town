@@ -489,7 +489,7 @@ async function start(): Promise<void> {
   const townLife = new MapTownLife(lay, map.over, map.lights, (id) => people.posOf(id));
   (window as unknown as { __townLife?: MapTownLife }).__townLife = townLife; // (previews)
   (window as unknown as { __graves?: MapGraves }).__graves = graves; // (previews)
-  const market = new MapMarket(map.things); // (market day's stalls)
+  const market = new MapMarket(lay); // (market day's stalls)
   const decor = new SeasonDecor(map.things, map.lights); // (the doors dressed for the season)
   const homes = new HomeDecor(map.things); // (homes showing their folk's means, and the plague's marked doors)
   (window as unknown as { __homes?: HomeDecor }).__homes = homes; // (previews)
@@ -504,7 +504,7 @@ async function start(): Promise<void> {
   const skiffs = new MapSkiffs(map.things); // (boats along the rivers)
   // work you can see: trees falling and their stumps, the stockpile's heaps, gains floating up, the harvest left in the
   // field, the well and the washing (map/workSeen.ts)
-  const felling = new MapFelling(map.things);
+  const felling = new MapFelling(lay);
   /** The least time between two falls heard (ms). */
   const FELL_HEARD_MS = 1500;
   let lastFelled = 0;
@@ -518,9 +518,20 @@ async function start(): Promise<void> {
     lastFelled = now;
     if (view.music && !view.hidden && x >= mv.x && x <= mv.x + mv.w && y >= mv.y && y <= mv.y + mv.h) ambience.cue(kind === 'tree' ? 'timber' : 'crumble', ((x - mv.x) / Math.max(1, mv.w)) * 1.6 - 0.8);
   };
-  const stockpile = new MapStockpile(map.things, map.artHidden);
+  const stockpile = new MapStockpile(lay, iso ? iso.artHidden : map.artHidden);
   const gainsView = new MapGains(map.over);
-  const chores = new MapChores(map.things);
+  const chores = new MapChores(lay);
+  if (iso) {
+    // (the work and festival layers drawn in world px on top-down building sprites: here on the diamonds instead;
+    //  what rises upright goes through `isoOf`, into `screenFx`)
+    const at = (x: number, y: number) => iso.isoOf(x, y);
+    map.festival.useIso(iso.things);
+    felling.useIso(iso.things);
+    chores.useIso(iso.things);
+    gainsView.useIso(iso.screenFx, { at, top: (id) => iso.topOf(id) });
+    map.smokeColumns.useIso(iso.screenFx, at);
+    map.workFx.useIso(iso.screenFx, iso.glow, at);
+  }
   (window as unknown as { __workSeen?: unknown }).__workSeen = { felling, stockpile, gains: gainsView, chores, people }; // (previews)
   const traffic = new RoadTraffic(map.things); // (carts along the roads)
   (window as unknown as { __traffic?: unknown }).__traffic = { skiffs, traffic, ground: map.groundWeather }; // (previews)
@@ -2039,6 +2050,7 @@ async function start(): Promise<void> {
       map.setBuildingStyle(buildingTint(next.theme), style);
     }
     map.syncLand(next.land, next.calendar.season, next.biome, next.era); // (paints again only what changed)
+    stockpile.sync(next.buildings); // (before the buildings, so a stockpile's own picture is hidden at once)
     if (iso) {
       iso.syncLand(next.land);
       iso.setKit(kitNameFor(next.origin.id, next.theme));
@@ -2052,7 +2064,6 @@ async function start(): Promise<void> {
       iso.setWalkers([...next.people.filter((p) => p.away === null && !p.indoors), ...(next.raid?.phase === 'active' ? next.raid.raiders : [])]);
       iso.setLamps(next.lights ? next.lights.lights.filter((l) => l.lit && l.room === null) : []);
     }
-    stockpile.sync(next.buildings); // (before the buildings, so a stockpile's own picture is hidden at once)
     // (the gates shut at night and when raiders come: the palisade's are drawn closed)
     map.gatesShut = next.calendar.hour >= GATES_SHUT_FROM || next.calendar.hour < GATES_OPEN_AT || !!next.raid;
     map.syncBuildings(next.villageBuildings.length ? [...next.buildings, ...next.villageBuildings] : next.buildings);
