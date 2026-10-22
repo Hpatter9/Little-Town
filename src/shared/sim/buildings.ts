@@ -162,6 +162,23 @@ export function storages(s: GameState): Building[] {
 
 /** Everything held in storage, summed. */
 export function totalStock(s: GameState): Stock {
+  if (stockScope?.s === s) return { ...stockScope.stock };
+  return sumStock(s);
+}
+
+/** While a snapshot is made nothing changes, but its parts ask for the stores' total again and again: summed once. */
+let stockScope: { s: GameState; stock: Stock } | null = null;
+export function withStockScope<T>(s: GameState, f: () => T): T {
+  if (stockScope) return f();
+  stockScope = { s, stock: sumStock(s) };
+  try {
+    return f();
+  } finally {
+    stockScope = null;
+  }
+}
+
+function sumStock(s: GameState): Stock {
   const out: Stock = {};
   for (const b of storages(s)) for (const m of MATERIALS) if (b.store[m]) addStock(out, m, b.store[m]!);
   return out;

@@ -75,6 +75,7 @@ import { natureOf, type NatureId } from '../data/natures';
 import { ageDays, ageLine, ageYears, isElder, lifeStage, type LifeStage } from './ageing';
 import { ROOM_SECONDS, TWISTS } from '../data/dungeons';
 import { bossName, delveRoomTicks, quietHours } from './delves';
+import { LOOK_OF_TYPE } from './delveFloors';
 import { HOME_REGION } from '../data/regions';
 import type { Biome } from '../data/biomes';
 import type { ClassId } from '../data/classes';
@@ -160,7 +161,7 @@ import { heirOf } from './health';
 import { RESEARCH_STATIONS, TOPIC_BY_ID } from '../data/research';
 import { SKILLS, skillSpeed, xpToNext, type Skill } from '../data/skills';
 import { TERRAIN } from '../data/terrain';
-import { buildingCentre, buildingCentreX, buildSlots, defOf, enclosure, footprint, totalCapacity, totalStock } from './buildings';
+import { buildingCentre, buildingCentreX, buildSlots, defOf, enclosure, footprint, totalCapacity, totalStock, withStockScope } from './buildings';
 import { destinationHidden, destinationOf, destinationUnlocked, foodNeeded, partyCarry, planParty } from './expeditions';
 import { OFFER_WAIT_TICKS } from './researchOffer';
 import { modifiers, researchStation, researchStations, seatStageNow } from './research';
@@ -686,7 +687,7 @@ export interface ExpeditionView {
   /** A delve: the room they're in (1 up; 0 at the door) of how many, what it is, torches left, what's happened lately. */
   /** An assault (sim/factions.ts): the wave on now (0 before the fight) and how many. */
   assault: { wave: number; total: number; target: string } | null;
-  delve: { room: number; rooms: number; kind: string | null; torches: number; log: string[]; cleared: boolean; progress: number; twist: string | null; twistText: string; boss: string } | null;
+  delve: { room: number; rooms: number; kind: string | null; torches: number; log: string[]; cleared: boolean; progress: number; twist: string | null; twistText: string; boss: string; floor?: string; plan: string[]; look: string } | null;
   /** The Moon Pack's full-moon hunt. */
   hunt: boolean;
   /** The last fight's outcome, while fresh (the victory screen): how long ago it ended, in ticks. */
@@ -1417,11 +1418,15 @@ function founderView(s: GameState): FounderView | null {
     .sort((a, b) => rank[a.role] - rank[b.role]);
   const open = windsOpen(s);
   const winds = EXPLORE_DIRS.map((name, dir) => ({ dir, name, open: open[dir] }));
-  return { id: f.id, winds, order, heir: next ? { id: next.id, name: next.name, named: next.id === s.heirId } : null, heirs, jobs: JOBS.filter((j) => j !== 'defend'), ...founderShopsView(s), duels: duelChoices(s), duelBlock: duelBlock(s), duel: s.duel ? { foe: s.duel.foe.name, to: s.duel.to, over: s.duel.ended !== undefined, text: s.duel.text ?? null } : null, uniqueNames: { ...(s.uniqueNames ?? {}) }, dealings: dealingsView(s) };
+  return { id: f.id, winds, order, heir: next ? { id: next.id, name: next.name, named: next.id === s.heirId } : null, heirs, jobs: JOBS.filter((j) => j !== 'defend'), ...founderShopsView(s), duels: slow(s, 'duels', () => duelChoices(s)), duelBlock: duelBlock(s), duel: s.duel ? { foe: s.duel.foe.name, to: s.duel.to, over: s.duel.ended !== undefined, text: s.duel.text ?? null } : null, uniqueNames: { ...(s.uniqueNames ?? {}) }, dealings: dealingsView(s) };
 }
 
 
 export function snapshot(s: GameState): Snapshot {
+  return withStockScope(s, () => snapshotOf(s));
+}
+
+function snapshotOf(s: GameState): Snapshot {
   const stock = totalStock(s);
   const v = s.visitor;
   return {
@@ -2094,8 +2099,9 @@ function tripsView(s: GameState): TripsView {
 
 function destPower(s: GameState, d: Destination): { partyPower: number; foesPower: number; matchup: Matchup | null } {
   const plan = slow(s, `party:${d.id}`, () => planParty(s, d.id));
-  const mine = powerOfParty(plan.members.flatMap((id) => s.people.find((q) => q.id === id) ?? []));
-  const foes = foesToExpect(d);
+  // (a party's power is worked out from each member's whole kit: kept a few seconds like the plan)
+  const mine = slow(s, `partyPower:${d.id}`, () => powerOfParty(plan.members.flatMap((id) => s.people.find((q) => q.id === id) ?? [])));
+  const foes = slow(s, `foes:${d.id}`, () => foesToExpect(d));
   return { partyPower: mine, foesPower: foes, matchup: foes > 0 ? matchupOf(mine, foes) : null };
 }
 
@@ -2401,7 +2407,7 @@ function raidPowers(s: GameState): { power: number; townPower: number; matchup: 
   const raid = s.raid!;
   const power = raid.raiders.filter((r) => !r.ally && !r.down && !r.gone).reduce((t, r) => t + powerOfEnemy(r.kind, r.might ?? 1), 0);
   const allies = raid.raiders.filter((r) => r.ally && !r.down && !r.gone).reduce((t, r) => t + powerOfEnemy(r.kind, r.might ?? 1), 0);
-  const town = s.people.filter((p) => p.type !== 'child' && !p.downed && p.away === null && p.hp > 0).reduce((t, p) => t + powerOfPerson(p), 0) + allies;
+  const town = brief(s, 'townPower', () => s.people.filter((p) => p.type !== 'child' && !p.downed && p.away === null && p.hp > 0).reduce((t, p) => t + powerOfPerson(p), 0)) + allies;
   return { power, townPower: town, matchup: matchupOf(town, power) };
 }
 
@@ -2569,7 +2575,7 @@ function expeditionView(s: GameState, e: Expedition): ExpeditionView {
     hunt: !!e.hunt,
     result: e.result && s.tick - e.result.tick < RESULT_TICKS ? { ...e.result, age: s.tick - e.result.tick } : null,
     assault: e.assault ? { wave: e.battle?.wave ?? e.assault.wave, total: e.assault.total, target: e.assault.target } : null,
-    delve: v ? { room: v.at + 1, rooms: v.rooms.length, kind: v.at >= 0 ? v.rooms[v.at] : null, torches: v.torches, log: [...v.log], cleared: !!v.cleared, progress: Math.min(1, v.ticks / delveRoomTicks(s, v)), twist: v.twist && v.twist !== 'none' ? TWISTS[v.twist].name : null, twistText: v.twist ? TWISTS[v.twist].text : '', boss: bossName(v) } : null,
+    delve: v ? { room: v.at + 1, rooms: v.rooms.length, kind: v.at >= 0 ? v.rooms[v.at] : null, torches: v.torches, log: [...v.log], cleared: !!v.cleared, progress: Math.min(1, v.ticks / delveRoomTicks(s, v)), twist: v.twist && v.twist !== 'none' ? TWISTS[v.twist].name : null, twistText: v.twist ? TWISTS[v.twist].text : '', boss: bossName(v), ...(v.floor ? { floor: v.floor } : {}), plan: [...v.rooms], look: LOOK_OF_TYPE[DUNGEON_BY_ID[e.dest]?.type ?? 'crypt'] } : null,
   };
 }
 
