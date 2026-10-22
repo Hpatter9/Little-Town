@@ -25,6 +25,7 @@ import { corpseAlpha, FALL_TICKS, HEAVY, MELEE_LAND, motionOf, moveSprite, TickC
 import { impactFrame, IMPACT_SIZE, SPLAT_SIZE, splatFrame } from '../art/effects';
 import { bleeds } from '../map/bloodPools';
 import { ELITES, type EliteAffix } from '../../shared/data/dungeons';
+import { FloorMap } from '../delve/floorMap';
 import { loadDelveProps, propFrame, propLoop, type DelveProp } from '../art/delveProps';
 import { sheetOf } from '../town/spellsView';
 import { actSprite } from './actLooks';
@@ -153,6 +154,8 @@ export class FightScene {
   /** Where the party stopped for the room's thing (the scroll then), so it slides away as they walk on. */
   private propAt = 0;
   private propRoom = -1;
+  /** The map of the delve's floor, in the corner (delve/floorMap.ts). */
+  private readonly floorMap = new FloorMap();
   /** The spells' and skills' effects playing where they landed (a pool, reused frame to frame), and when each act was
    *  first seen (ms: the sim's ages are whole ticks, so the frames are timed here). */
   private readonly effects = new Container();
@@ -188,7 +191,7 @@ export class FightScene {
     this.hull.visible = false;
     this.world.mask = this.clip;
     this.root.addChild(this.clip);
-    this.root.addChild(this.cover, this.world);
+    this.root.addChild(this.cover, this.world, this.floorMap.root);
     for (const s of Object.values(SPELL_BY_ID)) this.idByName.set(s.name, s.id);
     for (const a of Object.values(ABILITY_BY_ID)) this.idByName.set(a.name, a.id);
     for (const k of Object.values(KIT_BY_ID)) this.idByName.set(k.name, k.id);
@@ -217,11 +220,13 @@ export class FightScene {
     for (const l of this.layers) l.width = this.vw + 2;
     for (const l of this.layers.slice(0, 3)) l.y = this.hy - BACK_HORIZON;
     this.layers[3].y = Math.round(this.vh - FRONT_H + 8);
+    this.floorMap.layout(w, top, room);
   }
 
   update(v: ExpeditionView | null, biome?: Biome, season?: string, sea = false, mers?: ReadonlySet<number>): void {
     this.root.visible = !!v;
     this.view = v;
+    this.floorMap.update(v?.delve && v.phase === 'work' ? v.delve : null, v?.id ?? 0);
     if (!v) return;
     // (on the road it's the land on the way; arrived at a dungeon, it's inside)
     // (`window.__scene` shows any scene, for previews)
@@ -347,6 +352,7 @@ export class FightScene {
     });
     if (this.ground.visible) this.ground.tilePosition.x = -Math.round(this.scroll);
     this.drawDelve(delve, fighting, now);
+    this.floorMap.render(now, dt);
     this.fx.clear();
     const seen = new Set<string>();
     this.ringed = new Set();

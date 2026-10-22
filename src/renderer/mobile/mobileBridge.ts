@@ -165,7 +165,8 @@ export function mobileBridge(): Bridge {
   });
   window.addEventListener('pagehide', () => send({ t: 'hidden', on: true }));
   // (for poking at it from a desktop browser's console; `__saga(id)` begins a saga, `__hunt(id)` posts a hunt and
-  // `__raid(kind)` starts a raid and `__raidBoard(id)` sets the hand-made board it's fought on, for previews;
+  // `__raid(kind)` starts a raid and `__raidBoard(id)` sets the hand-made board it's fought on, `__delve(dungeon, floor)`
+  // sends a party down a dungeon by a hand-made floor, for previews;
   // `__game.sim.step(n)` runs the town n ticks on)
   const debug =
     (name: string) =>
@@ -173,7 +174,7 @@ export function mobileBridge(): Bridge {
       send({ t: 'debug', name, args });
   Object.assign(window, {
     __game: { sim: { step: (n = 1) => send({ t: 'step', n }) }, command: (c: Parameters<Bridge['command']>[0]) => send({ t: 'command', c }), snapshot: () => assembler.current },
-    ...Object.fromEntries(['saga', 'hunt', 'raid', 'raidBoard', 'disaster', 'festival', 'dragon', 'band', 'skirmish', 'cutscene', 'skies', 'enemy', 'align', 'event'].map((n) => [`__${n}`, debug(n)])),
+    ...Object.fromEntries(['saga', 'hunt', 'raid', 'raidBoard', 'delve', 'disaster', 'festival', 'dragon', 'band', 'skirmish', 'cutscene', 'skies', 'enemy', 'align', 'event'].map((n) => [`__${n}`, debug(n)])),
   });
 
   // the strip's selection, shown in the card at the top of the page (and the card's buttons, back to the strip)
