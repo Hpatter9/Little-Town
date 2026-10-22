@@ -187,4 +187,7 @@ test('traps, turrets and the halls of learning are not drawn as cottages', () =>
   assert.equal(pieceFor(settlers, 'library'), 'longhouse');
   assert.equal(pieceFor(kitOf('orcs'), 'wolf_trap'), 'thorn_bush');
   assert.equal(pieceFor(settlers, 'hold_hallway'), 'cottage');
+  assert.equal(pieceFor(settlers, 'storytellers_circle'), 'campfire');
+  assert.equal(pieceFor(kitOf('knights'), 'stable'), 'stable');
+  assert.equal(pieceFor(kitOf('orcs'), 'beast_ranch'), 'warg_pen');
 });

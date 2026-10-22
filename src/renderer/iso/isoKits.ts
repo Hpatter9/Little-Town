@@ -91,7 +91,7 @@ export function kitOf(name: string): Kit {
 export const kitUrl = (kit: string, piece: string): string => `iso/kits/${kit}/${piece}.png`;
 
 /** The parts a building can be drawn as. */
-export type Role = 'cottage' | 'longhouse' | 'stockpile' | 'workshop' | 'tavern' | 'well' | 'chapel' | 'granary' | 'watchtower' | 'trap' | 'wall_run' | 'wall_corner' | 'gate' | 'market';
+export type Role = 'cottage' | 'longhouse' | 'stockpile' | 'workshop' | 'tavern' | 'well' | 'chapel' | 'granary' | 'watchtower' | 'trap' | 'hearth' | 'pen' | 'wall_run' | 'wall_corner' | 'gate' | 'market';
 /** A building drawn as ground, not a picture: a crop's field (the kit's field tile over its footprint). */
 export type Drawn = { role: Role } | { field: true };
 
@@ -127,6 +127,9 @@ export function roleOf(defId: string): Drawn {
   // (the defences: a trap is a patch of rough ground, a turret or engine a small tower, not a cottage)
   if (/trap|snare|caltrops|boiling_oil|glamour_ring/.test(defId)) return { role: 'trap' };
   if (/turret|ballista|catapult|cannon|mortar|tesla|gun_nest|bastion|thrower|sprayer|arrow_wagon|militia_post|sentry_bot/.test(defId)) return { role: 'watchtower' };
+  // (a gathering round a fire, and the pens for beasts: the kit's own fire or pen where it has one)
+  if (/storyteller/.test(defId)) return { role: 'hearth' };
+  if (/^(kennels|beast_ranch|stable)$/.test(defId)) return { role: 'pen' };
   // (the halls of learning, healing and show are halls)
   if (/^(school|scriptorium|library|university|arcane_academy|arcane_library|hospital|infirmary|trauma_center|theatre|cinema|bathhouse|gaol|prison|monster_guild|print_shop)$/.test(defId)) return { role: 'longhouse' };
   if (/shrine|temple|cathedral|chapel|altar|idol/.test(defId)) return { role: 'chapel' };
@@ -151,6 +154,8 @@ const ROLE_PIECES: Record<Role, (ids: string[]) => string | undefined> = {
   chapel: (ids) => ids.find((i) => i === 'chapel' || i === 'shrine'),
   granary: (ids) => ids.find((i) => i === 'granary'),
   watchtower: (ids) => ids.find((i) => /tower|platform/.test(i)),
+  hearth: (ids) => ids.find((i) => /campfire|bonfire|brazier|stone_circle|fairy_ring/.test(i)) ?? ids.find((i) => /_fire$/.test(i)),
+  pen: (ids) => ids.find((i) => /(^|_)(pen|corral|stable)$/.test(i)),
   trap: (ids) => ids.find((i) => /spike|stake|thorn|bramble/.test(i) && !/_(run|corner|gate|tile)$|fence/.test(i)) ?? ids.find((i) => /rocks/.test(i)) ?? ids.find((i) => /rubble|boulder|scrap_heap/.test(i)),
   wall_run: (ids) => ids.find((i) => i.endsWith('_run')),
   wall_corner: (ids) => ids.find((i) => i.endsWith('_corner')),
