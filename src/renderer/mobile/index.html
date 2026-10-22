@@ -1071,6 +1071,83 @@
         font-size: 13px;
       }
       /* the choices waiting behind a closed card (mobile/waitingChoices.ts), under the news bubble */
+      /* the first-town tutorial (tutorial.ts): a small card away from the control it rings; the veil only marks "reading" */
+      #tutorial[hidden] {
+        display: none;
+      }
+      #tutorial .tut-veil {
+        position: fixed;
+        inset: 0;
+        z-index: 30;
+        background: rgba(8, 6, 4, 0.22);
+        pointer-events: none;
+      }
+      #tutorial .tut-ring {
+        position: fixed;
+        z-index: 32;
+        box-sizing: border-box;
+        border: 3px solid #f0d28e;
+        border-radius: 10px;
+        box-shadow: 0 0 12px #f0d28e;
+        pointer-events: none;
+        animation: tut-pulse 1.2s ease-in-out infinite;
+      }
+      @keyframes tut-pulse {
+        50% {
+          opacity: 0.45;
+        }
+      }
+      #tutorial .tut-card {
+        position: fixed;
+        z-index: 33;
+        box-sizing: border-box;
+        padding: 8px 10px;
+        background: var(--wood);
+        border: 2px solid #e8c88a;
+        border-radius: 8px;
+        box-shadow: 0 4px 14px rgba(0, 0, 0, 0.5);
+        font-size: 13px;
+      }
+      #tutorial .tut-count {
+        color: var(--text-dim);
+        font-size: 11px;
+        font-weight: 400;
+      }
+      #tutorial .tut-title {
+        color: #e8c88a;
+        font-size: 15px;
+      }
+      #tutorial .tut-text {
+        margin: 3px 0 6px;
+        font-weight: 400;
+      }
+      #tutorial.trying .tut-card {
+        opacity: 0.94;
+      }
+      #tutorial .tut-buttons {
+        display: flex;
+        justify-content: space-between;
+        gap: 8px;
+      }
+      #tutorial .tut-buttons button {
+        min-height: 40px;
+        padding: 0 14px;
+        border: 2px solid var(--wood-edge);
+        border-radius: 6px;
+        background: var(--btn);
+        color: var(--text);
+        font: inherit;
+        font-size: 14px;
+      }
+      #tutorial .tut-go {
+        background: #5a7a34 !important;
+        border-color: #8cc05a !important;
+      }
+      #tutorial .tut-skip {
+        background: transparent !important;
+        border-color: transparent !important;
+        color: var(--text-dim) !important;
+      }
       #choices-bubble {
         position: fixed;
         left: calc(env(safe-area-inset-left) + 8px);
