@@ -19,6 +19,12 @@
   "attack_1h": {
    "frames": 6
   },
+  "hurt": {
+   "frames": 6
+  },
+  "run": {
+   "frames": 6
+  },
   "death": {
    "frames": 7
   },

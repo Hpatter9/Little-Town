@@ -19,6 +19,9 @@
   "death": {
    "frames": 7
   },
+  "run": {
+   "frames": 6
+  },
   "walk": {
    "frames": 6
   },
@@ -26,6 +29,9 @@
    "frames": 4
   },
   "cast_1h": {
+   "frames": 6
+  },
+  "hurt": {
    "frames": 6
   }
  }

@@ -279,5 +279,158 @@
    ],
    "group": "45495a9b-a9c4-4951-94b9-9831f8210e03"
   }
+ },
+ "knight_sir+sword": {
+  "edited": true,
+  "character_id": "18c2d5c1-576a-401d-8ed3-740c3b959994",
+  "attack_1h": {
+   "done": [
+    "south",
+    "south-east",
+    "east",
+    "north-east",
+    "north",
+    "north-west",
+    "west",
+    "south-west"
+   ],
+   "group": "1182b81d-6f23-4e54-971f-f11afe453ec3"
+  }
+ },
+ "knight_dame+sword": {
+  "edited": true,
+  "character_id": "38f9e7dc-63ef-4a1e-8060-1e367e26b8b3",
+  "attack_1h": {
+   "done": [
+    "south",
+    "south-east",
+    "east",
+    "north-east",
+    "north",
+    "north-west",
+    "west",
+    "south-west"
+   ],
+   "group": "62ace192-8431-421e-8f04-613d419d1e57"
+  }
+ },
+ "knight_squire+sword": {
+  "edited": true,
+  "character_id": "7917adbd-1442-41cd-a54c-0bb68b901555",
+  "attack_1h": {
+   "done": [
+    "south",
+    "south-east",
+    "east",
+    "north-east",
+    "north",
+    "north-west",
+    "west",
+    "south-west"
+   ],
+   "group": "44ce326b-5df7-4b44-99a7-f889535f0548"
+  }
+ },
+ "vamp_lord+sword": {
+  "edited": true,
+  "character_id": "88b3ee68-ac10-449a-92e7-410da5e0517a",
+  "attack_1h": {
+   "done": [
+    "south",
+    "south-east",
+    "east",
+    "north-east",
+    "north",
+    "north-west",
+    "west",
+    "south-west"
+   ],
+   "group": "b9574ec6-a9be-413b-a628-dc791c1157d5"
+  }
+ },
+ "vamp_lady+sword": {
+  "edited": true,
+  "character_id": "b21f8b75-7b0b-4901-b286-de5cf3f43aa1",
+  "attack_1h": {
+   "done": [
+    "south",
+    "south-east",
+    "east",
+    "north-east",
+    "north",
+    "north-west",
+    "west",
+    "south-west"
+   ],
+   "group": "ea26a389-c17d-4710-a687-7639eeed6736"
+  }
+ },
+ "vamp_thrall+sword": {
+  "edited": true,
+  "character_id": "52c08686-f867-4e22-a14f-d8d6ee2b63e7",
+  "attack_1h": {
+   "done": [
+    "south",
+    "south-east",
+    "east",
+    "north-east",
+    "north",
+    "north-west",
+    "west",
+    "south-west"
+   ],
+   "group": "eb49fd6b-9103-47e8-ba06-e70f4e9c6261"
+  }
+ },
+ "lich_lord+staff": {
+  "edited": true,
+  "character_id": "d57fd28a-42e1-4b55-ac5d-cef19df93f0a",
+  "cast_2h": {
+   "done": [
+    "south",
+    "south-east",
+    "east",
+    "north-east",
+    "north",
+    "north-west",
+    "west",
+    "south-west"
+   ],
+   "group": "f5fe9a60-46be-49d0-83e9-3de7605f70f3"
+  }
+ },
+ "lich_ghoul+staff": {
+  "edited": true,
+  "character_id": "e4bb0c28-66d0-4f95-970e-7e4b152d7e0e",
+  "cast_2h": {
+   "done": [
+    "south",
+    "south-east",
+    "east",
+    "north-east",
+    "north",
+    "north-west",
+    "west",
+    "south-west"
+   ],
+   "group": "a62a3aa1-a4dc-4221-b6df-972258bbf8ae"
+  }
+ },
+ "lich_skeleton+staff": {
+  "edited": true,
+  "character_id": "3291cabb-d8cc-441e-9791-3b568b539572",
+  "cast_2h": {
+   "done": [
+    "south",
+    "south-east",
+    "east",
+    "north-east",
+    "north",
+    "north-west",
+    "west",
+    "south-west"
+   ],
+   "group": "0fe51b93-323d-4077-8123-6a1e33c2fc91"
+  }
  }
 }

@@ -16,10 +16,16 @@
   "south-west"
  ],
  "animations": {
+  "hurt": {
+   "frames": 6
+  },
   "attack_1h": {
    "frames": 6
   },
   "walk": {
+   "frames": 6
+  },
+  "run": {
    "frames": 6
   },
   "idle": {

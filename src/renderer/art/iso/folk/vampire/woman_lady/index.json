@@ -22,6 +22,12 @@
   "idle": {
    "frames": 4
   },
+  "run": {
+   "frames": 6
+  },
+  "hurt": {
+   "frames": 6
+  },
   "death": {
    "frames": 7
   },
