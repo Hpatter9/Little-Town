@@ -19,6 +19,13 @@ fae) get no tint (`tintOf` returns null): their casts keep their own colours, cl
 look: a vampire's crimson, the fae's petals, and none of it reads as village cloth). The werewolf's wolf form is
 never tinted.
 
+**Hair that suits the skin** (`hairFor`, the coordinator's ask). The deepest two `SKINS` wear only the darker
+hair (black, the browns, auburn; a mid grey, `#9a948c`, in age), medium-brown skin (the three above, `MEDIUM_SKINS`)
+up to light brown or ginger (and the middling greys), the lighter skins any; a hair not allowed snaps to the nearest
+allowed. Natural for a medieval crowd, and it keeps the art's limits out of sight (platinum on the deepest skin showed
+every shading pixel of the face). It applies to the founder too: a deep-skinned founder given platinum hair wears the
+nearest brown.
+
 **Telling hair from cloth** (`tools/folk-roles.py`, run by hand; writes `roles.json` beside each look's `index.json`).
 The old rule recoloured by hue ranges, so hair and a brown tunic moved together. The sheets have a different palette
 per animation (even a look's armed copies share no exact colours), so a palette-index map would not do. The tool
@@ -29,7 +36,8 @@ hair; at the `crown` hair is tried before skin), keeps skin and cloth only in pi
 crown's hair than as lit skin, from `faceTop` down, grown 3 pixels, then every row between its outermost pixels).
 Across the face the darkest tones (`faceLines`, lightness under 0.22: eye sockets, lines) stay as drawn, and a warm
 colour is skin unless it is drawn more in the hair above the face than across it, so the shaded side of a face stays
-skin. The hair across the face (brows, a moustache) is `brow`: the hair's colour, its lightness pulled `BROW_PULL`
+skin; so is every other face pixel save the brows, which must come in bands of 6 pixels or more (`browPiece`: a hair
+colour in specks across a face is skin). The hair across the face (brows, a moustache) is `brow`: the hair's colour, its lightness pulled `BROW_PULL`
 0.3 of the way to the skin's, so fair brows on a dark face, or black ones on a pale face, don't ring the eyes like a
 mask. Round the face, down to the chin, a hair or skin colour is hair (lit strands the colour of skin). A `beard`
 look (`man_base`, `man_plate`, the dwarves, the alchemist master) takes the lower face, below the eyes and down to
@@ -84,8 +92,10 @@ look's folder from before this tool ran), since a labelling nudges some colours.
 **Tools.** `tools/make-save.ts` takes `FOLK=n`: n more grown townsfolk, each a fresh
 `randomLook`, gathered round the first (a crowd to look at).
 
-`extremes.png`: every settlers, dwarf and knight look at the extremes, four of each in a row: the darkest skin with
-the lightest hair, the palest skin with black hair, the darkest skin with white hair, brown skin with ginger hair.
+`extremes.png`: every settlers, dwarf and knight look at the allowed extremes, four of each in a row: the darkest
+skin with its lightest allowed hair (auburn), the palest skin with black hair, the darkest skin in age (its grey),
+medium-brown skin with its lightest (light brown). `settlers-crowd-30.png`: a town of 30 settlers zoomed in on the
+camp (393x852).
 Pictures in `folk-variety/`, before on the left (or top), after on the right (or below): `settlers-map-upright.png`
 (393x852) and `settlers-map-sideways.png` (852x393), a settlers town of 27 zoomed in on the camp; `settlers-people.png`,
 the People page; the same three for a knights town (`knights-*`). `<people>-before.png` / `<people>-after.png`: a

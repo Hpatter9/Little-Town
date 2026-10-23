@@ -271,9 +271,12 @@ def classify(a, fw, fh, cfg):
         # or fair brows ring the eyes like a mask)
         free &= ~(ask & (l < cfg.get('faceLines', 0.22)))
         ask &= free
-        take(ask & hairy, 4)
-        take(ask & ~hairy & places['skin'], 0)
-        take(ask & ~hairy & hair_box, 1)
+        # (the brows are bands: a hair colour in specks across the face, too few together to be a brow, is skin, and
+        # so is any other face pixel; only the brows, and a beard above, follow the hair)
+        brow = ask & hairy
+        brow &= components(brow) >= cfg.get('browPiece', 6)
+        take(brow, 4)
+        take(ask, 0)
         # (and round the face, down to the chin, a hair colour is hair: a fringe over the brow, the hair at the temples,
         # lit strands the colour of skin)
         take(free & head & beside & (hair_box | skin_box), 1)

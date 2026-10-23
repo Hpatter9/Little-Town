@@ -76,6 +76,21 @@ function nearest(hex: string, list: readonly string[]): string {
   return best;
 }
 
+/** The hair the deeper skins wear (natural in a medieval crowd, and it keeps the art's limits out of sight: platinum
+ *  and white hair on the darkest skin show the face's every shading pixel). The deepest two of `SKINS` take black,
+ *  the browns and auburn (and a mid grey in age); medium-brown skin (the three above them) up to light brown or ginger
+ *  (and the middling greys); the lighter skins any. Null: any hair. */
+export const DEEP_SKINS = 2;
+export const MEDIUM_SKINS = 3;
+const DARK_HAIR: readonly string[] = ['#1a1414', '#2a1c14', '#3c3434', '#4a3020', '#5a4636', '#6e4a2c', '#8a3a22'];
+const MEDIUM_HAIR: readonly string[] = [...DARK_HAIR, '#9a6e40', '#b0542a'];
+export function hairFor(skinIndex: number, aged: boolean): readonly string[] | null {
+  const deep = skinIndex >= SKINS.length - DEEP_SKINS, medium = !deep && skinIndex >= SKINS.length - DEEP_SKINS - MEDIUM_SKINS;
+  if (deep) return aged ? ['#9a948c'] : DARK_HAIR;
+  if (medium) return aged ? ['#9a948c', '#b8b2a8'] : MEDIUM_HAIR;
+  return null;
+}
+
 /** Someone's colours, from what the snapshot says about them: their sim look (skin, hair colour, a founder's chosen
  *  cloth), their age (grey hair for the elders: about half of them, and all the old) and their id (the dyes). Null for
  *  the peoples drawn in their own colours. Stable: the same person always gets the same tint. */
@@ -92,6 +107,11 @@ export function tintOf(st: { id: number; look?: Partial<Pick<Look, 'skin' | 'hai
     t.hair = nearest(look.hairColor, HAIR_CHOICES);
     // (grey hair rolled for an elder recruit, or handed down to a child, is a colour of youth until they're old)
     if (!old && GREYS.has(t.hair)) t.hair = YOUNG_HAIR[idHash(st.id, 23) % YOUNG_HAIR.length];
+  }
+  // (the deepest skins wear the darker hair, and medium-brown skin no fairer than light brown or ginger)
+  if (t.skin && t.hair) {
+    const allowed = hairFor(SKINS.indexOf(t.skin), grey);
+    if (allowed && !allowed.includes(t.hair)) t.hair = nearest(t.hair, allowed);
   }
   const dyes = DYES[people] ?? DYES.settlers;
   // (a founder dressed in a dyed cloth of the player's choosing wears it)

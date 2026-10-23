@@ -3,7 +3,7 @@ import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { test } from 'node:test';
 import { CHILD_SCALE, FOLK_DIRS, FOLK_LOOKS, isChildLook, isFolkChild, armedSuffix, otherTool, facingFromVector, facingToward, frameAt, idHash, lookPath, dressOf, pickLook, play, wantedAnim, type FolkAnim, type FolkState } from '../src/renderer/iso/folkRules';
-import { DYES, FIXED_CASTS, FOLK_ROLES, OLD_HAIR, PLAIN_DYES, hexRgb, hslToRgb, recolour, rgbToHsl, shade, sheetMap, tintKey, tintOf, type FolkRole, type FolkRoles } from '../src/renderer/iso/folkTint';
+import { DYES, FIXED_CASTS, FOLK_ROLES, OLD_HAIR, hairFor, PLAIN_DYES, hexRgb, hslToRgb, recolour, rgbToHsl, shade, sheetMap, tintKey, tintOf, type FolkRole, type FolkRoles } from '../src/renderer/iso/folkTint';
 import { folkWho } from '../src/renderer/iso/folkWho';
 import { HAIR_COLORS, SKINS } from '../src/shared/data/people';
 import { ITEM_BY_ID } from '../src/shared/data/items';
@@ -115,13 +115,16 @@ test("a person's colours are their own: skin and hair from their look, cloth fro
     for (const lifeStage of ['child', 'young', 'prime', 'elder', 'old'] as const) {
       const t = tintOf({ id, look, lifeStage }, people)!;
       assert.equal(t.skin, look.skin);
+      const allowed = hairFor(SKINS.indexOf(look.skin), lifeStage === 'old' || (lifeStage === 'elder' && OLD_HAIR.includes(t.hair!)));
+      // (the deeper skins wear only the hair allowed them)
+      if (allowed) assert.ok(allowed.includes(t.hair!), `${look.skin} with ${t.hair}`);
       if (lifeStage === 'old') assert.ok(OLD_HAIR.includes(t.hair!), 'the old are grey');
-      else if (lifeStage === 'elder') assert.ok(t.hair === look.hairColor || OLD_HAIR.includes(t.hair!));
+      else if (lifeStage === 'elder') assert.ok(t.hair === look.hairColor || OLD_HAIR.includes(t.hair!) || allowed);
       else {
         // (their own hair, but never grey while young: a grey rolled at birth turns a colour of youth)
         const [, hs, hl] = rgbToHsl(...hexRgb(t.hair!));
         assert.ok(HAIR_COLORS.includes(t.hair!) && !(hs < 0.12 && hl > 0.4), `young hair ${t.hair}`);
-        if (!(rgbToHsl(...hexRgb(look.hairColor))[1] < 0.12 && rgbToHsl(...hexRgb(look.hairColor))[2] > 0.4)) assert.equal(t.hair, look.hairColor);
+        if (!allowed && !(rgbToHsl(...hexRgb(look.hairColor))[1] < 0.12 && rgbToHsl(...hexRgb(look.hairColor))[2] > 0.4)) assert.equal(t.hair, look.hairColor);
       }
       assert.ok(DYES[people].includes(t.cloth!));
       assert.ok(PLAIN_DYES.includes(t.cloth2!));
@@ -135,6 +138,14 @@ test("a person's colours are their own: skin and hair from their look, cloth fro
   for (const c of SKINS) { const [h, s, l] = rgbToHsl(...hexRgb(c)); assert.ok(h >= 10 && h <= 40 && s <= 0.9 && l >= 0.15 && l <= 0.95, `skin ${c}`); }
   for (const c of [...HAIR_COLORS, ...OLD_HAIR]) { const [h, s] = rgbToHsl(...hexRgb(c)); assert.ok(s < 0.15 || h <= 45, `hair ${c}`); }
   for (const c of [...Object.values(DYES).flat(), ...PLAIN_DYES]) assert.ok(rgbToHsl(...hexRgb(c))[1] <= 0.65, `dye ${c}`);
+  // (no platinum or white hair on the deepest skin, nor blonde on medium-brown; any on light skin)
+  const lightness = (c: string): number => rgbToHsl(...hexRgb(c))[2];
+  for (const [i, skin] of SKINS.entries()) for (const hairColor of HAIR_COLORS) for (const lifeStage of ['prime', 'old'] as const) {
+    const hair = tintOf({ id: 7, look: { skin, hairColor }, lifeStage })!.hair!;
+    if (i >= SKINS.length - 2) assert.ok(lightness(hair) < 0.62, `${skin} wears ${hair}`);
+    else if (i >= SKINS.length - 5) assert.ok(!['#e0c890', '#f0dca8', '#c49a62', '#b88a58', '#ece8e0', '#d8d4cc'].includes(hair), `${skin} wears ${hair}`);
+    else if (lifeStage === 'prime' && hairColor !== '#a8a29a') assert.equal(hair, hairColor);
+  }
   // (a stray colour in a save snaps to the nearest natural one)
   assert.ok(SKINS.includes(tintOf({ id: 1, look: { skin: '#00ff00' } })!.skin!));
 });
@@ -193,7 +204,8 @@ test('the tinted looks are labelled: skin and hair (or a hood) for every look, a
       }
       // (the same reference, so the same tint makes the same colours, armed or bare)
       assert.deepEqual(armed.ref, roles.ref, `${people}/${look}+${suffix}`);
-      for (const role of Object.keys(roles.ref) as FolkRole[]) {
+      // (the brows are a few pixels a frame: an armed copy may draw them too small to count)
+      for (const role of (Object.keys(roles.ref) as FolkRole[]).filter((r) => r !== 'brow')) {
         assert.ok(Object.values(armed.sheets).some((sh) => (sh[role]?.length ?? 0) > 0), `${people}/${look}+${suffix} paints ${role}`);
       }
     }
