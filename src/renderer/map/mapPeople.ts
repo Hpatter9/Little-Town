@@ -892,7 +892,8 @@ export class MapPeople {
       const folkOn = this.isoFolk && !hidden && !swimming && !form && !(v.beast && inCombat && v.downed === null);
       if (this.isoFolk) {
         if (folkOn) {
-          const f = (d.folk ??= this.layer.addChild(new FolkSprite()));
+          if (!d.folk) markWalker((d.folk = this.layer.addChild(new FolkSprite()))); // (iso/seeThrough.ts)
+          const f = d.folk;
           f.visible = true;
           // (not the side-on sprite's child shrink: a child's iso look is drawn child-sized, scaled by folkRules' own)
           f.scale.set(FOLK_SCALE * grown);
