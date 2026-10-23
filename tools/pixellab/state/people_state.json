@@ -53,6 +53,32 @@
     "south-west"
    ],
    "group": "89d382b8-4c2f-4da4-acc6-32ec5c462372"
+  },
+  "run": {
+   "done": [
+    "south",
+    "south-east",
+    "east",
+    "north-east",
+    "north",
+    "north-west",
+    "west",
+    "south-west"
+   ],
+   "group": "bc8ad8ca-ff79-48cc-8812-6dcf05a1c3b2"
+  },
+  "hurt": {
+   "done": [
+    "south",
+    "south-east",
+    "east",
+    "north-east",
+    "north",
+    "north-west",
+    "west",
+    "south-west"
+   ],
+   "group": "8cc58d1b-5a5e-4785-9b6f-95980dad7472"
   }
  },
  "orc_woman": {
@@ -109,6 +135,32 @@
     "south-west"
    ],
    "group": "8c060ef7-8d97-4caa-a7f9-bc915030c64e"
+  },
+  "run": {
+   "done": [
+    "south",
+    "south-east",
+    "east",
+    "north-east",
+    "north",
+    "north-west",
+    "west",
+    "south-west"
+   ],
+   "group": "dc9e228a-f525-4813-9024-f38a8ee91cd9"
+  },
+  "hurt": {
+   "done": [
+    "south",
+    "south-east",
+    "east",
+    "north-east",
+    "north",
+    "north-west",
+    "west",
+    "south-west"
+   ],
+   "group": "223ad057-a6bf-4637-ab4a-103d3dfed863"
   }
  },
  "orc_shaman": {
@@ -165,6 +217,32 @@
     "south-west"
    ],
    "group": "8f69a872-c120-4dbd-9e79-996a6c7da852"
+  },
+  "run": {
+   "done": [
+    "south",
+    "south-east",
+    "east",
+    "north-east",
+    "north",
+    "north-west",
+    "west",
+    "south-west"
+   ],
+   "group": "bc1e92d0-ff14-4547-833f-9d59e1f65742"
+  },
+  "hurt": {
+   "done": [
+    "south",
+    "south-east",
+    "east",
+    "north-east",
+    "north",
+    "north-west",
+    "west",
+    "south-west"
+   ],
+   "group": "471e4a1c-f001-4b92-9777-c9a9debb41fe"
   }
  }
 }

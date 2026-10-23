@@ -40,6 +40,8 @@ KIDS = {
          'girl': k('fae_fae_woman', 'pointed ears, pink hair, little butterfly wings, a petal dress', 'a small fae girl with butterfly wings and a petal dress')},
  'alchemists': {'boy': k('alchemists_alch_apprentice', 'a soot-smudged face, a yellow tunic, little round goggles on the forehead', 'a small alchemist boy in a yellow tunic with goggles on the forehead'),
                 'girl': k('alchemists_alch_woman', 'round spectacles, a teal smock with rolled sleeves', 'a small alchemist girl with round spectacles and a teal smock')},
+ 'dwarves': {'boy': k('man_base', 'a stocky dwarf boy: broad little shoulders, a big round nose, rosy cheeks, thick ruddy brown hair, no beard, a brown wool tunic with a small leather apron, sturdy boots', 'a stocky little dwarf boy with ruddy hair, a wool tunic and a small leather apron'),
+             'girl': k('woman_base', 'a stocky dwarf girl: broad little shoulders, a big round nose, rosy cheeks, thick copper hair in two heavy braids, a dark green wool dress with a small leather apron, sturdy boots', 'a stocky little dwarf girl with copper braids, a green wool dress and a small leather apron')},
  'knights': {'boy': k('knights_knight_squire', 'a red and white padded tunic, short blond hair', 'a small page boy in a red and white padded tunic'),
              'girl': k('knights_knight_dame', 'a blue tunic with a gold lion, a blonde braid', 'a small page girl in a blue tunic with a gold lion, blonde braid')},
 }
