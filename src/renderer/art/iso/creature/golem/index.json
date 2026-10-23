@@ -1,0 +1,68 @@
+{
+ "look": "golem",
+ "people": "god",
+ "frame": [
+  156,
+  156
+ ],
+ "directions": [
+  "south",
+  "south-east",
+  "east",
+  "north-east",
+  "north",
+  "north-west",
+  "west",
+  "south-west"
+ ],
+ "animations": {
+  "punch": {
+   "frames": 6
+  },
+  "hit": {
+   "frames": 6
+  },
+  "walk": {
+   "frames": 6
+  },
+  "miracle": {
+   "frames": 6
+  },
+  "run": {
+   "frames": 6
+  },
+  "push": {
+   "frames": 6
+  },
+  "pull": {
+   "frames": 6
+  },
+  "getup": {
+   "frames": 5
+  },
+  "sad": {
+   "frames": 8
+  },
+  "pickup": {
+   "frames": 5
+  },
+  "idle": {
+   "frames": 4
+  },
+  "eat": {
+   "frames": 6
+  },
+  "throw": {
+   "frames": 7
+  },
+  "joy": {
+   "frames": 9
+  },
+  "death": {
+   "frames": 7
+  },
+  "uppercut": {
+   "frames": 7
+  }
+ }
+}
