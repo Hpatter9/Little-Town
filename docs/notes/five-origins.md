@@ -36,7 +36,14 @@ ready-made founders are refused, and a town of each hidden people survives a sav
 tests that loop over `ORIGINS` (balance, research, seats, `newTownRuns`, founders' data) still test every people,
 since old towns run them.
 
-**Screenshots** (`docs/notes/five-origins/`): the New town screen at 393x852 and 852x393 with five peoples, and a
-druid save (`ORIGIN=druid`) loaded and playing at both sizes. Sideways (852x393) the New town screen's tile row is
-squeezed by the description pane below it, so the five tiles show only their tops: that is the panel's existing
-sideways layout (not changed here), left for a later fix.
+**A phone held sideways** (`panel/newGamePanel.ts`, `panel/panel.html`): the New town screen's footer (the picked
+option's details, then Back / Accept) is sticky at the bottom, and on a 393px-high screen it covered most of the
+step, so the tiles showed only their tops. Each step's body is now wrapped in `.wizard-main`, and under
+`@media (orientation: landscape) and (max-height: 460px)` the `.wizard` is two columns: the step on the left (smaller
+tiles, `.nt-sym` 48px, five to a row) and the footer beside it on the right, stuck to the top. Upright is unchanged.
+Also fixed for both: `.wizard-nav .found`'s `margin: 0` was outranked by the later `.place.found` (14px), so the last
+step's "Accept: found..." button sat low beside Back; it is now `.wizard-nav .place.found`.
+
+**Screenshots** (`docs/notes/five-origins/`): the New town screen upright (`new-town-upright.png`) and every step
+sideways at 852x393 (`new-town-sideways-step1..7.png`), and a druid save (`ORIGIN=druid`) loaded and playing at both
+sizes.

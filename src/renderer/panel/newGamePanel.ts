@@ -271,7 +271,10 @@ export function renderNewGame(snap: Snapshot, bridge: Bridge): HTMLElement[] {
     );
     const foot = el('div', 'wizard-foot');
     foot.append(...(step <= 4 ? [details] : []), nav);
-    wrap.replaceChildren(el('div', 'wizard-step', `Step ${step + 1} of ${STEPS.length}`), el('h3', 'newgame-head', STEPS[step]), ...page, dots, foot);
+    // (the step's body and its footer side by side on a phone held sideways: panel.html .wizard-main)
+    const main = el('div', 'wizard-main');
+    main.append(el('div', 'wizard-step', `Step ${step + 1} of ${STEPS.length}`), el('h3', 'newgame-head', STEPS[step]), ...page, dots);
+    wrap.replaceChildren(main, foot);
     refreshChosen();
   };
   const go = (i: number) => {
