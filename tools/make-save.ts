@@ -3,7 +3,8 @@
 // drawn by hand, sim/startValleys.ts; SCENARIO=band; EXPLORE=24 the land that far round the camp seen;
 // HOME_DEF=longhouse a home built at the start with everyone's bed in it; VENUES=1 a Fireside Inn and a Trading Post
 // built at the start, to see their own windows); BUILD=statue,harbour,... those built, finished, after the run (to see
-// their pictures: put up after, so the town can't pull them down); UNLOCK=1 every building in the build menu
+// their pictures: put up after, so the town can't pull them down); UNLOCK=1 every building in the build menu;
+// KIDS=4 that many children added after the run, each beside a grown-up, to see children beside grown-ups
 import { writeFileSync } from 'node:fs';
 import { serialize } from '../src/shared/sim/save';
 import { Sim } from '../src/shared/sim/sim';
@@ -44,6 +45,17 @@ if (env.BUILD) {
     const r = d && spiralSpot(st.land, d.width, depthOf(d), footprints(st), campCell(st), { maxR: 40, wild: true });
     if (!r) console.log(`no room for ${id}`);
     else st.buildings.push({ id: st.nextId++, def: d.id, tile: r.x, row: r.y, status: 'done', delivered: {}, progress: 1, store: {} });
+  }
+}
+if (env.KIDS) {
+  const st = sim.state;
+  const grown = st.people.filter((p) => p.bornTick == null);
+  for (let i = 0; i < Number(env.KIDS); i++) {
+    const a = grown[i % grown.length];
+    const kid = { ...structuredClone(a), id: st.nextId++, name: `${a.name.split(' ')[0]}'s child ${i + 1}`, type: 'child', bornTick: st.tick, parents: [a.id], partner: null, task: null, gear: {}, carrying: {} };
+    kid.look = { ...kid.look, gender: i % 2 ? 'f' : 'm', beard: false };
+    kid.x = a.x + 14 * (i % 2 ? 1 : -1);
+    st.people.push(kid);
   }
 }
 // (EXPLORE=24: the land that far round the camp already seen, for previews of the land about the town)

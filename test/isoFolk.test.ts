@@ -1,7 +1,11 @@
 import assert from 'node:assert/strict';
+import { existsSync, readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { test } from 'node:test';
-import { CHILD_SCALE, FOLK_DIRS, FOLK_LOOKS, isFolkChild, armedSuffix, facingFromVector, facingToward, frameAt, idHash, lookPath, dressOf, pickLook, play, wantedAnim, type FolkAnim, type FolkState } from '../src/renderer/iso/folkRules';
+import { CHILD_SCALE, FOLK_DIRS, FOLK_LOOKS, isChildLook, isFolkChild, armedSuffix, facingFromVector, facingToward, frameAt, idHash, lookPath, dressOf, pickLook, play, wantedAnim, type FolkAnim, type FolkState } from '../src/renderer/iso/folkRules';
 import { FIXED_CASTS, VARIANTS, hslToRgb, isSkin, recolour, rgbToHsl, variantOf } from '../src/renderer/iso/folkTint';
+
+const FOLK_ART = join('src', 'renderer', 'art', 'iso', 'folk');
 
 const st = (o: Partial<FolkState> = {}): FolkState => ({
   id: 1, activity: 'idle', sinceHit: 999, sinceBlow: 999, defending: false, downed: null, hp: 10,
@@ -114,20 +118,52 @@ test('the peoples with colours of their own are not recoloured', () => {
   assert.ok(Array.from({ length: 50 }, (_, i) => variantOf(i, 'settlers')).some((v) => v !== 0));
 });
 
-test('a child never wears a bearded or armoured look, and is drawn smaller', () => {
-  const BEARDED = new Set(['settlers/man_base', 'settlers/man_plate', 'settlers/dwarf_base', 'settlers/dwarf_apron', 'settlers/dwarf_plate', 'merfolk/man_mer', 'alchemists/man_master', 'druid/man_elder', 'lich/man_lord', 'vampire/man_lord', 'werewolf/man_hunter', 'knights/man_knight']);
-  for (const [people, ls] of Object.entries(FOLK_LOOKS)) for (const origin of [people, ...(people === 'settlers' ? ['dwarves'] : [])]) for (const gender of ['m', 'f']) for (let id = 0; id < 40; id++) {
-    for (const dress of [undefined, 'plate'] as const) {
-      const p = pickLook(st({ id, origin: origin as never, look: { gender, outfit: 'base' } as never, lifeStage: 'child' }), FOLK_LOOKS, dress);
-      assert.ok(ls.includes(p.look), `${people}/${p.look} exists`);
-      assert.ok(!BEARDED.has(`${p.people}/${p.look}`) && !p.look.endsWith('_plate'), `${p.people}/${p.look} for a child`);
-      if (gender === 'f') assert.ok(p.look.startsWith('woman_') || p.look === 'woman_huntress');
+test('every people has a boy and a girl drawn, with walk, idle and death', () => {
+  for (const people of Object.keys(FOLK_LOOKS)) {
+    for (const kid of ['child_boy', 'child_girl']) {
+      assert.ok(FOLK_LOOKS[people].includes(kid), `${people} lists ${kid}`);
+      const dir = join(FOLK_ART, people, kid);
+      const index = JSON.parse(readFileSync(join(dir, 'index.json'), 'utf8')) as { frame: [number, number]; directions: string[]; animations: Record<string, { frames: number }> };
+      assert.deepEqual(index.directions, [...FOLK_DIRS], `${people}/${kid} faces every way`);
+      for (const anim of ['walk', 'idle', 'death']) {
+        assert.ok(index.animations[anim]?.frames > 0, `${people}/${kid} has ${anim}`);
+        assert.ok(existsSync(join(dir, `${anim}.png`)), `${people}/${kid}/${anim}.png`);
+      }
+      assert.ok(existsSync(join(dir, 'rotations.png')));
     }
   }
+});
+
+test('a child wears a child look, and whatever they do they never show a grown look', () => {
+  for (const people of Object.keys(FOLK_LOOKS)) for (const origin of [people, ...(people === 'settlers' ? ['dwarves'] : [])]) for (const gender of ['m', 'f']) for (let id = 0; id < 40; id++) {
+    for (const dress of [undefined, 'plate', 'leather'] as const) {
+      const p = pickLook(st({ id, origin: origin as never, look: { gender, outfit: 'base' } as never, lifeStage: 'child' }), FOLK_LOOKS, dress);
+      assert.equal(p.people, people, `a ${origin} child wears ${people}' children`);
+      assert.equal(p.look, gender === 'f' ? 'child_girl' : 'child_boy');
+    }
+  }
+  // (only walk, idle and death drawn: every move a child is asked for falls back to one of those, never 'stand' alone
+  // where a moving one exists, and run walks a little faster)
+  const kid = (a: FolkAnim) => a === 'walk' || a === 'idle' || a === 'death';
+  const FALLS: Record<FolkAnim, FolkAnim> = {
+    stand: 'stand', walk: 'walk', run: 'walk', idle: 'idle', death: 'death', hurt: 'idle', cast_1h: 'idle', cast_2h: 'idle',
+    chop: 'idle', hammer: 'idle', attack_1h: 'idle', attack_bow: 'idle', attack_2h: 'idle',
+  };
+  for (const [want, got] of Object.entries(FALLS)) assert.equal(play(want as FolkAnim, kid).anim, got, want);
+  assert.ok(play('run', kid).rate > 1);
   assert.ok(isFolkChild({ lifeStage: 'child' }) && !isFolkChild({ lifeStage: 'prime', growsUpIn: 0 }) && !isFolkChild({}));
-  assert.ok(CHILD_SCALE < 1);
-  // a grown man keeps his look
-  assert.equal(pickLook(st({ id: 3, look: { gender: 'm', outfit: 'base' } as never, lifeStage: 'prime' })).look.startsWith('man_'), true);
+  assert.ok(CHILD_SCALE > 0.5 && CHILD_SCALE <= 1);
+});
+
+test('a grown person never wears a child look', () => {
+  for (const people of Object.keys(FOLK_LOOKS)) for (const origin of [people, ...(people === 'settlers' ? ['dwarves'] : [])]) for (const gender of ['m', 'f']) for (let id = 0; id < 40; id++) {
+    for (const stage of ['young', 'prime', 'elder', 'old', 'deathless', undefined] as const) for (const dress of [undefined, 'plate', 'leather', 'base'] as const) for (const outfit of ['base', 'leather', 'child_boy']) {
+      const p = pickLook(st({ id, origin: origin as never, look: { gender, outfit } as never, lifeStage: stage as never }), FOLK_LOOKS, dress);
+      assert.ok(!isChildLook(p.look), `${origin} ${gender} ${stage}: ${p.look}`);
+    }
+  }
+  // (even from a folder holding nothing else)
+  assert.ok(!isChildLook(pickLook(st({ look: { gender: 'm', outfit: 'base' } }), { settlers: ['child_boy', 'child_girl', 'woman_base'] }).look));
 });
 
 test('dwarves wear dwarf looks, armour picks plate, and the rest wear human ones', () => {

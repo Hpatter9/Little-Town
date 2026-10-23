@@ -7,7 +7,7 @@ import { Container, Sprite, type Texture } from 'pixi.js';
 import { ITEM_BY_ID } from '../../shared/data/items';
 import { loadFolkSet, type FolkSet } from './folkLoader';
 import {
-  CHILD_SCALE, armedSuffix, facingFromVector, frameAt, isFighting, lookPath, play, wantedAnim, type FolkDir, type FolkPlay, type FolkState,
+  CHILD_FEET_LIFT, CHILD_SCALE, armedSuffix, facingFromVector, frameAt, isFighting, lookPath, play, wantedAnim, type FolkDir, type FolkPlay, type FolkState,
 } from './folkRules';
 import { folkWho } from './folkWho';
 
@@ -64,9 +64,11 @@ export class FolkSprite extends Container {
 
     const weapon = st.gear.weapon ? ITEM_BY_ID[st.gear.weapon] : undefined;
     const family = weapon?.family;
-    const suffix = wolf ? null : armedSuffix(st, family, isFighting(st));
     const who = folkWho(st);
-    const pick = wolf ? { people: 'werewolf', look: WOLF_LOOK } : who.pick;
+    // (a child has no armed looks and no wolf form: they keep their own look, whatever they're about)
+    const turned = wolf && !who.child;
+    const suffix = turned || who.child ? null : armedSuffix(st, family, isFighting(st));
+    const pick = turned ? { people: 'werewolf', look: WOLF_LOOK } : who.pick;
     const bare = lookPath(pick, null);
     const wanted = lookPath(pick, suffix);
     const variant = who.variant;
@@ -79,6 +81,8 @@ export class FolkSprite extends Container {
       this.sprite.visible = false;
       return;
     }
+    // (feet on the spot: a child's art stands higher in its frame than the grown looks')
+    this.sprite.anchor.set(0.5, who.child && !turned ? 1 - CHILD_FEET_LIFT / (set.index.frame[1] || 148) : 1);
     const want = wantedAnim(st, this.speed, family);
     const p: FolkPlay & { rate: number } = play(want, (a) => set.has(a));
     // (a look with no death drawn yet lies its standing figure down rather than standing over its own fall)

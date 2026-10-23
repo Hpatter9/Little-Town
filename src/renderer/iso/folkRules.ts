@@ -129,47 +129,49 @@ export function play(wanted: FolkAnim, has: (a: FolkAnim) => boolean): FolkPlay 
 
 /* ------------------------------------------------------------ looks */
 
-/** The base looks drawn so far, per people (folder names under art/iso/folk/). Add a look here as its art arrives. */
+/** The base looks drawn so far, per people (folder names under art/iso/folk/). Add a look here as its art arrives.
+ *  `child_boy` and `child_girl` are the children's own looks (CHILD_LOOKS): never picked for a grown person. */
 export const FOLK_LOOKS: Record<string, readonly string[]> = {
-  settlers: ['woman_base', 'woman_leather', 'woman_plate', 'man_base', 'man_leather', 'man_plate', 'dwarf_base', 'dwarf_apron', 'dwarf_plate'],
+  settlers: ['woman_base', 'woman_leather', 'woman_plate', 'man_base', 'man_leather', 'man_plate', 'dwarf_base', 'dwarf_apron', 'dwarf_plate', 'child_boy', 'child_girl'],
   // (the peoples' own casts: walk, idle, death and an attack (a punch, or a thrown spell), no armed looks)
-  orcs: ['man_brute', 'woman_orc', 'man_shaman'],
-  lich: ['man_lord', 'woman_ghoul', 'man_skeleton'],
-  druid: ['man_elder', 'woman_druid', 'man_warden'],
-  vampire: ['man_lord', 'woman_lady', 'man_thrall'],
+  orcs: ['man_brute', 'woman_orc', 'man_shaman', 'child_boy', 'child_girl'],
+  lich: ['man_lord', 'woman_ghoul', 'man_skeleton', 'child_boy', 'child_girl'],
+  druid: ['man_elder', 'woman_druid', 'man_warden', 'child_boy', 'child_girl'],
+  vampire: ['man_lord', 'woman_lady', 'man_thrall', 'child_boy', 'child_girl'],
   // (the Moon Pack's `man_beast` is the wolf form, kept for when a werewolf turns: not an everyday look)
-  werewolf: ['man_hunter', 'woman_huntress'],
-  robot: ['man_worker', 'man_guard', 'woman_android'],
-  merfolk: ['man_mer', 'woman_mer', 'man_fisher'],
-  nomads: ['man_rider', 'woman_nomad', 'man_herder'],
-  fae: ['man_fae', 'woman_fae', 'man_sprite'],
-  alchemists: ['man_master', 'woman_alchemist', 'man_apprentice'],
-  knights: ['man_knight', 'woman_knight', 'man_squire'],
+  werewolf: ['man_hunter', 'woman_huntress', 'child_boy', 'child_girl'],
+  robot: ['man_worker', 'man_guard', 'woman_android', 'child_boy', 'child_girl'],
+  merfolk: ['man_mer', 'woman_mer', 'man_fisher', 'child_boy', 'child_girl'],
+  nomads: ['man_rider', 'woman_nomad', 'man_herder', 'child_boy', 'child_girl'],
+  fae: ['man_fae', 'woman_fae', 'man_sprite', 'child_boy', 'child_girl'],
+  alchemists: ['man_master', 'woman_alchemist', 'man_apprentice', 'child_boy', 'child_girl'],
+  knights: ['man_knight', 'woman_knight', 'man_squire', 'child_boy', 'child_girl'],
 };
 
 /** Is this person a child? (the snapshot's life stage; older callers with only `growsUpIn` still count while it's above 0) */
 export const isFolkChild = (st: Pick<FolkState, 'lifeStage' | 'growsUpIn'>): boolean => st.lifeStage === 'child' || (st.lifeStage === undefined && (st.growsUpIn ?? 0) > 0);
 
-/** How big a child is drawn, against the adult art (a child gets a grown look shrunk, so the look must be a beardless one). */
-export const CHILD_SCALE = 0.72;
+/** How big a child is drawn, against the adult art. The children's looks are already drawn child-sized (about 80px
+ *  tall in their frame against a grown look's 95, with a big head and short limbs), so this only takes them down a
+ *  little more: at 0.85 a child stands about 70% of a grown-up's height. */
+export const CHILD_SCALE = 0.85;
 
-/** The looks a child may wear, per people: only beardless, unarmoured ones (a bearded man shrunk reads as "a tiny man
- *  with a beard"). Boys wear the youngest-looking male look, girls the female looks. Until PixelLab draws proper child
- *  looks (a boy and a girl per people, short-limbed, big-headed, in the people's own dress) these stand in. */
-export const CHILD_LOOKS: Record<string, { boy: readonly string[]; girl: readonly string[] }> = {
-  settlers: { boy: ['man_leather'], girl: ['woman_base', 'woman_leather'] },
-  orcs: { boy: ['man_brute'], girl: ['woman_orc'] },
-  lich: { boy: ['man_skeleton'], girl: ['woman_ghoul'] },
-  druid: { boy: ['man_warden'], girl: ['woman_druid'] },
-  vampire: { boy: ['man_thrall'], girl: ['woman_lady'] },
-  werewolf: { boy: ['woman_huntress'], girl: ['woman_huntress'] },
-  robot: { boy: ['man_worker'], girl: ['woman_android'] },
-  merfolk: { boy: ['man_fisher'], girl: ['woman_mer'] },
-  nomads: { boy: ['man_herder', 'man_rider'], girl: ['woman_nomad'] },
-  fae: { boy: ['man_sprite'], girl: ['woman_fae'] },
-  alchemists: { boy: ['man_apprentice'], girl: ['woman_alchemist'] },
-  knights: { boy: ['man_squire'], girl: ['woman_knight'] },
-};
+/** The children's art stands this many pixels higher in its frame than the grown looks' (their feet are about 40px
+ *  above the frame's foot, a grown look's about 29), so a child is dropped by this much to stand on the same spot. */
+export const CHILD_FEET_LIFT = 11;
+
+/** How tall a child's full figure stands against a grown-up's (the menus' full portraits crop each figure to itself,
+ *  so they scale a child by this rather than CHILD_SCALE): the art's 80 against 95, then CHILD_SCALE. */
+export const CHILD_FIGURE = (80 / 95) * CHILD_SCALE;
+
+/** Is this one of the children's looks (`child_boy`, `child_girl`)? */
+export const isChildLook = (look: string): boolean => look.startsWith('child_');
+
+/** The looks a child wears, per people: PixelLab's boy and girl, short-limbed and big-headed, in the people's own
+ *  dress. They have walk, idle and death only; everything else falls back to those (FALLBACK). */
+export const CHILD_LOOKS: Record<string, { boy: readonly string[]; girl: readonly string[] }> = Object.fromEntries(
+  Object.keys(FOLK_LOOKS).map((p) => [p, { boy: ['child_boy'], girl: ['child_girl'] }]),
+);
 
 /** The base look's dress by what they wear: plate for heavy body armour, leather for light or medium, base otherwise. */
 export const dressOf = (weight: string | undefined): 'plate' | 'leather' | 'base' =>
@@ -188,15 +190,18 @@ export interface FolkLookPick {
   look: string;
 }
 
-/** Which look a person wears: their people's folder (settlers where their own isn't drawn yet), then a look of their
- *  sex (a look named `man_*` or `woman_*`), the one in their outfit's colour first, else a stable pick by id. */
+/** Which look a person wears: their people's folder (settlers where their own isn't drawn yet); a child the boy or girl
+ *  look (CHILD_LOOKS; dwarf children the settlers'); a grown person a look of their sex (a look named `man_*` or
+ *  `woman_*`), the one in their outfit's colour first, else a stable pick by id. */
 export function pickLook(st: Pick<FolkState, 'id' | 'origin' | 'look'> & Partial<Pick<FolkState, 'lifeStage' | 'growsUpIn'>>, looks: Record<string, readonly string[]> = FOLK_LOOKS, dress?: 'plate' | 'leather' | 'base'): FolkLookPick {
   const people = st.origin && looks[st.origin]?.length ? st.origin : 'settlers';
-  const every = looks[people] ?? [];
+  const drawn = looks[people] ?? [];
   if (isFolkChild(st)) {
-    const kids = CHILD_LOOKS[people]?.[st.look.gender === 'f' ? 'girl' : 'boy'].filter((l) => every.includes(l));
+    const kids = CHILD_LOOKS[people]?.[st.look.gender === 'f' ? 'girl' : 'boy'].filter((l) => drawn.includes(l));
     if (kids?.length) return { people, look: kids[idHash(st.id, 1) % kids.length] };
   }
+  // (a grown person never wears a child's look, whatever else the folder lacks)
+  const every = drawn.filter((l) => !isChildLook(l));
   // (dwarves wear the dwarf looks, where a folder has them; everyone else the human ones)
   const dwarf = st.origin === 'dwarves' && every.some((l) => l.startsWith('dwarf_'));
   const kin = every.filter((l) => l.startsWith('dwarf_') === dwarf);
