@@ -66,9 +66,10 @@ const FALLBACK: Record<FolkAnim, FolkAnim[]> = {
   hurt: ['idle', 'stand'],
   cast_1h: ['cast_2h', 'attack_1h', 'idle', 'stand'],
   cast_2h: ['cast_1h', 'attack_2h', 'idle', 'stand'],
-  // (a look with no tools, a people's own cast, idles at its work rather than punching the tree)
-  chop: ['hammer', 'idle', 'stand'],
-  hammer: ['chop', 'idle', 'stand'],
+  // (a look with no tool drawn still works, never stands idle at it: the other tool, else its punch or its thrown
+  // spell, which reads as hammering, hewing or a druid's working; the owner's ask)
+  chop: ['hammer', 'attack_1h', 'cast_1h', 'idle', 'stand'],
+  hammer: ['chop', 'attack_1h', 'cast_1h', 'idle', 'stand'],
   // (a casting people's cast fights with its thrown spell)
   attack_1h: ['attack_2h', 'chop', 'hammer', 'cast_1h', 'idle', 'stand'],
   attack_2h: ['attack_1h', 'chop', 'hammer', 'cast_1h', 'idle', 'stand'],
@@ -108,7 +109,8 @@ export function wantedAnim(st: FolkState, speed: number, family: string | undefi
     if (k === 'greatsword') return 'attack_2h';
     return 'attack_1h';
   }
-  if (st.activity === 'pray' || st.activity === 'draw' || st.activity === 'research') return 'cast_1h';
+  // (casting a line looks like the thrown move)
+  if (st.activity === 'pray' || st.activity === 'draw' || st.activity === 'research' || st.activity === 'fish') return 'cast_1h';
   if (st.activity === 'chop') return 'chop';
   if (st.activity === 'build' || st.activity === 'mine' || st.activity === 'till' || st.activity === 'reap' || st.activity === 'forage' || st.work?.kind === 'craft') return 'hammer';
   if (speed > 1 || st.activity === 'walk' || st.activity === 'stroll') {

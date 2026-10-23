@@ -49,7 +49,10 @@ test('a look without an animation falls back sensibly', () => {
   assert.equal(play('run', only('walk', 'run')).rate, 1);
   assert.equal(play('chop', only('hammer')).anim, 'hammer');
   assert.equal(play('hammer', only()).anim, 'stand');
-  assert.equal(play('chop', only('attack_1h', 'idle')).anim, 'idle'); // (a cast with no tools idles at work, not punching)
+  // (a cast with no tools still moves at work: its punch, else its thrown spell; idle only when it has neither)
+  assert.equal(play('chop', only('attack_1h', 'idle')).anim, 'attack_1h');
+  assert.equal(play('hammer', only('cast_1h', 'idle')).anim, 'cast_1h');
+  assert.equal(play('hammer', only('idle')).anim, 'idle');
   assert.equal(play('death', only('hurt')).anim, 'hurt');
   assert.equal(play('death', only('death')).loop, false);
   assert.equal(play('walk', only('walk')).loop, true);
