@@ -16,7 +16,7 @@ import { founderSkills, MAX_NAME_LENGTH, SCENARIOS, type FounderSpec } from '../
 import { FOUNDER_BY_ID, FOUNDERS } from '../../shared/data/founders';
 import { TRAITS } from '../../shared/data/people';
 import { SKILL_NAMES, SKILLS } from '../../shared/data/skills';
-import { ORIGIN_DEFS, ORIGINS, type OriginId } from '../../shared/data/origins';
+import { ORIGIN_DEFS, PLAYABLE_ORIGINS, type OriginId } from '../../shared/data/origins';
 import type { Snapshot } from '../../shared/sim/snapshot';
 import { TICKS_PER_HOUR } from '../../shared/sim/time';
 import { loadLpc, lpcCanvas } from '../art/lpc/lpcCompose';
@@ -109,7 +109,7 @@ export function renderNewGame(snap: Snapshot, bridge: Bridge): HTMLElement[] {
   const drawOrigins = () =>
     origins.replaceChildren(
       tileGrid(
-        (stepTiles[0] = ORIGINS.map((id): Tile => {
+        (stepTiles[0] = PLAYABLE_ORIGINS.map((id): Tile => {
           const o = ORIGIN_DEFS[id];
           return {
             id,
