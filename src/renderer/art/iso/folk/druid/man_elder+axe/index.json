@@ -1,0 +1,23 @@
+{
+ "look": "man_elder+axe",
+ "people": "druid",
+ "frame": [
+  156,
+  156
+ ],
+ "directions": [
+  "south",
+  "south-east",
+  "east",
+  "north-east",
+  "north",
+  "north-west",
+  "west",
+  "south-west"
+ ],
+ "animations": {
+  "chop": {
+   "frames": 9
+  }
+ }
+}

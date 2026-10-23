@@ -40,5 +40,7 @@ Costs seen (Oct 23, Tier 3): a template move about 1 generation a direction at 1
 reference about 10-12; a style-matched building 10-15. Background jobs stop at the 2-hour limit and the container can
 restart: every script is resumable, so restart it with the same arguments.
 
-Still to make (after the Nov 21 reset): axe and hammer armed looks for the peoples' casts (so they hold tools at work;
+Oct 23: `pl_armed.py` gave the peoples' casts one tool each (axe or hammer, a v3 text move at 3 generations a direction, about 45 a look); `assemble_armed.py <repo>` lays them out. A look without a tool swings its other one (folkSprite).
+
+Still to make: the other tool for each cast look, if wanted (see
 `pl_batch.py`'s `armed()` shows how).
