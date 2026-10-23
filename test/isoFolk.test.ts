@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { existsSync, readFileSync } from 'node:fs';
+import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { test } from 'node:test';
 import { CHILD_SCALE, FOLK_DIRS, FOLK_LOOKS, isChildLook, isFolkChild, armedSuffix, otherTool, facingFromVector, facingToward, frameAt, idHash, lookPath, dressOf, pickLook, play, wantedAnim, type FolkAnim, type FolkState } from '../src/renderer/iso/folkRules';
@@ -140,8 +140,8 @@ test("a person's colours are their own: skin and hair from their look, cloth fro
 });
 
 test("recolouring keeps the art's shading and lands each role near its target", () => {
-  // (the blend lies between a skin and a hair colour: the skins stand in for it)
-  const targets: Record<FolkRole, readonly string[]> = { skin: SKINS, hair: [...HAIR_COLORS, ...OLD_HAIR], cloth: Object.values(DYES).flat(), cloth2: PLAIN_DYES, blend: SKINS };
+  // (the brows are a hair colour toned towards the skin: the hair colours stand in for them)
+  const targets: Record<FolkRole, readonly string[]> = { skin: SKINS, hair: [...HAIR_COLORS, ...OLD_HAIR], cloth: Object.values(DYES).flat(), cloth2: PLAIN_DYES, brow: [...HAIR_COLORS, ...OLD_HAIR] };
   let checked = 0;
   for (const people of PEOPLES_TINTED) for (const look of FOLK_LOOKS[people]) {
     const roles = roleFile(`${people}/${look}`);
@@ -182,9 +182,15 @@ test('the tinted looks are labelled: skin and hair (or a hood) for every look, a
     assert.ok(roles, `${people}/${look} has roles.json`);
     const index = JSON.parse(readFileSync(join(FOLK_ART, people, look, 'index.json'), 'utf8')) as { animations: Record<string, unknown> };
     for (const anim of ['rotations', ...Object.keys(index.animations)]) assert.ok(roles.sheets[anim], `${people}/${look} labels ${anim}`);
+    for (const png of readdirSync(join(FOLK_ART, people, look)).filter((f) => f.endsWith('.png'))) assert.ok(roles.sheets[png.slice(0, -4)], `${people}/${look} labels ${png}`);
     for (const suffix of ['axe', 'bow', 'greatsword', 'hammer', 'staff', 'sword']) {
+      if (!existsSync(join(FOLK_ART, people, `${look}+${suffix}`, 'index.json'))) continue;
       const armed = roleFile(`${people}/${look}+${suffix}`);
-      if (!armed) continue;
+      // (a new armed look or sheet that isn't labelled yet: run `python3 tools/folk-roles.py <people>`)
+      assert.ok(armed, `${people}/${look}+${suffix} has roles.json`);
+      for (const png of readdirSync(join(FOLK_ART, people, `${look}+${suffix}`)).filter((f) => f.endsWith('.png'))) {
+        assert.ok(armed.sheets[png.slice(0, -4)], `${people}/${look}+${suffix} labels ${png}`);
+      }
       // (the same reference, so the same tint makes the same colours, armed or bare)
       assert.deepEqual(armed.ref, roles.ref, `${people}/${look}+${suffix}`);
       for (const role of Object.keys(roles.ref) as FolkRole[]) {

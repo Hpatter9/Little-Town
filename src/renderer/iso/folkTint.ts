@@ -18,14 +18,14 @@ import { CLOTH_COLORS, HAIR_CHOICES, HAIR_COLORS, SKINS, type Look } from '../..
 import type { LifeStage } from '../../shared/sim/ageing';
 import { idHash } from './folkRules';
 
-/** What a colour in the art paints. `blend` is the tones a face's shadows share with its stubble and the hair's edge:
- *  painted halfway between the person's skin and hair. */
-export type FolkRole = 'skin' | 'hair' | 'cloth' | 'cloth2' | 'blend';
-export const FOLK_ROLES: readonly FolkRole[] = ['skin', 'hair', 'cloth', 'cloth2', 'blend'];
+/** What a colour in the art paints. `brow` is the hair across the face (brows, moustache, beard): the hair's colour,
+ *  toned a little towards the skin. */
+export type FolkRole = 'skin' | 'hair' | 'cloth' | 'cloth2' | 'brow';
+export const FOLK_ROLES: readonly FolkRole[] = ['skin', 'hair', 'cloth', 'cloth2', 'brow'];
 
-/** What each role turns into ('#rrggbb'); a role left out keeps the art's colour (`blend` follows skin and hair). */
-export type FolkTint = Partial<Record<Exclude<FolkRole, 'blend'>, string>>;
-const TINTED: readonly Exclude<FolkRole, 'blend'>[] = ['skin', 'hair', 'cloth', 'cloth2'];
+/** What each role turns into ('#rrggbb'); a role left out keeps the art's colour (`brow` follows skin and hair). */
+export type FolkTint = Partial<Record<Exclude<FolkRole, 'brow'>, string>>;
+const TINTED: readonly Exclude<FolkRole, 'brow'>[] = ['skin', 'hair', 'cloth', 'cloth2'];
 
 /** A look's labels (its roles.json): the look's own average colour per role (hue, saturation, lightness), and each
  *  sheet's colours by role ('rrggbb'). */
@@ -149,7 +149,7 @@ export function sheetMap(roles: FolkRoles | null, sheet: string, tint: FolkTint 
   const own = roles?.sheets[sheet];
   if (!tint || !own) return out;
   for (const role of FOLK_ROLES) {
-    const target = role === 'blend' ? blendOf(roles, tint) : tint[role], ref = roles.ref[role], hexes = own[role];
+    const target = role === 'brow' ? browOf(roles, tint) : tint[role], ref = roles.ref[role], hexes = own[role];
     if (!target || !ref || !hexes) continue;
     for (const hx of hexes) {
       const from = parseInt(hx, 16);
@@ -160,21 +160,16 @@ export function sheetMap(roles: FolkRoles | null, sheet: string, tint: FolkTint 
   return out;
 }
 
-/** The blend's colour: between the person's skin and hair (or the art's own, for one not given). Its hue and
- *  saturation are halfway; its lightness never above the skin's own shadow (as the art has it, against the skin), so a
- *  deep-skinned face with fair hair keeps dark shadows and a pale one with black hair doesn't turn sooty. */
-function blendOf(roles: FolkRoles, tint: FolkTint): string | undefined {
-  if (!tint.skin && !tint.hair) return undefined;
-  const own = (role: 'skin' | 'hair'): [number, number, number] | null => {
-    if (tint[role]) return rgbToHsl(...hexRgb(tint[role]!));
-    return roles.ref[role] ?? null;
-  };
-  const a = own('skin'), b = own('hair'), ref = roles.ref;
-  if (!a || !b || !ref.skin || !ref.blend) return undefined;
-  const dh = ((b[0] - a[0] + 540) % 360) - 180;
-  const l = Math.min((a[2] + b[2]) / 2, a[2] * (ref.blend[2] / Math.max(ref.skin[2], 0.05)));
-  const [r, g, bl] = hslToRgb((a[0] + dh / 2 + 360) % 360, (a[1] + b[1]) / 2, l);
-  return '#' + [r, g, bl].map((v) => v.toString(16).padStart(2, '0')).join('');
+/** The colour of the hair across the face: the hair's, its lightness taken a third of the way to the skin's, so fair
+ *  brows and a fair beard on a dark face (or black ones on a pale face) read as hair, not as a mask. */
+export const BROW_PULL = 0.3;
+function browOf(roles: FolkRoles, tint: FolkTint): string | undefined {
+  if (!tint.hair) return undefined;
+  const [hh, hs, hl] = rgbToHsl(...hexRgb(tint.hair));
+  const skin = tint.skin ? rgbToHsl(...hexRgb(tint.skin)) : roles.ref.skin;
+  const l = skin ? hl + (skin[2] - hl) * BROW_PULL : hl;
+  const [r, g, b] = hslToRgb(hh, hs, l);
+  return '#' + [r, g, b].map((v) => v.toString(16).padStart(2, '0')).join('');
 }
 
 /** Recolour RGBA bytes in place by a sheet map (sheetMap). A colour not in the map, and a clear pixel, stay. */

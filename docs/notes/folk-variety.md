@@ -25,8 +25,19 @@ per animation (even a look's armed copies share no exact colours), so a palette-
 labels every pixel of every sheet (the five tinted peoples, ~430 sheets) by its colour (per-look boxes, `LOOKS`)
 and its place in its frame (`place`: hair and beards only near the head, so a brown boot of the hair's colour isn't
 hair; at the `crown` hair is tried before skin), keeps skin and cloth only in pieces of 10 pixels or more
-(`components`: a fleck of skin colour on leather is a highlight), and marks `blend` the face-shadow tones the art
-shares with stubble and the hair's edge, beside the skin. Where one colour paints two things, the fewer pixels get a
+(`components`: a fleck of skin colour on leather is a highlight). The face is found first (`face_hull`: each frame's big piece of lit skin, not in a colour drawn more in the
+crown's hair than as lit skin, from `faceTop` down, grown 3 pixels, then every row between its outermost pixels).
+Across the face the darkest tones (`faceLines`, lightness under 0.22: eye sockets, lines) stay as drawn, and a warm
+colour is skin unless it is drawn more in the hair above the face than across it, so the shaded side of a face stays
+skin. The hair across the face (brows, a moustache) is `brow`: the hair's colour, its lightness pulled `BROW_PULL`
+0.3 of the way to the skin's, so fair brows on a dark face, or black ones on a pale face, don't ring the eyes like a
+mask. Round the face, down to the chin, a hair or skin colour is hair (lit strands the colour of skin). A `beard`
+look (`man_base`, `man_plate`, the dwarves, the alchemist master) takes the lower face, below the eyes and down to
+`beardTo`, in the hair's colours as beard, so a beard follows the hair. Cloth is never on the face (the squire's
+red tabard once slashed across his cheek). The plate dwarf's face is a slit in his helm: only his skin is tinted, his
+beard stays as drawn. The coordinator's review found faces blotched with hair colour at the extremes (deep skin and
+fair hair); these rules came of it, checked on every settler, dwarf and knight look at the extremes (`extremes.png`).
+Where one colour paints two things, the fewer pixels get a
 colour one unit of blue off (`settle`), so in the sheet each colour paints one thing and the game's lookup is exact;
 that is the only change to the art (at most 2 in the blue channel, invisible; the sheets stay palette PNGs). The
 armed looks use their bare look's boxes and `ref`, so a person keeps their colours when they pick up a tool, and a
@@ -36,8 +47,8 @@ the colour of their skin, so their skin stays as drawn; the great-helmed knight 
 
 **Recolouring** (`folkTint.ts`). `sheetMap(roles, sheet, tint)` gives each labelled colour its new colour by
 `shade`: the colour's offset from the look's own average for that role (`ref`) is laid on the target (hue half as far,
-saturation in proportion, lightness scaled to fit the ramp), so the art's shading and folds stay. `blendOf` puts the
-blend halfway between skin and hair but never lighter than the skin's own shadow. `recolour(data, map)` is one map
+saturation in proportion, lightness scaled to fit the ramp), so the art's shading and folds stay. `browOf` gives the hair
+across the face its colour. `recolour(data, map)` is one map
 lookup a pixel. Cache: `folkLoader.ts` `loadFolkSet(path, tint)` and `folkPortrait.ts` `folkFigure(path, tint)`,
 keyed by `tintKey`; `iso/folkRoles.ts` `loadRoles` fetches a look's labels once. `FolkWho` now has `tint` and
 `variant` (the key, a string). Cost: building a sheet's map is under 1 ms and recolouring a 912x1216 sheet about
@@ -47,17 +58,34 @@ was (6 variants times a town's looks already exceeded the head count), in a big 
 
 **For later:** an eviction of tints nobody wears any more (a dead person's sheets stay cached until a new town).
 
+The merge of 0.205.0 brought the knights' (and druids') `+axe` and `+hammer` looks: labelled like the rest, and a
+knight with an axe keeps their colours (the armed look shares the bare look's `ref`).
+
 Tests: `test/isoFolk.test.ts` (each person's tint comes from their look and their people's dyes, is stable, the
 young never grey, every target natural; recolouring keeps each role near its target and the ramp's order, across every
 look's labelled colours and every target; every tinted look and sheet labelled, armed copies sharing the bare look's
 `ref`; the fixed casts untinted and unlabelled; armour and tools never change a person's tint),
 `test/folkPortrait.test.ts` (portrait and map share the tint).
 
-**Tools.** `tools/folk-roles.py` takes about a quarter of an hour over every sheet (`--bare` for the still frames
-only, `--qa out.png --only settlers` paints the roles flat to check the boxes by eye: pink skin, yellow hair, blue
-cloth, cyan second cloth, orange blend). `tools/make-save.ts` takes `FOLK=n`: n more grown townsfolk, each a fresh
+**New sheets.** When new folk art lands (a run or hurt sheet, a `+sword` or `+staff` look) for a tinted people
+(settlers and dwarves, knights, druid, nomads, alchemists), run, from the repo:
+
+    python3 tools/folk-roles.py
+
+It labels only the sheets no roles.json lists yet (a new look's armed copies take the bare look's `ref`), leaves the
+rest as they are, and takes seconds to a minute; it is safe to run at any time (with nothing new it does nothing).
+A people or look can be named to do only those (`python3 tools/folk-roles.py knights`). `test/isoFolk.test.ts`
+fails, naming the sheet, if a tinted look has a PNG with no labels. The lich and the vampires are fixed casts: their
+new sheets need nothing. A brand-new bare look needs its colour boxes in `LOOKS` first (`--qa out.png --only
+knights` paints the roles flat to check them by eye: pink skin, yellow hair, orange hair across the face, blue cloth,
+cyan second cloth). `--again` relabels from scratch: only on PixelLab's own art (`git checkout origin/main --` the
+look's folder from before this tool ran), since a labelling nudges some colours.
+
+**Tools.** `tools/make-save.ts` takes `FOLK=n`: n more grown townsfolk, each a fresh
 `randomLook`, gathered round the first (a crowd to look at).
 
+`extremes.png`: every settlers, dwarf and knight look at the extremes, four of each in a row: the darkest skin with
+the lightest hair, the palest skin with black hair, the darkest skin with white hair, brown skin with ginger hair.
 Pictures in `folk-variety/`, before on the left (or top), after on the right (or below): `settlers-map-upright.png`
 (393x852) and `settlers-map-sideways.png` (852x393), a settlers town of 27 zoomed in on the camp; `settlers-people.png`,
 the People page; the same three for a knights town (`knights-*`). `<people>-before.png` / `<people>-after.png`: a

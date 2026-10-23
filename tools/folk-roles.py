@@ -12,9 +12,16 @@ Each sheet has its own palette (even a look's armed copies share no exact colour
 armed looks (`man_base+axe`) use their bare look's boxes and reference, so a person keeps their colours when they
 pick up a tool. The peoples with colours of their own (orcs, liches...) are not labelled: drawn as the art has them.
 
-A dev tool, run by hand after new folk art lands: `python3 tools/folk-roles.py` (it rewrites the sheets and their
-roles.json). `--qa out.png [--only settlers]` draws the looks' still frames with the roles painted flat, to check by
-eye; `--bare` does only the bare looks' still frames (quick, for tuning `LOOKS`)."""
+A dev tool, run by hand after new folk art lands (new sheets, or new armed looks): `python3 tools/folk-roles.py`
+labels every sheet not labelled yet (one in no roles.json) and leaves the rest as they are, so it is safe to run again
+at any time. Name peoples or looks to do only those, e.g. `python3 tools/folk-roles.py knights` or
+`python3 tools/folk-roles.py settlers/man_base` (a look's armed copies too). `--again` relabels everything named from
+scratch: do that only on the art as PixelLab made it (`git checkout origin/main -- src/renderer/art/iso/folk` before
+this tool first ran, about a quarter of an hour for all), since each labelling nudges some colours. A new look needs
+its boxes in `LOOKS` first (check them with `--qa`). `--qa out.png [--only settlers]` draws the looks' still frames
+with the roles painted flat (pink skin, yellow hair, orange hair across the face, blue cloth, cyan second cloth), to
+check by eye; `--bare` does only the bare looks' still frames, quick, for tuning `LOOKS` (use it with `--again`, then
+relabel in full)."""
 import glob
 import json
 import math
@@ -27,19 +34,20 @@ from PIL import Image
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.join(HERE, '..', 'src', 'renderer', 'art', 'iso', 'folk')
 PEOPLES = ['settlers', 'druid', 'nomads', 'alchemists', 'knights']
-ROLES = ['skin', 'hair', 'cloth', 'cloth2', 'blend']
+ROLES = ['skin', 'hair', 'cloth', 'cloth2', 'brow']
 
 # A box is (hue from, hue to, saturation from, to, lightness from, to); the hue wraps round when from > to. A role
-# can have several boxes, and the first role whose box holds a pixel takes it, in ROLES order (but at the crown, above
-# `crown`, hair is tried before skin: the hair's light strands are skin-coloured). `place` is where on the figure a
-# role can be, from 0 (the top of the figure in its frame) to 1 (its feet): hair and beards at the head, a tunic
-# above the belt and breeches below it, so a brown boot the colour of the hair is not hair. `blend` is the tones a
-# face's shadows share with its stubble and the hair's edge (the art blends one into the other): where the hair can
-# be, they are neither, and the game paints them halfway between the person's skin and hair.
+# can have several boxes. `place` is where on the figure a role can be, from 0 (the top of the figure in its frame) to
+# 1 (its feet): hair and beards at the head, a tunic above the belt and breeches below it, so a brown boot the colour
+# of the hair is not hair. Above `crown` the hair box wins (the hair's light strands are skin-coloured); across the
+# face, skin and hair are told apart by where each colour is mostly drawn (`classify`), and the hair across the face
+# (brows, moustache, beard) is `brow`: the game paints it the hair's colour, toned a little towards the skin, so fair
+# brows on a dark face don't read as a mask (`faceTop`: where the face can start, for a look whose lit hair is the
+# colour of its face); on a `beard` look the lower face down to `beardTo` is beard, so hair.
+# Cloth is never on the face.
 SKIN = [(10, 34, 0.5, 1, 0.45, 0.92)]
 HAIR = [(0, 45, 0.15, 1, 0.08, 0.75)]
-BLEND = [(8, 30, 0.33, 0.62, 0.3, 0.56)]
-DEFAULT = {'skin': SKIN, 'hair': HAIR, 'cloth': [], 'cloth2': [], 'blend': BLEND, 'crown': 0.07,
+DEFAULT = {'skin': SKIN, 'hair': HAIR, 'cloth': [], 'cloth2': [], 'crown': 0.07,
            'place': {'skin': (0, 1), 'hair': (0, 0.22), 'cloth': (0.15, 1), 'cloth2': (0.15, 1)}}
 PLAIN = (0, 45, 0.02, 0.4, 0.25, 0.88)  # (undyed linen and wool: greyish browns)
 BLUE = (190, 245, 0.12, 1, 0.08, 0.92)
@@ -47,16 +55,18 @@ LOOKS = {
     'settlers/child_boy': {'cloth': [(28, 50, 0.2, 1, 0.6, 0.95)], 'cloth2': [(5, 30, 0.3, 0.8, 0.15, 0.6)],
                            'place': {'hair': (0, 0.3), 'cloth': (0.3, 0.7), 'cloth2': (0.62, 0.88)}},
     'settlers/child_girl': {'cloth': [(55, 130, 0.08, 1, 0.07, 0.62)], 'place': {'hair': (0, 0.45)}},
-    'settlers/man_base': {'cloth': [PLAIN], 'cloth2': [PLAIN], 'place': {'hair': (0, 0.3), 'cloth': (0.17, 0.53), 'cloth2': (0.53, 0.9)}},
+    'settlers/man_base': {'beard': True, 'cloth': [PLAIN], 'cloth2': [PLAIN], 'place': {'hair': (0, 0.3), 'cloth': (0.17, 0.53), 'cloth2': (0.53, 0.9)}},
     'settlers/woman_base': {'cloth': [PLAIN], 'cloth2': [PLAIN], 'place': {'hair': (0, 0.25), 'cloth': (0.2, 0.5), 'cloth2': (0.5, 0.9)}},
-    'settlers/man_leather': {'crown': 0.09, 'skin': [(10, 27.5, 0.5, 1, 0.45, 0.92)], 'blend': [(8, 26, 0.33, 0.62, 0.3, 0.56)], 'cloth': [(0, 45, 0.1, 0.4, 0.4, 0.8)], 'cloth2': [(0, 360, 0, 0.12, 0.2, 0.7)],
+    # (his fair hair's lit strands are the colour of his face: the face starts at his brow)
+    'settlers/man_leather': {'crown': 0.05, 'faceTop': 0.1, 'skin': [(10, 27.5, 0.5, 1, 0.45, 0.92)], 'cloth': [(0, 45, 0.1, 0.4, 0.4, 0.8)], 'cloth2': [(0, 360, 0, 0.12, 0.2, 0.7)],
                              'place': {'hair': (0, 0.22), 'cloth': (0.2, 0.55), 'cloth2': (0.55, 0.9)}},
     'settlers/woman_leather': {'cloth': [(0, 45, 0.1, 0.4, 0.4, 0.8)], 'cloth2': [(0, 30, 0.1, 0.4, 0.12, 0.5)],
                                'place': {'hair': (0, 0.3), 'cloth': (0.2, 0.55), 'cloth2': (0.55, 0.9)}},
-    'settlers/dwarf_base': {'hair': [(0, 24, 0.4, 1, 0.08, 0.6)], 'cloth': [PLAIN], 'cloth2': [PLAIN], 'place': {'hair': (0, 0.42), 'cloth': (0.3, 0.55), 'cloth2': (0.55, 0.9)}},
-    'settlers/dwarf_apron': {'hair': [(350, 18, 0.55, 1, 0.08, 0.6)], 'place': {'hair': (0, 0.42)}},
-    'settlers/dwarf_plate': {'hair': [(0, 22, 0.35, 1, 0.08, 0.45)], 'place': {'hair': (0, 0.3)}},
-    'settlers/man_plate': {'cloth': [BLUE], 'place': {'hair': (0, 0.3)}},
+    'settlers/dwarf_base': {'beard': True, 'beardTo': 0.45, 'hair': [(0, 24, 0.4, 1, 0.08, 0.6)], 'cloth': [PLAIN], 'cloth2': [PLAIN], 'place': {'hair': (0, 0.3), 'cloth': (0.3, 0.55), 'cloth2': (0.55, 0.9)}},
+    'settlers/dwarf_apron': {'beard': True, 'beardTo': 0.45, 'hair': [(350, 18, 0.55, 1, 0.08, 0.6)], 'place': {'hair': (0, 0.3)}},
+    # (the plate dwarf's face is a slit in his helm: his skin is tinted, his beard stays as drawn)
+    'settlers/dwarf_plate': {'hair': []},
+    'settlers/man_plate': {'beard': True, 'cloth': [BLUE], 'place': {'hair': (0, 0.3)}},
     # (the druids: leaf-green robes and hoods; the elder's white hair and the warden's wolf hood stay as drawn)
     'druid/child_boy': {'cloth': [(60, 160, 0.1, 1, 0.08, 0.75)], 'place': {'hair': (0, 0.25)}},
     'druid/child_girl': {'cloth': [(50, 110, 0.1, 1, 0.08, 0.7)], 'place': {'hair': (0, 0.45)}},
@@ -73,14 +83,15 @@ LOOKS = {
     'nomads/woman_nomad': {'hair': [], 'skin': [], 'cloth': [(335, 360, 0.4, 1, 0.12, 0.6)], 'place': {'cloth': (0.3, 1)}},
     # (the alchemists: robes of purple and teal; the apprentice's hood hides the hair, and his brown robe is the
     # colour of his shadowed face, so it stays)
-    'alchemists/man_master': {'cloth': [(250, 330, 0.1, 1, 0.08, 0.6)], 'place': {'hair': (0, 0.35)}},
+    'alchemists/man_master': {'beard': True, 'cloth': [(250, 330, 0.1, 1, 0.08, 0.6)], 'place': {'hair': (0, 0.35)}},
     'alchemists/man_apprentice': {'hair': []},
     'alchemists/woman_alchemist': {'cloth': [(165, 210, 0.2, 1, 0.1, 0.65)], 'place': {'hair': (0, 0.3)}},
     'alchemists/child_boy': {'skin': [(10, 30, 0.5, 1, 0.6, 0.92), (10, 22, 0.45, 1, 0.45, 0.6)], 'cloth': [(28, 50, 0.4, 1, 0.3, 0.68)],
                              'place': {'hair': (0, 0.28), 'cloth': (0.25, 0.68)}},
     'alchemists/child_girl': {'cloth': [(170, 210, 0.15, 1, 0.08, 0.6)], 'place': {'hair': (0, 0.45)}},
     # (the knights: the tabards and tunics in heraldic dyes; the knight's great helm hides all)
-    'knights/man_squire': {'cloth': [(345, 10, 0.4, 1, 0.15, 0.55)], 'place': {'cloth': (0.2, 1)}},
+    # (the squire's fringe falls over his brow: the top of his face is hair)
+    'knights/man_squire': {'cloth': [(345, 10, 0.4, 1, 0.15, 0.55)], 'faceTop': 0.11, 'place': {'skin': (0.11, 1), 'cloth': (0.2, 1)}},
     'knights/woman_knight': {'cloth': [(195, 240, 0.35, 1, 0.1, 0.5)], 'place': {'hair': (0, 0.3), 'cloth': (0.25, 1)}},
     'knights/child_boy': {'cloth': [(340, 10, 0.35, 1, 0.12, 0.5)], 'place': {'hair': (0, 0.28), 'cloth': (0.25, 1)}},
     'knights/child_girl': {'cloth': [(195, 235, 0.25, 1, 0.1, 0.5)], 'place': {'hair': (0, 0.45), 'cloth': (0.25, 1)}},
@@ -134,19 +145,6 @@ def rel_map(alpha, fw, fh):
     return rel
 
 
-def near(mask, r):
-    """The pixels within `r` steps (up, down, across) of a mask's."""
-    out = mask.copy()
-    for _ in range(r):
-        grown = out.copy()
-        grown[1:] |= out[:-1]
-        grown[:-1] |= out[1:]
-        grown[:, 1:] |= out[:, :-1]
-        grown[:, :-1] |= out[:, 1:]
-        out = grown
-    return out
-
-
 def components(mask):
     """Each pixel's 4-connected piece of a mask, by its size (0 off the mask)."""
     H, W = mask.shape
@@ -167,6 +165,55 @@ def components(mask):
     return np.where(mask, size, 0)
 
 
+def grow(mask, r):
+    """A mask grown by `r` steps up, down and across."""
+    out = mask.copy()
+    for _ in range(r):
+        g = out.copy()
+        g[1:] |= out[:-1]
+        g[:-1] |= out[1:]
+        g[:, 1:] |= out[:, :-1]
+        g[:, :-1] |= out[:, 1:]
+        out = g
+    return out
+
+
+def face_hull(sure, fw, fh, r=3):
+    """The face: each frame's big piece of lit skin grown by `r` pixels (to take in its shaded edges), then in each
+    row everything between its leftmost and rightmost pixel. And what is above the face (the hair), what is above or
+    beside it down to the chin (hair, an ear), and its lower part (where a beard grows)."""
+    H, W = sure.shape
+    hull = np.zeros_like(sure)
+    above = np.zeros_like(sure)
+    beside = np.zeros_like(sure)
+    chin = np.zeros_like(sure)
+    cols = np.arange(fw)
+    size = components(sure)
+    for y0 in range(0, H - fh + 1, fh):
+        for x0 in range(0, W - fw + 1, fw):
+            # (the face is the frame's big piece of lit skin: a few lit strands in the hair are not)
+            sz = size[y0:y0 + fh, x0:x0 + fw]
+            if not sz.any():
+                continue
+            m = grow(sz >= max(10, sz.max() * 0.3), r)
+            rows = m.any(axis=1)
+            if not rows.any():
+                continue
+            left = np.where(rows, np.argmax(m, axis=1), fw)
+            right = np.where(rows, fw - 1 - np.argmax(m[:, ::-1], axis=1), -1)
+            hull[y0:y0 + fh, x0:x0 + fw] = (cols[None, :] >= left[:, None]) & (cols[None, :] <= right[:, None])
+            top = np.argmax(rows)
+            above[y0:y0 + top, x0:x0 + fw] = True
+            # (the lower face, below the eyes, as wide as the face and a little more: where a beard grows)
+            bottom = fh - 1 - np.argmax(rows[::-1])
+            beside[y0:y0 + bottom + 1, x0:x0 + fw] = True
+            mid = top + (bottom - top) * 5 // 8  # (below the eyes)
+            lo, hi = left[rows].min(), right[rows].max()
+            m = (hi - lo) // 4
+            chin[y0 + mid:y0 + fh, x0 + max(0, lo - m):x0 + min(fw, hi + m + 1)] = True
+    return hull, above & ~hull, beside & ~hull, chin
+
+
 def classify(a, fw, fh, cfg):
     """Each pixel's role: an (H, W) array of ROLES indexes, -1 for none (left as drawn) or transparent."""
     alpha = a[:, :, 3] > 0
@@ -176,25 +223,70 @@ def classify(a, fw, fh, cfg):
     role = np.full((H, W), -1)
     free = alpha & (l >= 0.06)  # (the outline stays)
     places = {name: (rel >= lo) & (rel <= hi) for name, (lo, hi) in cfg['place'].items()}
-    places['blend'] = places['hair']
-    every = np.ones((H, W), bool)
-    crown = rel < cfg['crown']
-    # (at the crown hair first, then skin, then the blend of the two: only beside the skin, where the hair can be)
-    order = [(1, 'hair', crown), (0, 'skin', every), (4, 'blend', None), (1, 'hair', every), (2, 'cloth', every), (3, 'cloth2', every)]
-    if not cfg.get('hair'):
-        order = [o for o in order if o[1] != 'blend']
-    for i, name, where in order:
-        if not cfg.get(name):
-            continue
-        if where is None:
-            where = near(role == 0, 2)
-        m = free & where & in_boxes(h, s, l, cfg[name]) & places[name]
-        if name in ('skin', 'cloth', 'cloth2'):
-            # (skin is a face, an arm, a hand, and cloth a garment: a fleck of their colour on leather or in the hair
-            # is a highlight, and stays as drawn)
-            m &= components(m) >= cfg.get('piece', 10)
+    piece = cfg.get('piece', 10)
+
+    def take(m, i):
+        nonlocal free
+        m = m & free  # (a pixel already given a role keeps it)
         role[m] = i
         free &= ~m
+
+    skin_box = in_boxes(h, s, l, cfg['skin']) if cfg.get('skin') else np.zeros((H, W), bool)
+    hair_box = in_boxes(h, s, l, cfg['hair']) if cfg.get('hair') else np.zeros((H, W), bool)
+    head = places['hair']
+    # (the crown is hair: its light strands are the colour of skin)
+    take(free & hair_box & head & (rel < cfg['crown']), 1)
+    # the face: across it (every row between its outermost lit skin) a warm colour is the face's own unless the hair
+    # above the face is drawn in it too, so shaded cheeks keep with the skin and a beard and brows with the hair,
+    # whatever the hair and skin are dyed
+    face = np.zeros((H, W), bool)
+    if cfg.get('skin') and cfg.get('hair'):
+        key = (a[:, :, 0].astype(np.int64) << 16) | (a[:, :, 1].astype(np.int64) << 8) | a[:, :, 2]
+        least = cfg.get('crownCount', 2)
+
+        # (lit skin, but not in a colour drawn more in the crown's hair than as lit skin: a blond fringe's light
+        # strands aren't the face)
+        keys, inv = np.unique(key, return_inverse=True)
+        inv = inv.reshape(key.shape)
+        lit = free & skin_box & head & (s >= 0.5) & (l >= 0.55) & (rel >= cfg.get('faceTop', 0))
+        n_crown = np.bincount(inv[role == 1], minlength=len(keys))
+        n_lit = np.bincount(inv[lit], minlength=len(keys))
+        sure_skin = lit & ~((n_crown >= least) & (n_crown >= n_lit))[inv]
+        face, above, beside, chin = face_hull(sure_skin, fw, fh, cfg.get('faceGrow', 3))
+        face &= head & alpha
+        # (a colour drawn more in the hair above the face than across the face is hair: the fringe, beard and brows
+        # too; any other is the face's own, the shading the face shares with the hair included)
+        in_hair = (role == 1) | (above & free & hair_box & head)
+        n_hair = np.bincount(inv[in_hair], minlength=len(keys))
+        ask = free & face & (skin_box | hair_box)
+        if cfg.get('beard'):
+            # (a bearded look: in the lower face and below it, a colour the hair is drawn in that isn't lit skin is the
+            # beard, and follows the hair)
+            beard = free & chin & (rel <= cfg.get('beardTo', 0.32)) & hair_box & ~((s >= 0.5) & (l >= 0.55))
+            take(beard & (n_hair >= least)[inv], 1)
+            ask &= free
+        n_face = np.bincount(inv[ask], minlength=len(keys))
+        hairy = ((n_hair >= least) & (n_hair * cfg.get('hairShare', 1.0) >= n_face))[inv]
+        # (the darkest tones across the face are its lines, the eyes' sockets and the beard's shadows: left as drawn,
+        # or fair brows ring the eyes like a mask)
+        free &= ~(ask & (l < cfg.get('faceLines', 0.22)))
+        ask &= free
+        take(ask & hairy, 4)
+        take(ask & ~hairy & places['skin'], 0)
+        take(ask & ~hairy & hair_box, 1)
+        # (and round the face, down to the chin, a hair colour is hair: a fringe over the brow, the hair at the temples,
+        # lit strands the colour of skin)
+        take(free & head & beside & (hair_box | skin_box), 1)
+    # the rest of the skin (the neck, arms, hands), in pieces: a fleck of skin colour on leather is a highlight
+    m = free & skin_box & places['skin']
+    take(m & (components(m) >= piece), 0)
+    # the rest of the hair (the back of the head, a braid, the beard below the face)
+    take(free & hair_box & head, 1)
+    # the cloth, never on the face
+    for i, name in ((2, 'cloth'), (3, 'cloth2')):
+        if cfg.get(name):
+            m = free & ~face & in_boxes(h, s, l, cfg[name]) & places[name]
+            take(m & (components(m) >= piece), i)
     return role
 
 
@@ -277,38 +369,45 @@ def save_png(path, a):
     im.save(path, optimize=True, transparency=bytes(colours[:, 3].astype(np.uint8).tolist()))
 
 
-def run(bare_only=False, write=True):
+def run(bare_only=False, which=(), again=False, write=True):
+    """Label the sheets not labelled yet (all of them, `again`), and write each look's roles.json."""
     refs = {}
     for people, name, d in looks(bare_only):
+        if which and not any(f'{people}/{name}'.startswith(w) for w in which):
+            continue
         bare = name.split('+')[0]
         cfg = config(f'{people}/{bare}')
         fw, fh = json.load(open(os.path.join(d, 'index.json')))['frame']
-        sheets = {}
+        path = os.path.join(d, 'roles.json')
+        # (a sheet labelled already keeps its labels: labelling it again would nudge its colours again)
+        roles = json.load(open(path)) if os.path.exists(path) and not again else {'ref': {}, 'sheets': {}}
+        done = 0
         for png in sorted(glob.glob(os.path.join(d, '*.png'))):
             sheet = os.path.basename(png)[:-4]
-            if bare_only and sheet != 'rotations':
+            if (bare_only and sheet != 'rotations') or sheet in roles['sheets']:
                 continue
             a = np.asarray(Image.open(png).convert('RGBA'))
             out, names = settle(a, classify(a, fw, fh, cfg))
             if write and not np.array_equal(out, a):
                 save_png(png, out)
-            sheets[sheet] = names
-            if sheet == 'rotations' and name == bare:
-                refs[f'{people}/{bare}'] = reference(out, names)
-        ref = refs.get(f'{people}/{bare}')
-        if ref is None:
-            bd = os.path.join(ROOT, people, bare)
-            ref = json.load(open(os.path.join(bd, 'roles.json')))['ref']
-        roles = {'ref': ref, 'sheets': {}}
-        for sheet, names in sheets.items():
             by = {}
             for hx, role in sorted(names.items()):
                 by.setdefault(role, []).append(hx)
             roles['sheets'][sheet] = by
+            done += 1
+            if sheet == 'rotations' and name == bare:
+                refs[f'{people}/{bare}'] = reference(out, names)
+        if not done:
+            continue
+        # (an armed look takes its bare look's reference, so the same tint makes the same colours)
+        ref = refs.get(f'{people}/{bare}')
+        if ref is None:
+            ref = json.load(open(os.path.join(ROOT, people, bare, 'roles.json')))['ref'] if name != bare else roles['ref']
+        roles['ref'] = ref
         if write:
-            with open(os.path.join(d, 'roles.json'), 'w') as f:
+            with open(path, 'w') as f:
                 json.dump(roles, f, separators=(',', ':'))
-        print(f'{people}/{name}', ref)
+        print(f'{people}/{name}: {done} sheets labelled')
 
 
 PAINT = [(255, 120, 170), (255, 230, 0), (40, 110, 255), (0, 220, 220), (255, 150, 0)]
@@ -347,4 +446,4 @@ if __name__ == '__main__':
         only = sys.argv[sys.argv.index('--only') + 1] if '--only' in sys.argv else None
         draw_qa(sys.argv[sys.argv.index('--qa') + 1], only)
     else:
-        run('--bare' in sys.argv)
+        run('--bare' in sys.argv, [w for w in sys.argv[1:] if not w.startswith('--')], '--again' in sys.argv)
