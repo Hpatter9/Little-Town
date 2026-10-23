@@ -61,5 +61,5 @@ cloth, cyan second cloth, orange blend). `tools/make-save.ts` takes `FOLK=n`: n 
 Pictures in `folk-variety/`, before on the left (or top), after on the right (or below): `settlers-map-upright.png`
 (393x852) and `settlers-map-sideways.png` (852x393), a settlers town of 27 zoomed in on the camp; `settlers-people.png`,
 the People page; the same three for a knights town (`knights-*`). `<people>-before.png` / `<people>-after.png`: a
-crowd of each tinted people (settlers, knights, nomads, druid, alchemists), every figure drawn from its look's still
+crowd of each tinted people (settlers, dwarves (the settlers' `dwarf_*` looks), knights, nomads, druid, alchemists), every figure drawn from its look's still
 frame by the game's own recolour code, with children, elders and armour among them.
