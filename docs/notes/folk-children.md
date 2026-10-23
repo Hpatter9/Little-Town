@@ -29,8 +29,9 @@ back to idle. A child never asks for an armed look (`+axe` and so on: none drawn
 wolf form (`man_beast`), so no grown look ever shows on a child.
 
 **Previews.** `tools/make-save.ts` takes `KIDS=n`: n children added after the run, each beside a grown-up (cloned
-from them, beardless, alternating boy and girl). Pictures in `folk-children/`: a settlers town and an orc town,
-upright (393x852) and sideways (852x393), and the People page with the children's portraits.
+from them, beardless, alternating boy and girl). Pictures in `folk-children/`: a settlers boy beside a grown man
+(`settlers-map-upright.png`, 393x852 crop), the settlers and an orc child among adults sideways (852x393), and the
+People page and a child's card for both peoples (upright). The orc map upright had no child in view when shot.
 
 Tests: `test/isoFolk.test.ts` (every people has both child looks with walk, idle and death on disk, and every
 facing; a child of every people and sex, dwarves included, gets the right child look in any dress; every move a
