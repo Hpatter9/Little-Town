@@ -2536,9 +2536,9 @@ async function start(): Promise<void> {
       viewW = w;
       viewH = h;
     }
-    // (the camera follows the person you follow, else the founder, and waits while you pan about: it eases to them,
-    // and a battle's own move to the gate is left alone)
-    const lead = snap.people.find((q) => q.id === (snap.hero ?? snap.mainId));
+    // (the camera follows only the person you chose to follow, never the founder by default (the owner's ask), and
+    // waits while you pan about: it eases to them, and a battle's own move to the gate is left alone)
+    const lead = snap.hero != null ? snap.people.find((q) => q.id === snap.hero) : undefined;
     if (lead && !snap.raid && !snap.gameOver) {
       const at = people.posOf(lead.id) ?? { x: lead.x, y: lead.y };
       camera.follow(at, w, h, performance.now(), FOLLOW_WAIT_MS);
