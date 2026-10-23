@@ -34,6 +34,7 @@ import type { Bridge } from '../../shared/ipc';
 import type { PersonView, Snapshot, VisitorView } from '../../shared/sim/snapshot';
 import type { CreatureView } from '../../shared/sim/creature';
 import { creatureCard } from '../map/creatureCard';
+import { CREATURE_ROOT } from '../iso/creatureRules';
 import { bleedLeft } from '../../shared/format';
 import { button, el } from './dom';
 import { openCard } from './infoCard';
@@ -1091,7 +1092,7 @@ function manaBar([now, most]: [number, number]): HTMLElement {
   return r;
 }
 
-/** The town's great creature (sim/creature.ts): its card, its needs as bars, and the player's part (praise or scold its
+/** The town's God creature (sim/creature.ts): its card, its needs as bars, and the player's part (praise or scold its
  *  last deed, feed it, send it to rest). */
 function beastSection(c: CreatureView, bridge: Bridge | undefined): HTMLElement[] {
   const card = el('div', 'card person');
@@ -1102,9 +1103,10 @@ function beastSection(c: CreatureView, bridge: Bridge | undefined): HTMLElement[
   swatch.title = 'Its colour, by its nature';
   top.append(el('span', 'card-name', info.title), swatch);
   card.append(top);
+  if (!c.dead) card.append(creaturePortrait(c));
   if (c.dead) {
     card.append(el('div', 'hint', info.lines[0]));
-    return [el('h2', '', 'The great beast'), card];
+    return [el('h2', '', 'The God creature'), card];
   }
   card.append(el('div', 'hint', info.lines[0]), el('div', 'hint', info.lines[1]), el('div', 'hint', info.lines[2]));
   card.append(bar('Health', c.hp / Math.max(1, c.maxHp), `${c.hp}/${c.maxHp}`), bar('Fed', c.hunger / 100, `${c.hunger}`), bar('Rested', c.rest / 100, `${c.rest}`), bar('Played with', c.play / 100, `${c.play}`));
@@ -1114,7 +1116,26 @@ function beastSection(c: CreatureView, bridge: Bridge | undefined): HTMLElement[
   if (c.ask) row.append(button('Praise', () => bridge?.command({ type: 'creature', op: 'praise' }), { cls: 'place small' }), button('Scold', () => bridge?.command({ type: 'creature', op: 'scold' }), { cls: 'place small quiet' }));
   row.append(button('Feed', () => bridge?.command({ type: 'creature', op: 'feed' }), { cls: 'place small quiet', title: c.kind === 'golem' ? 'Feed it stone from the stores' : 'Feed it from the stores' }), button('Rest', () => bridge?.command({ type: 'creature', op: 'rest' }), { cls: 'place small quiet', disabled: c.asleep }));
   card.append(row);
-  return [el('h2', '', 'The great beast'), el('div', 'hint', 'It learns from you: praise what you want more of, scold what you don\'t. It turns good or cruel by what it does.'), card];
+  return [el('h2', '', 'The God creature'), el('div', 'hint', 'It learns from you: praise what you want more of, scold what you don\'t. It turns good or cruel by what it does.'), card];
+}
+
+/** Its picture, facing you, from its own sheets' still rotations (art/iso/creature/<kind>/, beside the page); tinted
+ *  gently by its nature. Shown only once it loads: a kind with no sheets of its own yet has none. */
+const PORTRAIT = 96;
+/** (the figure stands in the middle of its 156px frame, from about 28px down to 128px: the box shows that much) */
+const PORTRAIT_TOP = Math.round((PORTRAIT * 24) / 156);
+const PORTRAIT_H = Math.round((PORTRAIT * 108) / 156);
+function creaturePortrait(c: CreatureView): HTMLElement {
+  const box = el('div', '');
+  const url = `${CREATURE_ROOT.url}/${c.kind}/rotations.png`;
+  box.style.cssText = `display:none;width:${PORTRAIT}px;height:${PORTRAIT_H}px;margin:2px auto;image-rendering:pixelated;background:url(${url}) 0 -${PORTRAIT_TOP}px / ${PORTRAIT * 8}px ${PORTRAIT}px no-repeat`;
+  box.title = `${c.name} the ${c.kindName}`;
+  // (the good warm and bright, the cruel darker: the map's tint, as a filter)
+  box.style.filter = c.align >= 25 ? 'sepia(0.25) brightness(1.08)' : c.align <= -25 ? 'sepia(0.4) hue-rotate(-30deg) brightness(0.8)' : '';
+  const probe = new Image();
+  probe.onload = () => (box.style.display = 'block');
+  probe.src = url;
+  return box;
 }
 
 function bar(label: string, value: number, text: string): HTMLElement {

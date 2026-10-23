@@ -38,7 +38,7 @@ const GROUPS: Record<string, MenuTabs> = {
     ],
     intro: 'Out now',
   },
-  townsfolk: { groups: [['People', /^(People|The great beast)/], ['Jobs', /^Jobs/], ['Families', /^(Families|Guilds)/], ['More', /^(Prisoners|The arena|Standings|Bouts|Champions)/]] },
+  townsfolk: { groups: [['People', /^(People|The God creature)/], ['Jobs', /^Jobs/], ['Families', /^(Families|Guilds)/], ['More', /^(Prisoners|The arena|Standings|Bouts|Champions)/]] },
   // the War (the seasons of war): the map of provinces, the realm's wars and campaigns, the home front, the news
   war: {
     groups: [
