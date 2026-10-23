@@ -15,7 +15,7 @@ import { startWaitingChoices } from './waitingChoices';
 import { revealsOn, setItemOpener, setRevealsOn, showReveal, startReveals } from './revealCard';
 import { openCardInMenu, setMenuFrame } from './cardLink';
 import { buildingCard, buildingCardKey, type BuildingArt } from '../panel/buildingCard';
-import { PANELS, type StripState } from '../../shared/ipc';
+import { PANELS, type PanelId, type StripState } from '../../shared/ipc';
 import type { Snapshot } from '../../shared/sim/snapshot';
 import { mobileBridge } from './mobileBridge';
 import { expeditionFill, researchFill } from '../../shared/format';
@@ -273,9 +273,9 @@ const fills = new Map([
   ['expeditions', fillBar('tab-fill trip')],
 ]);
 /** Upright, the tabs are one slim row along the bottom: a mark over a short name. */
-const TAB_ICONS: Record<string, string> = { build: '⌂', research: '✦', expeditions: '⛺', townsfolk: '☺', trade: '⚖', war: '⚔', journal: '✎' };
+const TAB_ICONS: Record<string, string> = { dev: '⚙', build: '⌂', research: '✦', expeditions: '⛺', townsfolk: '☺', trade: '⚖', war: '⚔', journal: '✎' };
 const SHORT_LABELS: Record<string, string> = { journal: 'Annals' };
-const tabButtons = PANELS.map((p) => {
+const makeTab = (p: { id: PanelId; label: string }) => {
   const b = document.createElement('button');
   const fill = fills.get(p.id);
   if (fill) b.append(fill.bar);
@@ -291,6 +291,54 @@ const tabButtons = PANELS.map((p) => {
   b.addEventListener('click', () => bridge.togglePanel(p.id));
   tabs.append(b);
   return { id: p.id, b, label, name: p.label };
+};
+const tabButtons = PANELS.map(makeTab);
+
+/* ------------------------------------------------------------ developer mode (sim/dev.ts, panel/devPanel.ts) */
+
+// (the owner's ask: a Developer mode switch in the ☰ menu, kept per device; while it's on the town takes developer
+// orders, the Dev tab is shown and a DEV mark sits in the corner, so it's never mistaken for normal play)
+const DEV_KEY = 'littletown.dev';
+function devOn(): boolean {
+  try {
+    return localStorage.getItem(DEV_KEY) === '1';
+  } catch {
+    return false;
+  }
+}
+const devTab = makeTab({ id: 'dev', label: 'Dev' });
+tabButtons.push(devTab);
+const devMark = document.createElement('div');
+devMark.id = 'dev-mark';
+devMark.textContent = 'DEV';
+devMark.style.cssText = 'position:fixed;left:env(safe-area-inset-left, 0px);top:50%;transform:translateY(-50%);z-index:60;pointer-events:none;padding:6px 3px;border-radius:0 4px 4px 0;background:#c0392b;color:#fff;font:bold 10px/1.1 system-ui,sans-serif;writing-mode:vertical-rl;letter-spacing:2px;opacity:0.85';
+document.body.append(devMark);
+/** Show or hide the Dev tab and the mark; the tab bar takes one more column while the Dev tab is on it. */
+function showDev(on: boolean): void {
+  devTab.b.hidden = !on;
+  devMark.hidden = !on;
+  tabs.style.gridTemplateColumns = on ? `repeat(${tabButtons.filter((t) => !t.b.hidden).length}, 1fr)` : '';
+}
+showDev(devOn());
+/** When the town was last asked to match the device's switch (it may refuse: an ironman town). */
+let devAskedAt = 0;
+function setDev(on: boolean): void {
+  try {
+    localStorage.setItem(DEV_KEY, on ? '1' : '0');
+  } catch {}
+  showDev(on);
+  layout();
+  devAskedAt = Date.now();
+  bridge.command?.({ type: 'devMode', on });
+  if (!on && document.body.classList.contains('menu-open')) bridge.closePanel();
+}
+// (the town follows the device: a town loaded or begun here with the switch on is put in developer mode, and one
+// played here with it off is taken out of it)
+bridge.onSnapshot((snap) => {
+  const want = devOn();
+  if (want === !!snap.dev || (want && snap.ironman) || Date.now() - devAskedAt < 5000) return;
+  devAskedAt = Date.now();
+  bridge.command?.({ type: 'devMode', on: want });
 });
 // a choice event takes the whole screen (eventSheet.ts)
 {
@@ -585,6 +633,9 @@ function drawMenu(): void {
       // (the loading screen's scene behind the logo, off for a slow phone: mobile/loading.ts)
       item(`Loading scene: ${loadingSceneOn() ? 'on' : 'off'}`, () => (setLoadingScene(!loadingSceneOn()), drawMenu())),
       zooms,
+      label('Developer'),
+      item(`Developer mode: ${devOn() ? 'on' : 'off'}`, () => (setDev(!devOn()), drawMenu()), devOn()),
+      ...(devOn() && !fromMenu ? [item('Developer menu…', () => ((menu.hidden = true), bridge.openPanel('dev')))] : []),
       label('Help'),
       item(`Tips: ${tipsOn() ? 'on' : 'off'}`, () => (setTipsOn(!tipsOn()), drawMenu())),
       ...(fromMenu ? [] : [item('Replay the tutorial', () => ((menu.hidden = true), tutorial.start()))]),

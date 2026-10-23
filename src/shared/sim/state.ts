@@ -1258,6 +1258,13 @@ export interface GameState {
   eraReady: boolean;
   /** Testing aids toggled from the tray's Debug menu. */
   cheats: { unlockAll: boolean };
+  /** Developer mode (sim/dev.ts): its commands are taken only while this is on. `devSave`: it was ever on, so this
+   *  town is a dev save for good. `devBuild`: every order is built the moment it is placed. `devSkipTo`: the tick a
+   *  fast-forward runs to (shared/gameLoop.ts runs the steps flat out until it is reached). */
+  dev?: boolean;
+  devSave?: boolean;
+  devBuild?: boolean;
+  devSkipTo?: number;
   /** Where the town was founded (forest when left out). */
   biome?: Biome;
   /** A boss's roar shakes the town until this tick; a boss slain cheers it (until, and who). The last big boss moment (for the screen shake). */

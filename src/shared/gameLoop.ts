@@ -14,6 +14,8 @@ const FRAME_BUDGET_MS = 40;
 
 /** How long a frame spends running a raid being skipped (ms). */
 const SKIP_SLICE_MS = 24;
+/** How long a frame spends on developer mode's fast-forward (ms: sim/dev.ts). */
+const DEV_SLICE_MS = 40;
 
 export class GameLoop {
   private sim: Sim;
@@ -77,6 +79,19 @@ export class GameLoop {
     if (this.sim.state.raidSkip && this.sim.state.raid && !this.sim.state.paused && !holdOf(this.sim.state) && !this.cardsUp && this.speed > 0) {
       const until = now + SKIP_SLICE_MS;
       while (this.sim.state.raid && performance.now() < until) this.sim.step();
+      this.last = performance.now();
+      this.onTicks(this.snapshot());
+      return;
+    }
+    // (developer mode's fast-forward runs flat out the same way, its questions left to answer themselves, until the
+    // tick it runs to: sim/dev.ts. A question only the founder can answer stops it until it is answered.)
+    if (this.sim.state.devSkipTo !== undefined && this.sim.state.dev && !this.sim.state.paused && !this.cardsUp && this.speed > 0) {
+      const until = now + DEV_SLICE_MS;
+      while (this.sim.state.devSkipTo !== undefined && performance.now() < until) {
+        const t = this.sim.state.tick;
+        this.sim.step();
+        if (this.sim.state.tick === t) break;
+      }
       this.last = performance.now();
       this.onTicks(this.snapshot());
       return;

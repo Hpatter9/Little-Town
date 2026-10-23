@@ -1292,6 +1292,10 @@ export interface Snapshot {
   /** The game is held for the founder's answer to a road question (sim/founderQuests.ts). */
   waitingOnFounder: boolean;
   unlockAll: boolean;
+  /** Developer mode (sim/dev.ts): null while off; whether orders build at once, and the hours a fast-forward has left
+   *  to run (null: none running). `devSave`: the town was ever played in developer mode. */
+  dev: { build: boolean; skipHours: number | null } | null;
+  devSave: boolean;
   research: ResearchView;
   /** The player's building wishes (sim/pins.ts): what, whether it's going up and how far, or what it waits on. */
   pins: { def: string; name: string; building: boolean; progress: number; why: string | null }[];
@@ -1768,6 +1772,8 @@ function snapshotOf(s: GameState): Snapshot {
     story: storyView(s),
     waitingOnFounder: waitingOnFounder(s),
     unlockAll: s.cheats.unlockAll,
+    dev: s.dev ? { build: !!s.devBuild, skipHours: s.devSkipTo !== undefined ? Math.max(0, Math.ceil((s.devSkipTo - s.tick) / TICKS_PER_HOUR)) : null } : null,
+    devSave: !!s.devSave,
     research: researchView(s),
     recommend: recommendationOf(s),
     ringOrdered: !!s.ringOrder,

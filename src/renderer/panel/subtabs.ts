@@ -61,6 +61,15 @@ const GROUPS: Record<string, MenuTabs> = {
     ],
     intro: 'Trade',
   },
+  // the Developer menu (developer mode, panel/devPanel.ts): the town's works, the fights and folk, the story
+  dev: {
+    groups: [
+      ['Town', /^(Building|Research|Fields and stores|Time)/],
+      ['Fights', /^(Raids and fights|People)/],
+      ['Story', /^(Events|Sagas|Disasters|The land)/],
+    ],
+    intro: 'Town',
+  },
   // the shop, the inn and the stores (each venue keeps its own open tab)
   venue: {
     groups: [

@@ -150,6 +150,7 @@ import { setFavourite } from './favourites';
 import { buyRare } from './rareStall';
 import { founderBuyShop, founderShopManager, founderShopPrice, founderShopStock } from './founderShops';
 import { founderApprentice, founderFeast, founderHaggle, founderMatch, founderVisitor } from './founderDealings';
+import { applyDev, devTick, setDevMode } from './dev';
 import { founderExplore, founderGive, founderGo, founderHeir, founderRest, founderTick, founderWork } from './founder';
 
 /** How the town trades at its shop: the planner decides what's spare and what to buy. */
@@ -200,6 +201,7 @@ export class Sim {
       return;
     }
     for (const c of this.pending) this.apply(c);
+    devTick(s); // (developer mode: orders built at once, a fast-forward's end: sim/dev.ts)
     skipRaidsTick(s); // (a town set to skip its raids: sim/raidSkip.ts)
     this.pending = [];
     if (s.paused) return;
@@ -729,6 +731,13 @@ export class Sim {
       }
       case 'cheatUnlockAll':
         if (!s.ironman) s.cheats.unlockAll = c.on; // (no cheating in ironman)
+        break;
+      case 'devMode':
+        setDevMode(s, c.on);
+        break;
+      case 'dev':
+        // (refused unless the town has developer mode on: sim/dev.ts)
+        if (s.dev && !s.ironman) applyDev(s, c.order);
         break;
       case 'setPaused':
         s.paused = c.paused;

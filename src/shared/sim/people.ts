@@ -909,13 +909,22 @@ function workResearch(s: GameState, p: Person, task: Extract<Task, { type: 'rese
   gainSkill(p, 'research', RESEARCH_XP_PER_SEC / TICK_HZ);
   accruePay(s, p, STUDY_PER_HOUR, 'wages', 'study', TICKS_PER_HOUR);
   if (r.progress[topic.id] < 1) return;
+  learnTopic(s, topic.id, p);
+  p.task = null;
+}
 
+/** A topic is learned: off the queue, on the town's list, and what it opens offered (by `p`'s study; or by
+ *  developer mode, sim/dev.ts). */
+export function learnTopic(s: GameState, id: string, p?: Person): void {
+  const r = s.research;
+  const topic = TOPIC_BY_ID[id];
+  if (!topic || r.done.includes(id)) return;
   delete r.progress[topic.id];
-  r.queue = r.queue.filter((id) => id !== topic.id);
+  r.queue = r.queue.filter((q) => q !== topic.id);
   tidyPicks(r);
   r.done.push(topic.id);
   notify(s, `Research complete: ${topicName(topic.id, s.origin)}`, true);
-  addDeed(p, 'studied');
+  if (p) addDeed(p, 'studied');
   if (topic.id === 'blood_rite') offerBloodRite(s);
   if (topic.id === 'moon_rite') offerMoonRite(s);
   if (topic.id === 'lichcraft') offerLichRite(s);
@@ -927,7 +936,6 @@ function workResearch(s: GameState, p: Person, task: Extract<Task, { type: 'rese
       true,
     );
   }
-  p.task = null;
 }
 
 /** A workshop near the source of its raw material (a smithy by the mine) works faster. */

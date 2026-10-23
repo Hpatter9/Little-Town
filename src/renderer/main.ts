@@ -179,6 +179,7 @@ import { bleedLeft } from '../shared/format';
 import { poolSize } from '../shared/sim/state';
 import { hashSeed } from '../shared/rng';
 import { MARK_CLEAR_CAP } from '../shared/sim/commands';
+import type { DevOrder } from '../shared/sim/devOrders';
 import { CELL, cellAt, groundAt, idx, isMarked, isPlannedRoad, isRoad, wet, WILD } from '../shared/sim/land';
 import { PATH_CAP, pathLine } from '../shared/sim/pathPlans';
 import { loadCreatures } from './art/creatures';
@@ -1303,10 +1304,13 @@ async function start(): Promise<void> {
   let duelAsk: number | null = null;
   let inspectKey = '';
   const inspectRuns = new Map<string, () => void>();
+  // (developer mode: the card shows its Dev… list in place of its own: sim/dev.ts)
+  let devCard = false;
   const inspectTarget = (h: Hover) => {
     inspected = h && h.kind !== 'scenery' ? h : null;
     inspectMenu = 'main';
     duelAsk = null;
+    devCard = false;
     publishInspect();
     refreshHover();
   };
@@ -1319,7 +1323,43 @@ async function start(): Promise<void> {
     inspectKey = key;
     bridge.inspect?.(info);
   };
+  /** A card's own actions, with a Dev… button in developer mode; and the dev list once it's tapped. */
   const inspectInfo = (h: NonNullable<Hover>): InspectInfo | null => {
+    const info = cardInfo(h);
+    if (!info || !snap.dev || (h.kind !== 'person' && h.kind !== 'building' && h.kind !== 'raider' && h.kind !== 'roamer')) return info;
+    const act = (id: string, label: string, run: () => void, extra: { danger?: boolean; primary?: boolean } = {}) => {
+      inspectRuns.set(id, run);
+      return { id, label, ...extra };
+    };
+    if (!devCard) return { ...info, actions: [...info.actions, act('dev', 'Dev…', () => ((devCard = true), publishInspect()))] };
+    const dev = (order: DevOrder, close = false) => () => {
+      bridge.command({ type: 'dev', order });
+      if (close) inspectTarget(null);
+    };
+    const list: InspectInfo['actions'] = [];
+    if (h.kind === 'person' && snap.people.some((p) => p.id === h.person.id)) {
+      const id = h.person.id;
+      list.push(
+        act('devKill', 'Kill', dev({ op: 'kill', target: 'person', id }, true), { danger: true }),
+        act('devDown', 'Knock down', dev({ op: 'down', id })),
+        act('devHeal', 'Heal', dev({ op: 'heal', id })),
+        act('devLevel', '+1 level', dev({ op: 'levelUp', id, levels: 1 })),
+        act('devLevel10', '+10 levels', dev({ op: 'levelUp', id, levels: 10 })),
+      );
+    } else if (h.kind === 'building') {
+      const b = snap.buildings.find((q) => q.id === h.id);
+      if (b?.status === 'blueprint') list.push(act('devFinish', 'Finish it now', dev({ op: 'finishBuilding', id: h.id }), { primary: true }));
+      list.push(act('devAll', 'Finish all building', dev({ op: 'finishBuilds' })), act('devHarvest', 'Harvest every field', dev({ op: 'harvest' })), act('devFill', 'Fill the stores +1000', dev({ op: 'fill', amount: 1000 })));
+    } else if (h.kind === 'raider') {
+      list.push(
+        act('devKill', 'Kill', dev({ op: 'kill', target: 'raider', id: h.id }, true), { danger: true }),
+        act('devKillAll', 'Kill every raider', dev({ op: 'killRaiders' }, true), { danger: true }),
+        act('devWin', 'Win the fight', dev({ op: 'winFight' }, true)),
+      );
+    } else if (h.kind === 'roamer') list.push(act('devKill', 'Kill the band', dev({ op: 'kill', target: 'roamer', id: h.id }, true), { danger: true }));
+    return { title: info.title, lines: ['Developer: these act at once.', ...info.lines.slice(0, 2)], actions: [...list, act('devBack', 'Back', () => ((devCard = false), publishInspect()))] };
+  };
+  const cardInfo = (h: NonNullable<Hover>): InspectInfo | null => {
     inspectRuns.clear();
     const act = (id: string, label: string, run: () => void, extra: { danger?: boolean; primary?: boolean } = {}) => {
       inspectRuns.set(id, run);

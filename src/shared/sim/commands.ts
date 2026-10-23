@@ -20,6 +20,7 @@ import { TOPIC_BY_ID } from '../data/research';
 import { cleanName } from './naming';
 import { DIRECTIONS, type Direction } from './planner';
 import { PATH_CAP } from './pathPlans';
+import { parseDevOrder, type DevOrder } from './devOrders';
 
 export type CreatureOp = 'feed' | 'rest' | 'praise' | 'scold';
 const CREATURE_OPS: readonly CreatureOp[] = ['feed', 'rest', 'praise', 'scold'];
@@ -194,7 +195,13 @@ export type Command =
   /** Bind the founder's soul into a phylactery (once Lichcraft is learned): the town builds it. */
   | { type: 'becomeLich' }
   /** Debug: make every building available regardless of research. */
-  | { type: 'cheatUnlockAll'; on: boolean };
+  | { type: 'cheatUnlockAll'; on: boolean }
+  /** Developer mode on or off for this town (sim/dev.ts); and one of its orders, refused unless it is on. */
+  | { type: 'devMode'; on: boolean }
+  | { type: 'dev'; order: DevOrder };
+
+/** The commands only developer mode may give (sim/sim.ts refuses them while the town's `dev` is off). */
+export const isDevCommand = (c: Command): boolean => c.type === 'dev';
 
 /** Validate a command that arrived over IPC. */
 export function parseCommand(raw: unknown): Command | null {
@@ -437,6 +444,12 @@ export function parseCommand(raw: unknown): Command | null {
       return Number.isInteger(c.person) && typeof c.on === 'boolean' ? { type: 'setAutoPriorities', person: c.person as number, on: c.on } : null;
     case 'cheatUnlockAll':
       return typeof c.on === 'boolean' ? { type: 'cheatUnlockAll', on: c.on } : null;
+    case 'devMode':
+      return typeof c.on === 'boolean' ? { type: 'devMode', on: c.on } : null;
+    case 'dev': {
+      const order = parseDevOrder(c.order);
+      return order ? { type: 'dev', order } : null;
+    }
     default:
       return null;
   }
