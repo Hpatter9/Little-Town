@@ -10,7 +10,7 @@ torches (isometric view)", "Real light" and "The town lights itself" (HISTORY.md
 `main.ts` each frame after `placeLoose`)
 
 - What counts as a person: the body sprites their drawers mark with `markWalker` (a `WeakSet`): townsfolk and the founder
-  (`map/mapPeople.ts`), raiders and roaming bands and penned beasts (`mapRaiders.ts`), the great creature (`mapCreature.ts`,
+  (`map/mapPeople.ts`: both the side-on sprite and the iso `FolkSprite` the iso view actually shows), raiders and roaming bands and penned beasts (`mapRaiders.ts`), the great creature (`mapCreature.ts`,
   its whole root), wildlife (`mapWildlife.ts`), pets (`mapPets.ts`) and herds (`mapHerds.ts`).
 - What can hide them: every building's picture, its props, the land's trees, bushes and rocks (`scenery`), and the castle's
   or hold's pieces (`IsoCastleView.pieces()`). Their boxes (`boxOf`, from texture, scale and anchor) are trimmed to
@@ -22,8 +22,9 @@ torches (isometric view)", "Real light" and "The town lights itself" (HISTORY.md
   open, `setPicked`, from `inspected`/`selected` in `main.ts`) only to `PICKED_ALPHA` (0.7). A picture's own alpha (a
   blueprint's 0.45) is kept in `baseAlpha` and the fade multiplies it.
 - Cost: `IsoView.seeCost` (ms a frame, smoothed). On the late-town fixture (37 people, 281 buildings, a forest in view) it
-  measured about 0.3 to 2 ms in the cloud's headless Chromium with software rendering (no GPU); the grid keeps it to the
-  pictures near someone.
+  measured 0.3 to 1.9 ms a frame (mostly 0.5 to 1 ms) in the cloud's headless Chromium, software rendering on a loaded
+  machine (no GPU); the grid keeps it to the pictures near someone. A building's lights fade with it while it is seen
+  through (`seen` in `animate`), so its windows don't float over a faded house.
 
 **Flicker** (`src/renderer/map/flicker.ts`)
 
@@ -59,6 +60,12 @@ torches (isometric view)", "Real light" and "The town lights itself" (HISTORY.md
   station, a desk, the table, at home of an evening), or asleep in before `BEDTIME_LIGHT_UNTIL` (23); none by day
   (daylight 0.6 and over). It is the snapshot's new optional `litInside?: number[]`; `IsoView.setInside(ids, hour)` each
   snapshot. Looking only: nothing in the town changes, and no randomness is drawn.
+
+**Pictures** (`docs/notes/town-visuals/`, the late-town fixture, paused, the founder moved behind a longhouse or into the
+woods: `behind-house-*` and `behind-tree-*`, before (left or top) and after, at 393x852 and 852x393; `night-23h-*` (the
+house seen through at night, its windows dimmed with it), `night-21h-*` (zoomed out; this save's townsfolk are all out in
+the square, so few homes are lit); `flicker.gif` (16 frames round the campfire and street torches); `windows-<people>.png`
+(each people's pieces darkened with their lights placed, the check used while placing them).
 
 **Tests:** `test/townVisuals.test.ts` (smooth flicker with no frame-to-frame jump, out of phase, gentler with Reduce
 motion, size with brightness; `behind`, the fade's timing and floors, `BoxGrid`; every placed light lies on its piece and
