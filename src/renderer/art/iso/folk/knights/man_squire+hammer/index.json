@@ -1,0 +1,23 @@
+{
+ "look": "man_squire+hammer",
+ "people": "knights",
+ "frame": [
+  152,
+  152
+ ],
+ "directions": [
+  "south",
+  "south-east",
+  "east",
+  "north-east",
+  "north",
+  "north-west",
+  "west",
+  "south-west"
+ ],
+ "animations": {
+  "hammer": {
+   "frames": 9
+  }
+ }
+}

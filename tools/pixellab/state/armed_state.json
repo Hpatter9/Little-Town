@@ -1,0 +1,283 @@
+{
+ "orc_brute+axe": {
+  "edited": true,
+  "character_id": "32daf89d-05e6-4218-b651-06fcf2143ce7",
+  "chop": {
+   "done": [
+    "south",
+    "south-east",
+    "east",
+    "north-east",
+    "north",
+    "north-west",
+    "west",
+    "south-west"
+   ],
+   "group": "82678d03-bf6a-4a2c-acd1-24506e282abf"
+  }
+ },
+ "orc_woman+hammer": {
+  "edited": true,
+  "character_id": "647e5c8d-ac58-44a4-b73f-78fe6e54210c",
+  "hammer": {
+   "done": [
+    "south",
+    "south-east",
+    "east",
+    "north-east",
+    "north",
+    "north-west",
+    "west",
+    "south-west"
+   ],
+   "group": "e472ab74-b325-48dc-aebe-0e102a1bc65d"
+  }
+ },
+ "orc_shaman+hammer": {
+  "edited": true,
+  "character_id": "229b70a0-a75d-4951-925f-ba5cb306cec2",
+  "hammer": {
+   "done": [
+    "south",
+    "south-east",
+    "east",
+    "north-east",
+    "north",
+    "north-west",
+    "west",
+    "south-west"
+   ],
+   "group": "682df02a-577a-4d6f-9ba1-52ab76c2771f"
+  }
+ },
+ "lich_lord+axe": {
+  "edited": true,
+  "character_id": "671ee013-bf1a-4978-9470-a01e283cea9a",
+  "chop": {
+   "done": [
+    "south",
+    "south-east",
+    "east",
+    "north-east",
+    "north",
+    "north-west",
+    "west",
+    "south-west"
+   ],
+   "group": "cf9d442e-2ffe-4a89-846d-6a0d7dacd5be"
+  }
+ },
+ "lich_ghoul+hammer": {
+  "edited": true,
+  "character_id": "3578c7f5-a244-49e6-8bff-1c4aa53c609e",
+  "hammer": {
+   "done": [
+    "south",
+    "south-east",
+    "east",
+    "north-east",
+    "north",
+    "north-west",
+    "west",
+    "south-west"
+   ],
+   "group": "0d79acc5-861d-4df7-8bce-c843205d6aa7"
+  }
+ },
+ "lich_skeleton+axe": {
+  "edited": true,
+  "character_id": "d669a2d1-882a-4690-a358-ce35e8095ce6",
+  "chop": {
+   "done": [
+    "south",
+    "south-east",
+    "east",
+    "north-east",
+    "north",
+    "north-west",
+    "west",
+    "south-west"
+   ],
+   "group": "aabf2a40-d1c1-418c-becd-451c4cd78884"
+  }
+ },
+ "druid_elder+axe": {
+  "edited": true,
+  "character_id": "37569684-46d2-443a-9878-854fccecbac3",
+  "chop": {
+   "done": [
+    "south",
+    "south-east",
+    "east",
+    "north-east",
+    "north",
+    "north-west",
+    "west",
+    "south-west"
+   ],
+   "group": "d9a8ad82-cf8a-44c0-b679-dc80bc9bd957"
+  }
+ },
+ "druid_woman+hammer": {
+  "edited": true,
+  "character_id": "8496cfdf-b0df-4146-8517-14cc66591617",
+  "hammer": {
+   "done": [
+    "south",
+    "south-east",
+    "east",
+    "north-east",
+    "north",
+    "north-west",
+    "west",
+    "south-west"
+   ],
+   "group": "922a2bf3-192e-474c-9b6b-ee8904aa9b7c"
+  }
+ },
+ "druid_warden+hammer": {
+  "edited": true,
+  "character_id": "cae3eb84-1d9e-4f30-8dc3-ecb80619a2a5",
+  "hammer": {
+   "done": [
+    "south",
+    "south-east",
+    "east",
+    "north-east",
+    "north",
+    "north-west",
+    "west",
+    "south-west"
+   ],
+   "group": "6c9dffee-06d0-4522-b930-c466043ec8f7"
+  }
+ },
+ "vamp_lord+axe": {
+  "edited": true,
+  "character_id": "e6265e1c-39bf-4c8e-a74b-891610b14ca4",
+  "chop": {
+   "done": [
+    "south",
+    "south-east",
+    "east",
+    "north-east",
+    "north",
+    "north-west",
+    "west",
+    "south-west"
+   ],
+   "group": "935f1998-61ab-4c0b-aad6-9c9022be143b"
+  }
+ },
+ "vamp_lady+hammer": {
+  "edited": true,
+  "character_id": "c5350855-2b85-45aa-9de0-8546407e5534",
+  "hammer": {
+   "done": [
+    "south",
+    "south-east",
+    "east",
+    "north-east",
+    "north",
+    "north-west",
+    "west",
+    "south-west"
+   ],
+   "group": "be215ae8-c560-4fdf-aec9-6c96e6f345cb"
+  }
+ },
+ "vamp_thrall+axe": {
+  "edited": true,
+  "character_id": "901188eb-5ba1-4ba2-92a2-be17fd66c648",
+  "chop": {
+   "done": [
+    "south",
+    "south-east",
+    "east",
+    "north-east",
+    "north",
+    "north-west",
+    "west",
+    "south-west"
+   ],
+   "group": "247a3af7-8513-49f4-acdb-79495ecb5ca0"
+  }
+ },
+ "wolf_hunter+axe": {
+  "edited": true,
+  "character_id": "dd634024-188e-47d6-87ee-b098f8c06478",
+  "chop": {
+   "done": [
+    "south",
+    "south-east",
+    "east",
+    "north-east",
+    "north",
+    "north-west",
+    "west",
+    "south-west"
+   ],
+   "group": "0a573258-8fd1-4fac-a913-377fb26091ed"
+  }
+ },
+ "wolf_woman+hammer": {
+  "edited": true
+ },
+ "robot_worker+axe": {
+  "edited": true
+ },
+ "robot_guard+hammer": {
+  "edited": true
+ },
+ "knight_sir+axe": {
+  "edited": true,
+  "character_id": "c6ef627b-1e81-4c87-beba-dea7884a32d9",
+  "chop": {
+   "done": [
+    "south",
+    "south-east",
+    "east",
+    "north-east",
+    "north",
+    "north-west",
+    "west",
+    "south-west"
+   ],
+   "group": "ec36f990-3692-4c79-98f5-5d942ad619ce"
+  }
+ },
+ "knight_dame+hammer": {
+  "edited": true,
+  "character_id": "90e5909c-fde7-4636-9f79-333b3e4771d6",
+  "hammer": {
+   "done": [
+    "south",
+    "south-east",
+    "east",
+    "north-east",
+    "north",
+    "north-west",
+    "west",
+    "south-west"
+   ],
+   "group": "780eb028-0ac5-4542-8920-07fd357c5520"
+  }
+ },
+ "knight_squire+hammer": {
+  "edited": true,
+  "character_id": "a5c98676-deda-44e9-9300-5cf45c1874b8",
+  "hammer": {
+   "done": [
+    "south",
+    "south-east",
+    "east",
+    "north-east",
+    "north",
+    "north-west",
+    "west",
+    "south-west"
+   ],
+   "group": "45495a9b-a9c4-4951-94b9-9831f8210e03"
+  }
+ }
+}
