@@ -6,6 +6,7 @@
 import { injuryFight } from './injuries';
 import { fightsBare } from '../data/armed';
 import type { EliteAffix } from '../data/dungeons';
+import type { Proc } from '../data/effects';
 import { BLOOD_FURY, BLOOD_LIFESTEAL, castsMagic, CLASS_DEFS, NECRO_RAISES, type ClassId } from '../data/classes';
 import { BEAST_ARMOR, BEAST_DAMAGE, BEAST_HP, classStat, levelPower, shapeshifts } from '../data/levels';
 import { afraid, held, kitOf, pace, passiveStats, strike, takeTurn, tickStatuses, type ActMeta, type Arena, type Kit, type Statuses } from './actions';
@@ -83,7 +84,7 @@ export interface Fighter {
   kit?: Kit;
   st?: Statuses;
   conjured?: boolean;
-  pop?: { tick: number; amount: number; heal: boolean };
+  pop?: { tick: number; amount: number; heal: boolean; why?: Proc };
   /** Attributes and the pools (data/attributes.ts): people only; a creature pays nothing and has no limit. */
   attrs?: Attrs;
   mp?: number;
@@ -283,9 +284,14 @@ export function personFighter(p: Person, role: Role, row: 'front' | 'back', ammo
   };
 }
 
+/** What the last `hitDamage` turned out to be, for the watcher only (a "Crit" or a "Block" over the one struck): set by
+ *  every call, read straight after it by whoever shows the blow. It draws nothing from the dice. */
+export const blowNote: { why: Proc | null } = { why: null };
+
 /** Damage one attack does to a target, after ammo, beast bonus, blocking, armour and toughness. Uses the
  *  attacker's ammo. Returns 0 for a blocked blow. */
 export function hitDamage(f: Pick<Fighter, 'damage' | 'ammo' | 'ammoBonus' | 'ammoUsed' | 'beastDamage' | 'quirks'>, target: { kind: string; armor: number; block: number; tough: boolean }, rng: Rng): number {
+  blowNote.why = null;
   let dmg = rng.int(f.damage[0], f.damage[1]);
   if (f.ammoBonus && f.ammo > 0) {
     f.ammo--;
@@ -300,9 +306,15 @@ export function hitDamage(f: Pick<Fighter, 'damage' | 'ammo' | 'ammoBonus' | 'am
     if (nature === 'machine') dmg = (dmg + q.machine) * (1 + (q.machineShare ?? 0));
     if (nature === 'beast') dmg *= 1 + (q.beastShare ?? 0);
     // (a true strike: double, or more)
-    if (q.crit && rng.chance(q.crit)) dmg *= 2 + (q.critDamage ?? 0);
+    if (q.crit && rng.chance(q.crit)) {
+      dmg *= 2 + (q.critDamage ?? 0);
+      blowNote.why = 'crit';
+    }
   }
-  if (target.block && rng.chance(target.block)) return 0;
+  if (target.block && rng.chance(target.block)) {
+    blowNote.why = 'block';
+    return 0;
+  }
   const armor = target.armor * (1 - (q?.pierce ?? 0));
   return Math.max(1, Math.round(dmg * (1 - armor) * (target.tough ? 0.85 : 1)));
 }
@@ -503,7 +515,12 @@ export function stepBattle(b: Battle, rng: Rng, rules: BattleRules): void {
       }
     }
     let dmg = hitDamage(f, target, rng);
-    if (!dmg) continue; // blocked
+    // (blocked: the watcher sees the shield turn it)
+    if (!dmg) {
+      target.pop = { tick: b.tick, amount: 0, heal: false, why: 'block' };
+      continue;
+    }
+    const crit = blowNote.why === 'crit';
     // a Blood Knight hits harder when hurt, and drinks in some of what they deal
     if (f.cls === 'blood_knight') {
       if (f.hp < f.maxHp / 2) dmg = Math.round(dmg * BLOOD_FURY);
@@ -511,10 +528,14 @@ export function stepBattle(b: Battle, rng: Rng, rules: BattleRules): void {
     }
     // (through shields, protection and the rest: actions.ts; the armour's already counted)
     dmg = strike(arena, f, target, dmg, true, true);
+    if (crit && target.pop?.tick === b.tick && !target.pop.why) target.pop.why = 'crit';
     // (a unique that drinks life heals by a share of the blow)
     if (f.quirks?.drain && dmg > 0) f.hp = Math.min(f.maxHp, f.hp + Math.round(dmg * f.quirks.drain));
     // a guard strikes back
-    if (!f.ranged && !target.down && target.kit?.passive.counter && rng.chance(target.kit.passive.counter)) strike(arena, target, f, hitDamage(target, f, rng), true, true);
+    if (!f.ranged && !target.down && target.kit?.passive.counter && rng.chance(target.kit.passive.counter)) {
+      strike(arena, target, f, hitDamage(target, f, rng), true, true);
+      if (f.pop?.tick === b.tick) f.pop.why = 'counter';
+    }
     const cleft = afterBlow(f.quirks, dmg, target, foes.filter((o) => o !== target && o.row === target.row), rng) as Fighter | null;
     if (cleft) cleft.lastHit = b.tick;
     target.hitFx = f.cls === 'blood_knight' ? 'blood' : f.ranged && f.ammoType === 'power_cells' ? 'lightning' : f.ranged && (f.ammoType === 'shot' || f.ammoType === 'cartridges') ? 'fire' : null;

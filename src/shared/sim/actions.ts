@@ -8,7 +8,7 @@ import { armedForSkills } from '../data/armed';
 import { abilitiesKnown, type Passive } from '../data/abilities';
 import { LIMIT_FROM_DEALT, LIMIT_FROM_HURT, skillCost, spellCost, WIS_HEALING, ATTR_BASE, type Attrs } from '../data/attributes';
 import { CLASS_DEFS, type ClassId } from '../data/classes';
-import { BAD_STATUS, type Effect, type Element, type Status, type Target, type Use } from '../data/effects';
+import { BAD_STATUS, type Effect, type Element, type Proc, type Status, type Target, type Use } from '../data/effects';
 import { ENEMIES, natureOf } from '../data/enemies';
 import { levelOf } from '../data/levels';
 import { SPELL_BY_ID, spellsKnown, type SpellDef } from '../data/spells';
@@ -68,7 +68,7 @@ export interface Combatant {
   /** Called up by a spell (a summoned beast or spirit). */
   conjured?: boolean;
   /** The last number to pop up over them (damage, or healing): for the watcher. */
-  pop?: { tick: number; amount: number; heal: boolean };
+  pop?: { tick: number; amount: number; heal: boolean; why?: Proc };
   /** Their attributes (data/attributes.ts), and the pools their spells and skills draw on: mana, stamina and the
    *  limit gauge (0 to 1). A fighter without them (a raider on the map) pays nothing. */
   attrs?: Attrs;
@@ -186,7 +186,11 @@ function setStatus(a: Arena, user: Combatant, f: Combatant, s: Status, seconds: 
   if (f.down) return;
   if (BAD_STATUS.has(s)) {
     const resist = (f.kit?.passive.resist ?? 0) + (isBoss(f) ? 0.4 : 0);
-    if (a.rng.chance(Math.min(0.9, resist))) return;
+    if (a.rng.chance(Math.min(0.9, resist))) {
+      // (shaken off: the watcher sees "Resist" unless a number already shows this tick)
+      if (f.pop?.tick !== a.tick) f.pop = { tick: a.tick, amount: 0, heal: false, why: 'resist' };
+      return;
+    }
   }
   // (a boss shakes off holds quickly)
   const hold = s === 'stun' || s === 'sleep' || s === 'freeze' || s === 'stop' || s === 'charm' || s === 'fear';
@@ -221,8 +225,8 @@ export function tickStatuses(a: Arena, f: Combatant): void {
   if (each && f.kit?.passive.regen) f.hp = Math.min(f.maxHp, f.hp + Math.max(1, Math.round(f.maxHp * f.kit.passive.regen)));
 }
 
-function wound(a: Arena, f: Combatant, dmg: number): void {
-  f.pop = { tick: a.tick, amount: dmg, heal: false };
+function wound(a: Arena, f: Combatant, dmg: number, why?: Proc): void {
+  f.pop = { tick: a.tick, amount: dmg, heal: false, ...(why ? { why } : {}) };
   f.hp = Math.max(0, f.hp - dmg);
   f.lastHit = a.tick;
   if (f.hp === 0) f.down = true;
@@ -435,9 +439,11 @@ function apply(a: Arena, f: Combatant, act: KitAction, e: Effect): Combatant[] {
           // (a skill's blow can miss; a spell finds its mark)
           if (!act.spell && !a.rng.chance(Math.max(0.1, aim(f, a.tick) - t.dodge))) continue;
           let dmg = power * (e.power ?? 1) * elementMult(e.element ?? 'physical', t.kind);
-          if (a.rng.chance(p?.crit ?? 0)) dmg *= 2 + (p?.critDamage ?? 0);
+          const crit = a.rng.chance(p?.crit ?? 0);
+          if (crit) dmg *= 2 + (p?.critDamage ?? 0);
           if (has(f, 'focus', a.tick) && act.spell) dmg *= 1.25;
           const dealt = strike(a, f, t, dmg, !act.spell && (e.element ?? 'physical') === 'physical');
+          if (crit && t.pop?.tick === a.tick && !t.pop.why) t.pop.why = 'crit';
           if (e.kind === 'drain') f.hp = Math.min(f.maxHp, f.hp + dealt);
         }
       }
@@ -501,16 +507,22 @@ export function strike(a: Arena, from: Combatant, to: Combatant, raw: number, ph
   if (has(to, 'protect', a.tick)) dmg *= 0.7;
   if (physical && !armourDone) dmg *= 1 - Math.min(0.8, to.armor);
   // a spell turned back on its caster
-  if (!physical && has(to, 'reflect', a.tick) && from !== to) return strike(a, to, from, dmg, false);
+  if (!physical && has(to, 'reflect', a.tick) && from !== to) {
+    const back = strike(a, to, from, dmg, false);
+    if (from.pop?.tick === a.tick) from.pop.why = 'reflect';
+    return back;
+  }
   dmg = Math.max(1, Math.round(dmg));
   const shield = to.st?.shield;
+  let soaked = false;
   if (shield && shield.until > a.tick) {
     const soak = Math.min(shield.power, dmg);
     shield.power -= soak;
     dmg -= soak;
+    soaked = soak > 0;
     if (shield.power <= 0) delete to.st!.shield;
   }
-  to.pop = { tick: a.tick, amount: dmg, heal: false };
+  to.pop = { tick: a.tick, amount: dmg, heal: false, ...(soaked ? { why: 'shield' as const } : {}) };
   if (dmg > 0) {
     const before = to.hp;
     to.hp = Math.max(0, to.hp - dmg);
@@ -522,7 +534,7 @@ export function strike(a: Arena, from: Combatant, to: Combatant, raw: number, ph
   }
   // thorns, a skill's or a spell's, hurt the striker back
   const thorns = (to.kit?.passive.thorns ?? 0) + (has(to, 'thorns', a.tick) ? (to.st!.thorns!.power ?? 0.3) : 0);
-  if (thorns && physical && !from.down) wound(a, from, Math.max(1, Math.round(dmg * thorns)));
+  if (thorns && physical && !from.down) wound(a, from, Math.max(1, Math.round(dmg * thorns)), 'thorns');
   // the life drawn back with a blow
   const steal = (from.kit?.passive.lifesteal ?? 0) + (has(from, 'lifelink', a.tick) ? 0.3 : 0);
   if (steal) from.hp = Math.min(from.maxHp, from.hp + Math.round(dmg * steal));

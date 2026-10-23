@@ -31,7 +31,8 @@ import { PROP_GROW } from '../art/props';
 import { BattleJuice } from '../battle/juice';
 import { ShotPainter, shotTicks } from '../battle/projectiles';
 import { BoardLife, logTexture } from './boardLife';
-import { actFx } from '../../shared/data/actFx';
+import { actArrow, actElement, FAMILY_SCALE, familyOf, MELEE_FX, SOLID, STATUS_CUE } from '../../shared/data/actFx';
+import type { Status } from '../../shared/data/effects';
 import { FIRST_BLOOD, ghostStep, LAG_MAX_MS, ROUTED } from '../battle/juiceRules';
 import { uiPlate } from '../ui/pixiFrame';
 import type { TileLook } from '../../shared/sim/raidBoards';
@@ -44,6 +45,10 @@ import type { DecorKind } from '../../shared/sim/raidBoards';
 /** How long the board's camera takes to glide most of the way to the unit whose turn it is (ms). */
 const CAM_GLIDE_MS = 260;
 const TW = 64;
+/** The widest an effect is drawn on the board (world px): a spell or skill about a tile and a half, an ultimate more. */
+const FX_MOST = 96;
+const ULT_MOST = 150;
+const ICON_SCALE = 0.45;
 const TH = 32;
 const HH = 12;
 /** How far the columns reach below the ground's level. */
@@ -128,6 +133,8 @@ export class TacticsScene {
   private tiles: { c: Container; mark: Graphics; top: number }[] = [];
   private pictures: Sprite[] = [];
   private hits = new Map<string, { born: number }>();
+  /** The statuses each unit was last seen with: a new one pops its cue over them. */
+  private seenSt = new Map<string, Set<string>>();
   private tookFirst = false;
   private marks: Text[] = [];
   private chestSprites: Sprite[] = [];
@@ -207,6 +214,7 @@ export class TacticsScene {
     this.lastUpdate = performance.now() - this.lag;
     if (!t) {
       this.juice.reset();
+      this.seenSt.clear();
       this.seenBanner = '';
       this.lastKilled = 0;
       this.tookFirst = false;
@@ -832,6 +840,7 @@ export class TacticsScene {
     this.raiders.render(now);
     this.renderFx(t, now);
     this.renderNumbers(t, now);
+    this.renderCues(t);
     // (night: a blue dark over the field, the HUD clear of it)
     this.shade.clear();
     if (t.night) this.shade.rect(0, 0, w, h).fill({ color: 0x0a1030, alpha: 0.28 });
@@ -929,12 +938,15 @@ export class TacticsScene {
    *  other side (a mending, a ward or a weapon art's slash goes nowhere); else nothing. */
   private actShot(t: TacticsView, f: TacticsView['fx'][number]): { code: string; to: [number, number] } | null {
     if (f.kind !== 'act' || !f.name || !f.to.length) return null;
-    const m = /^px:([a-z]+)-/.exec(actFx(actIdOf(f.name)));
-    if (!m || m[1] === 'white') return null;
+    const id = actIdOf(f.name);
+    const fx = actSprite(id);
+    // (a bow's art flies its arrow; a spell its orb, in the element its effect is drawn in; a blade's art, nothing)
+    const arrow = actArrow(id);
+    if (!arrow && (!fx.startsWith('px:') || actElement(id) === 'white')) return null;
     const caster = t.units.find((q) => q.u === f.from[0] && q.v === f.from[1]);
     const mark = t.units.find((q) => q.u === f.to[0][0] && q.v === f.to[0][1]);
     if (!caster || !mark || caster.foe === mark.foe || (f.to[0][0] === f.from[0] && f.to[0][1] === f.from[1])) return null;
-    return { code: `orb:${m[1]}`, to: f.to[0] };
+    return { code: arrow ? 'arrow' : `orb:${actElement(id)}`, to: f.to[0] };
   }
 
   /** Ticks before a fx lands: the time its shot or spell is in the air (nothing flies for a blow). Its blows' numbers and
@@ -961,7 +973,8 @@ export class TacticsScene {
     if (ammo === 'ball') return px('fire-explosion');
     if (ammo === 'beam') return px(`${el ?? 'lightning'}-hit`);
     if (ammo === 'bullet') return 'mg_sparks';
-    return 'slash_gold';
+    // (an arrow, a bolt, a spear, a stone: a small thud where it lands, not a sword's slash)
+    return ammo === 'stone' ? px('white-burst') : px('white-hit');
   }
 
   /** The arrows and spells in flight, the slashes and the spells' sheets where they land. */
@@ -1004,12 +1017,13 @@ export class TacticsScene {
         const [from, to] = this.shotEnds(f, flying.to);
         this.shots.put(flying.code, from, to, age, delay, 1.2);
       }
-      const look: SpriteFx | null = f.kind === 'blow' ? 'slash_gold' : f.kind === 'act' && f.name ? actSprite(actIdOf(f.name)) : f.kind === 'tend' ? 'heal' : f.kind === 'chest' ? 'mg_sparks' : f.kind === 'lost' ? 'holy' : f.kind === 'trap' ? 'mg_spikes' : f.kind === 'stun' ? 'mg_sparks' : null;
+      // (a blow by the arms it was struck with: a blade's slash, a club's thud, claws; a stun's stars, a chest's glitter)
+      const look: SpriteFx | null = f.kind === 'blow' ? (MELEE_FX[f.melee ?? 'blade'] as SpriteFx) : f.kind === 'act' && f.name ? actSprite(actIdOf(f.name)) : f.kind === 'tend' ? 'heal' : f.kind === 'chest' ? 'px:gold-sparkle' : f.kind === 'lost' ? 'holy' : f.kind === 'trap' ? 'mg_spikes' : f.kind === 'stun' ? 'px:white-star' : null;
       if (!look) continue;
       const at = f.to.length ? f.to : [f.from];
       at.forEach(([u, v], i) => {
         const [x, y] = lift(u, v, 20);
-        this.sheet(look, x, y, age - delay - i * 0.8, f.kind === 'blow' ? 0.85 : f.ult ? 1.7 : 1.3);
+        this.sheet(look, x, y, age - delay - i * 0.8, f.kind === 'blow' ? 0.85 : f.ult ? 1.5 : 1.1, f.ult ? ULT_MOST : FX_MOST);
       });
       // (a spell or skill: a ring of light under its caster as it goes off)
       if (f.kind === 'act' && age < 8) {
@@ -1020,17 +1034,22 @@ export class TacticsScene {
     this.shots.end();
   }
 
-  /** One frame of an effect sheet at an age in ticks. */
-  private sheet(look: SpriteFx, x: number, y: number, age: number, scale: number): void {
+  /** One frame of an effect sheet at an age in ticks: each shape at its own size (an impact small, an area wide), never
+   *  wider than `most` world px, and the solid ones a little see-through so the unit under them still shows. */
+  private sheet(look: SpriteFx, x: number, y: number, age: number, scale: number, most = FX_MOST): void {
     const sh = sheetOf(look);
     if (!sh || age < 0) return;
     const frame = sh.frame((age / 10) * sh.fps);
     if (!frame) return;
     const s = new Sprite(frame);
     s.anchor.set(0.5);
-    const size = sh.size * (sh.scale ?? 1) * scale;
+    const fam = familyOf(look);
+    // (an icon strip, a stun's stars: small, over the head, not the size of a spell)
+    const k = Math.min(scale * (fam ? (FAMILY_SCALE[fam] ?? ICON_SCALE) : 1), most / (sh.size * (sh.scale ?? 1)));
+    const size = sh.size * (sh.scale ?? 1) * k;
     s.width = s.height = size;
-    s.position.set(x, y - size / 2 + sh.foot * (sh.scale ?? 1) * scale);
+    s.position.set(x, y - size / 2 + sh.foot * (sh.scale ?? 1) * k);
+    if (fam && SOLID.has(fam)) s.alpha = 0.8;
     if (sh.glow) s.blendMode = 'add';
     this.fxSprites.addChild(s);
   }
@@ -1051,9 +1070,25 @@ export class TacticsScene {
       const [hx, hy] = this.at(x.u, x.v, this.tileH(x.u, x.v));
       const u = t.units.find((q) => q.u === x.u && q.v === x.v);
       const n = parseInt(x.text, 10);
-      this.juice.hit(hx, hy - 20, { label: x.text, share: u && n > 0 ? n / Math.max(1, u.max) : 0.1, onFoe: x.foe, heal: x.heal });
+      this.juice.hit(hx, hy - 20, { label: x.text, share: u && n > 0 ? n / Math.max(1, u.max) : 0.1, onFoe: x.foe, heal: x.heal, why: x.why });
     }
     for (const id of [...this.hits.keys()]) if (!seen.has(id)) this.hits.delete(id);
+  }
+
+  /** A status just come on a unit (Stunned, Haste, Poisoned): its small icon and word over them, once. */
+  private renderCues(t: TacticsView): void {
+    const live = new Set<string>();
+    for (const u of t.units) {
+      live.add(u.key);
+      const was = this.seenSt.get(u.key);
+      const now = new Set(u.st);
+      this.seenSt.set(u.key, now);
+      // (the first sight of a unit shows nothing: it came on before the board was seen)
+      if (!was) continue;
+      const [x, y] = this.at(u.u, u.v, this.tileH(u.u, u.v));
+      for (const st of now) if (!was.has(st) && STATUS_CUE[st as Status]) this.juice.cue(x, y - 20, STATUS_CUE[st as Status]);
+    }
+    for (const k of [...this.seenSt.keys()]) if (!live.has(k)) this.seenSt.delete(k);
   }
 
   /* ------------------------------------------------------------ the HUD */

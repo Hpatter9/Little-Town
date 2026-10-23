@@ -36,7 +36,7 @@ import { fighters, gateCell, ranged } from './battle';
 import { CHASE_AT, CHASE_GAP, chasers } from './chase';
 import { footprint } from './buildings';
 import { ally } from './classes';
-import { personFighter, weaponOf, weaponRange } from './combat';
+import { blowNote, personFighter, weaponOf, weaponRange } from './combat';
 import { fireAt } from './defenses';
 import { giveCoins } from './economy';
 import { killPerson } from './health';
@@ -52,6 +52,8 @@ import { enemyArmor } from '../data/enemies';
 import { levelOf, stageOf } from '../data/levels';
 import { callingName } from '../data/founderClasses';
 import { shotOf } from '../data/projectiles';
+import { meleeLook, type MeleeLook } from '../data/actFx';
+import type { Proc } from '../data/effects';
 
 /* ------------------------------------------------------------ the shapes of things */
 
@@ -131,6 +133,8 @@ export interface TacFx {
   ult?: boolean;
   /** What flew, for a 'shot' or a tower's bolt (data/projectiles.ts `shotCode`): the views fly it from `from` to `to`. */
   shot?: string;
+  /** A blow's look where it lands (data/actFx.ts `meleeLook`): a blade's slash, a club's thud, a beast's claws. */
+  melee?: MeleeLook;
 }
 
 /** A turn waiting on the player's orders. */
@@ -186,7 +190,7 @@ export interface Tactics {
   broken?: boolean;
   chests: TacChest[];
   /** Numbers and misses over the tiles, for the drawing. */
-  hits: { u: number; v: number; text: string; foe: boolean; tick: number; heal?: boolean }[];
+  hits: { u: number; v: number; text: string; foe: boolean; tick: number; heal?: boolean; why?: Proc }[];
   fx: TacFx[];
   /** A word across the screen: the battle begun, reinforcements, a leader fallen, the end. */
   banner?: { text: string; tick: number; kind: 'start' | 'wave' | 'leader' | 'win' | 'lose' | 'lost' };
@@ -1569,10 +1573,13 @@ function cast(s: GameState, r: Raid, t: Tactics, me: TacUnit, id: string, at: Ti
     : act;
   if (!useAction(arena, arena.me, use)) return false;
   act.ready = use.ready;
+  // (why each one touched took it as they did: a crit, a shield, a spell sent back...)
+  const whys = new Map<string, Proc>();
+  for (const c of arena.all()) if (c.pop?.why && c.pop.tick === s.tick) whys.set(c.kind === 'person' ? `p${c.ref}` : `r${c.ref}`, c.pop.why);
   if (area.shape !== 'self') t.fx.push({ tick: s.tick, kind: 'area', from: [me.u, me.v], to: tiles.map(([u, v]) => [u, v] as [number, number]), foe: aim === 'foe' });
   // (facing the mark)
   if (at[0] !== me.u || at[1] !== me.v) me.facing = Math.abs(at[0] - me.u) >= Math.abs(at[1] - me.v) ? (at[0] > me.u ? 0 : 2) : at[1] > me.v ? 1 : 3;
-  numbers(s, r, t, hp);
+  numbers(s, r, t, hp, whys);
   const p = personOf(s, me.key);
   if (p) p.lastBlow = s.tick;
   // (the God creature gets better at what it casts, and watches what the townsfolk cast near it: sim/creatureSpells.ts)
@@ -1589,11 +1596,14 @@ function healthOf(s: GameState, r: Raid, us: TacUnit[]): Map<TacUnit, number> {
   return new Map(us.map((u) => [u, personOf(s, u.key)?.hp ?? raiderOf(r, u.key)?.hp ?? 0]));
 }
 /** The numbers over whoever a spell or skill touched: harm in white or red, healing in green. */
-function numbers(s: GameState, r: Raid, t: Tactics, was: Map<TacUnit, number>): void {
+function numbers(s: GameState, r: Raid, t: Tactics, was: Map<TacUnit, number>, whys: Map<string, Proc> = new Map()): void {
   for (const [u, hp] of was) {
     const now = personOf(s, u.key)?.hp ?? raiderOf(r, u.key)?.hp ?? 0;
-    if (now < hp) t.hits.push({ u: u.u, v: u.v, text: `${Math.round(hp - now)}`, foe: u.foe, tick: s.tick });
+    const why = whys.get(u.key);
+    if (now < hp) t.hits.push({ u: u.u, v: u.v, text: `${Math.round(hp - now)}`, foe: u.foe, tick: s.tick, ...(why ? { why } : {}) });
     else if (now > hp) t.hits.push({ u: u.u, v: u.v, text: `+${Math.round(now - hp)}`, foe: u.foe, tick: s.tick, heal: true });
+    // (nothing taken, for a reason: the shield soaked it, the hold was shaken off)
+    else if (why === 'shield' || why === 'resist' || why === 'reflect') t.hits.push({ u: u.u, v: u.v, text: why === 'shield' ? 'Shield' : why === 'resist' ? 'Resist' : 'Reflect', foe: u.foe, tick: s.tick, why });
   }
 }
 
@@ -1653,10 +1663,12 @@ function strike(s: GameState, r: Raid, t: Tactics, me: TacUnit, target: TacUnit,
   // (a shot meets the cover of the target's tile and beside it; a blow in melee only the thicket it stands in)
   const shelter = st.shooter ? coverChance(t, me, target) : under?.tree || under?.bush ? COVER : 0;
   const cover = (shelter > 0 && rng.next() < shelter) || (wet && rng.next() < RAIN_MISS);
-  const mark = (text: string) => t.hits.push({ u: target.u, v: target.v, text, foe: target.foe, tick: s.tick });
+  // (a crit or a block, from the blow just struck: combat.ts `blowNote`, for the watcher)
+  blowNote.why = null;
+  const mark = (text: string) => t.hits.push({ u: target.u, v: target.v, text: text === 'Miss' && blowNote.why === 'block' ? 'Block' : text, foe: target.foe, tick: s.tick, ...(blowNote.why ? { why: blowNote.why } : {}) });
   const p = personOf(s, me.key);
   const rd = raiderOf(r, me.key);
-  t.fx.push({ tick: s.tick, kind: st.shooter ? 'shot' : 'blow', from: [me.u, me.v], to: [[target.u, target.v]], ...(st.shooter ? { shot: shotFor(p, rd) } : {}) });
+  t.fx.push({ tick: s.tick, kind: st.shooter ? 'shot' : 'blow', from: [me.u, me.v], to: [[target.u, target.v]], ...(st.shooter ? { shot: shotFor(p, rd) } : { melee: meleeOf(p, rd) }) });
   const tp = personOf(s, target.key);
   const trd = raiderOf(r, target.key);
   if (cover) {
@@ -1690,6 +1702,15 @@ function strike(s: GameState, r: Raid, t: Tactics, me: TacUnit, target: TacUnit,
       mark(`${dmg}`);
     } else mark('Miss');
   }
+}
+
+/** How a close blow looks where it lands: by the weapon in a townsperson's hand (bare hands thud), by the raider's kind. */
+function meleeOf(p: Person | undefined, rd: Raider | undefined): MeleeLook {
+  if (p) return meleeLook(weaponOf(p).def?.name ?? 'fists');
+  if (!rd) return 'blunt';
+  const d = ENEMIES[rd.kind];
+  const w = 'weapon' in d.sprite && d.sprite.weapon ? d.sprite.weapon : '';
+  return meleeLook(`${w} ${d.name} ${rd.kind}`);
 }
 
 /** What a shooter looses: by the weapon in a townsperson's hand (their calling's spell if they cast), by the raider's kind. */
@@ -1856,7 +1877,7 @@ export interface TacticsView {
   auto: boolean;
   /** The turns coming, by name (the CT order). */
   order: { key: string; name: string; foe: boolean }[];
-  hits: { u: number; v: number; text: string; foe: boolean; age: number; heal?: boolean }[];
+  hits: { u: number; v: number; text: string; foe: boolean; age: number; heal?: boolean; why?: Proc }[];
   fx: (Omit<TacFx, 'tick'> & { age: number })[];
   chests: { u: number; v: number }[];
   banner: { text: string; age: number; kind: NonNullable<Tactics['banner']>['kind'] } | null;
@@ -1990,8 +2011,8 @@ export function tacticsView(s: GameState): TacticsView | null {
     orders,
     auto: t.auto,
     order,
-    hits: t.hits.map((x) => ({ u: x.u, v: x.v, text: x.text, foe: x.foe, age: s.tick - x.tick, ...(x.heal ? { heal: true } : {}) })),
-    fx: t.fx.map((x) => ({ kind: x.kind, from: x.from, to: x.to, age: s.tick - x.tick, ...(x.name ? { name: x.name } : {}), ...(x.ult ? { ult: true } : {}), ...(x.shot ? { shot: x.shot } : {}), ...(x.foe !== undefined ? { foe: x.foe } : {}) })),
+    hits: t.hits.map((x) => ({ u: x.u, v: x.v, text: x.text, foe: x.foe, age: s.tick - x.tick, ...(x.heal ? { heal: true } : {}), ...(x.why ? { why: x.why } : {}) })),
+    fx: t.fx.map((x) => ({ kind: x.kind, from: x.from, to: x.to, age: s.tick - x.tick, ...(x.name ? { name: x.name } : {}), ...(x.ult ? { ult: true } : {}), ...(x.shot ? { shot: x.shot } : {}), ...(x.melee ? { melee: x.melee } : {}), ...(x.foe !== undefined ? { foe: x.foe } : {}) })),
     chests: t.chests.map((c) => ({ u: c.u, v: c.v })),
     banner: t.banner && s.tick - t.banner.tick < 4 * TICK_HZ ? { text: t.banner.text, age: s.tick - t.banner.tick, kind: t.banner.kind } : null,
     turns: t.turns,
