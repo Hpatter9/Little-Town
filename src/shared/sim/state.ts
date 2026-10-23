@@ -830,7 +830,7 @@ export interface Prompt {
   /** A people's own question (the origins made deeper: sim/heritage.ts `answerWays`): whose, and about what. */
   ways?: { system: string; about: string; id?: number };
   /** A naming (sim/naming.ts): what is to be named. The options are suggestions; the box also takes a name typed in. */
-  naming?: { kind: 'building' | 'person' | 'unique'; id: number | string };
+  naming?: { kind: 'building' | 'person' | 'unique' | 'creature'; id: number | string };
   /** A dispute the founder judges (sim/disputes.ts) or a duel put to them (sim/duel.ts): the people it is about. */
   dispute?: { kind: 'quarrel' | 'theft'; a: number; b: number; guilty?: boolean };
   duel?: { foe: number; to: 'yield' | 'death' };

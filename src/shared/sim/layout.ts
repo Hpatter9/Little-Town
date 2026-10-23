@@ -120,7 +120,7 @@ export function zoneOf(def: BuildingDef, s?: Pick<GameState, 'origin'>): Zone {
   const id = def.id;
   if (id === 'well' || id === 'statue' || id === 'god_idol' || id === 'victory_monument') return 'square';
   if (isSeat(id) || def.floor) return 'civic';
-  if (CROPS[id] || HERDS[id] || id === 'windmill' || id === 'stable' || id === 'beast_ranch' || id === 'kennels') return 'farm';
+  if (CROPS[id] || HERDS[id] || id === 'windmill' || id === 'stable' || id === 'beast_ranch' || id === 'creature_pen' || id === 'kennels') return 'farm';
   if (def.shore || def.onWater) return 'shore';
   if (def.defense) return 'defense';
   if (def.housing) return 'home';

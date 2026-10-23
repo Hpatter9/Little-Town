@@ -29,6 +29,9 @@ const SHEET_FEET = 0.82;
 /** A death seen on the map lies there this long, then fades over `FADE_S` (seconds). */
 const DEAD_SHOW = 8;
 const FADE_S = 2;
+/** Back from the dead: it rises over this many seconds, if the map sees it within `RISE_TICKS` of its coming back. */
+const RISE_S = 2.5;
+const RISE_TICKS = 60;
 /** Ticks a second (sim/time.ts), for the snapshot's `praisedAgo`. */
 const TICKS_PER_SEC = 10;
 
@@ -42,6 +45,10 @@ export class MapCreature {
   private readonly bright = new ColorMatrixFilter();
   private brightAt = -1;
   private readonly mark = new Text({ text: '?', style: { fontFamily: 'monospace', fontSize: 26, fontWeight: 'bold', fill: 0xffe08a, stroke: { color: 0x2a1a08, width: 3 } } });
+  /** Its name, under its feet (the town named it: sim/naming.ts). Drawn large and scaled down, so it stays crisp. */
+  private readonly label = new Text({ text: '', style: { fontFamily: 'monospace', fontSize: 20, fontWeight: 'bold', fill: 0xfff4d8, stroke: { color: 0x20160c, width: 4 } } });
+  /** When the map saw it come back from the dead (its own clock), or -1: it rises out of a glow. */
+  private roseAt = -1;
   private view: CreatureView | null = null;
   private x = 0;
   private y = 0;
@@ -66,8 +73,10 @@ export class MapCreature {
   constructor(into: Container) {
     this.shadow.ellipse(0, 0, 12, 4).fill({ color: 0x000000, alpha: 0.3 });
     this.mark.anchor.set(0.5, 1);
+    this.label.anchor.set(0.5, 0);
+    this.label.scale.set(0.6);
     this.halo.ellipse(0, 0, 18, 7).fill({ color: 0xffd060, alpha: 0.8 }).ellipse(0, 0, 24, 9.5).stroke({ color: 0xffe9a0, width: 1.5, alpha: 0.7 });
-    this.root.addChild(this.shadow, this.halo, this.body, this.mark);
+    this.root.addChild(this.shadow, this.halo, this.body, this.mark, this.label);
     this.root.visible = false;
     into.addChild(this.root);
     markWalker(this.root); // (the iso view fades what stands in front of it: iso/seeThrough.ts)
@@ -77,7 +86,12 @@ export class MapCreature {
     const was = this.view;
     // (a death seen as it happens stays to fall; one already old when the map first sees it isn't drawn)
     if (v?.dead && was && !was.dead && this.sheetOf(v.kind)) this.diedAt = this.t;
-    const keep = v && !v.fighting && (!v.dead || (this.diedAt >= 0 && this.t - this.diedAt < DEAD_SHOW + FADE_S));
+    // (back from the dead just now: it rises at its pen, out of a glow)
+    if (v && !v.dead && v.backAgo !== undefined && v.backAgo < RISE_TICKS && (!was || was.dead)) {
+      this.roseAt = this.t;
+      this.wokeAt = this.t;
+    }
+    const keep = v && !v.fighting && !v.away && (!v.dead || (this.diedAt >= 0 && this.t - this.diedAt < DEAD_SHOW + FADE_S));
     this.view = keep ? v : null;
     if (!v?.dead) this.diedAt = -1;
     if (this.view && !this.placed) {
@@ -140,9 +154,20 @@ export class MapCreature {
     }
     this.shadow.scale.set(v.scale * (set ? 1.4 : 1));
     this.mark.visible = !!v.ask && !v.dead;
+    if (this.label.text !== v.name) this.label.text = v.name;
+    this.label.position.set(0, 6 * Math.max(1, v.scale * 0.6));
+    this.label.visible = !v.dead;
     this.mark.position.set(0, -tall - 4 + Math.sin(this.t * 4) * 2);
     // (a death lies a while, then fades)
     this.root.alpha = this.diedAt >= 0 ? Math.max(0, Math.min(1, 1 - (this.t - this.diedAt - DEAD_SHOW) / FADE_S)) : 1;
+    // (risen: it fades in, and its glow flares and dies down)
+    const rising = this.roseAt >= 0 ? this.t - this.roseAt : Infinity;
+    if (rising < RISE_S) {
+      this.root.alpha = Math.min(1, 0.2 + rising / RISE_S);
+      this.halo.visible = true;
+      this.halo.alpha = 1 - rising / RISE_S;
+      this.halo.scale.set(v.scale * (1 + 1.5 * (1 - rising / RISE_S)));
+    }
     // (in world px: the iso view's `placeLoose` moves it onto the diamonds and sorts it among the buildings)
     this.root.position.set(Math.round(this.x), Math.round(this.y + 4));
     this.root.zIndex = Math.round(this.y);

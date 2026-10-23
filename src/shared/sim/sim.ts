@@ -40,6 +40,7 @@ import { holdForFight } from './raidWait';
 import { fightClock, openPrompt, parkPrompt, stoodTick, type Hold } from './popups';
 import { leadQuest, waitingOnFounder } from './founderQuests';
 import { creatureArrives, creatureTick, feedCreature, restCreature, teachCreature } from './creature';
+import { nudgeLiking } from './creatureFolk';
 import { stewardTick } from './steward';
 import { storyHourly } from './story';
 import { maybeEvent } from './events';
@@ -703,6 +704,11 @@ export class Sim {
         else if (c.op === 'rest') restCreature(s);
         else teachCreature(s, c.op === 'praise');
         break;
+      case 'creatureNudge': {
+        const why = nudgeLiking(s, c.liking, c.up);
+        if (why) notify(s, `${why}.`);
+        break;
+      }
       case 'recallExpedition':
         recallExpedition(s, c.expedition);
         break;

@@ -621,7 +621,7 @@ export interface PromptView {
   /** Waits as long as it takes: a road question for the founder holds the game (sim/founderQuests.ts). */
   waits?: boolean;
   /** A naming question (sim/naming.ts): what is to be named; the box also takes a typed name. */
-  naming?: { kind: 'building' | 'person' | 'unique'; id: number | string };
+  naming?: { kind: 'building' | 'person' | 'unique' | 'creature'; id: number | string };
   /** A commanded party's result: who came home and who did not, then the haul (sim/muster.ts `debrief`). */
   debrief?: Debrief;
   /** For the card's scene (renderer/panel/eventScenes.ts): the choice event's id, and what a question of politics or of a

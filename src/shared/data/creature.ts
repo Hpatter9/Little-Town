@@ -4,6 +4,7 @@
 // grows and is drawn.
 
 import { PACK_SHEETS } from './packSheets';
+import type { BuildingDef } from './buildings';
 import type { CreatureSheetId, EnemyDef } from './enemies';
 
 export type CreatureKind = 'ape' | 'wolf' | 'bear' | 'bull' | 'golem';
@@ -13,7 +14,9 @@ export const CREATURE_KINDS: readonly CreatureKind[] = ['ape', 'wolf', 'bear', '
 export type CreatureDeed =
   | 'haul' | 'build' | 'guard' | 'hunt' | 'farm' | 'play' | 'heal' | 'fight'
   | 'eat_crops' | 'steal' | 'scare' | 'eat_villager'
-  | 'eat' | 'sleep' | 'wander';
+  | 'eat' | 'sleep' | 'wander'
+  /** At the founder's side (it puts the founder first), and a spell worked in the town (data/creatureSpells.ts). */
+  | 'follow' | 'miracle';
 
 export type CreatureMood = 'happy' | 'bored' | 'angry' | 'afraid' | 'lonely';
 
@@ -147,10 +150,27 @@ export const CREATURE_DEEDS: Readonly<Record<CreatureDeed, CreatureDeedDef>> = {
   eat: { did: 'ate its fill', align: 0, notable: false, base: 0.3 },
   sleep: { did: 'slept', align: 0, notable: false, base: 0.3 },
   wander: { did: 'wandered about the town', align: 0, notable: false, base: 0.6 },
+  follow: { did: 'kept at the founder\'s side', align: 1, notable: false, base: 0.5 },
+  // (its nature moves by the spell, not the deed: data/creatureSpells.ts)
+  miracle: { did: 'worked a miracle', align: 0, notable: true, base: 0.45 },
 };
 
-/** The research that brings it (the second age, every people's): data/research.ts. */
+/** The research that brings it (the second age, every people's): data/research.ts. It opens the pen; the saga begins
+ *  once a pen is built. */
 export const CREATURE_TOPIC = 'great_beasts';
+/** The pen (`CREATURE_PEN_BUILDING`, merged into BUILDINGS): where it sleeps, and where it comes back when it dies. */
+export const CREATURE_PEN = 'creature_pen';
+export const CREATURE_PEN_BUILDING: BuildingDef = {
+  id: CREATURE_PEN,
+  name: 'Creature Pen',
+  layer: 'mid',
+  width: 4,
+  depth: 3,
+  cost: { wood: 30, stone: 12, hide: 4 },
+  buildSeconds: 200,
+  research: CREATURE_TOPIC,
+  purpose: 'A great pen and a bed of straw for a God creature. Once it is built, one comes to the town; it sleeps here, and if it dies it comes back here.',
+};
 /** The saga it comes in (data/creatureSaga.ts). */
 export const CREATURE_SAGA = 'great_beast';
 
@@ -174,6 +194,47 @@ export const MEAL = 4;
 /** Hurt below this share of its health, it stays out of a raid; beaten down in one, it dies at this chance. */
 export const HIDE_HURT = 0.25;
 export const RAID_DEATH = 0.2;
+/** Dead, it comes back at its pen after this many game hours (waiting for a pen if there is none), weakened: with
+ *  `BACK_HP` of its health, and a little smaller (`BACK_SHRINK` of its growth lost, never below `BORN_SIZE`). */
+export const RESPAWN_HOURS = 18;
+export const BACK_HP = 0.25;
+export const BACK_SHRINK = 0.08;
+
+/** The names the town suggests for it, by kind (sim/creature.ts asks the player, three of these and a box). */
+export const CREATURE_NAMES: Record<CreatureKind, readonly string[]> = {
+  ape: ['Bramble', 'Old Knuckle', 'Mossback', 'Pip', 'Chatter', 'Tumble', 'Sage', 'Nimble'],
+  wolf: ['Greyfang', 'Ash', 'Moonjaw', 'Sleet', 'Howl', 'Frostpaw', 'Shadow', 'Ember'],
+  bear: ['Bruin', 'Honeypaw', 'Old Thunder', 'Barley', 'Bramblehide', 'Mossmaw', 'Big Oak', 'Thistle'],
+  bull: ['Ironhorn', 'Thudd', 'Blackhoof', 'Bellow', 'Anvil', 'Plough', 'Redhorn', 'Brute'],
+  golem: ['Flint', 'Cairn', 'Old Granite', 'Pebble', 'Menhir', 'Slate', 'Boulder', 'Quarry'],
+};
+
+/** Its likings (its personality, beside what praise has taught it of each deed): play, work, adventure and magic, each
+ *  -1 (it shuns it) to 1 (it loves it). They start from its kind (`KIND_LIKES`) and a roll, drift with what it does and
+ *  enjoys (`LIKE_DRIFT`), and the player may nudge one gently (`NUDGE`, at most once in `NUDGE_HOURS` game hours; a
+ *  quick-tempered beast takes a nudge against its grain less well). */
+export type CreatureLiking = 'play' | 'work' | 'adventure' | 'magic';
+export const CREATURE_LIKINGS: readonly CreatureLiking[] = ['play', 'work', 'adventure', 'magic'];
+export const LIKING_NAMES: Record<CreatureLiking, string> = { play: 'Playing with the townsfolk', work: 'Helping at work', adventure: 'Adventures', magic: 'Magic' };
+export const KIND_LIKES: Record<CreatureKind, Record<CreatureLiking, number>> = {
+  ape: { play: 0.5, work: 0, adventure: 0, magic: 0.3 },
+  wolf: { play: 0, work: 0, adventure: 0.5, magic: 0 },
+  bear: { play: 0.1, work: 0, adventure: 0.3, magic: 0 },
+  bull: { play: -0.1, work: 0.5, adventure: 0.1, magic: -0.1 },
+  golem: { play: 0, work: 0.5, adventure: -0.2, magic: 0.3 },
+};
+export const LIKE_DRIFT = 0.02;
+export const NUDGE = 0.15;
+export const NUDGE_HOURS = 2;
+/** It joins a party of the townsfolk's from this liking for adventure (a trip the founder is on, unless it shuns
+ *  adventure below `ADVENTURE_SHUN`), at `JOIN_CHANCE` an hour of the party's first hours out. */
+export const ADVENTURE_LIKE = 0.25;
+export const ADVENTURE_SHUN = -0.4;
+export const JOIN_CHANCE = 0.5;
+/** How strongly it puts the founder first: following them, and their work and wounds before anyone's. */
+export const FOUNDER_PULL = 1.6;
+export const FOUNDER_HELP = 2;
+
 /** Hours it sleeps once it lies down (and when the player sends it to rest). */
 export const SLEEP_HOURS = 5;
 /** Below this a need is pressing (its mood turns), and neglected (its temper worsens) below `NEGLECT_AT`. */

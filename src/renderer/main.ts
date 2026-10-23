@@ -1519,7 +1519,7 @@ async function start(): Promise<void> {
             ...(snap.creature?.ask ? [act('praise', 'Praise', () => bridge.command({ type: 'creature', op: 'praise' }), { primary: true }), act('scold', 'Scold', () => bridge.command({ type: 'creature', op: 'scold' }), { danger: true })] : []),
             act('feed', 'Feed', () => bridge.command({ type: 'creature', op: 'feed' })),
             act('rest', 'Rest', () => bridge.command({ type: 'creature', op: 'rest' })),
-            act('more', 'Townsfolk…', () => bridge.openPanel('townsfolk')),
+            act('more', `${snap.creature?.name ?? 'Its'} menu…`, openCreature),
           ],
         };
       case 'pet':
@@ -1622,6 +1622,14 @@ async function start(): Promise<void> {
       localStorage.setItem('littletown.subtab.build', 'More');
     } catch {}
     bridge.openPanel('build');
+  };
+
+  /** The People menu's Creature tab (the God creature's overview: panel/townsfolkPanel.ts), asked for the same way. */
+  const openCreature = () => {
+    try {
+      localStorage.setItem('littletown.subtab.townsfolk', 'Creature');
+    } catch {}
+    bridge.openPanel('townsfolk');
   };
 
   /* -------------------------------------------------------- placing buildings */
