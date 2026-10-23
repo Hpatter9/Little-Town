@@ -52,9 +52,8 @@ const stepTiles: Tile[][] = [];
 
 let lpcReady: Promise<void> | null = null;
 
-/** The founder as the map draws them (map/mapPeople.ts: a founder wears their hero form always): the idle frame of
- *  the hero sheet their calling's base class gives (`founderSheet`, the same choice), feet at the foot of the picture,
- *  facing right. A founder with no calling, or until the sheet loads, is their LPC figure. */
+/** The founder as the map draws them: their people's isometric look, whole, feet at the foot of the picture. Until it
+ *  loads, the paper doll, then their LPC figure. */
 function drawFounderArt(art: HTMLCanvasElement, id: string, look: (typeof FOUNDERS)[OriginId][number]['look']): void {
   const g = art.getContext('2d')!;
   // as the map will draw them: their isometric look (art/folkPortrait.ts), whole; the paper doll (art/hkFolk.ts) in their

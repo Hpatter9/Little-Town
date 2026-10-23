@@ -7,7 +7,7 @@ import { Container, Sprite, type Texture } from 'pixi.js';
 import { ITEM_BY_ID } from '../../shared/data/items';
 import { loadFolkSet, type FolkSet } from './folkLoader';
 import {
-  CHILD_FEET_LIFT, CHILD_SCALE, armedSuffix, facingFromVector, otherTool, frameAt, isFighting, lookPath, play, wantedAnim, type FolkDir, type FolkPlay, type FolkState,
+  CHILD_FEET_LIFT, CHILD_SCALE, armedSuffix, facingFromVector, otherTool, frameAt, isFighting, lookPath, play, wantedAnim, type FolkAnim, type FolkDir, type FolkPlay, type FolkState,
 } from './folkRules';
 import { tintKey, type FolkTint } from './folkTint';
 import { folkWho } from './folkWho';
@@ -46,8 +46,9 @@ export class FolkSprite extends Container {
    * @param dt    seconds since the last frame
    * @param face  an optional map spot to face while working or fighting (a target); else they face the way they last moved
    * @param wolf  a werewolf in its form: wears the Moon Pack's `man_beast` (bare, in its own colours)
+   * @param board on the raid board: the animation and facing the board gives them (iso/boardRules.ts), armed all fight
    */
-  update(st: FolkState, mapX: number, mapY: number, now: number, dt: number, face?: { x: number; y: number }, wolf = false): void {
+  update(st: FolkState, mapX: number, mapY: number, now: number, dt: number, face?: { x: number; y: number }, wolf = false, board?: { anim: FolkAnim; dir: FolkDir }): void {
     // how they're moving: facing and speed (smoothed a little, so a stop-start step doesn't flicker walk/idle)
     if (!Number.isNaN(this.lastX) && dt > 0) {
       const dx = mapX - this.lastX, dy = mapY - this.lastY;
@@ -58,7 +59,8 @@ export class FolkSprite extends Container {
     }
     this.lastX = mapX;
     this.lastY = mapY;
-    if (face && this.speed < 1) {
+    if (board) this.dir = board.dir;
+    else if (face && this.speed < 1) {
       const f = facingFromVector(face.x - mapX, face.y - mapY);
       if (f) this.dir = f;
     }
@@ -68,7 +70,7 @@ export class FolkSprite extends Container {
     const who = folkWho(st);
     // (a child has no armed looks and no wolf form: they keep their own look, whatever they're about)
     const turned = wolf && !who.child;
-    const suffix = turned || who.child ? null : armedSuffix(st, family, isFighting(st));
+    const suffix = turned || who.child ? null : armedSuffix(st, family, !!board || isFighting(st));
     const pick = turned ? { people: 'werewolf', look: WOLF_LOOK } : who.pick;
     const bare = lookPath(pick, null);
     const wanted = lookPath(pick, suffix);
@@ -78,15 +80,19 @@ export class FolkSprite extends Container {
     this.sprite.scale.set(who.child ? CHILD_SCALE : 1);
     this.ensure(bare, wanted, tint, alt ? lookPath(pick, alt) : null);
 
-    // an armed look that isn't here (yet) is the bare one
-    const set = this.set ?? this.bare;
+    // an armed look that isn't here (yet) is the bare one; and the armed looks are drawn with their one move only (a
+    // swing, a shot, a cast), so for everything else (walking, flinching, falling) the bare look's own sheets play
+    const want = board?.anim ?? wantedAnim(st, this.speed, family);
+    const held = this.set && this.set !== this.bare ? this.set : null;
+    const armedPlays = held ? play(want, (a) => held.has(a)).anim : 'stand';
+    const armed = armedPlays !== 'stand' && armedPlays !== 'idle' ? held : null;
+    const set = armed ?? this.bare ?? this.set;
     if (!set) {
       this.sprite.visible = false;
       return;
     }
     // (feet on the spot: a child's art stands higher in its frame than the grown looks')
     this.sprite.anchor.set(0.5, who.child && !turned ? 1 - CHILD_FEET_LIFT / (set.index.frame[1] || 148) : 1);
-    const want = wantedAnim(st, this.speed, family);
     const p: FolkPlay & { rate: number } = play(want, (a) => set.has(a));
     // (a look with no death drawn yet lies its standing figure down rather than standing over its own fall)
     this.sprite.rotation = want === 'death' && p.anim !== 'death' && p.anim !== 'hurt' ? -Math.PI / 2 : 0;

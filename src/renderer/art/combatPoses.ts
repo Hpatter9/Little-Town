@@ -1,16 +1,12 @@
-// How townsfolk fight on screen: the LPC blow for their weapon's family (a sword's swing, a spear's thrust, a bow
-// drawn, a staff's cast), a flinch when struck and the fallen lying still; and for the fighting callings, a combat
-// form from the Craftpix hero packs (knights, samurai, ninja, wizards: tools/compose-sheets.cjs) taken up while they
-// fight, with its own attacks, guard, hurt and dying frames. Shared by the map (map/mapPeople.ts) and the Final
-// Fantasy fight screen (fight/fightView.ts).
+// How townsfolk fight in the old LPC figure (the fallback while their own look loads): the blow for their weapon's
+// family (a sword's swing, a spear's thrust, a bow drawn, a staff's cast), a flinch when struck and the fallen lying
+// still. Shared by the map (map/mapPeople.ts) and the fight screen (fight/fightView.ts). (The combat forms from the
+// Craftpix hero packs that fighting callings once took up are gone: the owner's call, "no switching sprites", so a
+// townsperson fights in their own look.)
 
 import { ITEM_BY_ID, type Slot } from '../../shared/data/items';
-import type { PackSheetId } from '../../shared/data/packSheets';
-import { PACK_SHEETS } from '../../shared/data/packSheets';
 import type { FamilyId } from '../../shared/data/weapons';
-import { creatureFrame, creaturePoseFrames, type CreaturePose } from './creatures';
 import { FRAME_COUNT, type LpcAnim } from './lpc/lpc';
-import type { Texture } from 'pixi.js';
 
 /** The LPC row each weapon family strikes with (none listed: a sword's swing). */
 const ANIM_BY_FAMILY: Partial<Record<FamilyId, LpcAnim>> = {
@@ -51,61 +47,4 @@ export function fightPose(st: { sinceBlow: number; sinceHit: number; down: boole
   const span = anim === 'shoot' ? SHOOT_TICKS : BLOW_TICKS;
   if (st.sinceBlow < span) return [anim, Math.min(FRAME_COUNT[anim] - 1, Math.floor((st.sinceBlow / span) * FRAME_COUNT[anim]))];
   return ['walk', 0];
-}
-
-export { HERO_FORM, heroSheet, founderSheet, FOUNDER_ID, roadForm } from './heroForms';
-/** How tall a hero stands on screen (px, before the person's own scale): about an LPC townsperson's figure. */
-export const HERO_HEIGHT = 50;
-/** The scale that brings a hero sheet's figure to HERO_HEIGHT. */
-export const heroScale = (sheet: PackSheetId) => HERO_HEIGHT / PACK_SHEETS[sheet];
-
-/** A werewolf's shape (Craftpix's werewolf sheets: black, red or white by who they are), on the map under the full
- *  moon and whenever they fight, and on the fight screen; and how much bigger than a person they stand. */
-export const WOLF_FORMS: PackSheetId[] = ['werewolf_black', 'werewolf_red', 'werewolf_white'];
-export const WOLF_SCALE = 1.2;
-
-/** The raised dead's shape in a fight (Craftpix's skeleton sheets): an archer for a shooter, else a warrior or a
- *  spearman by who they are. */
-export const skeletonSheet = (ranged: boolean, id: number): PackSheetId => (ranged ? 'skeleton_archer' : id % 2 ? 'skeleton_spearman' : 'skeleton_warrior');
-
-export interface HeroState {
-  facing: 'left' | 'right';
-  /** Walking, and how far they've walked (px) for the stride. */
-  moving: boolean;
-  walked: number;
-  sinceBlow: number;
-  sinceHit: number;
-  sinceBlock: number;
-  down: boolean;
-  /** For the idle breathing (ms) and to offset one hero from the next. */
-  now: number;
-  ref: number;
-  /** Ticks since they fell, to play the dying row through (the fight screen); else it shows at its end. */
-  sinceDown?: number;
-}
-/** How long a hero's blow, flinch and guard show (ticks). */
-const HERO_BLOW = 8;
-const HERO_HURT = 5;
-const HERO_GUARD = 10;
-/** How long a hero's dying row takes to play on the fight screen (ticks). */
-const HERO_DEATH = 6;
-
-/** The hero sheet's frame for someone's state: dying when down, hurt just after a hit, a blow (the first or the
- *  second, by turns) just after striking, the guard just after turning a blow, the walk on the move, else idle. */
-export function heroFrame(sheet: PackSheetId, st: HeroState): Texture {
-  const play = (pose: CreaturePose | 'attack', since: number, span: number): Texture => {
-    const n = creaturePoseFrames(sheet, pose);
-    const f = Math.min(n - 1, Math.floor((since / span) * n));
-    return pose === 'attack' ? creatureFrame(sheet, 0, st.facing, f, true) : creatureFrame(sheet, 0, st.facing, f, false, pose);
-  };
-  if (st.down) return creatureFrame(sheet, 0, st.facing, 0, false, 'dead', st.sinceDown === undefined ? undefined : (st.sinceDown / HERO_DEATH) * creaturePoseFrames(sheet, 'dead'));
-  if (st.sinceHit < HERO_HURT && creaturePoseFrames(sheet, 'hurt')) return play('hurt', st.sinceHit, HERO_HURT);
-  if (st.sinceBlow < HERO_BLOW) {
-    // (the blow's start, in whole seconds, picks which attack: steady while it plays, varying blow to blow)
-    const second = creaturePoseFrames(sheet, 'attack2') > 0 && (Math.floor((st.now - st.sinceBlow * 100) / 1000) + st.ref) % 2 === 1;
-    return play(second ? 'attack2' : 'attack', st.sinceBlow, HERO_BLOW);
-  }
-  if (st.sinceBlock < HERO_GUARD && creaturePoseFrames(sheet, 'defend')) return play('defend', st.sinceBlock, HERO_GUARD);
-  if (st.moving) return creatureFrame(sheet, 0, st.facing, Math.floor(st.walked / 5));
-  return creatureFrame(sheet, 0, st.facing, Math.floor(st.now / 180 + st.ref), false, 'idle');
 }

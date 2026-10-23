@@ -804,7 +804,7 @@ function startLpc(rerender: () => void): void {
 
 /** Them as they look in the town, in what they wear and with their weapon in hand, standing; composed pictures kept. */
 const pictures = new Map<string, HTMLCanvasElement>();
-/** A hero figure's height in the 64px frame (about an LPC townsperson's, as on the map: HERO_HEIGHT). */
+/** A hero figure's height in the 64px frame (about an LPC townsperson's). */
 const HERO_FIGURE = 50;
 /** The Himeko pictures are drawn this many times the old frame's size. */
 const HK_RES = 2;
