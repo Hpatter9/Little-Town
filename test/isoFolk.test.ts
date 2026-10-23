@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { test } from 'node:test';
-import { CHILD_SCALE, FOLK_DIRS, FOLK_LOOKS, isChildLook, isFolkChild, armedSuffix, facingFromVector, facingToward, frameAt, idHash, lookPath, dressOf, pickLook, play, wantedAnim, type FolkAnim, type FolkState } from '../src/renderer/iso/folkRules';
+import { CHILD_SCALE, FOLK_DIRS, FOLK_LOOKS, isChildLook, isFolkChild, armedSuffix, otherTool, facingFromVector, facingToward, frameAt, idHash, lookPath, dressOf, pickLook, play, wantedAnim, type FolkAnim, type FolkState } from '../src/renderer/iso/folkRules';
 import { FIXED_CASTS, VARIANTS, hslToRgb, isSkin, recolour, rgbToHsl, variantOf } from '../src/renderer/iso/folkTint';
 
 const FOLK_ART = join('src', 'renderer', 'art', 'iso', 'folk');
@@ -53,6 +53,13 @@ test('a look without an animation falls back sensibly', () => {
   assert.equal(play('death', only('hurt')).anim, 'hurt');
   assert.equal(play('death', only('death')).loop, false);
   assert.equal(play('walk', only('walk')).loop, true);
+});
+
+test("a look without the tool wanted holds its other tool", () => {
+  assert.equal(otherTool('axe'), 'hammer');
+  assert.equal(otherTool('hammer'), 'axe');
+  assert.equal(otherTool('sword'), null);
+  assert.equal(otherTool(null), null);
 });
 
 test('armed looks match the work and the weapon', () => {

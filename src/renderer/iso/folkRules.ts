@@ -223,6 +223,10 @@ export function pickLook(st: Pick<FolkState, 'id' | 'origin' | 'look'> & Partial
 /** The look's folder path (below the folk root), armed or bare: `settlers/woman_leather+axe`. */
 export const lookPath = (p: FolkLookPick, suffix: string | null): string => `${p.people}/${p.look}${suffix ? `+${suffix}` : ''}`;
 
+/** The tool a look holds instead when it has no armed look for the one wanted: the peoples' own looks each carry one
+ *  tool, an axe or a hammer, so someone felling a tree with only a hammer drawn swings the hammer rather than stand idle. */
+export const otherTool = (suffix: string | null): string | null => (suffix === 'axe' ? 'hammer' : suffix === 'hammer' ? 'axe' : null);
+
 /* ------------------------------------------------------------ frames */
 
 /** The frame to show `seconds` into an animation of `count` frames at `fps`: looping, or play once and hold the last. */
