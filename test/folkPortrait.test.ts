@@ -1,13 +1,13 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { FOLK_LOOKS, dressOf, lookPath, pickLook } from '../src/renderer/iso/folkRules';
-import { variantOf } from '../src/renderer/iso/folkTint';
+import { tintOf } from '../src/renderer/iso/folkTint';
 import { folkWho } from '../src/renderer/iso/folkWho';
 import { ITEM_BY_ID } from '../src/shared/data/items';
 
 const heavy = Object.values(ITEM_BY_ID).find((i) => i.slot === 'body' && i.weight === 'heavy')?.id;
 
-test('the menu portrait and the map pick the same look and variant for a person', () => {
+test('the menu portrait and the map pick the same look and colours for a person', () => {
   const origins = [undefined, 'settlers', 'orcs', 'lich', 'dwarves', 'fae'] as const;
   for (const origin of origins) for (const gender of ['m', 'f'] as const) for (let id = 1; id <= 40; id++) {
     for (const gear of [{}, heavy ? { body: heavy } : {}]) {
@@ -16,7 +16,7 @@ test('the menu portrait and the map pick the same look and variant for a person'
       const mapPick = pickLook(st, undefined, dressOf(body?.weight));
       const who = folkWho(st);
       assert.deepEqual(who.pick, mapPick);
-      assert.equal(who.variant, variantOf(id, mapPick.people));
+      assert.deepEqual(who.tint, tintOf(st, mapPick.people));
       assert.equal(who.path, lookPath(mapPick, null));
     }
   }

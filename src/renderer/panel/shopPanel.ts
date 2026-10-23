@@ -1214,7 +1214,7 @@ function draw(c: HTMLCanvasElement, v: ShopView, t: number, dt: number): void {
     const col = walking ? [1, 0, 2, 0][Math.floor(phase * 6) % 4] : 0;
     // (their isometric look, facing us, as the map draws them: art/folkPortrait.ts; a stranger is a settler)
     const w = folkWho(keeper || local ? folkWhoById(id, look) : { id, look, gear: {} });
-    const fig = folkFigure(w.path, w.variant);
+    const fig = folkFigure(w.path, w.tint);
     if (fig) {
       drawFigureAt(g, fig, Math.round(x), Math.round(y) - (walking && col % 2 === 1 ? 1 : 0), (FEET_Y - HEAD_Y) * SCALE + 2);
     } else if (hkDraw(g, keys, col, keeper ? 0 : left ? 1 : 2, Math.round(x), Math.round(y), (FEET_Y - HEAD_Y) * SCALE + 2)) {

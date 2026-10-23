@@ -1,6 +1,6 @@
 // Loads the isometric townsfolk art: a look's index.json and its frames, fetched BY URL (the web build inlines
 // imported PNGs, which would grow the phone app by megabytes). A look loads only when first asked for. Textures are
-// cached per (look, variant); a variant is a recolour baked once (folkTint.ts).
+// cached per (look, tint); a tint is a person's colours, baked once (folkTint.ts) from the look's roles.json.
 //
 // The base URL is relative to the page, like the himeko layers: the build must copy art/iso/folk to `iso/folk`
 // beside the page (see docs/notes/iso-folk.md).
@@ -9,7 +9,8 @@ import { Rectangle, Texture } from 'pixi.js';
 import { loadImage } from '../art/loadImage';
 import { CREATURE_ROOT } from './creatureRules';
 import { FOLK_DIRS, type FolkAnim, type FolkDir } from './folkRules';
-import { recolour } from './folkTint';
+import { loadRoles } from './folkRoles';
+import { recolour, sheetMap, tintKey, type FolkTint } from './folkTint';
 
 export interface FolkIndex<A extends string = FolkAnim> {
   frame: [number, number];
@@ -31,12 +32,13 @@ export const FOLK_ROOT = { url: 'iso/folk' };
 
 const sets = new Map<string, Promise<FolkSet | null>>();
 
-/** The set for a look path (`settlers/woman_leather+axe`) and a colour variant, loading it on the first ask. Resolves
- *  null if the look isn't drawn yet (the caller then uses the bare look). The same promise comes back every time. */
-export function loadFolkSet(path: string, variant = 0): Promise<FolkSet | null> {
-  const key = `${path}#${variant}`;
+/** The set for a look path (`settlers/woman_leather+axe`) in someone's colours (null: as drawn), loading it on the
+ *  first ask. Resolves null if the look isn't drawn yet (the caller then uses the bare look). The same promise comes
+ *  back every time for the same look and colours, so the townsfolk who share them share the textures. */
+export function loadFolkSet(path: string, tint: FolkTint | null = null): Promise<FolkSet | null> {
+  const key = `${path}#${tintKey(tint)}`;
   let p = sets.get(key);
-  if (!p) sets.set(key, (p = build<FolkAnim>(`${FOLK_ROOT.url}/${path}`, variant).catch(() => null)));
+  if (!p) sets.set(key, (p = build<FolkAnim>(`${FOLK_ROOT.url}/${path}`, tint).catch(() => null)));
   return p;
 }
 
@@ -45,7 +47,7 @@ export function loadFolkSet(path: string, variant = 0): Promise<FolkSet | null> 
 export function loadCreatureSet<A extends string>(kind: string): Promise<SheetSet<A> | null> {
   const key = `creature:${kind}`;
   let p = sets.get(key) as Promise<SheetSet<A> | null> | undefined;
-  if (!p) sets.set(key, (p = build<A>(`${CREATURE_ROOT.url}/${kind}`, 0).catch(() => null)) as Promise<FolkSet | null>);
+  if (!p) sets.set(key, (p = build<A>(`${CREATURE_ROOT.url}/${kind}`, null).catch(() => null)) as Promise<FolkSet | null>);
   return p;
 }
 
@@ -54,31 +56,32 @@ export function clearFolkSets(): void {
   sets.clear();
 }
 
-async function build<A extends string>(base: string, variant: number): Promise<SheetSet<A> | null> {
+async function build<A extends string>(base: string, tint: FolkTint | null): Promise<SheetSet<A> | null> {
   const res = await fetch(`${base}/index.json`);
   if (!res.ok) return null;
   const index = (await res.json()) as FolkIndex<A>;
+  const roles = tint ? await loadRoles(base) : null;
   const tex = new Map<string, Texture>();
   const dirs = index.directions ?? [...FOLK_DIRS];
   const [w, h] = index.frame;
   // (each animation is one sheet, a row a facing and a column a frame; rotations.png is one row, a frame a facing)
-  const cut = (url: string, keyOf: (col: number, row: number) => string, cols: number, rows: number) =>
-    loadImage(url).then(
+  const cut = (sheet: string, keyOf: (col: number, row: number) => string, cols: number, rows: number) =>
+    loadImage(`${base}/${sheet}.png`).then(
       (im) => {
-        const src = toTexture(im, variant).source;
+        const src = toTexture(im, sheetMap(roles, sheet, tint)).source;
         for (let r = 0; r < rows; r++) for (let c = 0; c < cols; c++) tex.set(keyOf(c, r), new Texture({ source: src, frame: new Rectangle(c * w, r * h, w, h) }));
       },
       () => undefined, // (a missing sheet: that animation shows nothing rather than failing the look)
     );
   // (only the still rotations load now: an animation's sheet loads, and is recoloured, the first time someone plays it.
   // Each sheet is a megapixel or so, and a town's looks times their colour variants made hundreds of them at the start)
-  await cut(`${base}/rotations.png`, (c) => `stand/${dirs[c]}/0`, dirs.length, 1);
+  await cut('rotations', (c) => `stand/${dirs[c]}/0`, dirs.length, 1);
   const asked = new Set<string>();
   const ask = (anim: string): void => {
     if (asked.has(anim)) return;
     asked.add(anim);
     const info = index.animations?.[anim as A];
-    if (info) void cut(`${base}/${anim}.png`, (c, r) => `${anim}/${dirs[r]}/${c}`, info.frames ?? 0, dirs.length);
+    if (info) void cut(anim, (c, r) => `${anim}/${dirs[r]}/${c}`, info.frames ?? 0, dirs.length);
   };
   return {
     index,
@@ -91,16 +94,16 @@ async function build<A extends string>(base: string, variant: number): Promise<S
   };
 }
 
-/** A picture as a texture, recoloured for a variant (variant 0 is used as drawn, with no canvas copy). */
-function toTexture(im: HTMLImageElement, variant: number): Texture {
-  if (variant === 0) return Texture.from(im);
+/** A picture as a texture, recoloured by a sheet's colour map (an empty map: used as drawn, with no canvas copy). */
+function toTexture(im: HTMLImageElement, map: Map<number, number>): Texture {
+  if (map.size === 0) return Texture.from(im);
   const c = document.createElement('canvas');
   c.width = im.naturalWidth;
   c.height = im.naturalHeight;
   const g = c.getContext('2d', { willReadFrequently: true })!; // (read back whole: kept off the graphics card)
   g.drawImage(im, 0, 0);
   const px = g.getImageData(0, 0, c.width, c.height);
-  recolour(px.data, variant);
+  recolour(px.data, map);
   g.putImageData(px, 0, 0);
   return Texture.from(c);
 }

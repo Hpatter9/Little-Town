@@ -1,15 +1,16 @@
 // The townsfolk's faces and figures in the menus: the same isometric look, colour variant and dress the map gives
-// them (iso/folkWho.ts is the one rule both use), drawn from the look's still `rotations.png`, south-facing, cropped to
+// them (iso/folkWho.ts is the one rule both use: the look and the person's colours), drawn from the look's still `rotations.png`, south-facing, cropped to
 // the figure and scaled with crisp pixels. No Pixi here: the menus live in their own frame. A look is fetched by URL
 // when first wanted (async); until it is in, the caller's own stand-in (the old paper doll) is drawn, and the canvas is
-// painted again in place as the look arrives, so layouts never jump. Cached per look and variant.
+// painted again in place as the look arrives, so layouts never jump. Cached per look and colours.
 
 import type { Slot } from '../../shared/data/items';
 import type { OriginId } from '../../shared/data/origins';
 import type { LifeStage } from '../../shared/sim/ageing';
 import type { Look } from '../../shared/data/people';
 import { CHILD_FIGURE } from '../iso/folkRules';
-import { recolour } from '../iso/folkTint';
+import { loadRoles } from '../iso/folkRoles';
+import { recolour, sheetMap, tintKey, type FolkTint } from '../iso/folkTint';
 import { folkWho } from '../iso/folkWho';
 import { loadImage } from './loadImage';
 
@@ -37,15 +38,15 @@ const figures = new Map<string, Promise<FolkFigure | null>>();
 const ready = new Map<string, FolkFigure | null>();
 const waiting = new Set<() => void>();
 
-/** The figure for a look path and variant if it is in already (and starts it loading if not). Null while it loads, or
- *  for ever if the look isn't drawn. */
-export function folkFigure(path: string, variant: number): FolkFigure | null {
-  const key = `${path}#${variant}`;
+/** The figure for a look path in someone's colours (null: as drawn) if it is in already (and starts it loading if not).
+ *  Null while it loads, or for ever if the look isn't drawn. */
+export function folkFigure(path: string, tint: FolkTint | null): FolkFigure | null {
+  const key = `${path}#${tintKey(tint)}`;
   if (ready.has(key)) return ready.get(key) ?? null;
   if (!figures.has(key)) {
     figures.set(
       key,
-      build(path, variant)
+      build(path, tint)
         .catch(() => null)
         .then((f) => {
           ready.set(key, f);
@@ -56,13 +57,14 @@ export function folkFigure(path: string, variant: number): FolkFigure | null {
   return null;
 }
 
-async function build(path: string, variant: number): Promise<FolkFigure | null> {
+async function build(path: string, tint: FolkTint | null): Promise<FolkFigure | null> {
   const base = `${ROOT}/${path}`;
   const res = await fetch(`${base}/index.json`);
   if (!res.ok) return null;
   const index = (await res.json()) as { frame: [number, number]; directions?: string[] };
   const [fw, fh] = index.frame;
   const col = Math.max(0, (index.directions ?? ['south']).indexOf('south'));
+  const roles = tint ? await loadRoles(base) : null;
   const im = await loadImage(`${base}/rotations.png`);
   const c = document.createElement('canvas');
   c.width = fw;
@@ -70,7 +72,7 @@ async function build(path: string, variant: number): Promise<FolkFigure | null> 
   const g = c.getContext('2d', { willReadFrequently: true })!;
   g.drawImage(im, col * fw, 0, fw, fh, 0, 0, fw, fh);
   const px = g.getImageData(0, 0, fw, fh);
-  recolour(px.data, variant);
+  recolour(px.data, sheetMap(roles, 'rotations', tint));
   // (the figure's bounds: the rows and columns with any pixel at all)
   let x0 = fw, y0 = fh, x1 = -1, y1 = -1;
   for (let y = 0; y < fh; y++) for (let x = 0; x < fw; x++) if (px.data[(y * fw + x) * 4 + 3] > 8) {
@@ -126,7 +128,7 @@ export function paintFigure(c: HTMLCanvasElement, f: FolkFigure, o: Pick<Portrai
 export function paintPortrait(c: HTMLCanvasElement, who: PortraitWho, o: PortraitOpts): void {
   const w = folkWho(who);
   const now = (): boolean => {
-    const f = folkFigure(w.path, w.variant);
+    const f = folkFigure(w.path, w.tint);
     if (!f) return false;
     paintFigure(c, f, { ...o, child: w.child });
     return true;

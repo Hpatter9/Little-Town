@@ -9,6 +9,7 @@ import { loadFolkSet, type FolkSet } from './folkLoader';
 import {
   CHILD_FEET_LIFT, CHILD_SCALE, armedSuffix, facingFromVector, otherTool, frameAt, isFighting, lookPath, play, wantedAnim, type FolkDir, type FolkPlay, type FolkState,
 } from './folkRules';
+import { tintKey, type FolkTint } from './folkTint';
 import { folkWho } from './folkWho';
 
 /** The Moon Pack's wolf-headed look, worn in the werewolf's form (not in FOLK_LOOKS: never an everyday pick). */
@@ -44,7 +45,7 @@ export class FolkSprite extends Container {
    * @param now   seconds, any steady clock
    * @param dt    seconds since the last frame
    * @param face  an optional map spot to face while working or fighting (a target); else they face the way they last moved
-   * @param wolf  a werewolf in its form: wears the Moon Pack's `man_beast` (bare, same tint as their human look)
+   * @param wolf  a werewolf in its form: wears the Moon Pack's `man_beast` (bare, in its own colours)
    */
   update(st: FolkState, mapX: number, mapY: number, now: number, dt: number, face?: { x: number; y: number }, wolf = false): void {
     // how they're moving: facing and speed (smoothed a little, so a stop-start step doesn't flicker walk/idle)
@@ -71,10 +72,11 @@ export class FolkSprite extends Container {
     const pick = turned ? { people: 'werewolf', look: WOLF_LOOK } : who.pick;
     const bare = lookPath(pick, null);
     const wanted = lookPath(pick, suffix);
+    // (the same colours on the bare and the armed looks; the wolf form is the Moon Pack's own, never recoloured)
+    const tint = turned ? null : who.tint;
     const alt = otherTool(suffix);
-    const variant = who.variant;
     this.sprite.scale.set(who.child ? CHILD_SCALE : 1);
-    this.ensure(bare, wanted, variant, alt ? lookPath(pick, alt) : null);
+    this.ensure(bare, wanted, tint, alt ? lookPath(pick, alt) : null);
 
     // an armed look that isn't here (yet) is the bare one
     const set = this.set ?? this.bare;
@@ -100,24 +102,24 @@ export class FolkSprite extends Container {
   }
 
   /** Start loading a look (bare and armed) the first time it's asked for, and take it up when it arrives. */
-  private ensure(bare: string, wanted: string, variant: number, instead: string | null = null): void {
-    const tag = `${wanted}#${variant}`;
+  private ensure(bare: string, wanted: string, tint: FolkTint | null, instead: string | null = null): void {
+    const tag = `${wanted}#${tintKey(tint)}`;
     if (tag === this.want) return;
     this.want = tag;
     this.path = wanted;
     this.set = null;
-    void loadFolkSet(bare, variant).then((s) => {
+    void loadFolkSet(bare, tint).then((s) => {
       if (this.destroyed) return;
       this.bare = s;
     });
     if (wanted === bare) {
-      void loadFolkSet(bare, variant).then((s) => {
+      void loadFolkSet(bare, tint).then((s) => {
         if (!this.destroyed && this.want === tag) this.set = s;
       });
     } else {
       // (null: the look's other tool if it has one, else it stays on the bare look)
-      void loadFolkSet(wanted, variant)
-        .then((s) => s ?? (instead ? loadFolkSet(instead, variant) : null))
+      void loadFolkSet(wanted, tint)
+        .then((s) => s ?? (instead ? loadFolkSet(instead, tint) : null))
         .then((s) => {
           if (!this.destroyed && this.want === tag) this.set = s;
         });

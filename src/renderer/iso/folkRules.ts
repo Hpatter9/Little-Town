@@ -32,7 +32,7 @@ export type FolkState = Pick<PersonView, 'id' | 'activity' | 'sinceHit' | 'since
   /** Set from a PersonView: a child is `lifeStage === 'child'` (`growsUpIn` reads 0 once grown, so it is only a stand-in). */
   lifeStage?: PersonView['lifeStage'];
   growsUpIn?: PersonView['growsUpIn'];
-  look: Pick<PersonView['look'], 'gender' | 'outfit'>;
+  look: Pick<PersonView['look'], 'gender' | 'outfit'> & Partial<Pick<PersonView['look'], 'skin' | 'hairColor' | 'body'>>;
   gear: Partial<Record<Slot, string>>;
   work?: PersonView['work'];
   origin?: PersonView['origin'];
