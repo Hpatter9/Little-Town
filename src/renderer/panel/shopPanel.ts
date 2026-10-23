@@ -5,6 +5,7 @@
 
 import { hkDraw, hkLayers, hkWhoById, hkWhoOfLook } from '../art/hkFolk';
 import { drawFigureAt, folkFigure, folkWhoById } from '../art/folkPortrait';
+import { drawFolk } from '../art/folkCanvas';
 import { folkWho } from '../iso/folkWho';
 import { inTabs } from './subtabs';
 import { MATERIAL_NAMES, type Material, type Stock } from '../../shared/data/materials';
@@ -1213,9 +1214,14 @@ function draw(c: HTMLCanvasElement, v: ShopView, t: number, dt: number): void {
     const keys = hkLayers(keeper || local ? hkWhoById(id, look) : hkWhoOfLook(id, look, { traveller: true }), { fighting: false, activity: 'idle' });
     const col = walking ? [1, 0, 2, 0][Math.floor(phase * 6) % 4] : 0;
     // (their isometric look, facing us, as the map draws them: art/folkPortrait.ts; a stranger is a settler)
-    const w = folkWho(keeper || local ? folkWhoById(id, look) : { id, look, gear: {} });
-    const fig = folkFigure(w.path, w.tint);
-    if (fig) {
+    const who = keeper || local ? folkWhoById(id, look) : { id, look, gear: {} };
+    const w = folkWho(who);
+    // (walking, turned the way they go and stepping: art/folkCanvas.ts; standing, facing us)
+    const moved = walking && drawFolk(g, who, 'walk', left ? 'west' : 'east', phase, Math.round(x), Math.round(y), (FEET_Y - HEAD_Y) * SCALE + 2);
+    const fig = moved ? null : folkFigure(w.path, w.tint);
+    if (moved) {
+      // (drawn)
+    } else if (fig) {
       drawFigureAt(g, fig, Math.round(x), Math.round(y) - (walking && col % 2 === 1 ? 1 : 0), (FEET_Y - HEAD_Y) * SCALE + 2);
     } else if (hkDraw(g, keys, col, keeper ? 0 : left ? 1 : 2, Math.round(x), Math.round(y), (FEET_Y - HEAD_Y) * SCALE + 2)) {
       // (drawn: the hats below still mark a customer's standing)

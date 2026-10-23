@@ -20,6 +20,7 @@ import { creatureFeet, creatureFlip, creatureFrame, creatureSize, type CreatureS
 import { stillTexture } from '../art/stills';
 import { machineFrame, machineSize } from '../art/machines';
 import { hkLayers, hkPose, hkWhoById, hkWhoOfLook } from '../art/hkFolk';
+import { folkSideById } from '../art/folkSide';
 import { hkSprite } from '../art/hkTexture';
 import { enemyLook } from '../art/rivals';
 import { lookFilter } from '../fight/fightView';
@@ -306,7 +307,18 @@ export class CutsceneScene {
           ranged: a.pose === 'cast',
           now,
         });
-        if (!hkSprite(s, keys, col, row, a.x, FEET - bob, PERSON_H * scale)) s.visible = false;
+        // (in their isometric look side-on, as the map draws them: art/folkSide.ts; the Himeko look while it loads)
+        const side = folkSideById(s, who.person ?? 0, who.look, who.gear ?? {}, {
+          faceLeft: a.facing === 'left',
+          facing: a.facing,
+          moving: a.walking,
+          working: a.pose === 'cheer',
+          casting: a.pose === 'cast',
+          sinceBlow: a.pose === 'strike' ? (now / 100) % 14 : 999,
+          down: a.pose === 'kneel' || a.pose === 'down',
+          now,
+        }, a.x, FEET - bob, PERSON_H * scale);
+        if (!side && !hkSprite(s, keys, col, row, a.x, FEET - bob, PERSON_H * scale)) s.visible = false;
         s.filters = [];
         s.tint = 0xffffff;
       }

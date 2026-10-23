@@ -2460,7 +2460,7 @@ async function start(): Promise<void> {
             .filter((b) => b.status === 'done' && LOOKOUT_TOWERS.has(b.def) && next.raid?.phase !== 'active')
             .flatMap((b) => {
               const pic = map.pictureOf(b.id);
-              return pic ? [{ id: b.id, x: pic.x + pic.w / 2, y: pic.top + Math.round(pic.h * 0.3), look: lookouts[b.id % lookouts.length].look }] : [];
+              return pic ? [{ id: b.id, x: pic.x + pic.w / 2, y: pic.top + Math.round(pic.h * 0.3), look: lookouts[b.id % lookouts.length].look, who: lookouts[b.id % lookouts.length] }] : [];
             })
         : [],
     );

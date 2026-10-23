@@ -294,6 +294,9 @@ export class MapPeople {
   zoom = 1;
   /** The isometric view (main.ts): townsfolk are drawn as the PixelLab looks (iso/folkSprite.ts), not the top-down sprites. */
   isoFolk = false;
+  /** On the raid board (tactics/tacticsView.ts): the positions are the board's own iso screen spots, not the map's, so
+   *  the iso looks' facing is worked out from them turned back onto the board's grid. */
+  board = false;
   /** The latest news (main.ts, per snapshot): the town crier, the best talker about, calls it out now and then. */
   news: { id: number; text: string } | null = null;
   /** The town's talk (main.ts, per snapshot: sim/gossip.ts): what those standing together talk over. */
@@ -899,7 +902,9 @@ export class MapPeople {
           f.scale.set(FOLK_SCALE * grown);
           f.position.set(s.x, s.y);
           f.zIndex = z;
-          f.update(v, d.x, d.y, now / 1000, Math.max(0.001, (now - (d.folkAt ?? now - 16)) / 1000), undefined, wolfNow);
+          // (the board's spots are already iso: turned back to grid steps, a diamond's half-width being twice its height)
+          const [fx, fy] = this.board ? [d.x / 2 + d.y, d.y - d.x / 2] : [d.x, d.y];
+          f.update(v, fx, fy, now / 1000, Math.max(0.001, (now - (d.folkAt ?? now - 16)) / 1000), undefined, wolfNow);
           d.folkAt = now;
           s.visible = false;
         } else if (d.folk) d.folk.visible = false;

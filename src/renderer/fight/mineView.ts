@@ -11,6 +11,7 @@ import { BACK_H, BACK_HORIZON, BACK_W, fightBackdrop, FRONT_H, type Backdrop } f
 import { wornLayers } from '../art/held';
 import { CENTRE_X, FEET_Y, FRAME_COUNT, lpcFrame } from '../art/lpc/lpc';
 import { hkLayers, hkWhoById } from '../art/hkFolk';
+import { folkSideById } from '../art/folkSide';
 import { hkSprite } from '../art/hkTexture';
 
 const SEE_W = 320;
@@ -171,9 +172,11 @@ export class MineScene {
         d.dust.clear();
       }
       d.sprite.zIndex = i;
-      // (in the Himeko look, as the map draws them: art/hkFolk.ts, a pick in hand; the old look while it loads)
+      // (in their isometric look side-on, as the map draws them: art/folkSide.ts, a hammer swung at the face; the Himeko
+      // look, a pick in hand, while it loads, and the old look while that loads)
       const keys = hkLayers(hkWhoById(m.id, m.look, m.gear), { fighting: false, activity: 'mine' });
       const col = m.digging && wall ? (phase < 0.5 ? 3 : 4) : d.x < at - 0.5 ? [1, 0, 2, 0][Math.floor(now / 140 + i * 3) % 4] : 0;
+      if (folkSideById(d.sprite, m.id, m.look, m.gear, { faceLeft: false, moving: d.x < at - 0.5, working: !!(m.digging && wall), now: now + i * 300 }, d.x, this.hy + 10, 48 * k)) return;
       if (hkSprite(d.sprite, keys, col, 2, d.x, this.hy + 10, 48 * k)) return;
       d.sprite.anchor.set(0);
       d.sprite.scale.set(k);
