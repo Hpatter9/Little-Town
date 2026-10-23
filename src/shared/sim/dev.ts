@@ -29,7 +29,7 @@ import { raidOn, skipRaid } from './raidSkip';
 import { chooseOffer, keepOffer } from './researchOffer';
 import { finishRing } from './ringWall';
 import { beginSaga } from './sagas';
-import { layAll } from './streets';
+import { pave, plannedCells } from './streets';
 import { campXY, maxHp, notify, type Building, type GameState, type Person } from './state';
 import { paceDay, TICKS_PER_HOUR } from './time';
 import type { Material } from '../data/materials';
@@ -174,7 +174,7 @@ export function finishBuilds(s: GameState, only?: Building): number {
     n++;
     onBuilt(s, b);
   }
-  if (!only) layAll(s);
+  if (!only) for (const i of plannedCells(s)) pave(s, i); // (the player's planned streets laid too)
   return n;
 }
 
