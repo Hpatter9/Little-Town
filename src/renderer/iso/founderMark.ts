@@ -13,9 +13,9 @@ export const FEET_UP = 30;
 /** The crown floats this far (world px) over the head, bobbing `BOB` px. */
 export const CROWN_GAP = 3;
 export const CROWN_BOB = 1.5;
-/** The crown icon (16px) is drawn at this scale: about a quarter of a person's height, so it reads at phone size but
+/** The crown icon (16px) is drawn at this scale: under a third of a person's height, so it reads at phone size but
  *  hides nobody behind. */
-export const CROWN_SCALE = 0.75;
+export const CROWN_SCALE = 1;
 /** The ring under their feet (world px across). */
 export const RING_W = 26;
 

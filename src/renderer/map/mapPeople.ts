@@ -1063,6 +1063,8 @@ export class MapPeople {
           const above = (d.work?.visible ? WORK_ABOVE + 6 : WORK_ABOVE) + (plain ? 0 : 8);
           d.hpBar.position.set(Math.round(x) - HP_W / 2, Math.round(y) - above);
           d.hpBar.zIndex = z + 0.16;
+          // (the founder's crown floats over the bar, not on it)
+          if (d.crown?.visible) d.crown.y = Math.min(d.crown.y, d.hpBar.y - 2);
         }
       }
       d.bubble.visible = d.visitor;
