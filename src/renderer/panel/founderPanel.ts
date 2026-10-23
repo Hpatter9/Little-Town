@@ -11,11 +11,11 @@ import type { Bridge } from '../../shared/ipc';
 import { itemIcon } from '../art/icons';
 import { button, el } from './dom';
 import { founderNow, type FounderNow } from './founderNow';
-import { face } from './townsfolkPanel';
+import { face, founderCharacter, founderCharacterKey } from './townsfolkPanel';
 
 /** The redraw key: anything the card shows or a button changes. */
 export function founderKey(s: Snapshot): string {
-  return `${sheet}|${keyOfCard(s)}`;
+  return `${sheet}|${keyOfCard(s)}|${founderCharacterKey(s)}`;
 }
 
 /** Which sheet of the card is open (kept while the panel redraws). */
@@ -26,6 +26,15 @@ function keyOfCard(s: Snapshot): string {
   const f = s.people.find((p) => p.id === s.mainId);
   if (!f || !s.founder) return 'none';
   return [f.name, f.clsName, f.level, Math.round(f.hp), f.maxHp, Math.round(f.morale), f.coins, nowKey(founderNow(f, s.founder, s.muster)), s.founder.order, s.founder.winds.map((w) => (w.open ? 1 : 0)).join(''), s.founder.heir?.id, s.founder.heir?.named, s.founder.heirs.map((h) => h.id).join(','), s.founder.shops.map((x) => [x.id, x.manager?.id, x.stock, x.price, x.today, x.last, x.seasonNet].join(':')).join(';'), s.founder.buyable.map((x) => `${x.id}:${x.price}`).join(','), s.founder.hires.map((h) => h.id).join(','), Object.values(f.gear).join(','), s.coins, dealingsKey(s)].join('|');
+}
+
+/** The founder's Character tab: their character sheet (portrait, bars, calling and titles, story, skills, kin, kit) and
+ *  the older pages with every detail (gear, stat points, the calling's road), the same as the People tab draws for
+ *  anyone else (townsfolkPanel.ts). The founder isn't on the People list: this is where they are. */
+export function renderFounderCharacter(s: Snapshot, bridge: Bridge, redraw: () => void): HTMLElement[] {
+  const f = s.people.find((p) => p.id === s.mainId);
+  if (!f) return [];
+  return [el('h2', '', 'Character'), ...founderCharacter(f, s, bridge, redraw)];
 }
 
 const nowKey = (n: FounderNow): string => `${n.icon}${n.now}/${n.set ?? ''}`;

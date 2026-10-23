@@ -39,3 +39,34 @@ the plain doing line in the card's head and the old "Told to:" line.
   - on a trip, leading it or along, counted in days and in hours, and fighting;
   - away; raising a party;
   - the describer's walk wording, through a real step and snapshot.
+
+## The founder in one place
+
+The owner asked for the founder's tab to hold everything about the founder, and for the founder to come off the town's
+People list. The founder's tab now has three sub-tabs: **Founder** (the card: the Now line, purse, gear and the four
+big buttons, as before), **Character** (new) and **Story**.
+
+- **Character** (`renderFounderCharacter` in `panel/founderPanel.ts`, under its own `h2` "Character", with
+  `['Character', /^Character$/]` added to the founder's `GROUPS` in `panel/subtabs.ts`): the same pages the People tab
+  draws for anyone else, reused, not copied (`founderCharacter` in `panel/townsfolkPanel.ts`, which calls
+  `inspectView`).
+  - The character sheet (`personCard.ts`): the portrait, bars, calling, titles, and the Story, Skills, Kin and Kit tabs.
+  - "All details…" leads to the older pages: Equipment, Character (where stat points are spent), Background and
+    Skills, and the calling's road.
+  - There's no "‹ Everyone" back button. A relative tapped on the sheet opens in the People tab.
+  - The founder tab's redraw key takes in this page's own key (`founderCharacterKey`), built the same way as the
+    People tab's key for the person inspected (`whoKey`, now shared by both).
+- **Off the list** (`panel/folkList.ts`, `listedFolk`, pure): the People tab's list leaves out the founder. In their
+  place, a small button above the list, "<name> (you): the founder's tab ›", opens the founder's tab. The counts
+  still include the founder, because they come from the sim and not from the list: the head's "People N", the
+  overview's tile and housing (`snapshot.housing.people` is `s.people.length`).
+- **Every way in leads to the founder's tab:**
+  - Anything that asks the People tab to inspect the founder (a tapped name or portrait through `openPerson`, a
+    relative on someone's sheet, the ♥ followed row, the families and guilds lists) is caught in `panel.ts`
+    (`takeFounder`), which opens the founder's tab on Character instead.
+  - On the map, the founder's tap card offers "The founder…" and no longer "Townsfolk…". The person card's details
+    button opens the founder's tab when the person is the founder (`main.ts`).
+- **Phone:** the Character tab at 393x852 and 852x393 reads as the People tab's sheet does. Screenshots:
+  `*-character.png`, `*-character-details.png` and `*-people.png` (the list without the founder, "People 4" for three
+  listed).
+- **Test:** `test/founderNow.test.ts`, "the People list leaves out the founder, and the town still counts them".

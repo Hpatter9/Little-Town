@@ -3,6 +3,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { founderNow } from '../src/renderer/panel/founderNow';
+import { listedFolk } from '../src/renderer/panel/folkList';
 import { Sim } from '../src/shared/sim/sim';
 import { snapshot, type FounderView, type PersonView } from '../src/shared/sim/snapshot';
 import { camp, plainGame, put, row } from './helpers';
@@ -77,4 +78,14 @@ test('the describer says where the founder walks when sent to a building', () =>
   assert.equal(snap.founder?.orderKind, 'go');
   const n = founderNow(f, snap.founder!, snap.muster);
   assert.equal(n.set, null, 'the order is what they are doing');
+});
+
+test('the People list leaves out the founder, and the town still counts them', () => {
+  const s = plainGame('founder-off-list');
+  const snap = snapshot(s);
+  const listed = listedFolk(snap);
+  assert.ok(snap.people.some((p) => p.id === s.mainId), 'the founder is in the snapshot');
+  assert.ok(!listed.some((p) => p.id === s.mainId), 'the founder is not on the list');
+  assert.equal(listed.length, snap.people.length - 1, 'everyone else is');
+  assert.equal(snap.housing.people, s.people.length, 'the population counts the founder');
 });

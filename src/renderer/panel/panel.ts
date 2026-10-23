@@ -16,12 +16,12 @@ import { guildMark, guildsOf } from '../art/guildMarks';
 import { festivalsKey } from './festivalsPanel';
 import { cultureKey } from './culturePanel';
 import { renderResearch, researchKey } from './researchPanel';
-import { patchTownsfolk, renderTownsfolk, townsfolkKey } from './townsfolkPanel';
+import { patchTownsfolk, renderTownsfolk, takeFounder, townsfolkKey } from './townsfolkPanel';
 import { arenaKey } from './arenaPanel';
 import { renderTrade, tradeKey } from './tradePanel';
 import { renderWar, warKey } from './warPanel';
 import { renderAlerts } from './alertsPanel';
-import { founderKey, renderFounder } from './founderPanel';
+import { founderKey, renderFounder, renderFounderCharacter } from './founderPanel';
 import { renderStory, storyKey } from './storyPanel';
 import { renderNewGame, restartNewGame } from './newGamePanel';
 import { isVenuePanel, renderShop, shopKey, venueView } from './shopPanel';
@@ -123,6 +123,12 @@ function keyOf(): string {
 
 function render(): void {
   if (!shown) return;
+  // (the founder isn't on the People list: someone asking for them there is shown the founder's tab)
+  if (snap && shown === 'townsfolk' && takeFounder(snap)) {
+    selectTab('founder', 'Character');
+    bridge.openPanel('founder');
+    return;
+  }
   const keyed = keyOf();
   if (keyed === renderedKey) {
     // (the Townsfolk list's live details change ten times a second: patched into the rows as they stand)
@@ -161,7 +167,7 @@ function render(): void {
   else if (snap && shown === 'founder') {
     folkKnow(snap.people);
     hkKnow(snap.people);
-    body.replaceChildren(...tabbed([...renderFounder(snap, bridge, render), ...renderStory(snap)]));
+    body.replaceChildren(...tabbed([...renderFounder(snap, bridge, render), ...renderFounderCharacter(snap, bridge, render), ...renderStory(snap)]));
   }
   else if (snap && isVenuePanel(shown)) {
     hkKnow(snap.people); // (who's who, so the keeper is dressed as the map dresses them: art/hkFolk.ts)
