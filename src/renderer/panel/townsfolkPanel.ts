@@ -41,6 +41,7 @@ import { openCard } from './infoCard';
 import { tapLink } from './structure';
 import { itemStats } from './details';
 import { personSheet, personSheetKey } from './personCard';
+import { listedFolk } from './folkList';
 import { FAVOURITES_MOST } from '../../shared/sim/favourites';
 
 /** Changes whenever the panel's shape changes: who is listed, who is inspected and what they have (gear, skills,
@@ -51,14 +52,7 @@ export const townsfolkKey = (s: Snapshot) => {
   const who = inspecting === null ? null : (s.people.find((p) => p.id === inspecting) ?? null);
   return JSON.stringify([
     s.people.map((p) => [p.id, p.priorities, p.autoPriorities]),
-    who && [
-      who.id, who.job, who.order, who.sick, who.gear, who.gearQ, who.pouch, who.owns, who.debt, who.bedroll, who.carryCapacity, who.partner, who.married, who.friends, who.rivals, who.enemies, who.devoted,
-      who.body, who.growsUpIn !== null && Math.ceil(who.growsUpIn / 24), Math.round(who.hp / 5), who.downed, who.bleedMinutes !== null, Math.round(who.morale / 5), Math.round(who.moodTarget / 5),
-      Math.round(who.needs.food * 10), Math.round(who.needs.rest * 10), who.bed, SKILLS.map((k) => [who.skills[k].level, Math.floor(who.skills[k].progress * 4)]),
-      who.cls, who.monster, who.clsName, who.stage, who.level, Math.floor(who.levelProgress * 4), who.away, who.battle, who.kit.length, who.carrying, who.recent, who.freePts, who.autoStats, who.road, who.coins, who.income, who.traits.length, who.titles, Object.keys(who.titleWhy).length, who.deeds.map((d) => d.n),
-      who.arcana,
-      who.mana,
-    ],
+    who && whoKey(who),
     s.visitor && [s.visitor.id, s.visitor.leaving],
     s.housing.beds <= s.housing.people,
     s.prisoners.map((p) => [p.id, Math.floor(p.conviction * 20), p.hungry]),
@@ -86,6 +80,40 @@ export const townsfolkKey = (s: Snapshot) => {
     lpcLoaded,
   ]);
 };
+
+/** What the inspected person's page shows, coarsely (the founder's tab keys the founder's own page the same way). */
+const whoKey = (who: PersonView) => [
+  who.id, who.job, who.order, who.sick, who.gear, who.gearQ, who.pouch, who.owns, who.debt, who.bedroll, who.carryCapacity, who.partner, who.married, who.friends, who.rivals, who.enemies, who.devoted,
+  who.body, who.growsUpIn !== null && Math.ceil(who.growsUpIn / 24), Math.round(who.hp / 5), who.downed, who.bleedMinutes !== null, Math.round(who.morale / 5), Math.round(who.moodTarget / 5),
+  Math.round(who.needs.food * 10), Math.round(who.needs.rest * 10), who.bed, SKILLS.map((k) => [who.skills[k].level, Math.floor(who.skills[k].progress * 4)]),
+  who.cls, who.monster, who.clsName, who.stage, who.level, Math.floor(who.levelProgress * 4), who.away, who.battle, who.kit.length, who.carrying, who.recent, who.freePts, who.autoStats, who.road, who.coins, who.income, who.traits.length, who.titles, Object.keys(who.titleWhy).length, who.deeds.map((d) => d.n),
+  who.arcana,
+  who.mana,
+];
+
+/** The founder's character page in the founder's tab (founderPanel.ts): what it shows and its tabs, for that menu's key. */
+export const founderCharacterKey = (s: Snapshot): string => {
+  const f = s.people.find((p) => p.id === s.mainId);
+  return JSON.stringify([f && whoKey(f), f?.shaken, f?.diary.length, f?.sick, chosenSlot, inspectTab, sheetOn, personSheetKey(), chosenSkill, classOpen, s.favourites, s.theme, lpcLoaded]);
+};
+
+/** The founder's character page, for the founder's own tab: the sheet and the older pages the People tab shows for
+ *  anyone, without the way back to the list. A relative tapped on it opens in the People tab. */
+export function founderCharacter(p: PersonView, s: Snapshot, bridge: Bridge | undefined, rerender: () => void): HTMLElement[] {
+  startLpc(rerender);
+  return inspectView(p, s, bridge, rerender, (id) => {
+    inspectPerson(id);
+    bridge?.openPanel('townsfolk');
+  }).slice(1);
+}
+
+/** The founder is not on the People list: someone asked to inspect them (a tapped name, a relative on a sheet) is
+ *  sent to the founder's tab instead. True once, when that happened (panel.ts opens the founder's tab). */
+export function takeFounder(s: Snapshot): boolean {
+  if (inspecting === null || inspecting !== s.mainId) return false;
+  inspecting = null;
+  return true;
+}
 
 /** The live details, patched into the page as it stands (panel.ts, on every snapshot that leaves the key as it
  *  was): each row's doing, class line, bars, flag and badges, the head's counts, the visitor's wait, and the
@@ -159,8 +187,11 @@ export function renderTownsfolk(s: Snapshot, bridge: Bridge | undefined, rerende
   }));
   out.push(el('h2', '', 'People'));
   if (s.turnable.length) out.push(turningRow(s, bridge));
+  // (the founder has their own tab, not a row here: a way to it)
+  const me = s.people.find((p) => p.id === s.mainId);
+  if (me) out.push(button(`${me.name} (you): the founder’s tab ›`, () => bridge?.openPanel('founder'), { cls: 'place small quiet' }));
   const list = el('div', 'folk-list');
-  for (const p of s.people) list.append(folkRow(p, s, () => {
+  for (const p of listedFolk(s)) list.append(folkRow(p, s, () => {
     inspecting = p.id;
     chosenSlot = null;
     listScroll = scroller()?.scrollTop ?? 0;
@@ -335,7 +366,7 @@ let sheetOn = true;
 /** The skill, spell or trait tapped on the Skills or Character tab, whose card shows under the list. */
 let chosenSkill: string | null = null;
 
-function inspectView(p: PersonView, s: Snapshot, bridge: Bridge | undefined, rerender: () => void): HTMLElement[] {
+function inspectView(p: PersonView, s: Snapshot, bridge: Bridge | undefined, rerender: () => void, open: (id: number) => void = (id) => ((inspecting = id), rerender())): HTMLElement[] {
   const back = button('‹ Everyone', () => {
     inspecting = null;
     rerender();
@@ -343,7 +374,7 @@ function inspectView(p: PersonView, s: Snapshot, bridge: Bridge | undefined, rer
     if (box) box.scrollTop = listScroll;
   }, { cls: 'place small quiet back-btn' });
   const favourite = bridge ? { on: s.favourites.includes(p.id), full: s.favourites.length >= FAVOURITES_MOST, toggle: () => bridge.command({ type: 'favourite', id: p.id, on: !s.favourites.includes(p.id) }) } : undefined;
-  if (sheetOn) return [back, personSheet(p, s, { face, rerender, favourite, open: (id) => ((inspecting = id), rerender()), more: () => ((sheetOn = false), rerender()) })];
+  if (sheetOn) return [back, personSheet(p, s, { face, rerender, favourite, open, more: () => ((sheetOn = false), rerender()) })];
   const sheetBtn = button('Character sheet', () => ((sheetOn = true), rerender()), { cls: 'place small quiet' });
 
   // who they are, over every tab
