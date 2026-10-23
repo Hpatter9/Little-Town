@@ -170,7 +170,8 @@ export function creatureTick(s: GameState): void {
   }
   if (c.doing === 'follow') {
     const f = s.people.find((p) => p.id === s.mainId && p.away === null);
-    if (f) c.goal = { x: f.x + CELL * 1.5 * (c.dir > 0 ? -1 : 1), y: f.y + CELL * 0.5 };
+    // (re-aimed only once the founder has moved off a little, so it doesn't plan a new path every step)
+    if (f && (!c.goal || Math.hypot(c.goal.x - f.x, c.goal.y - f.y) > CELL * 2.5)) c.goal = { x: f.x + CELL * 1.5 * (c.dir > 0 ? -1 : 1), y: f.y + CELL * 0.5 };
   }
   if (c.goal && c.doing !== 'sleep' && !inRaid(s)) walk(s, c, c.goal, c.size > 0.6 ? 4.2 : 4.8, undefined, s.tick);
   if (s.tick % TICKS_PER_HOUR !== 0) return;
@@ -311,7 +312,8 @@ const isFounderSite = (s: GameState, id: number | undefined) => {
 /** What it does this hour (drawn by weight). */
 export function chooseDeed(s: GameState, c: CreatureState, rng: Rng): CreatureDeed {
   const opts = chances(s, c);
-  const ws = opts.map((o) => deedWeight(c, o.deed, s, o.on ?? (o.deed === 'build' && isFounderSite(s, o.on) ? s.mainId : undefined)));
+  // (whom each is for: a building raised is the founder's when it is their site)
+  const ws = opts.map((o) => deedWeight(c, o.deed, s, o.deed === 'build' ? (isFounderSite(s, o.on) ? s.mainId : undefined) : o.on));
   const total = ws.reduce((a, b) => a + b, 0);
   let r = rng.next() * total;
   for (let i = 0; i < opts.length; i++) if ((r -= ws[i]) <= 0) return opts[i].deed;
