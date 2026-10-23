@@ -1,0 +1,1065 @@
+{
+ "wolf": {
+  "character_id": "69d906d9-4d7c-45ea-8c10-dcc71bfdeab3",
+  "job": "656f54a4-ce46-4339-92a5-cd153a2e8b5e"
+ },
+ "wolf_upright": {
+  "character_id": "7dbeca40-114d-4db1-a79d-c74f31539883",
+  "job": "0ab299f8-72d6-4934-b281-212343e24ceb"
+ },
+ "god_wolf": {
+  "character_id": "742149f0-b948-4a58-94d7-dbc1cf17aa49",
+  "walk": {
+   "done": [
+    "south",
+    "south-west",
+    "west",
+    "north-west",
+    "north",
+    "north-east",
+    "east",
+    "south-east"
+   ],
+   "group": "07a82feb-69fa-45e7-b64d-560a71e49fbd"
+  },
+  "run": {
+   "done": [
+    "south",
+    "south-west",
+    "west",
+    "north-west",
+    "north",
+    "north-east",
+    "east",
+    "south-east"
+   ],
+   "group": "e903bfab-3c93-40a1-ac62-9a96fbb35ab5"
+  },
+  "idle": {
+   "done": [
+    "south",
+    "south-west",
+    "west",
+    "north-west",
+    "north",
+    "north-east",
+    "east",
+    "south-east"
+   ],
+   "group": "f42a1451-7bec-4c15-bf40-7a4897651e61"
+  },
+  "pickup": {
+   "done": [
+    "south",
+    "south-west",
+    "west",
+    "north-west",
+    "north",
+    "north-east",
+    "east",
+    "south-east"
+   ],
+   "group": "52abfc65-6861-413b-8e96-a747d2c0e0f4"
+  },
+  "throw": {
+   "done": [
+    "south",
+    "south-west",
+    "west",
+    "north-west",
+    "north",
+    "north-east",
+    "east",
+    "south-east"
+   ],
+   "group": "d6e0033c-577f-43d9-83b0-a81cebf75606"
+  },
+  "push": {
+   "done": [
+    "south",
+    "south-west",
+    "west",
+    "north-west",
+    "north",
+    "north-east",
+    "east",
+    "south-east"
+   ],
+   "group": "7d29613b-eb1e-49b5-ac92-25992a5853c9"
+  },
+  "pull": {
+   "done": [
+    "south",
+    "south-west",
+    "west",
+    "north-west",
+    "north",
+    "north-east",
+    "east",
+    "south-east"
+   ],
+   "group": "4fb861df-cccb-4759-a85e-0e0a93af9796"
+  },
+  "eat": {
+   "done": [
+    "south",
+    "south-west",
+    "west",
+    "north-west",
+    "north",
+    "north-east",
+    "east",
+    "south-east"
+   ],
+   "group": "544787a4-b002-4630-a6e0-5a9fb424775a"
+  },
+  "punch": {
+   "done": [
+    "south",
+    "south-west",
+    "west",
+    "north-west",
+    "north",
+    "north-east",
+    "east",
+    "south-east"
+   ],
+   "group": "7f99095f-3cc0-4184-b881-72f393aa04b0"
+  },
+  "uppercut": {
+   "done": [
+    "south",
+    "south-west",
+    "west",
+    "north-west",
+    "north",
+    "north-east",
+    "east",
+    "south-east"
+   ],
+   "group": "ed6eb0ce-fa39-43fe-b778-2ad1c927c7ad"
+  },
+  "death": {
+   "done": [
+    "south",
+    "south-west",
+    "west",
+    "north-west",
+    "north",
+    "north-east",
+    "east",
+    "south-east"
+   ],
+   "group": "8ed173ef-db7b-4f63-b436-8cd8b5fdf437"
+  },
+  "hit": {
+   "done": [
+    "south",
+    "south-west",
+    "west",
+    "north-west",
+    "north",
+    "north-east",
+    "east",
+    "south-east"
+   ],
+   "group": "4b5ff83a-f1e2-40a5-af03-9603ec5f404d"
+  },
+  "getup": {
+   "done": [
+    "south",
+    "south-west",
+    "west",
+    "north-west",
+    "north",
+    "north-east",
+    "east",
+    "south-east"
+   ],
+   "group": "9d931ccc-552a-4a9b-8f65-9fffcc958850"
+  },
+  "miracle": {
+   "done": [
+    "south",
+    "south-west",
+    "west",
+    "north-west",
+    "north",
+    "north-east",
+    "east",
+    "south-east"
+   ],
+   "group": "ac1fa282-ccbc-4b7a-88ca-59ea379135d6"
+  },
+  "joy": {
+   "done": [
+    "south",
+    "south-west",
+    "west",
+    "north-west",
+    "north",
+    "north-east",
+    "east",
+    "south-east"
+   ],
+   "group": "93f215d3-122b-4f2e-9da5-9e0bebc97363"
+  },
+  "sad": {
+   "done": [
+    "south",
+    "south-west",
+    "west",
+    "north-west",
+    "north",
+    "north-east",
+    "east",
+    "south-east"
+   ],
+   "group": "b98d519a-f197-4f9d-856f-5e19d5fac791"
+  }
+ },
+ "god_ape": {
+  "character_id": "d8e91ee4-a4c8-49e0-946c-11fab15bdcf2",
+  "walk": {
+   "done": [
+    "south",
+    "south-west",
+    "west",
+    "north-west",
+    "north",
+    "north-east",
+    "east",
+    "south-east"
+   ],
+   "group": "ddcedeb2-4823-4897-8054-016f2696d875"
+  },
+  "run": {
+   "done": [
+    "south",
+    "south-west",
+    "west",
+    "north-west",
+    "north",
+    "north-east",
+    "east",
+    "south-east"
+   ],
+   "group": "189e4dc8-89cb-4608-9643-df83d73b0759"
+  },
+  "idle": {
+   "done": [
+    "south",
+    "south-west",
+    "west",
+    "north-west",
+    "north",
+    "north-east",
+    "east",
+    "south-east"
+   ],
+   "group": "8cba5123-50d4-43ed-9bc1-d262bf1c1b35"
+  },
+  "pickup": {
+   "done": [
+    "south",
+    "south-west",
+    "west",
+    "north-west",
+    "north",
+    "north-east",
+    "east",
+    "south-east"
+   ],
+   "group": "e9e14f3b-ec1a-487a-bb6f-3b622671e513"
+  },
+  "throw": {
+   "done": [
+    "south",
+    "south-west",
+    "west",
+    "north-west",
+    "north",
+    "north-east",
+    "east",
+    "south-east"
+   ],
+   "group": "15f8823e-ef3b-46bd-802b-df70936e83b6"
+  },
+  "push": {
+   "done": [
+    "south",
+    "south-west",
+    "west",
+    "north-west",
+    "north",
+    "north-east",
+    "east",
+    "south-east"
+   ],
+   "group": "7887a7ea-dded-4a98-aed8-80f5cf93c570"
+  },
+  "pull": {
+   "done": [
+    "south",
+    "south-west",
+    "west",
+    "north-west",
+    "north",
+    "north-east",
+    "east",
+    "south-east"
+   ],
+   "group": "64d109ee-dcdc-4492-9b6d-633866d6610b"
+  },
+  "eat": {
+   "done": [
+    "south",
+    "south-west",
+    "west",
+    "north-west",
+    "north",
+    "north-east",
+    "east",
+    "south-east"
+   ],
+   "group": "15c82713-f949-4fd0-86d4-7fa602923fa0"
+  },
+  "punch": {
+   "done": [
+    "south",
+    "south-west",
+    "west",
+    "north-west",
+    "north",
+    "north-east",
+    "east",
+    "south-east"
+   ],
+   "group": "af89ffb3-0c9f-4e2a-8ee4-eb1fa71aa0a7"
+  },
+  "uppercut": {
+   "done": [
+    "south",
+    "south-west",
+    "west",
+    "north-west",
+    "north",
+    "north-east",
+    "east",
+    "south-east"
+   ],
+   "group": "731c5ab4-75a9-46c4-a510-e92da488e467"
+  },
+  "hit": {
+   "done": [
+    "south",
+    "south-west",
+    "west",
+    "north-west",
+    "north",
+    "north-east",
+    "east",
+    "south-east"
+   ],
+   "group": "9d0a9b16-2917-4afe-aa38-467cce66f892"
+  },
+  "death": {
+   "done": [
+    "south",
+    "south-west",
+    "west",
+    "north-west",
+    "north",
+    "north-east",
+    "east",
+    "south-east"
+   ],
+   "group": "dd4d770c-3a44-4a54-87b6-3badff431a6f"
+  },
+  "getup": {
+   "done": [
+    "south",
+    "south-west",
+    "west",
+    "north-west",
+    "north",
+    "north-east",
+    "east",
+    "south-east"
+   ],
+   "group": "c772e497-b389-408e-80b2-863d026abf84"
+  },
+  "miracle": {
+   "done": [
+    "south",
+    "south-west",
+    "west",
+    "north-west",
+    "north",
+    "north-east",
+    "east",
+    "south-east"
+   ],
+   "group": "2c0d5433-33ba-4827-8495-21307fb59de6"
+  },
+  "joy": {
+   "done": [
+    "south",
+    "south-west",
+    "west",
+    "north-west",
+    "north",
+    "north-east",
+    "east",
+    "south-east"
+   ],
+   "group": "7ea9c403-c98a-4393-b6d0-f39d4623966b"
+  },
+  "sad": {
+   "done": [
+    "south",
+    "south-west",
+    "west",
+    "north-west",
+    "north",
+    "north-east",
+    "east",
+    "south-east"
+   ],
+   "group": "a30e9a3d-953e-49bc-b11e-16a3aabeccb8"
+  }
+ },
+ "god_bear": {
+  "character_id": "e592458f-fd27-4909-9d11-9cfd896cd7e4",
+  "walk": {
+   "done": [
+    "south",
+    "south-west",
+    "west",
+    "north-west",
+    "north",
+    "north-east",
+    "east",
+    "south-east"
+   ],
+   "group": "96a9d513-4063-4c0b-97bf-8a43ce1594c0"
+  },
+  "run": {
+   "done": [
+    "south",
+    "south-west",
+    "west",
+    "north-west",
+    "north",
+    "north-east",
+    "east",
+    "south-east"
+   ],
+   "group": "5ddfb075-bc78-46c8-98ff-eb347efae37c"
+  },
+  "idle": {
+   "done": [
+    "south",
+    "south-west",
+    "west",
+    "north-west",
+    "north",
+    "north-east",
+    "east",
+    "south-east"
+   ],
+   "group": "d4c7afc1-df5d-4517-9fde-ca36674fa622"
+  },
+  "pickup": {
+   "done": [
+    "south",
+    "south-west",
+    "west",
+    "north-west",
+    "north",
+    "north-east",
+    "east",
+    "south-east"
+   ],
+   "group": "520387e8-9e9d-4a9b-986a-d680c762bef5"
+  },
+  "throw": {
+   "done": [
+    "south",
+    "south-west",
+    "west",
+    "north-west",
+    "north",
+    "north-east",
+    "east",
+    "south-east"
+   ],
+   "group": "9238e34e-9d22-4e93-98d2-c2bca68319bf"
+  },
+  "push": {
+   "done": [
+    "south",
+    "south-west",
+    "west",
+    "north-west",
+    "north",
+    "north-east",
+    "east",
+    "south-east"
+   ],
+   "group": "7525170d-05f1-4019-8812-ff8d6f977aa7"
+  },
+  "pull": {
+   "done": [
+    "south",
+    "south-west",
+    "west",
+    "north-west",
+    "north",
+    "north-east",
+    "east",
+    "south-east"
+   ],
+   "group": "8801a607-dd46-42c5-9356-b906beb81949"
+  },
+  "eat": {
+   "done": [
+    "south",
+    "south-west",
+    "west",
+    "north-west",
+    "north",
+    "north-east",
+    "east",
+    "south-east"
+   ],
+   "group": "f4b24004-32f8-41ac-a13c-40ad8e840435"
+  },
+  "punch": {
+   "done": [
+    "south",
+    "south-west",
+    "west",
+    "north-west",
+    "north",
+    "north-east",
+    "east",
+    "south-east"
+   ],
+   "group": "c2aa90de-88c2-4483-b673-1dd2316815cb"
+  },
+  "uppercut": {
+   "done": [
+    "south",
+    "south-west",
+    "west",
+    "north-west",
+    "north",
+    "north-east",
+    "east",
+    "south-east"
+   ],
+   "group": "839860b6-3458-4140-a80d-e55960b02865"
+  },
+  "hit": {
+   "done": [
+    "south",
+    "south-west",
+    "west",
+    "north-west",
+    "north",
+    "north-east",
+    "east",
+    "south-east"
+   ],
+   "group": "ab94c3a5-daef-40ab-a80b-3b25bf23d85a"
+  },
+  "death": {
+   "done": [
+    "south",
+    "south-west",
+    "west",
+    "north-west",
+    "north",
+    "north-east",
+    "east",
+    "south-east"
+   ],
+   "group": "3e0136c5-15da-4b5e-8746-3911fc584c98"
+  },
+  "getup": {
+   "done": [
+    "south",
+    "south-west",
+    "west",
+    "north-west",
+    "north",
+    "north-east",
+    "east",
+    "south-east"
+   ],
+   "group": "52673ac5-2745-4c8b-b7e1-6a100c9ee766"
+  },
+  "miracle": {
+   "done": [
+    "south",
+    "south-west",
+    "west",
+    "north-west",
+    "north",
+    "north-east",
+    "east",
+    "south-east"
+   ],
+   "group": "8dd06529-5c07-42c9-8697-4e1a83137a2e"
+  },
+  "joy": {
+   "done": [
+    "south",
+    "south-west",
+    "west",
+    "north-west",
+    "north",
+    "north-east",
+    "east",
+    "south-east"
+   ],
+   "group": "26ee5a9b-39c9-4e03-9a3c-ef70a5b185aa"
+  },
+  "sad": {
+   "done": [
+    "south",
+    "south-west",
+    "west",
+    "north-west",
+    "north",
+    "north-east",
+    "east",
+    "south-east"
+   ],
+   "group": "36c32d69-c91f-42ea-afae-caecc8686ccb"
+  }
+ },
+ "god_bull": {
+  "character_id": "50716478-a6f4-4a68-a0a8-ca4fe0765965",
+  "walk": {
+   "done": [
+    "south",
+    "south-west",
+    "west",
+    "north-west",
+    "north",
+    "north-east",
+    "east",
+    "south-east"
+   ],
+   "group": "892dda0a-0f27-48a1-8deb-c5088c8fd43c"
+  },
+  "run": {
+   "done": [
+    "south",
+    "south-west",
+    "west",
+    "north-west",
+    "north",
+    "north-east",
+    "east",
+    "south-east"
+   ],
+   "group": "78198a79-3cf6-40e4-b3aa-b4b68e4efab6"
+  },
+  "idle": {
+   "done": [
+    "south",
+    "south-west",
+    "west",
+    "north-west",
+    "north",
+    "north-east",
+    "east",
+    "south-east"
+   ],
+   "group": "32451041-99fc-42e4-85a0-bc9ffe32d684"
+  },
+  "pickup": {
+   "done": [
+    "south",
+    "south-west",
+    "west",
+    "north-west",
+    "north",
+    "north-east",
+    "east",
+    "south-east"
+   ],
+   "group": "368dd6a5-5c3d-4338-ad0f-6fd1e2b6f4ac"
+  },
+  "throw": {
+   "done": [
+    "south",
+    "south-west",
+    "west",
+    "north-west",
+    "north",
+    "north-east",
+    "east",
+    "south-east"
+   ],
+   "group": "1731b0f4-a14d-4ee1-bf1e-e1776139f415"
+  },
+  "push": {
+   "done": [
+    "south",
+    "south-west",
+    "west",
+    "north-west",
+    "north",
+    "north-east",
+    "east",
+    "south-east"
+   ],
+   "group": "2576ff95-28fa-4b22-9941-5e8d0940366f"
+  },
+  "pull": {
+   "done": [
+    "south",
+    "south-west",
+    "west",
+    "north-west",
+    "north",
+    "north-east",
+    "east",
+    "south-east"
+   ],
+   "group": "294b221b-ef17-42fc-86a7-cca5d7ac278e"
+  },
+  "eat": {
+   "done": [
+    "south",
+    "south-west",
+    "west",
+    "north-west",
+    "north",
+    "north-east",
+    "east",
+    "south-east"
+   ],
+   "group": "0a090f71-afe1-4ab3-be15-afe85ac9a221"
+  },
+  "punch": {
+   "done": [
+    "south",
+    "south-west",
+    "west",
+    "north-west",
+    "north",
+    "north-east",
+    "east",
+    "south-east"
+   ],
+   "group": "5dc62bf2-9fe5-472d-b6fc-6a549173f3da"
+  },
+  "uppercut": {
+   "done": [
+    "south",
+    "south-west",
+    "west",
+    "north-west",
+    "north",
+    "north-east",
+    "east",
+    "south-east"
+   ],
+   "group": "1b47f792-65f2-4415-8e8e-f33811a8a91f"
+  },
+  "hit": {
+   "done": [
+    "south",
+    "south-west",
+    "west",
+    "north-west",
+    "north",
+    "north-east",
+    "east",
+    "south-east"
+   ],
+   "group": "9e69e6d0-f82e-4da4-bd96-825ae93d5fe3"
+  },
+  "death": {
+   "done": [
+    "south",
+    "south-west",
+    "west",
+    "north-west",
+    "north",
+    "north-east",
+    "east",
+    "south-east"
+   ],
+   "group": "5bf02c6b-2e01-4ea8-b7e3-913bd6584263"
+  },
+  "getup": {
+   "done": [
+    "south",
+    "south-west",
+    "west",
+    "north-west",
+    "north",
+    "north-east",
+    "east",
+    "south-east"
+   ],
+   "group": "06896078-7d43-476d-b351-776234e2455b"
+  },
+  "miracle": {
+   "done": [
+    "south",
+    "south-west",
+    "west",
+    "north-west",
+    "north",
+    "north-east",
+    "east",
+    "south-east"
+   ],
+   "group": "7f9e82ef-4d39-4b4c-92d2-c19f580f1c36"
+  },
+  "joy": {
+   "done": [
+    "south",
+    "south-west",
+    "west",
+    "north-west",
+    "north",
+    "north-east",
+    "east",
+    "south-east"
+   ],
+   "group": "5645dfa7-7585-4924-bb4e-b657603c3bf6"
+  },
+  "sad": {
+   "done": [
+    "south",
+    "south-west",
+    "west",
+    "north-west",
+    "north",
+    "north-east",
+    "east",
+    "south-east"
+   ],
+   "group": "64181c98-02e2-4424-b8a1-8b05ac48333b"
+  }
+ },
+ "god_golem": {
+  "character_id": "ebdf8f3c-83af-4b8c-b42a-b03686dc9252",
+  "walk": {
+   "done": [
+    "south",
+    "south-west",
+    "west",
+    "north-west",
+    "north",
+    "north-east",
+    "east",
+    "south-east"
+   ],
+   "group": "1c7f2ea2-c045-4616-a8a6-f01f27864d16"
+  },
+  "run": {
+   "done": [
+    "south",
+    "south-west",
+    "west",
+    "north-west",
+    "north",
+    "north-east",
+    "east",
+    "south-east"
+   ],
+   "group": "50533aab-cb3f-4c99-92b6-c6eac5bfe3e5"
+  },
+  "idle": {
+   "done": [
+    "south",
+    "south-west",
+    "west",
+    "north-west",
+    "north",
+    "north-east",
+    "east",
+    "south-east"
+   ],
+   "group": "99535eee-6763-4423-90ee-f6dfd15ebd3e"
+  },
+  "pickup": {
+   "done": [
+    "south",
+    "south-west",
+    "west",
+    "north-west",
+    "north",
+    "north-east",
+    "east",
+    "south-east"
+   ],
+   "group": "85a7f82e-2929-4f49-b16a-b33fef7f89ec"
+  },
+  "throw": {
+   "done": [
+    "south",
+    "south-west",
+    "west",
+    "north-west",
+    "north",
+    "north-east",
+    "east",
+    "south-east"
+   ],
+   "group": "a5a59d4a-2df2-422c-a45a-f37e0f52721b"
+  },
+  "push": {
+   "done": [
+    "south",
+    "south-west",
+    "west",
+    "north-west",
+    "north",
+    "north-east",
+    "east",
+    "south-east"
+   ],
+   "group": "6d0aa494-d1f3-4c02-9efc-cb4169e4f357"
+  },
+  "pull": {
+   "done": [
+    "south",
+    "south-west",
+    "west",
+    "north-west",
+    "north",
+    "north-east",
+    "east",
+    "south-east"
+   ],
+   "group": "6d9cb430-06db-4ddd-8e0f-71a12b0a429c"
+  },
+  "eat": {
+   "done": [
+    "south",
+    "south-west",
+    "west",
+    "north-west",
+    "north",
+    "north-east",
+    "east",
+    "south-east"
+   ],
+   "group": "99ed3960-dc62-4b9e-94cd-109da7630114"
+  },
+  "punch": {
+   "done": [
+    "south",
+    "south-west",
+    "west",
+    "north-west",
+    "north",
+    "north-east",
+    "east",
+    "south-east"
+   ],
+   "group": "0cf4fd5a-d7cd-4e18-8138-90f0682795ab"
+  },
+  "uppercut": {
+   "done": [
+    "south",
+    "south-west",
+    "west",
+    "north-west",
+    "north",
+    "north-east",
+    "east",
+    "south-east"
+   ],
+   "group": "bf36bf76-fc90-45c4-ab41-01473d7b450d"
+  },
+  "hit": {
+   "done": [
+    "south",
+    "south-west",
+    "west",
+    "north-west",
+    "north",
+    "north-east",
+    "east",
+    "south-east"
+   ],
+   "group": "1a7b0bee-39e9-4ba4-8e99-11af87b6b1eb"
+  },
+  "death": {
+   "done": [
+    "south",
+    "south-west",
+    "west",
+    "north-west",
+    "north",
+    "north-east",
+    "east",
+    "south-east"
+   ],
+   "group": "bee1f917-dd66-4b53-9c60-d1aeee972c44"
+  },
+  "getup": {
+   "done": [
+    "south",
+    "south-west",
+    "west",
+    "north-west",
+    "north",
+    "north-east",
+    "east",
+    "south-east"
+   ],
+   "group": "7e1b80ee-3976-4bd1-94c3-bb0c94505fb6"
+  },
+  "miracle": {
+   "done": [
+    "south",
+    "south-west",
+    "west",
+    "north-west",
+    "north",
+    "north-east",
+    "east",
+    "south-east"
+   ],
+   "group": "1d542fb0-0d52-49ed-a0c1-20b1fd6fa2c2"
+  },
+  "joy": {
+   "done": [
+    "south",
+    "south-west",
+    "west",
+    "north-west",
+    "north",
+    "north-east",
+    "east",
+    "south-east"
+   ],
+   "group": "b8777e7a-ac79-4775-98b6-2ca8655c9183"
+  },
+  "sad": {
+   "done": [
+    "south",
+    "south-west",
+    "west",
+    "north-west",
+    "north",
+    "north-east",
+    "east",
+    "south-east"
+   ],
+   "group": "857cbe30-40f5-4884-b19a-4e08cea0bfdb"
+  }
+ }
+}
