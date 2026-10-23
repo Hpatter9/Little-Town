@@ -19,6 +19,9 @@
   "idle": {
    "frames": 4
   },
+  "hurt": {
+   "frames": 6
+  },
   "walk": {
    "frames": 6
   },
@@ -26,6 +29,9 @@
    "frames": 7
   },
   "attack_1h": {
+   "frames": 6
+  },
+  "run": {
    "frames": 6
   }
  }

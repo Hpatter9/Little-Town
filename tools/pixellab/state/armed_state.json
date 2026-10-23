@@ -432,5 +432,56 @@
    ],
    "group": "0fe51b93-323d-4077-8123-6a1e33c2fc91"
   }
+ },
+ "orc_brute+sword": {
+  "edited": true,
+  "character_id": "981e204b-e248-4a62-b0ee-73b2aa2f1df4",
+  "attack_1h": {
+   "done": [
+    "south",
+    "south-east",
+    "east",
+    "north-east",
+    "north",
+    "north-west",
+    "west",
+    "south-west"
+   ],
+   "group": "84b277b1-e261-4abf-a72e-5661255a9f87"
+  }
+ },
+ "orc_woman+sword": {
+  "edited": true,
+  "character_id": "03f2e006-96ea-46d5-9d54-d057ba944400",
+  "attack_1h": {
+   "done": [
+    "south",
+    "south-east",
+    "east",
+    "north-east",
+    "north",
+    "north-west",
+    "west",
+    "south-west"
+   ],
+   "group": "8613c1fa-8ed1-4a50-a974-ea80761d1602"
+  }
+ },
+ "orc_shaman+staff": {
+  "edited": true,
+  "character_id": "c511d8b1-99bc-4eeb-afdb-66f5e83950a4",
+  "cast_2h": {
+   "done": [
+    "south",
+    "south-east",
+    "east",
+    "north-east",
+    "north",
+    "north-west",
+    "west",
+    "south-west"
+   ],
+   "group": "d7d05381-398f-4ab7-a82a-11073c71b758"
+  }
  }
 }

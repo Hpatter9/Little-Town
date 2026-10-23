@@ -134,7 +134,7 @@ export function play(wanted: FolkAnim, has: (a: FolkAnim) => boolean): FolkPlay 
 /** The base looks drawn so far, per people (folder names under art/iso/folk/). Add a look here as its art arrives.
  *  `child_boy` and `child_girl` are the children's own looks (CHILD_LOOKS): never picked for a grown person. */
 export const FOLK_LOOKS: Record<string, readonly string[]> = {
-  settlers: ['woman_base', 'woman_leather', 'woman_plate', 'man_base', 'man_leather', 'man_plate', 'dwarf_base', 'dwarf_apron', 'dwarf_plate', 'child_boy', 'child_girl'],
+  settlers: ['woman_base', 'woman_leather', 'woman_plate', 'man_base', 'man_leather', 'man_plate', 'dwarf_base', 'dwarf_apron', 'dwarf_plate', 'child_boy', 'child_girl', 'child_dwarf_boy', 'child_dwarf_girl'],
   // (the peoples' own casts: walk, idle, death and an attack (a punch, or a thrown spell), no armed looks)
   orcs: ['man_brute', 'woman_orc', 'man_shaman', 'child_boy', 'child_girl'],
   lich: ['man_lord', 'woman_ghoul', 'man_skeleton', 'child_boy', 'child_girl'],
@@ -193,12 +193,15 @@ export interface FolkLookPick {
 }
 
 /** Which look a person wears: their people's folder (settlers where their own isn't drawn yet); a child the boy or girl
- *  look (CHILD_LOOKS; dwarf children the settlers'); a grown person a look of their sex (a look named `man_*` or
+ *  look (CHILD_LOOKS; dwarf children the settlers' dwarf boy and girl); a grown person a look of their sex (a look named `man_*` or
  *  `woman_*`), the one in their outfit's colour first, else a stable pick by id. */
 export function pickLook(st: Pick<FolkState, 'id' | 'origin' | 'look'> & Partial<Pick<FolkState, 'lifeStage' | 'growsUpIn'>>, looks: Record<string, readonly string[]> = FOLK_LOOKS, dress?: 'plate' | 'leather' | 'base'): FolkLookPick {
   const people = st.origin && looks[st.origin]?.length ? st.origin : 'settlers';
   const drawn = looks[people] ?? [];
   if (isFolkChild(st)) {
+    // (dwarf children wear the dwarf boy and girl, where the folder has them: stocky, round-nosed, aproned)
+    const dwarfKid = `child_dwarf_${st.look.gender === 'f' ? 'girl' : 'boy'}`;
+    if (st.origin === 'dwarves' && drawn.includes(dwarfKid)) return { people, look: dwarfKid };
     const kids = CHILD_LOOKS[people]?.[st.look.gender === 'f' ? 'girl' : 'boy'].filter((l) => drawn.includes(l));
     if (kids?.length) return { people, look: kids[idHash(st.id, 1) % kids.length] };
   }
