@@ -7,7 +7,7 @@ import { Container, Sprite, type Texture } from 'pixi.js';
 import { ITEM_BY_ID } from '../../shared/data/items';
 import { loadFolkSet, type FolkSet } from './folkLoader';
 import {
-  CHILD_FEET_LIFT, CHILD_SCALE, armedSuffix, facingFromVector, frameAt, isFighting, lookPath, play, wantedAnim, type FolkDir, type FolkPlay, type FolkState,
+  CHILD_FEET_LIFT, CHILD_SCALE, armedSuffix, facingFromVector, otherTool, frameAt, isFighting, lookPath, play, wantedAnim, type FolkDir, type FolkPlay, type FolkState,
 } from './folkRules';
 import { folkWho } from './folkWho';
 
@@ -71,9 +71,10 @@ export class FolkSprite extends Container {
     const pick = turned ? { people: 'werewolf', look: WOLF_LOOK } : who.pick;
     const bare = lookPath(pick, null);
     const wanted = lookPath(pick, suffix);
+    const alt = otherTool(suffix);
     const variant = who.variant;
     this.sprite.scale.set(who.child ? CHILD_SCALE : 1);
-    this.ensure(bare, wanted, variant);
+    this.ensure(bare, wanted, variant, alt ? lookPath(pick, alt) : null);
 
     // an armed look that isn't here (yet) is the bare one
     const set = this.set ?? this.bare;
@@ -99,7 +100,7 @@ export class FolkSprite extends Container {
   }
 
   /** Start loading a look (bare and armed) the first time it's asked for, and take it up when it arrives. */
-  private ensure(bare: string, wanted: string, variant: number): void {
+  private ensure(bare: string, wanted: string, variant: number, instead: string | null = null): void {
     const tag = `${wanted}#${variant}`;
     if (tag === this.want) return;
     this.want = tag;
@@ -114,9 +115,12 @@ export class FolkSprite extends Container {
         if (!this.destroyed && this.want === tag) this.set = s;
       });
     } else {
-      void loadFolkSet(wanted, variant).then((s) => {
-        if (!this.destroyed && this.want === tag) this.set = s; // (null: stays on the bare look)
-      });
+      // (null: the look's other tool if it has one, else it stays on the bare look)
+      void loadFolkSet(wanted, variant)
+        .then((s) => s ?? (instead ? loadFolkSet(instead, variant) : null))
+        .then((s) => {
+          if (!this.destroyed && this.want === tag) this.set = s;
+        });
     }
   }
 }
