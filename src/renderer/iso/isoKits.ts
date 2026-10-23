@@ -17,6 +17,7 @@ import moonpack from '../art/iso/kits/moonpack/index.json';
 import orcs from '../art/iso/kits/orcs/index.json';
 import merfolk from '../art/iso/kits/merfolk/index.json';
 import nomads from '../art/iso/kits/nomads/index.json';
+import shared from '../art/iso/buildings/index.json';
 import { BUILDING_BY_ID } from '../../shared/data/buildings';
 import { CROPS } from '../../shared/data/crops';
 import { HERDS } from '../../shared/data/livestock';
@@ -107,8 +108,21 @@ export const ALONG_Y: ReadonlySet<string> = new Set([
 /** Whether a kit's piece lies along y (`ALONG_Y`). */
 export const liesAlongY = (kit: string, piece: string): boolean => ALONG_Y.has(`${kit}/${piece}`);
 
-/** Where a kit's piece is served (beside the strip page: build.mjs copies the folder). */
-export const kitUrl = (kit: string, piece: string): string => `iso/kits/${kit}/${piece}.png`;
+/** A building's own piece drawn for every people (art/iso/buildings/: a statue, a green, a jetty, the late machines),
+ *  used where a people's kit has none of that name. `soil`: px of soil or water under the ground at its foot, cut off
+ *  so it sits on the ground; `along_y`: its long side lies along y, as `ALONG_Y`. */
+export interface SharedPiece extends KitPiece {
+  soil?: number;
+  along_y?: boolean;
+}
+export const SHARED_PIECES: ReadonlyMap<string, SharedPiece> = new Map((shared as SharedPiece[]).map((p) => [p.id, p]));
+/** The shared piece a kit draws for this piece's name, if it has none of its own (a kit not among the peoples', the
+ *  land's `wild/`, keeps its own). */
+export const sharedPiece = (kit: string, piece: string): SharedPiece | undefined =>
+  INDEXES[kit] && !INDEXES[kit].some((p) => p.id === piece) ? SHARED_PIECES.get(piece) : undefined;
+
+/** Where a kit's piece is served (beside the strip page: build.mjs copies the folders), a shared piece from its own. */
+export const kitUrl = (kit: string, piece: string): string => (sharedPiece(kit, piece) ? `iso/buildings/${piece}.png` : `iso/kits/${kit}/${piece}.png`);
 
 /** The parts a building can be drawn as. */
 export type Role = 'cottage' | 'longhouse' | 'stockpile' | 'workshop' | 'tavern' | 'well' | 'chapel' | 'granary' | 'watchtower' | 'trap' | 'hearth' | 'pen' | 'wall_run' | 'wall_corner' | 'gate' | 'market';
@@ -184,9 +198,11 @@ const ROLE_PIECES: Record<Role, (ids: string[]) => string | undefined> = {
 };
 
 /** The piece of a kit a building is drawn with: a piece named as the building itself if the kit has one (the knights'
- *  `barracks`, the dwarves' `quarry`), else its part's, else the cottage. */
+ *  `barracks`, the dwarves' `quarry`), else the shared piece of its name (`SHARED_PIECES`), else its part's, else the
+ *  cottage. */
 export function pieceFor(kit: Kit, defId: string): string {
   if (kit.pieces.has(defId) && !defId.endsWith('_tile')) return defId;
+  if (SHARED_PIECES.has(defId)) return defId;
   const d = roleOf(defId);
   if ('field' in d) return kit.tiles[3];
   const ids = [...kit.pieces.keys()];

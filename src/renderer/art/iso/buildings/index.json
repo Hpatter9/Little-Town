@@ -1,0 +1,124 @@
+[
+ {
+  "id": "statue",
+  "w": 228,
+  "h": 228,
+  "soil": 6
+ },
+ {
+  "id": "village_green",
+  "w": 256,
+  "h": 207,
+  "soil": 6
+ },
+ {
+  "id": "quoits_pitch",
+  "w": 224,
+  "h": 199,
+  "soil": 28,
+  "along_y": true
+ },
+ {
+  "id": "sparring_yard",
+  "w": 256,
+  "h": 178,
+  "soil": 4
+ },
+ {
+  "id": "drill_yard",
+  "w": 256,
+  "h": 256,
+  "soil": 6
+ },
+ {
+  "id": "archery_range",
+  "w": 256,
+  "h": 218,
+  "soil": 6,
+  "along_y": true
+ },
+ {
+  "id": "pleasure_garden",
+  "w": 244,
+  "h": 231,
+  "soil": 5
+ },
+ {
+  "id": "bandstand",
+  "w": 243,
+  "h": 256
+ },
+ {
+  "id": "boatyard",
+  "w": 288,
+  "h": 240,
+  "soil": 4
+ },
+ {
+  "id": "harbour",
+  "w": 320,
+  "h": 258,
+  "soil": 21
+ },
+ {
+  "id": "fishing_jetty",
+  "w": 256,
+  "h": 210,
+  "soil": 20
+ },
+ {
+  "id": "victory_monument",
+  "w": 243,
+  "h": 256
+ },
+ {
+  "id": "ward_stone",
+  "w": 209,
+  "h": 192,
+  "soil": 3
+ },
+ {
+  "id": "portal_arch",
+  "w": 243,
+  "h": 256
+ },
+ {
+  "id": "ai_core",
+  "w": 243,
+  "h": 255
+ },
+ {
+  "id": "clone_vat",
+  "w": 228,
+  "h": 225,
+  "soil": 4
+ },
+ {
+  "id": "cryo_pod",
+  "w": 228,
+  "h": 223,
+  "soil": 4,
+  "along_y": true
+ },
+ {
+  "id": "drone_hub",
+  "w": 256,
+  "h": 203,
+  "soil": 4
+ },
+ {
+  "id": "shield_generator",
+  "w": 244,
+  "h": 255
+ },
+ {
+  "id": "launch_site",
+  "w": 317,
+  "h": 320
+ },
+ {
+  "id": "mission_control",
+  "w": 243,
+  "h": 270
+ }
+]

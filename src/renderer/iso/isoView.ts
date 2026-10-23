@@ -20,7 +20,7 @@ import type { Era } from '../../shared/data/eras';
 import { loadImage } from '../art/loadImage';
 import { BUILDING_BY_ID } from '../../shared/data/buildings';
 import { cellHash, gateFlip, propFor, sceneryFor, wallMaskAt, wallPieceFor, wallShape } from './isoTown';
-import { fitted, groundTile, kitOf, kitUrl, liesAlongY, pieceFor, roleOf, ISO_ART, type Kit } from './isoKits';
+import { fitted, groundTile, kitOf, kitUrl, liesAlongY, pieceFor, roleOf, sharedPiece, ISO_ART, type Kit } from './isoKits';
 import { IsoCastleView, type CastleIn } from './isoCastleView';
 import { anyoneNear, doorSpot, gateSpan, hasWindows, lightBox, swing, windowSpots, worldMatrix } from './isoLight';
 import { cellsInView, footBase, footDepth, footWidth, isoBounds, isoOrigin, isoToWorld, ISO_TH, ISO_TW, standingDepth, tileToIso, worldToIso, type Rect } from './isoMath';
@@ -346,6 +346,18 @@ export class IsoView {
     return face;
   }
 
+  /** A shared building piece with its bottom `soil` px cut off (the soil or water block under its ground). */
+  private trimmed = new Map<string, { of: Texture; face: Texture }>();
+  private trimmedOf(piece: string, soil: number): Texture | null {
+    const tex = this.texOf(piece);
+    if (!tex || soil <= 0) return tex;
+    const had = this.trimmed.get(piece);
+    if (had?.of === tex) return had.face;
+    const face = new Texture({ source: tex.source, frame: new Rectangle(tex.frame.x, tex.frame.y, tex.width, Math.max(1, tex.height - soil)) });
+    this.trimmed.set(piece, { of: tex, face });
+    return face;
+  }
+
   /** The town's castle or hold (every snapshot, before the buildings), or none. */
   setCastle(c: CastleIn | null): void {
     this.castleIn = c;
@@ -396,7 +408,11 @@ export class IsoView {
           flip = shape.part === 'run' ? shape.flip !== liesAlongY(this.kit.name, piece) : shape.flip;
         }
       }
-      const tex = this.texOf(piece);
+      // (a shared piece, art/iso/buildings/: its ground is drawn as the footprint, so it's fitted to it, its soil cut off,
+      // and a long one turned to lie along the footprint's long side)
+      const shared = sharedPiece(this.kit.name, piece);
+      if (shared?.along_y) flip = foot.w > foot.h;
+      const tex = shared ? this.trimmedOf(piece, shared.soil ?? 0) : this.texOf(piece);
       const key = `${this.kit.name}:${piece}:${flip ? 'f' : ''}:${b.status}:${b.fire !== undefined ? 1 : 0}:${this.artHidden.has(b.id) ? 'h' : ''}:${foot.x},${foot.y},${foot.w},${foot.h}:${tex ? 1 : 0}:${this.texGen}`;
       let d = this.buildings.get(b.id);
       if (!d) {
@@ -415,7 +431,7 @@ export class IsoView {
       if (!tex) continue;
       s.texture = tex;
       const span = footWidth(foot);
-      const k = fitted(b.def) ? span / tex.width : Math.min(this.kit.scale * ISO_ART, (span * OVERHANG) / tex.width);
+      const k = fitted(b.def) || shared ? span / tex.width : Math.min(this.kit.scale * ISO_ART, (span * OVERHANG) / tex.width);
       s.scale.set(flip ? -k : k, k);
       const at = footBase(foot, this.ox);
       s.position.set(Math.round(at.x), Math.round(at.y));
@@ -423,8 +439,14 @@ export class IsoView {
       // (a blueprint or a building going up: a ghost of what it will be)
       s.alpha = b.status === 'done' ? 1 : 0.45;
       s.tint = b.fire !== undefined ? 0xff9060 : 0xffffff;
-      this.setProps(d, b, role);
-      this.setDoor(d, b, role, foot);
+      // (a shared piece is drawn whole: no cottage's barrels beside it, nor a cottage's door and windows on it)
+      if (shared) {
+        this.clearProps(d);
+        this.clearDoor(d);
+      } else {
+        this.setProps(d, b, role);
+        this.setDoor(d, b, role, foot);
+      }
     }
     this.setFlames(list);
     for (const [id, d] of this.buildings) {
