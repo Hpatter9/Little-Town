@@ -114,7 +114,6 @@ export const MILITIA_BY_ERA: Readonly<Record<string, string[]>> = {
 
 /** The road between a village and the town (sim/villageRoad.ts): once a day, at this hour, a villager spends an hour
  *  (`VILLAGE_ROAD_SEC` seconds of paving work, 60 a game hour at a builder's pace) laying road from the village's end;
- *  the town's pavers lay from theirs. A road with no way found is looked for again after `ROAD_RETRY_DAYS`. */
+ *  the town's pavers lay from theirs. The road is the path the player draws to the village. */
 export const VILLAGE_ROAD_HOUR = 10;
 export const VILLAGE_ROAD_SEC = 60;
-export const ROAD_RETRY_DAYS = 3;

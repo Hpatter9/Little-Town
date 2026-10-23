@@ -113,6 +113,9 @@ export class IsoView {
   /** The planned streets last drawn (the land's string: a new one when any cell changes). */
   private plannedSeen: string | undefined = undefined;
   private highlight: number | null = null;
+  /** A path being dragged (renderer/main.ts): the cells it will cover, each laid or blocked, and whether it lifts. */
+  private preview: { cells: { i: number; ok: boolean }[]; lift: boolean } | null = null;
+  private previewKey = '';
   private biome: Biome = 'forest';
   /** The cells walls, gates and grates stand on (y * land width + x), for joining them. */
   private wallCells = new Set<number>();
@@ -207,10 +210,20 @@ export class IsoView {
     this.markedKey = '';
     this.drawMarks();
   }
+  /** The path a drag will lay (or lift), drawn live under the finger: a gold diamond on each cell it covers, a red
+   *  one crossed on each cell it can't take (a building, deep water, the wild); red outlines for cells to be lifted. */
+  setPathPreview(cells: readonly { i: number; ok: boolean }[] | null, lift = false): void {
+    const key = cells ? `${lift}|${cells.map((c) => `${c.i}${c.ok ? '' : 'x'}`).join(',')}` : '';
+    if (key === this.previewKey) return;
+    this.previewKey = key;
+    this.preview = cells ? { cells: [...cells], lift } : null;
+    this.markedKey = '';
+    this.drawMarks();
+  }
   private drawMarks(): void {
     const land = this.land;
     if (!land) return;
-    const key = `${land.w}|${land.marked.join(',')}|${this.highlight}`;
+    const key = `${land.w}|${land.marked.join(',')}|${this.highlight}|${this.previewKey}`;
     if (key === this.markedKey && land.plannedRoads === this.plannedSeen) return;
     this.markedKey = key;
     this.plannedSeen = land.plannedRoads;
@@ -246,6 +259,21 @@ export class IsoView {
       g.poly(p.flatMap((q) => [q.x, q.y])).fill({ color: 0xffe080, alpha: 0.22 }).stroke({ color: 0xffe080, width: 3, alpha: 0.95 });
       const q = diamond(c.x, c.y, 0.25);
       g.moveTo(q[0].x, q[0].y).lineTo(q[2].x, q[2].y).moveTo(q[1].x, q[1].y).lineTo(q[3].x, q[3].y).stroke({ color: 0xfff0b0, width: 3, alpha: 0.8 });
+    }
+    if (this.preview) {
+      const lift = this.preview.lift;
+      for (const { i, ok } of this.preview.cells) {
+        const c = cellAt(land, i);
+        const p = diamond(c.x, c.y, 0.06).flatMap((q) => [q.x, q.y]);
+        if (ok && !lift) {
+          g.poly(p).fill({ color: 0xffd060, alpha: 0.42 }).stroke({ color: 0xfff0b0, width: 2.5, alpha: 0.95 });
+          continue;
+        }
+        g.poly(p).fill({ color: 0xe04030, alpha: ok ? 0.3 : 0.22 }).stroke({ color: 0xff7060, width: 2.5, alpha: 0.95 });
+        if (ok) continue;
+        const q = diamond(c.x, c.y, 0.3);
+        g.moveTo(q[0].x, q[0].y).lineTo(q[2].x, q[2].y).moveTo(q[1].x, q[1].y).lineTo(q[3].x, q[3].y).stroke({ color: 0xffb0a0, width: 2.5, alpha: 0.9 });
+      }
     }
     if (this.highlight !== null && !land.marked.includes(this.highlight)) {
       const c = cellAt(land, this.highlight);

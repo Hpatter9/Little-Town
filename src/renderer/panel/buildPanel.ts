@@ -83,7 +83,7 @@ export const buildKey = (s: Snapshot, tab: string | null = null) => {
     s.skipRaids,
     s.pins.map((p) => [p.def, p.building, Math.floor(p.progress * 20), p.why]),
     s.recommend && [s.recommend.def ?? s.recommend.kind, s.recommend.why],
-    s.ringOrdered, s.streetsOrdered, s.ringState,
+    s.ringOrdered, s.ringState,
   ]);
 };
 
@@ -267,7 +267,8 @@ interface Row {
   ordered: boolean;
   /** Orders already at their most: the row can't take another. */
   full?: boolean;
-  order: Command;
+  /** What the row's Build button orders (none for a row with `act`). */
+  order?: Command;
   /** A row that starts something on the map in place of an order (Draw a path), with its button's word. */
   act?: { label: string; go: (bridge: Bridge | undefined) => void };
   more: () => More[];
@@ -315,8 +316,7 @@ function buildRows(s: Snapshot): (Row & { tab: BuildTab })[] {
   const wall = s.ringState === 'none' ? 'Raise the palisade' : s.ringState === 'building' ? 'Finish the ring wall' : 'Widen or upgrade the wall';
   rows.push(
     { tab: 'Defence', key: 'bld:ring', icon: WALL_KINDS[0], name: wall, cost: BUILDING_BY_ID[WALL_KINDS[0]].cost, ordered: s.ringOrdered, order: { type: 'orderRing' }, more: () => ['A wall round the town with gates where the roads cross: raiders have to break it. The town picks the line and works it until it stands. Worth widening once the space inside is mostly built on.'] },
-    { tab: 'Town', key: 'bld:streets', icon: null, name: 'Lay the streets', cost: {}, ordered: s.streetsOrdered, order: { type: 'orderStreets' }, more: () => ['Paves the paths folk have worn, and a road to each gate of the wall.'] },
-    { tab: 'Town', key: 'bld:path', icon: null, name: 'Draw a path', cost: {}, ordered: false, order: { type: 'orderStreets' }, act: { label: 'Draw', go: (b) => b?.startPlacement(DRAW_PATH) }, more: () => ['Drag across the map to lay a path where you want it; tap a cell of it to lift it. The builders pave it as they pave the streets, a bridge over a river taking wood. New buildings are put beside a path where they can be.'] },
+    { tab: 'Town', key: 'bld:path', icon: null, name: 'Draw a path', cost: {}, ordered: false, act: { label: 'Draw', go: (b) => b?.startPlacement(DRAW_PATH) }, more: () => ['Press where it starts and drag to where it ends: its blueprint shows as you go, and it is laid when you lift your finger. Drag from a path to lift it. The builders pave it as they pave the streets, a bridge over a river taking wood. New buildings are put beside a path where they can be. The town lays no path of its own.'] },
   );
   return rows;
 }
@@ -338,7 +338,7 @@ function buildRow(row: Row, s: Snapshot, bridge: Bridge | undefined): HTMLElemen
   main.append(row.icon ? thumb(row.icon, 28, s) : el('span', 'thumb-gap'));
   const text = el('div', 'brow-text');
   text.append(el('div', 'card-name', row.name), costLine(s, row.cost));
-  main.append(text, row.act ? button(row.act.label, () => row.act!.go(bridge), { cls: 'place small' }) : button(row.ordered ? 'Ordered' : 'Build', () => bridge?.command(row.order), { cls: 'place small', disabled: row.ordered || !!row.full }));
+  main.append(text, row.act ? button(row.act.label, () => row.act!.go(bridge), { cls: 'place small' }) : button(row.ordered ? 'Ordered' : 'Build', () => row.order && bridge?.command(row.order), { cls: 'place small', disabled: row.ordered || !!row.full }));
   c.append(main);
   return expandable(c, row.key, row.more);
 }

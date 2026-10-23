@@ -1,16 +1,14 @@
 // Building rules shared by the sim and the renderer. Every building stands on a footprint of the land's cells
 // (sim/land.ts): `tile` by `row` is its top-left cell, its def's `width` by `depthOf(def)` cells. Its door is the
-// middle of its front (bottom) edge: that's where workers stand, and a road is laid from it to the nearest road (or
-// the camp) when it's placed, so the town grows along its roads.
+// middle of its front (bottom) edge: that's where workers stand. The town lays no road to it: the founder draws the
+// paths (sim/pathPlans.ts), and a building's spot is picked beside one where it can be.
 
 import { VILLAGE_KEEP } from '../data/villages';
-import { isGate, isRingPiece, ringWallCells, riverCell, wallOnly } from './ringWall';
+import { isGate, isRingPiece, wallOnly } from './ringWall';
 import { cutInto, QUARRY_ROCK, RAMP, rockBeside } from './relief';
-import { thinRock, TUNNEL_COST } from './tunnels';
-import { planBias } from './layout';
 import { isSeat } from '../data/seats';
 import { hallCells, HALLWAY, castleCells, castleGate, castleOn, holdOf, joinsCastle, nearCastle, roomKind, solidCells } from './castle';
-import { seaBuild, seaTown } from './sea';
+import { seaBuild } from './sea';
 import { BUILD_QUEUE_SLOTS, BUILDING_BY_ID, DEMOLISH_REFUND, UPGRADES, type BuildingDef } from '../data/buildings';
 import { ERA_NAMES, eraReached, type Era } from '../data/eras';
 import type { OriginId } from '../data/origins';
@@ -19,7 +17,7 @@ import { MATERIALS, type Material, type Stock } from '../data/materials';
 import { CROPS } from '../data/crops';
 import { openGround } from '../data/biomes';
 import { HERDS } from '../data/livestock';
-import { buildable, carvable, clearable, isPlannedRoad, planRoad, setGround, setMarked, wildToClear, CELL, cellOf, doorOf, findPath, fits, groundAt, idx, inMap, inRect, isRoad, overlaps, setRoad, unsetRoad, type LandMap, type Pt, type Rect , wet, touchesWater } from './land';
+import { buildable, carvable, clearable, isPlannedRoad, setGround, setMarked, wildToClear, CELL, cellOf, doorOf, fits, groundAt, idx, inMap, inRect, isRoad, onPath, overlaps, setRoad, unsetRoad, type LandMap, type Pt, type Rect , wet, touchesWater } from './land';
 import { researchMods } from './research';
 import { clearRuinsUnder, leaveRuin } from './ruins';
 import { STATUE, type RuinKind } from '../data/memorials';
@@ -350,7 +348,7 @@ export function placeBlueprint(s: GameState, defId: string, x: number, y: number
     // cut out of the rock as it is built, from its doorway inward: `digRoom`)
     const f = footprint(b);
     for (let cy = f.y; cy < f.y + f.h; cy++) for (let cx = f.x; cx < f.x + f.w; cx++) unsetRoad(s.land, cx, cy);
-  } else connectRoad(s, b);
+  }
   if (!planned) clearRuinsUnder(s, footprint(b)); // (built over a ruin: it's cleared away, sim/ruins.ts)
   return { ok: true };
 }
@@ -376,86 +374,13 @@ export function cellCleared(s: Pick<GameState, 'land' | 'buildings'>, x: number,
 /** Kinds that get no road of their own (the road runs past the fields, not into them). */
 export const NO_ROAD = (def: BuildingDef) => !!CROPS[def.id] || !!HERDS[def.id] || (!!def.hp && !def.housing) || !!def.defense || def.id === 'campfire';
 
-/** Lay a road from a building's door to the nearest road, or to the camp (the first road of all runs to the fire):
- *  the cheapest way over open buildable ground, round every footprint. Up to `ROAD_REACH` cells. */
-export const ROAD_REACH = 40;
-export function connectRoad(s: GameState, b: Building): void {
-  if (NO_ROAD(defOf(b))) return;
-  const from = doorCell(b);
-  const to = nearestStreet(s, from);
-  layStreet(s, from, to);
+/** Whether a building's door has a path to it: its door cell, or a cell beside it, a street or a planned one. Kinds
+ *  that need no road (`NO_ROAD`) always have. The town lays no path of its own (the owner's ask: the founder draws
+ *  every path), so a building without one is shown as such on its tap card. */
+export function hasPath(s: Pick<GameState, 'land'>, b: Building): boolean {
+  if (NO_ROAD(defOf(b)) || b.room) return true;
+  return onPath(s.land, doorCell(b));
 }
-
-/** The nearest road or planned street to a cell (or the ground before the fire, or the castle's gate, while there's
- *  none). */
-export function nearestStreet(s: GameState, from: Pt): Pt {
-  const m = s.land;
-  let to: Pt | null = null;
-  let best = Infinity;
-  for (let i = 0; i < m.roads.length; i++) {
-    if (m.roads[i] !== '#' && m.plannedRoads?.[i] !== '#') continue;
-    const c = { x: i % m.w, y: Math.floor(i / m.w) };
-    const d = Math.abs(c.x - from.x) + Math.abs(c.y - from.y);
-    if (d < best) {
-      best = d;
-      to = c;
-    }
-  }
-  if (to) return to;
-  const camp = campCell(s);
-  return castleOn(s) ? castleGate(s) : { x: camp.x, y: camp.y + 1 }; // (the ground in front of the fire, or the castle's gate)
-}
-
-/** Plan a street from one cell to another (sim/streets.ts: the town's builders lay it a stretch at a time): the
- *  cheapest way over open buildable ground, four ways (a road's tiles join along their edges), round every footprint,
- *  through the ring wall's gates, over a river as a bridge where it must, and out over the sea as a pier in a shore
- *  town. Up to `reach` cells; false if there's no such way. With `wild`, a road may also run over wild ground to be
- *  cleared (a wood, rocks, a marsh, a hill: `wildToClear`; it is cleared as the road is planned), at a price, for a village's road
- *  (sim/villageRoad.ts) where cleared ground does not reach. */
-export function layStreet(s: GameState, from: Pt, to: Pt, reach = ROAD_REACH, opts: { wild?: boolean; maxNodes?: number } = {}): boolean {
-  const m = s.land;
-  if (!inMap(m, from.x, from.y)) return false;
-  // (never over the ring wall's line but at a gate: a road there keeps a broken piece from being raised again)
-  // (the buildings and the wall's cells indexed once for the search: `builtOn` and `wallOnly` each ask every building)
-  const on = builtOnIndex(s);
-  const wallCells = s.ring ? ringWallCells(s) : null;
-  const walled = (x: number, y: number) => !!wallCells && inMap(m, x, y) && wallCells.has(idx(m, x, y)) && !isGate(on(x, y)?.def ?? ''); // (wallOnly)
-  const lay = (x: number, y: number) => {
-    if (!isRoad(m, x, y) && !walled(x, y)) planRoad(m, x, y);
-  };
-  if (to.x === from.x && to.y === from.y) {
-    lay(from.x, from.y);
-    return true;
-  }
-  const castle = castleOn(s) ? castleCells(s) : null;
-  const pier = seaTown(s);
-  // (a road goes over buildable ground; over a river or a stream as a bridge (the owner's ask); in a shore town out
-  // over the sea as a pier)
-  const water = (x: number, y: number) => wet(groundAt(m, x, y)) && (pier || riverCell(m, { x, y }));
-  // (and through a thin ridge of rock as a tunnel, where going round is far longer: sim/tunnels.ts)
-  const thin = thinRock(s);
-  const ground = (x: number, y: number) => buildable(groundAt(m, x, y)) || water(x, y) || (!!opts.wild && wildToClear(m, x, y)) || (!!thin && groundAt(m, x, y) === 'mountain' && thin(x, y));
-  const blocked = (x: number, y: number) => !ground(x, y) || !!on(x, y) || !!castle?.has(idx(m, x, y));
-  // (a road may run through the ring wall's gate; a gate cell is left a plain cell, the gate stands on it)
-  const gate = (x: number, y: number) => isGate(on(x, y)?.def ?? '');
-  const bias = planBias(s);
-  const wildExtra = opts.wild ? (x: number, y: number) => (bias?.(x, y) ?? 0) + (wildToClear(m, x, y) ? WILD_ROAD_COST : 0) : bias;
-  const path = findPath(m, from, to, (x, y) => walled(x, y) || (blocked(x, y) && !isRoad(m, x, y) && !isPlannedRoad(m, x, y) && !gate(x, y)), { maxNodes: opts.maxNodes ?? 6000, four: true, swim: pier ? PIER_COST : BRIDGE_COST, extra: wildExtra, ...(thin ? { bore: { cost: TUNNEL_COST, ok: thin } } : {}) });
-  if (!path || path.length > reach) return false;
-  lay(from.x, from.y);
-  for (const c of path) {
-    if (opts.wild && wildToClear(m, c.x, c.y)) setGround(m, c.x, c.y, 'grass'); // (a village's road is cut through the wood or the scrub as it is planned)
-    if ((!on(c.x, c.y) || gate(c.x, c.y)) && ground(c.x, c.y)) lay(c.x, c.y);
-  }
-  return true;
-}
-/** What a cell of wild ground costs a village's road to clear, on top of its step. */
-const WILD_ROAD_COST = 2;
-/** What a cell of bridge costs to lay against a road on land (so a street crosses a river only where it must). */
-const BRIDGE_COST = 4;
-
-/** What a cell of pier costs to lay, against a road on land (a shore town's roads run out over the water). */
-const PIER_COST = 2.5;
 
 /** Roads laid before they kept to four ways step diagonally here and there: each such step gets a cell beside it, so
  *  every road runs on edge to edge. */
@@ -584,12 +509,9 @@ export function upgrade(s: GameState, id: number, absorb?: number): PlaceCheck {
   b.store = {};
   delete b.hp;
   delete b.readyTick;
-  // (a road over the new footprint is lifted; its door gets one again)
+  // (a road over the new footprint is lifted)
   const f = footprint(b);
   if (!isGate(b.def)) for (let y = f.y; y < f.y + f.h; y++) for (let x = f.x; x < f.x + f.w; x++) if (isRoad(s.land, x, y)) setRoad(s.land, x, y, false); // (the road runs on under a gate)
-  if (b.room) {
-    // (a hold's room grows into the rock as it is built, no road to it)
-  } else connectRoad(s, b);
   clearRuinsUnder(s, footprint(b));
   depositNear(s, at, salvage);
   notify(s, `Upgrading to a ${next.name}.`);
