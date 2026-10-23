@@ -1,4 +1,4 @@
-// The great creature's card (sim/creature.ts): its kind and name, age and size, its health, a bar from evil to good,
+// The God creature's card (sim/creature.ts): its kind and name, age and size, its health, a bar from evil to good,
 // its mood and what it's doing, its needs, what it has learned to like and shun, and its last deed waiting on praise
 // or a scolding. Plain lines, shared by the phone's tap card and the Townsfolk menu's section. No Pixi, no DOM.
 

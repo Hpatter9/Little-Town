@@ -32,6 +32,8 @@ cpSync('src/renderer/art/himeko', 'out/renderer/himeko', { recursive: true });
 cpSync('src/renderer/art/iso/kits', 'out/renderer/iso/kits', { recursive: true, filter: (f) => !f.endsWith('.json') && !f.endsWith('.md') });
 // the townsfolk's PixelLab looks, fetched by url when first seen (iso/folkLoader.ts)
 cpSync('src/renderer/art/iso/folk', 'out/renderer/iso/folk', { recursive: true });
+// and the God creature's sheets, the same layout (iso/folkLoader.ts `loadCreatureSet`)
+cpSync('src/renderer/art/iso/creature', 'out/renderer/iso/creature', { recursive: true });
 // and the castle and hold pieces (iso/isoCastle.ts `castleUrl`)
 cpSync('src/renderer/art/iso/castles', 'out/renderer/iso/castles', { recursive: true, filter: (f) => !f.endsWith('.json') && !f.endsWith('.md') });
 // and the raid map's scenery atlases (tools/compose-props.cjs)

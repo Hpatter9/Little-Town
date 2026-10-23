@@ -1,4 +1,4 @@
-// The great creature's pick (the owner's ask: "all five in a row standing idle; when you click on one, it steps forward
+// The God creature's pick (the owner's ask: "all five in a row standing idle; when you click on one, it steps forward
 // out of the lineup and does an action move; the details show up below it"). The saga's question with `beasts` (sim/
 // sagas.ts) is drawn in the event box (eventSheet.ts) as this: a clearing (the question's picture) with the Ape, Wolf,
 // Bear, Bull and Golem standing in a row, idle. Tapped, one walks forward out of the line (the rest dim a little), plays
@@ -7,13 +7,17 @@
 // appetite, the work it's best at and what it needs most, and Choose, with a second step to confirm (the pick is for
 // good). Tapping another sends the first back into line.
 //
-// The pictures are the strip's own creature sheets (`__sheetOf` on the strip's window, main.ts), the stand-ins the map
-// draws (data/creature.ts `look`): when the kinds' own art comes, it plugs in there and the moves (idle, walk, attack)
-// follow. Drawn on one canvas, crisp (no smoothing), only while the box is up.
+// A kind whose own PixelLab sheets have come (art/iso/creature/<kind>/, copied to `iso/creature` beside the page) is
+// drawn from them, facing you: idle in the line, its walk as it steps forward, and its action move (iso/creatureRules.ts
+// `LINEUP_MOVE`: the ape and the bear throw, the wolf and the bull punch, the golem works a miracle), then idle in front.
+// A kind still without them is drawn from the strip's own creature sheets (`__sheetOf` on the strip's window, main.ts),
+// the stand-ins the map draws (data/creature.ts `look`), with the moves above. Drawn on one canvas, crisp (no
+// smoothing), only while the box is up.
 
 import { CREATURE_DEFS, CREATURE_KINDS, kindStats, type CreatureKind } from '../../shared/data/creature';
 import type { SheetDef } from '../art/creatureSheets';
 import { loadImage } from '../art/loadImage';
+import { CREATURE_ROOT, LINEUP_MOVE, creaturePlay, type CreatureAnim } from '../iso/creatureRules';
 import { reducedMotion } from '../ui/motion';
 
 export type SheetOf = (id: string) => SheetDef | undefined;
@@ -36,7 +40,43 @@ interface Slot {
   at: number;
   /** When its move began (while it plays). */
   moved: number;
+  /** Its own sheets, once loaded: the frame size, and the south-facing row of idle, walk and its action move. */
+  own: OwnSheets | null;
 }
+
+interface OwnSheets {
+  w: number;
+  h: number;
+  idle: Strip;
+  walk: Strip;
+  act: Strip;
+}
+interface Strip {
+  image: HTMLImageElement;
+  frames: number;
+}
+
+/** The kind's own sheets (facing south, row 0 of each), or null while it has none (no index.json yet). */
+async function loadOwn(kind: CreatureKind): Promise<OwnSheets | null> {
+  const base = `${CREATURE_ROOT.url}/${kind}`;
+  const res = await fetch(`${base}/index.json`);
+  if (!res.ok) return null;
+  const index = (await res.json()) as { frame: [number, number]; animations: Partial<Record<CreatureAnim, { frames: number }>> };
+  const has = (a: CreatureAnim) => !!index.animations?.[a]?.frames;
+  const strip = async (want: CreatureAnim): Promise<Strip | null> => {
+    const a = creaturePlay(want, has).anim;
+    if (a === 'stand') return { image: await loadImage(`${base}/rotations.png`), frames: 1 };
+    return { image: await loadImage(`${base}/${a}.png`), frames: index.animations[a]!.frames };
+  };
+  const [idle, walk, act] = await Promise.all([strip('idle'), strip('walk'), strip(LINEUP_MOVE[kind])]);
+  if (!idle || !walk || !act) return null;
+  return { w: index.frame[0], h: index.frame[1], idle, walk, act };
+}
+
+/** The figure in its own frame: a person's height times this (the creature is bigger), and its feet's height in it. */
+const OWN_TALLER = 1.35;
+const OWN_FIGURE = 100 / 156;
+const OWN_FEET = 0.82;
 
 /** A frame's rectangle on its sheet, by pose: a strip's own rows, or a four-facing sheet's block (it faces you). */
 function frameOf(def: SheetDef, block: number, pose: 'idle' | 'walk' | 'attack', f: number, facing = 0): { x: number; y: number } {
@@ -70,8 +110,11 @@ export function beastLineup(sheetOf: SheetOf, backdrop: Promise<HTMLCanvasElemen
   const still = reducedMotion();
   let back: HTMLCanvasElement | null = null;
   void backdrop?.then((c) => (back = c)).catch(() => undefined);
-  const slots: Slot[] = CREATURE_KINDS.map((kind) => ({ kind, sheet: sheetOf(CREATURE_DEFS[kind].look.sheet), image: null, out: 0, from: 0, to: 0, at: 0, moved: -1 }));
-  for (const s of slots) if (s.sheet) void loadImage(s.sheet.url).then((im) => (s.image = im)).catch(() => undefined);
+  const slots: Slot[] = CREATURE_KINDS.map((kind) => ({ kind, sheet: sheetOf(CREATURE_DEFS[kind].look.sheet), image: null, out: 0, from: 0, to: 0, at: 0, moved: -1, own: null }));
+  for (const s of slots) {
+    if (s.sheet) void loadImage(s.sheet.url).then((im) => (s.image = im)).catch(() => undefined);
+    void loadOwn(s.kind).then((o) => (s.own = o)).catch(() => undefined);
+  }
   let picked = -1;
   let confirming = false;
 
@@ -112,6 +155,10 @@ export function beastLineup(sheetOf: SheetOf, backdrop: Promise<HTMLCanvasElemen
     const tall = Math.min(h * 0.3, (w / slots.length) * 0.8);
     const order = slots.map((s, i) => ({ s, i, o: outOf(s, now) })).sort((a, b) => a.o - b.o);
     for (const { s, i, o } of order) {
+      if (s.own) {
+        drawOwn(g, s, s.own, i, o, now, h, w, tall);
+        continue;
+      }
       const def = s.sheet;
       if (!def || !s.image) continue;
       const look = CREATURE_DEFS[s.kind].look;
@@ -186,6 +233,31 @@ export function beastLineup(sheetOf: SheetOf, backdrop: Promise<HTMLCanvasElemen
         g.globalAlpha = 1;
       }
     }
+  };
+
+  /** A kind drawn from its own sheets: idle facing you, walking forward, its move played once, idle again. */
+  const drawOwn = (g: CanvasRenderingContext2D, s: Slot, own: OwnSheets, i: number, o: number, now: number, h: number, w: number, tall: number) => {
+    const moving = Math.abs(s.to - s.from) > 0 && now - s.at < STEP_MS;
+    const moveT = s.moved >= 0 ? (now - s.moved) / MOVE_MS : -1;
+    const acting = moveT >= 0 && moveT < 1 && !still;
+    const secs = now / 1000;
+    const strip = acting ? own.act : moving ? own.walk : own.idle;
+    const f = acting ? Math.min(strip.frames - 1, Math.floor(moveT * strip.frames)) : Math.floor(secs * (moving ? 9 : 4) + i * 0.7) % strip.frames;
+    const k = ((tall * OWN_TALLER) / (own.h * OWN_FIGURE)) * (1 + (NEARER - 1) * o);
+    const cx = slotX(i, w);
+    const feet = h * (0.72 + FORWARD * o);
+    const dw = own.w * k;
+    const dh = own.h * k;
+    g.globalAlpha = 0.35;
+    g.fillStyle = '#000';
+    g.beginPath();
+    g.ellipse(cx, feet, dw * 0.16, dw * 0.045, 0, 0, Math.PI * 2);
+    g.fill();
+    g.globalAlpha = 1;
+    g.save();
+    if (picked >= 0 && picked !== i) g.filter = 'brightness(0.55)';
+    g.drawImage(strip.image, f * own.w, 0, own.w, own.h, cx - dw / 2, feet - dh * OWN_FEET, dw, dh);
+    g.restore();
   };
 
   let raf = 0;

@@ -38,7 +38,7 @@ const beast = (seed: string, kind: CreatureState['kind'] = 'ape') => {
 };
 const hour = (s: GameState) => (s.tick = (Math.floor(s.tick / TICKS_PER_HOUR) + 1) * TICKS_PER_HOUR);
 
-test('Great Beasts is a second-age topic every people studies', () => {
+test('God Creatures is a second-age topic every people studies', () => {
   const t = TOPIC_BY_ID[CREATURE_TOPIC];
   assert.ok(t, 'the topic exists');
   assert.equal(t.era, 'medieval');

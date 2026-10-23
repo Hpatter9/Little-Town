@@ -1,4 +1,4 @@
-// The great creature's saga (sim/creature.ts begins it once the town has studied Great Beasts). Signs in the night,
+// The God creature's saga (sim/creature.ts begins it once the town has studied God Creatures). Signs in the night,
 // a broken nest with five young beasts, the player's pick of one (`{ creature: kind }`), its first deed, a test of its
 // nature, and its coming of age. Its questions hold the game until they are answered (`waits`), like a question on the
 // founder's own trip. {beast} is the creature's name. See data/sagas.ts for how a saga is built.
@@ -11,8 +11,8 @@ const grownOrGone = (s: Parameters<SagaDef['when']>[0]) => !s.creature || !!s.cr
 
 export const CREATURE_SAGA_DEF: SagaDef = {
   id: CREATURE_SAGA,
-  title: 'The Great Beast',
-  blurb: 'Signs in the night, a broken nest, and a young beast for the town to raise, good or ill.',
+  title: 'The God Creature',
+  blurb: 'Signs in the night, a broken nest, and a young God creature for the town to raise, good or ill.',
   when: () => false,
   apart: true,
   first: 'signs',
@@ -34,7 +34,7 @@ export const CREATURE_SAGA_DEF: SagaDef = {
       picture: 'forest_3',
       waits: true,
       beasts: true,
-      text: 'In the hollow lies a broken nest of the old great beasts, the mother long gone. Five young survive, each of a different kind, hungry and watching {founder}. The town can raise only one. Which will {founder} take home?',
+      text: 'In the hollow lies a broken nest of the old God creatures, the mother long gone. Five young survive, each of a different kind, hungry and watching {founder}. The town can raise only one. Which will {founder} take home?',
       options: CREATURE_KINDS.map((k) => ({
         label: `The ${CREATURE_DEFS[k].name}: ${CREATURE_DEFS[k].blurb}`,
         effects: [{ creature: k }],
@@ -91,13 +91,13 @@ export const CREATURE_SAGA_DEF: SagaDef = {
       kind: 'end',
       outcome: 'triumph',
       text: '{beast} is grown, taller than the roofs, and gentle with it. The children ride it on feast days, and raiders give the town a wide berth.',
-      effects: [{ title: 'Beast-Friend' }, mood(4, 48, 'Our great beast is grown'), rep(2)],
+      effects: [{ title: 'Beast-Friend' }, mood(4, 48, 'Our God creature is grown'), rep(2)],
     },
     grown_cruel: {
       kind: 'end',
       outcome: 'bittersweet',
       text: '{beast} is grown, taller than the roofs, and the town walks softly around it. Its enemies fear it. So does the town.',
-      effects: [{ title: 'Beast-Master' }, mood(-2, 48, 'The beast is grown, and cruel'), rep(1)],
+      effects: [{ title: 'Beast-Master' }, mood(-2, 48, 'The God creature is grown, and cruel'), rep(1)],
     },
     grown_late: {
       kind: 'end',
@@ -107,8 +107,8 @@ export const CREATURE_SAGA_DEF: SagaDef = {
     lost: {
       kind: 'end',
       outcome: 'ruin',
-      text: 'The great beast is dead before it was grown. The hollow past the fields is quiet again.',
-      effects: [mood(-4, 48, 'The great beast is dead')],
+      text: 'The God creature is dead before it was grown. The hollow past the fields is quiet again.',
+      effects: [mood(-4, 48, 'The God creature is dead')],
     },
   },
 };

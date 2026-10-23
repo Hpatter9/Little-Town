@@ -7,23 +7,25 @@
 
 import { Rectangle, Texture } from 'pixi.js';
 import { loadImage } from '../art/loadImage';
+import { CREATURE_ROOT } from './creatureRules';
 import { FOLK_DIRS, type FolkAnim, type FolkDir } from './folkRules';
 import { recolour } from './folkTint';
 
-export interface FolkIndex {
+export interface FolkIndex<A extends string = FolkAnim> {
   frame: [number, number];
   directions: FolkDir[];
-  animations: Partial<Record<FolkAnim, { frames: number }>>;
+  animations: Partial<Record<A, { frames: number }>>;
 }
 
 /** A loaded look: what it has, and the textures by animation, facing and frame. */
-export interface FolkSet {
-  index: FolkIndex;
-  has(anim: FolkAnim): boolean;
-  count(anim: FolkAnim): number;
+export interface SheetSet<A extends string> {
+  index: FolkIndex<A>;
+  has(anim: A | 'stand'): boolean;
+  count(anim: A | 'stand'): number;
   /** The texture of a frame (`stand` is the still rotation, whatever `n`). Null if it isn't there. */
-  texture(anim: FolkAnim, dir: FolkDir, n: number): Texture | null;
+  texture(anim: A | 'stand', dir: FolkDir, n: number): Texture | null;
 }
+export type FolkSet = SheetSet<FolkAnim>;
 
 export const FOLK_ROOT = { url: 'iso/folk' };
 
@@ -34,7 +36,16 @@ const sets = new Map<string, Promise<FolkSet | null>>();
 export function loadFolkSet(path: string, variant = 0): Promise<FolkSet | null> {
   const key = `${path}#${variant}`;
   let p = sets.get(key);
-  if (!p) sets.set(key, (p = build(path, variant).catch(() => null)));
+  if (!p) sets.set(key, (p = build<FolkAnim>(`${FOLK_ROOT.url}/${path}`, variant).catch(() => null)));
+  return p;
+}
+
+/** The God creature's sheets for a kind (`wolf`), loading them on the first ask. Resolves null while the kind has no
+ *  index.json yet (the caller keeps its old stand-in). Drawn in its own colours: no variants. */
+export function loadCreatureSet<A extends string>(kind: string): Promise<SheetSet<A> | null> {
+  const key = `creature:${kind}`;
+  let p = sets.get(key) as Promise<SheetSet<A> | null> | undefined;
+  if (!p) sets.set(key, (p = build<A>(`${CREATURE_ROOT.url}/${kind}`, 0).catch(() => null)) as Promise<FolkSet | null>);
   return p;
 }
 
@@ -43,11 +54,10 @@ export function clearFolkSets(): void {
   sets.clear();
 }
 
-async function build(path: string, variant: number): Promise<FolkSet | null> {
-  const base = `${FOLK_ROOT.url}/${path}`;
+async function build<A extends string>(base: string, variant: number): Promise<SheetSet<A> | null> {
   const res = await fetch(`${base}/index.json`);
   if (!res.ok) return null;
-  const index = (await res.json()) as FolkIndex;
+  const index = (await res.json()) as FolkIndex<A>;
   const tex = new Map<string, Texture>();
   const dirs = index.directions ?? [...FOLK_DIRS];
   const [w, h] = index.frame;
@@ -67,13 +77,13 @@ async function build(path: string, variant: number): Promise<FolkSet | null> {
   const ask = (anim: string): void => {
     if (asked.has(anim)) return;
     asked.add(anim);
-    const info = index.animations?.[anim as FolkAnim];
+    const info = index.animations?.[anim as A];
     if (info) void cut(`${base}/${anim}.png`, (c, r) => `${anim}/${dirs[r]}/${c}`, info.frames ?? 0, dirs.length);
   };
   return {
     index,
-    has: (a) => a === 'stand' || !!index.animations?.[a],
-    count: (a) => (a === 'stand' ? 1 : (index.animations?.[a]?.frames ?? 0)),
+    has: (a) => a === 'stand' || !!index.animations?.[a as A],
+    count: (a) => (a === 'stand' ? 1 : (index.animations?.[a as A]?.frames ?? 0)),
     texture: (a, d, n) => {
       if (a !== 'stand') ask(a);
       return tex.get(`${a}/${d}/${a === 'stand' ? 0 : n}`) ?? null;

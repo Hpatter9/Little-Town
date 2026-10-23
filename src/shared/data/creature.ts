@@ -1,4 +1,4 @@
-// The great creature (the owner's ask: "a creature like Black and White that learns, has emotions and needs, works with
+// The God creature (the owner's ask: "a creature like Black and White that learns, has emotions and needs, works with
 // the townsfolk, can be good or evil, and grows in size", one of five for every people). The numbers for sim/creature.ts:
 // the five kinds, what each does well and needs, the deeds it can do and how good or cruel each is, and how it learns,
 // grows and is drawn.
@@ -215,7 +215,7 @@ export const CREATURE_ENEMIES: Record<string, EnemyDef> = Object.fromEntries(
     const d = CREATURE_DEFS[k];
     const def: EnemyDef = {
       id: creatureUnit(k),
-      name: `Great ${d.name}`,
+      name: `God ${d.name}`,
       hp: d.hp,
       damage: [Math.round(d.attack * 0.7), Math.round(d.attack * 1.2)],
       accuracy: 0.76,

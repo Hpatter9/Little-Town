@@ -1,4 +1,4 @@
-// The great creature (the owner's ask, after Black & White: a creature that learns, has feelings and needs, works with
+// The God creature (the owner's ask, after Black & White: a creature that learns, has feelings and needs, works with
 // the townsfolk, can be good or evil, and grows; one of five for every people: data/creature.ts). It comes in a saga
 // (data/creatureSaga.ts) once the town has studied Great Beasts (`CREATURE_TOPIC`): signs, a found beast, and the
 // player's pick of the five (`adoptCreature`). Then, every game hour with the autopilot on (`creatureHourly`):
@@ -62,6 +62,8 @@ export interface CreatureState extends Walker {
   ask?: { id: number; deed: CreatureDeed; tick: number; text: string };
   /** When it last asked (the asks are spaced `ASK_GAP_HOURS` apart, so the cards don't come every minute). */
   asked?: number;
+  /** When it was last praised (tick): the map shows its joy. */
+  praisedAt?: number;
   /** The work it has done for the town, by deed. */
   done: Partial<Record<CreatureDeed, number>>;
   /** Its last few deeds told, newest last. */
@@ -418,8 +420,10 @@ export function teachCreature(s: GameState, praise: boolean): boolean {
   learn(c, d, praise ? 1 : -1);
   (praise ? c.praised : c.scolded)[d] = ((praise ? c.praised : c.scolded)[d] ?? 0) + 1;
   // (praise is attention; a scolding stings)
-  if (praise) c.play = clamp(c.play + 10);
-  else c.anger = clamp(c.anger + 4 * (0.5 + def(c).temper));
+  if (praise) {
+    c.play = clamp(c.play + 10);
+    c.praisedAt = s.tick;
+  } else c.anger = clamp(c.anger + 4 * (0.5 + def(c).temper));
   c.ask = undefined;
   return true;
 }
@@ -486,6 +490,8 @@ export interface CreatureView {
   ask: { id: number; text: string } | null;
   log: string[];
   dead: string | null;
+  /** Ticks since it was last praised (left out if never): the map shows its joy. */
+  praisedAgo?: number;
 }
 
 const DEED_NAMES: Record<CreatureDeed, string> = {
@@ -511,10 +517,11 @@ export function creatureView(s: GameState): CreatureView | null {
     ask: c.ask ? { id: c.ask.id, text: c.ask.text } : null,
     log: c.log.slice(-4),
     dead: c.dead ? c.dead.cause : null,
+    ...(c.praisedAt !== undefined ? { praisedAgo: s.tick - c.praisedAt } : {}),
   };
 }
 
-/** Once the town has studied Great Beasts, its saga begins (once): the beast comes in it (autopilot only). */
+/** Once the town has studied God Creatures, its saga begins (once): the beast comes in it (autopilot only). */
 export function creatureArrives(s: GameState): void {
   if (s.tick % TICKS_PER_HOUR !== 0 || s.autopilot === false || s.gameOver || s.creature) return;
   if (!s.research.done.includes(CREATURE_TOPIC)) return;
