@@ -40,6 +40,9 @@
   "death": {
    "frames": 7
   },
+  "joy": {
+   "frames": 9
+  },
   "getup": {
    "frames": 5
   },
