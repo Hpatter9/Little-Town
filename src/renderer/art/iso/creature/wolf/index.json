@@ -1,0 +1,65 @@
+{
+ "look": "wolf",
+ "people": "god",
+ "frame": [
+  156,
+  156
+ ],
+ "directions": [
+  "south",
+  "south-east",
+  "east",
+  "north-east",
+  "north",
+  "north-west",
+  "west",
+  "south-west"
+ ],
+ "animations": {
+  "walk": {
+   "frames": 6
+  },
+  "hit": {
+   "frames": 6
+  },
+  "pull": {
+   "frames": 6
+  },
+  "pickup": {
+   "frames": 5
+  },
+  "eat": {
+   "frames": 6
+  },
+  "push": {
+   "frames": 6
+  },
+  "punch": {
+   "frames": 6
+  },
+  "death": {
+   "frames": 7
+  },
+  "getup": {
+   "frames": 5
+  },
+  "miracle": {
+   "frames": 6
+  },
+  "sad": {
+   "frames": 8
+  },
+  "throw": {
+   "frames": 7
+  },
+  "run": {
+   "frames": 6
+  },
+  "uppercut": {
+   "frames": 7
+  },
+  "idle": {
+   "frames": 4
+  }
+ }
+}
