@@ -11,6 +11,10 @@ export type Status =
   // good
   | 'haste' | 'regen' | 'shield' | 'protect' | 'berserk' | 'focus' | 'reflect' | 'invisible' | 'taunt' | 'thorns' | 'lifelink' | 'inspired';
 
+/** Why a blow or spell landed as it did, for the watcher (a short word and a small icon over the one it touched): a true
+ *  strike, a blow turned on a shield or a ward, a spell sent back, thorns, a hold shaken off, a guard's counter. */
+export type Proc = 'crit' | 'block' | 'shield' | 'reflect' | 'thorns' | 'resist' | 'counter';
+
 export const BAD_STATUS: ReadonlySet<Status> = new Set<Status>(['stun', 'sleep', 'freeze', 'stop', 'poison', 'burn', 'bleed', 'slow', 'silence', 'blind', 'weak', 'vulnerable', 'charm', 'doom', 'fear']);
 
 /** Who an effect lands on. */

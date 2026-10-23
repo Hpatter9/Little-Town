@@ -9,8 +9,9 @@ import { boatArt } from '../art/boatArt';
 import { airshipTexture, DECK, loadAirshipArt } from '../art/airshipArt';
 import { ColorMatrixFilter, Container, Graphics, Rectangle, Sprite, Text, Texture, TilingSprite } from 'pixi.js';
 import { ABILITY_BY_ID } from '../../shared/data/abilities';
-import type { Element } from '../../shared/data/effects';
-import { actFx, PX_ELEMENT } from '../../shared/data/actFx';
+import { reducedMotion } from '../ui/motion';
+import { actArrow, actElement, actFx, FAMILY_SCALE, familyOf, PROC_CUE, SOLID, STATUS_CUE } from '../../shared/data/actFx';
+import type { Status } from '../../shared/data/effects';
 import { KIT_BY_ID, KIT_FX } from '../../shared/data/kitItems';
 import { castsMagic } from '../../shared/data/classes';
 import { ITEM_BY_ID } from '../../shared/data/items';
@@ -58,11 +59,9 @@ const GROUND_LIFT = 8;
 /** Down a dungeon, the share of each room's time the party stands at its thing before walking on. */
 const STOP = 0.3;
 
-/** The element of a spell or skill (for the effect gathering round its caster), by id. */
-function elementOf(id: string): Element {
-  const effects = SPELL_BY_ID[id]?.effects ?? ABILITY_BY_ID[id]?.active?.effects ?? KIT_FX[id] ?? [];
-  return effects.find((e) => e.element)?.element ?? (effects.some((e) => e.kind === 'heal' || e.kind === 'revive') ? 'holy' : 'arcane');
-}
+/** A status cue's icon (art px) and how long it shows (ms). */
+const CUE_PX = 12;
+const CUE_MS = 1100;
 
 /** Ticks a shot waits before it leaves the hand (the draw or the cast), and the px a tile counts as when timing its flight
  *  (the fight screen's figures are small and close). */
@@ -80,12 +79,13 @@ function flyingAct(id: string): string | null {
   const spell = SPELL_BY_ID[id];
   const effects = spell?.effects ?? ABILITY_BY_ID[id]?.active?.effects ?? KIT_FX[id] ?? [];
   if (!effects.some((e) => FOE_TARGETS.includes(e.target) && e.kind !== 'heal' && e.kind !== 'revive')) return null;
+  // (a bow's art looses its arrow)
+  if (actArrow(id)) return shotCode({ ammo: 'arrow' });
   const fx = actFx(id);
   if (!fx.startsWith('px:')) return null;
-  const dash = fx.indexOf('-');
-  const el = fx.slice(3, dash);
+  const el = actElement(id);
   if (el === 'white') return null;
-  if (!spell && !FLYING_FAMILY.includes(fx.slice(dash + 1))) return null;
+  if (!spell && !FLYING_FAMILY.includes(fx.slice(fx.indexOf('-') + 1))) return null;
   return shotCode({ ammo: 'orb', el });
 }
 
@@ -119,6 +119,8 @@ interface Figure {
   sprite: Sprite;
   pop: Text;
   spark: Sprite;
+  /** A status just come on them, or why a blow landed as it did: a small icon (data/actFx.ts). */
+  cue: Sprite;
   /** The side ring under the feet (art/sideRing.ts). */
   ring: SideRing;
 }
@@ -164,6 +166,8 @@ export class FightScene {
   private readonly blows = new Map<string, { last: number; start: number; code: string; from: string; to: string | null; wait: number }>();
   private readonly fxPool: Sprite[] = [];
   private readonly actSeen = new Map<string, number>();
+  /** Each fighter's statuses as last seen, and the newest come on (its cue shows over them for `CUE_MS`). */
+  private readonly stSeen = new Map<string, { was: Set<string>; cue: Status | null; at: number }>();
   private readonly figs = new Map<string, Figure>();
   /** Her hull under the party at sea (art/boatArt.ts). */
   private readonly hull = new Sprite();
@@ -373,8 +377,10 @@ export class FightScene {
       f.sprite.destroy();
       f.pop.destroy();
       f.spark.destroy();
+      f.cue.destroy();
       f.ring.g.destroy();
       this.figs.delete(k);
+      this.stSeen.delete(k);
     }
   }
 
@@ -386,9 +392,12 @@ export class FightScene {
       pop.anchor.set(0.5, 1);
       pop.resolution = 4;
       const spark = new Sprite();
+      const cue = new Sprite();
+      cue.anchor.set(0.5, 1);
+      cue.visible = false;
       const ring = new SideRing();
-      this.figures.addChild(ring.g, sprite, spark, pop);
-      f = { sprite, pop, spark, ring };
+      this.figures.addChild(ring.g, sprite, spark, pop, cue);
+      f = { sprite, pop, spark, cue, ring };
       this.figs.set(key, f);
     }
     return f;
@@ -621,7 +630,7 @@ export class FightScene {
       }
       // a cast: the spell's element gathers round the caster before it goes (the pixel effects pack's gather strip)
       if (from && act.age < 8 && SPELL_BY_ID[id]) {
-        const gather = sheetOf(`px:${PX_ELEMENT[elementOf(id)]}-gather`);
+        const gather = sheetOf(`px:${actElement(id) === 'white' ? 'star' : actElement(id)}-gather`);
         const tex = gather.frame((act.age / 10) * gather.fps);
         if (tex) {
           const sp = (this.fxPool[used] ??= this.effects.addChild(new Sprite()));
@@ -645,8 +654,11 @@ export class FightScene {
         sp.visible = true;
         sp.texture = tex;
         sp.blendMode = sh.glow ? 'add' : 'normal';
-        // (drawn at the fighters' size; the party's blows come from the right, so their slashes are turned)
-        const k = (sh.scale ?? 1) * 0.6;
+        // (drawn at the fighters' size, each shape at its own: an impact small, an area wide; the solid ones a little
+        // see-through; the party's blows come from the right, so their slashes are turned)
+        const fam = familyOf(actSprite(id));
+        const k = (sh.scale ?? 1) * 0.6 * (fam ? (FAMILY_SCALE[fam] ?? 1) : 1);
+        sp.alpha = fam && SOLID.has(fam) ? 0.8 : 1;
         const flip = act.side === 'party' ? -1 : 1;
         sp.scale.set(k * flip, k);
         sp.position.set(Math.round(p[0] - (sh.size * k * flip) / 2), Math.round(p[1] + sh.foot * k - sh.size * k));
@@ -728,12 +740,35 @@ export class FightScene {
       const pop = real.pop && real.pop.age - r.popWait >= 0 && real.pop.age - r.popWait < 14 ? { ...real.pop, age: real.pop.age - r.popWait } : null;
       g.pop.visible = !!pop && (pop.amount > 0 || !pop.heal);
       if (pop) {
-        g.pop.text = pop.amount > 0 ? String(pop.amount) : 'Miss';
-        g.pop.style.fill = pop.heal ? 0x8aff9a : hard >= HEAVY ? 0xffd060 : 0xffffff;
+        // (why it landed as it did: "Crit!", "Block", "Reflect"... in its colour beside the number)
+        const why = pop.why && !pop.heal ? PROC_CUE[pop.why] : null;
+        g.pop.text = pop.amount > 0 ? (why ? `${pop.amount} ${why.word}` : String(pop.amount)) : (why?.word ?? 'Miss');
+        g.pop.style.fill = pop.heal ? 0x8aff9a : why ? why.colour : hard >= HEAVY ? 0xffd060 : 0xffffff;
         g.pop.scale.set(hard >= HEAVY ? 1.35 : 1);
         g.pop.position.set(p[0] - toward * pop.age * 0.5, p[1] - 22 - (pop.age * 1.6 - pop.age * pop.age * 0.06));
         g.pop.alpha = Math.min(1, (14 - pop.age) / 5);
         g.pop.zIndex = 999;
+      }
+      // a status just come on them: its small icon over their head, a moment (the first sight of them shows nothing)
+      const sts = new Set(real.statuses);
+      const seenSt = this.stSeen.get(key);
+      if (!seenSt) this.stSeen.set(key, { was: sts, cue: null, at: 0 });
+      else {
+        const fresh = real.statuses.find((x) => !seenSt.was.has(x) && STATUS_CUE[x as Status]);
+        if (fresh) Object.assign(seenSt, { cue: fresh as Status, at: now });
+        seenSt.was = sts;
+      }
+      const cueOn = seenSt?.cue && now - seenSt.at < CUE_MS && !f.down ? STATUS_CUE[seenSt.cue] : null;
+      const cueSheet = cueOn ? sheetOf(cueOn.fx) : null;
+      const cueTex = cueSheet?.frame(Math.min(5, ((now - seenSt!.at) / 1000) * cueSheet.fps));
+      g.cue.visible = !!cueTex;
+      if (cueTex) {
+        g.cue.texture = cueTex;
+        g.cue.width = g.cue.height = CUE_PX;
+        const lift = reducedMotion() ? 0 : Math.min(1, (now - seenSt!.at) / 300) * 4;
+        g.cue.position.set(p[0], p[1] - Math.max(30, Math.abs(g.sprite.height) + 6) - lift);
+        g.cue.alpha = Math.min(1, (CUE_MS - (now - seenSt!.at)) / 250);
+        g.cue.zIndex = 998;
       }
       // a blow landing: flesh sprays blood away from the striker (the party faces left, its foes right), the rest sparks
       const bloody = f.kind === 'person' || bleeds(f.kind);

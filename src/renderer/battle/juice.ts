@@ -4,11 +4,18 @@
 // combo callouts, wave banners sliding across, and a victory flourish of light and confetti. The rules are in
 // battle/juiceRules.ts. `world` goes in the scene's own world (moving with its camera), `screen` over everything.
 import { Container, Graphics, Sprite, Text } from 'pixi.js';
+import { PROC_CUE, type Cue } from '../../shared/data/actFx';
+import type { Proc } from '../../shared/data/effects';
 import { sheetOf } from '../town/spellsView';
 import { reducedMotion } from '../ui/motion';
 import { bannerMotion, blowTier, COMBO_WINDOW, comboText, fadePunch, fadeTrauma, HIT_STOP, IMPACT_CAP, killCallout, KILL_PUNCH, KILL_STOP, MULTI_WINDOW, NUMBER_COLOUR, NUMBER_SIZE, popScale, shakeOf, slamScale, SLOWMO_RATE, SLOWMO_SECS, SPARK_CAP, SPARKS, traumaFor, ZOOM_PUNCH } from './juiceRules';
 
 const FONT = 'monospace';
+/** A cue's icon (px), how far over the feet it shows, how long it lasts (seconds), and the most alive at once. */
+const CUE_ICON = 22;
+const CUE_HEAD = 58;
+const CUE_LIFE = 1.4;
+const CUE_CAP = 10;
 const text = (s: string, size: number, fill: number, stroke = 5) =>
   new Text({ text: s, style: { fontFamily: FONT, fontSize: size, fill, fontWeight: 'bold', stroke: { color: 0x120a06, width: stroke }, dropShadow: { color: 0x000000, alpha: 0.6, distance: 2, blur: 0, angle: Math.PI / 2 } } });
 
@@ -18,6 +25,8 @@ interface Num { t: Text; x: number; y: number; born: number; drift: number }
 interface Callout { t: Text; born: number; life: number; y: number }
 interface Banner { band: Graphics; t: Text; sub: Text | null; born: number; life: number; col: number }
 interface Spark { x: number; y: number; vx: number; vy: number; born: number; life: number; col: number; len: number }
+/** A small icon and word over a fighter: why a blow landed as it did, or a status just come on (data/actFx.ts). */
+interface CueShown { icon: string; t: Text; x: number; y: number; born: number; lift: number }
 interface Bit { x: number; y: number; vx: number; vy: number; spin: number; a: number; col: number; w: number; h: number }
 
 export interface HitOpts {
@@ -30,6 +39,8 @@ export interface HitOpts {
   heal?: boolean;
   kill?: boolean;
   ult?: boolean;
+  /** Why it landed as it did (a crit, a block...): its word and icon go up beside the number. */
+  why?: Proc;
 }
 
 export class BattleJuice {
@@ -51,6 +62,8 @@ export class BattleJuice {
   private kills = { n: 0, last: -99 };
   private victory: { born: number; t: Text; sub: Text; won: boolean } | null = null;
   private bits: Bit[] = [];
+  private cues: CueShown[] = [];
+  private cueLayer = new Container();
   private sparks: Spark[] = [];
   private sparkG = new Graphics();
   private now = 0;
@@ -64,7 +77,7 @@ export class BattleJuice {
   top = 64;
 
   constructor() {
-    this.world.addChild(this.ringG, this.fxLayer, this.sparkG);
+    this.world.addChild(this.ringG, this.fxLayer, this.sparkG, this.cueLayer);
     this.screen.addChild(this.flashG, this.raysG, this.bitsG);
   }
 
@@ -82,8 +95,9 @@ export class BattleJuice {
     const word = !/^[\d+]/.test(o.label);
     if (!word && !o.heal) {
       if (!calm) this.trauma = Math.min(1, this.trauma + traumaFor(o.share, o.kill, o.ult) * (o.onFoe ? 0.7 : 1));
-      this.impact({ fx: o.kill ? 'px:blood-explosion' : heavy ? (o.onFoe ? 'px:gold-burst' : 'px:fire-explosion') : 'px:white-hit', x, y: y - 14, born: t, scale: tier === 'crit' ? 1.9 : heavy ? 1.5 : 1.05 });
-      if (tier === 'crit') this.impact({ fx: 'px:white-cross', x, y: y - 14, born: t, scale: 2.2 });
+      // (the impact: small for a plain blow, a burst for a heavy one; the cross of light only for a true crit)
+      this.impact({ fx: o.kill ? 'px:blood-explosion' : heavy ? (o.onFoe ? 'px:gold-burst' : 'px:fire-burst') : 'px:white-hit', x, y: y - 14, born: t, scale: tier === 'crit' ? 1.45 : heavy ? 1.2 : 0.9 });
+      if (o.why === 'crit') this.impact({ fx: 'px:white-cross', x, y: y - 14, born: t, scale: 1.6 });
       this.rings.push({ x, y: y - 14, born: t, col: o.onFoe ? (heavy ? NUMBER_COLOUR[tier] : 0xffffff) : 0xff4030, size: tier === 'crit' ? 50 : heavy ? 34 : 20 });
       if (!calm) {
         this.throwSparks(x, y - 14, SPARKS[tier] + (o.kill ? 4 : 0), o.onFoe ? NUMBER_COLOUR[tier] : 0xff5040, t);
@@ -100,6 +114,9 @@ export class BattleJuice {
     }
     if (o.heal) this.impact({ fx: 'px:gold-sparkle', x, y: y - 14, born: t, scale: 1.2 });
     // (the number: big, popped; gold when heavy, orange and biggest when a crit, red when the town's own is hurt, green when mended)
+    if (o.why) this.cue(x, y, PROC_CUE[o.why]);
+    // (a word the cue already says, "Block", "Resist": only the cue)
+    if (word && o.why) return;
     const size = word ? 15 : o.heal ? 22 : NUMBER_SIZE[tier];
     const col = o.heal ? 0x7cff8a : word ? 0xdddddd : !o.onFoe ? (tier === 'crit' ? 0xff2a20 : 0xff5040) : NUMBER_COLOUR[tier];
     const n = text(`${o.label}${heavy && !word && !o.heal ? (tier === 'crit' ? '!!' : '!') : ''}`, size, col, tier === 'crit' ? 8 : heavy ? 6 : 5);
@@ -114,6 +131,18 @@ export class BattleJuice {
       } else this.combo.n = 0;
     }
     if (o.kill && o.onFoe) this.killed(1);
+  }
+
+  /** A small icon and word over a fighter at world (x, y) (their feet): why a blow landed as it did, a status just come
+   *  on. Small, so the board stays clear; a second at the same place stacks above the first. */
+  cue(x: number, y: number, c: Cue): void {
+    const t = this.t;
+    const near = this.cues.filter((q) => t - q.born < 0.5 && Math.abs(q.x - x) < 24 && Math.abs(q.y - y) < 24).length;
+    const w = text(c.word, 12, c.colour, 4);
+    w.anchor.set(0, 0.5);
+    this.cueLayer.addChild(w);
+    this.cues.push({ icon: c.fx, t: w, x, y, born: t, lift: near * 18 });
+    if (this.cues.length > CUE_CAP) this.cues.splice(0, this.cues.length - CUE_CAP).forEach((q) => q.t.destroy());
   }
 
   /** An impact sprite, the oldest dropped when too many are alive (the cap keeps a phone smooth). */
@@ -216,6 +245,8 @@ export class BattleJuice {
     this.victory?.t.destroy();
     this.victory?.sub.destroy();
     this.combo.t?.destroy();
+    for (const c of this.cues) c.t.destroy();
+    this.cues = [];
     this.nums = [];
     this.callouts = [];
     this.banner = null;
@@ -274,6 +305,37 @@ export class BattleJuice {
         this.fxLayer.addChild(s);
       }
     }
+    // the cues: an icon and its word over the head, rising a little and fading (still under reduced motion)
+    for (const c of this.cueLayer.children.filter((c) => c.label === 'cue')) c.destroy();
+    // (timed by the clock they were born on: the board's own may run behind it)
+    const tc = this.t;
+    this.cues = this.cues.filter((c) => {
+      const age = Math.max(0, tc - c.born);
+      if (age > CUE_LIFE) {
+        c.t.destroy();
+        return false;
+      }
+      const sh = sheetOf(c.icon);
+      const frame = sh.frame(Math.min(age * sh.fps, 5));
+      const rise = reducedMotion() ? 0 : Math.min(1, age * 3) * 8;
+      const cy = c.y - CUE_HEAD - c.lift - rise;
+      const alpha = age > CUE_LIFE - 0.3 ? (CUE_LIFE - age) / 0.3 : Math.min(1, age * 8);
+      const size = CUE_ICON * inv;
+      const total = size + 2 * inv + c.t.width / Math.max(0.01, c.t.scale.x) * inv;
+      if (frame) {
+        const s = new Sprite(frame);
+        s.label = 'cue';
+        s.anchor.set(0.5);
+        s.width = s.height = size;
+        s.position.set(c.x - total / 2 + size / 2, cy);
+        s.alpha = alpha;
+        this.cueLayer.addChildAt(s, 0);
+      }
+      c.t.scale.set(inv * (age < 0.1 ? 1.3 - age * 3 : 1));
+      c.t.position.set(c.x - total / 2 + size + 2 * inv, cy);
+      c.t.alpha = alpha;
+      return true;
+    });
     // sparks flung from the blows: short bright lines under gravity
     this.sparkG.clear();
     this.sparks = this.sparks.filter((p) => t - p.born < p.life);
