@@ -18,6 +18,7 @@ import { ORDER_NAMES, type StandingOrder } from '../data/monsters';
 import { JOBS, type Job, type Priority } from '../data/people';
 import { TOPIC_BY_ID } from '../data/research';
 import { cleanName } from './naming';
+import { CREATURE_LIKINGS, type CreatureLiking } from '../data/creature';
 import { DIRECTIONS, type Direction } from './planner';
 import { PATH_CAP } from './pathPlans';
 
@@ -104,6 +105,8 @@ export type Command =
   | { type: 'openPrompt'; prompt: number }
   /** The great creature (sim/creature.ts): feed it, send it to rest, or praise or scold its last deed. */
   | { type: 'creature'; op: CreatureOp }
+  /** Encourage (up) or discourage one of the God creature's likings, gently (sim/creatureFolk.ts `nudgeLiking`). */
+  | { type: 'creatureNudge'; liking: CreatureLiking; up: boolean }
   /** Keep one of the origin's powers back to cast yourself (null: let the town cast them all), and cast it. */
   | { type: 'holdPower'; power: string | null }
   | { type: 'castHeld' }
@@ -147,8 +150,8 @@ export type Command =
   | { type: 'arenaBet'; on: 'town' | 'visitor'; amount: number }
   /** Challenge someone to a duel (a person's id; -1 the arena's champion), to yield or to the death (sim/duel.ts). */
   | { type: 'duel'; foe: number; to: 'yield' | 'death' }
-  /** Name a building, a child of the founder's family, or a unique weapon (sim/naming.ts). */
-  | { type: 'name'; kind: 'building' | 'person' | 'unique'; id: number | string; name: string }
+  /** Name a building, a child of the founder's family, a unique weapon, or the God creature (sim/naming.ts). */
+  | { type: 'name'; kind: 'building' | 'person' | 'unique' | 'creature'; id: number | string; name: string }
   /** Open or close a trade route to a power (sim/markets.ts). */
   | { type: 'tradeRoute'; to: string; open: boolean }
   /** Rally a defender in a raid (a burst of courage; sim/rally.ts). */
@@ -317,7 +320,7 @@ export function parseCommand(raw: unknown): Command | null {
     case 'duel':
       return Number.isInteger(c.foe) && (c.to === 'yield' || c.to === 'death') ? { type: 'duel', foe: c.foe as number, to: c.to } : null;
     case 'name':
-      return (c.kind === 'building' || c.kind === 'person' || c.kind === 'unique') && (typeof c.id === 'string' || Number.isInteger(c.id)) && cleanName(c.name) ? { type: 'name', kind: c.kind, id: c.id as number | string, name: cleanName(c.name)! } : null;
+      return (c.kind === 'building' || c.kind === 'person' || c.kind === 'unique' || c.kind === 'creature') && (typeof c.id === 'string' || Number.isInteger(c.id)) && cleanName(c.name) ? { type: 'name', kind: c.kind, id: c.id as number | string, name: cleanName(c.name)! } : null;
     case 'tradeRoute':
       return typeof c.to === 'string' && typeof c.open === 'boolean' ? { type: 'tradeRoute', to: c.to, open: c.open } : null;
     case 'lookInside':
@@ -424,6 +427,8 @@ export function parseCommand(raw: unknown): Command | null {
       return Number.isInteger(c.prompt) ? { type: c.type, prompt: c.prompt as number } : null;
     case 'creature':
       return CREATURE_OPS.includes(c.op as CreatureOp) ? { type: 'creature', op: c.op as CreatureOp } : null;
+    case 'creatureNudge':
+      return CREATURE_LIKINGS.includes(c.liking as CreatureLiking) && typeof c.up === 'boolean' ? { type: 'creatureNudge', liking: c.liking as CreatureLiking, up: c.up } : null;
     case 'recallExpedition':
       return Number.isInteger(c.expedition) ? { type: 'recallExpedition', expedition: c.expedition as number } : null;
     case 'acceptVisitor':

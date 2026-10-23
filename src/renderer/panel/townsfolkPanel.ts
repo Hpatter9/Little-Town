@@ -33,7 +33,7 @@ import { CLASS_ABOUT, ROLE_ABOUT } from '../../shared/data/classAbout';
 import type { Bridge } from '../../shared/ipc';
 import type { PersonView, Snapshot, VisitorView } from '../../shared/sim/snapshot';
 import type { CreatureView } from '../../shared/sim/creature';
-import { creatureCard } from '../map/creatureCard';
+import { creatureCard, creatureNow, natureBar } from '../map/creatureCard';
 import { CREATURE_ROOT } from '../iso/creatureRules';
 import { bleedLeft } from '../../shared/format';
 import { button, el } from './dom';
@@ -62,7 +62,7 @@ export const townsfolkKey = (s: Snapshot) => {
     s.guilds.map((g) => [g.id, g.name, g.leader?.id, g.members.map((m) => [m.id, m.level]), g.log[0]]),
     s.turnable,
     // (the great beast's section: what its card says, coarsely, and the buttons it shows)
-    s.creature && [s.creature.name, s.creature.stage, Math.round(s.creature.align / 5), s.creature.mood, s.creature.asleep, s.creature.doing, Math.round(s.creature.hunger / 10), Math.round(s.creature.rest / 10), Math.round(s.creature.play / 10), Math.round(s.creature.hp / 10), s.creature.liked, s.creature.shunned, s.creature.ask?.id, s.creature.dead],
+    s.creature && [s.creature.name, s.creature.stage, Math.round(s.creature.align / 5), s.creature.mood, s.creature.asleep, s.creature.doing, s.creature.with, Math.round(s.creature.hunger / 10), Math.round(s.creature.rest / 10), Math.round(s.creature.play / 10), Math.round(s.creature.hp / 10), s.creature.liked, s.creature.shunned, s.creature.ask?.id, s.creature.dead, s.creature.backIn, s.creature.away, s.creature.pen, s.creature.spells.map((x) => [x.name, Math.round(x.skill * 20)]), s.creature.learning, s.creature.likes.map((l) => Math.round(l.value * 20)), s.creature.nudgeReady, s.creature.friends, s.creature.history.length, s.creature.log.length, s.creature.log.at(-1)],
     confirmTurn,
     s.research.done.length,
     inspecting,
@@ -1125,7 +1125,12 @@ function manaBar([now, most]: [number, number]): HTMLElement {
 
 /** The town's God creature (sim/creature.ts): its card, its needs as bars, and the player's part (praise or scold its
  *  last deed, feed it, send it to rest). */
+/** The God creature's overview (its own sub-tab of the People menu, "Creature": panel/subtabs.ts): its card with its
+ *  name (renamed here), kind, age and size, nature, mood, needs and its "Now" line; Praise and Scold; its spells known
+ *  and those it is learning; its likings, each with a gentle nudge either way (it is a creature, not a unit: a nudge
+ *  shifts what it likes a little, no oftener than every couple of hours); its friends; its history; its pen. */
 function beastSection(c: CreatureView, bridge: Bridge | undefined): HTMLElement[] {
+  const out: HTMLElement[] = [];
   const card = el('div', 'card person');
   const info = creatureCard(c);
   const top = el('div', 'card-top');
@@ -1134,20 +1139,93 @@ function beastSection(c: CreatureView, bridge: Bridge | undefined): HTMLElement[
   swatch.title = 'Its colour, by its nature';
   top.append(el('span', 'card-name', info.title), swatch);
   card.append(top);
-  if (!c.dead) card.append(creaturePortrait(c));
-  if (c.dead) {
-    card.append(el('div', 'hint', info.lines[0]));
-    return [el('h2', '', 'The God creature'), card];
+  const now = creatureNow(c);
+  const nowLine = el('div', 'hint creature-now', `${now.icon} ${now.now}`);
+  nowLine.style.cssText = 'font-weight:bold;opacity:1';
+  card.append(nowLine);
+  if (!c.dead && !c.away) card.append(creaturePortrait(c));
+  if (!c.dead) {
+    card.append(el('div', 'hint', `${c.kindName} · ${c.stage} · ${c.ageDays} day${c.ageDays === 1 ? '' : 's'} old${c.deaths ? ` · come back from the dead ${c.deaths === 1 ? 'once' : `${c.deaths} times`}` : ''}`));
+    card.append(el('div', 'hint', `${c.alignWord} by nature (${natureBar(c.align)})`), el('div', 'hint', `Mood: ${c.mood}`));
+    card.append(bar('Health', c.hp / Math.max(1, c.maxHp), `${c.hp}/${c.maxHp}`), bar('Fed', c.hunger / 100, `${c.hunger}`), bar('Rested', c.rest / 100, `${c.rest}`), bar('Played with', c.play / 100, `${c.play}`));
+    if (c.ask) card.append(el('div', 'hint', `Just now: ${c.ask.text} Praise or scold it?`));
+    const row = el('div', '');
+    row.style.cssText = 'display:flex;flex-wrap:wrap;gap:6px;margin-top:6px';
+    if (c.ask) row.append(button('Praise', () => bridge?.command({ type: 'creature', op: 'praise' }), { cls: 'place small' }), button('Scold', () => bridge?.command({ type: 'creature', op: 'scold' }), { cls: 'place small quiet' }));
+    if (!c.away) row.append(button('Feed', () => bridge?.command({ type: 'creature', op: 'feed' }), { cls: 'place small quiet', title: c.kind === 'golem' ? 'Feed it stone from the stores' : 'Feed it from the stores' }), button('Rest', () => bridge?.command({ type: 'creature', op: 'rest' }), { cls: 'place small quiet', disabled: c.asleep }));
+    card.append(row);
   }
-  card.append(el('div', 'hint', info.lines[0]), el('div', 'hint', info.lines[1]), el('div', 'hint', info.lines[2]));
-  card.append(bar('Health', c.hp / Math.max(1, c.maxHp), `${c.hp}/${c.maxHp}`), bar('Fed', c.hunger / 100, `${c.hunger}`), bar('Rested', c.rest / 100, `${c.rest}`), bar('Played with', c.play / 100, `${c.play}`));
-  for (const line of info.lines.slice(4)) card.append(el('div', 'hint', line));
-  const row = el('div', '');
-  row.style.cssText = 'display:flex;flex-wrap:wrap;gap:6px;margin-top:6px';
-  if (c.ask) row.append(button('Praise', () => bridge?.command({ type: 'creature', op: 'praise' }), { cls: 'place small' }), button('Scold', () => bridge?.command({ type: 'creature', op: 'scold' }), { cls: 'place small quiet' }));
-  row.append(button('Feed', () => bridge?.command({ type: 'creature', op: 'feed' }), { cls: 'place small quiet', title: c.kind === 'golem' ? 'Feed it stone from the stores' : 'Feed it from the stores' }), button('Rest', () => bridge?.command({ type: 'creature', op: 'rest' }), { cls: 'place small quiet', disabled: c.asleep }));
-  card.append(row);
-  return [el('h2', '', 'The God creature'), el('div', 'hint', 'It learns from you: praise what you want more of, scold what you don\'t. It turns good or cruel by what it does.'), card];
+  // (its name: the town gave it, and may change it)
+  const form = el('form', '');
+  form.style.cssText = 'display:flex;gap:6px;margin:8px 0 0';
+  const input = document.createElement('input');
+  input.type = 'text';
+  input.maxLength = 24;
+  input.placeholder = `Rename ${c.name}`;
+  input.autocomplete = 'off';
+  input.style.cssText = 'flex:1;min-width:0;min-height:40px;padding:6px 10px;font:inherit;font-size:16px';
+  const go = el('button', 'place small quiet', 'Rename');
+  go.type = 'submit';
+  form.append(input, go);
+  form.addEventListener('submit', (ev) => {
+    ev.preventDefault();
+    const name = input.value.replace(/\s+/g, ' ').trim();
+    if (name.length < 2) return void input.focus();
+    bridge?.command({ type: 'name', kind: 'creature', id: 'creature', name });
+    input.value = '';
+  });
+  card.append(form);
+  out.push(el('h2', '', 'The God creature'), el('div', 'hint', "It learns from you: praise what you want more of, scold what you don't. It turns good or cruel by what it does."), card);
+
+  // its spells
+  out.push(el('h2', '', 'Its spells'));
+  if (!c.spells.length) out.push(el('div', 'hint', 'None yet. A good creature comes to heal, a cruel one to harm; and it learns what it watches the townsfolk cast.'));
+  for (const sp of c.spells) {
+    const r = el('div', 'card person');
+    r.append(el('div', 'card-name', sp.name), bar('Mastery', sp.skill, `${Math.round(sp.skill * 100)}%`), el('div', 'hint', `From ${sp.from} · cast ${sp.uses} time${sp.uses === 1 ? '' : 's'}`));
+    out.push(r);
+  }
+  if (c.learning.length) out.push(el('div', 'hint', `Watching and learning: ${c.learning.map((l) => `${l.name} (seen ${l.seen}×)`).join(', ')}`));
+
+  // its likings, and a gentle nudge
+  const likes = el('div', 'card person');
+  likes.append(el('div', 'hint', c.nudgeReady ? 'Coax it toward something, or away: a little at a time. It is a creature, not a servant.' : 'It has had enough coaxing for now.'));
+  out.push(el('h2', '', 'Its likings'), likes);
+  for (const l of c.likes) {
+    const r = el('div', 'bar-row');
+    const b = el('div', 'bar');
+    const f = el('div', l.value < -0.2 ? 'bar-fill low' : 'bar-fill');
+    f.style.width = `${Math.round(((l.value + 1) / 2) * 100)}%`;
+    b.append(f);
+    const word = l.value >= 0.5 ? 'loves it' : l.value >= 0.15 ? 'likes it' : l.value > -0.15 ? 'so-so' : l.value > -0.5 ? 'dislikes it' : 'shuns it';
+    r.append(el('span', 'bar-label', l.name), b, el('span', 'bar-text', word));
+    const nudge = el('div', '');
+    nudge.style.cssText = 'display:flex;gap:6px;margin:2px 0 8px;justify-content:flex-end';
+    const off = !c.nudgeReady || !!c.dead || !!c.away;
+    nudge.append(button('Discourage', () => bridge?.command({ type: 'creatureNudge', liking: l.id, up: false }), { cls: 'place small quiet', disabled: off || l.value <= -1 }), button('Encourage', () => bridge?.command({ type: 'creatureNudge', liking: l.id, up: true }), { cls: 'place small quiet', disabled: off || l.value >= 1 }));
+    likes.append(r, nudge);
+  }
+  if (c.liked.length) likes.append(el('div', 'hint', `Praised for: ${c.liked.join(', ')}`));
+  if (c.shunned.length) likes.append(el('div', 'hint', `Scolded off: ${c.shunned.join(', ')}`));
+  if (c.friends.length) likes.append(el('div', 'hint', `Fond of: ${c.friends.join(', ')}`));
+
+  // its deeds
+  const told = el('div', '');
+  out.push(el('h2', '', 'Its deeds'), told);
+  const deeds = [...c.log.slice().reverse().map((t) => ({ day: 0, text: t })), ...c.history];
+  if (!deeds.length) told.append(el('div', 'hint', 'Nothing yet.'));
+  const seen = new Set<string>();
+  for (const d of deeds) {
+    if (seen.has(d.text)) continue;
+    seen.add(d.text);
+    told.append(el('div', 'hint', d.day ? `Day ${d.day}: ${d.text}` : `Lately: ${d.text}`));
+    if (seen.size >= 14) break;
+  }
+
+  // its pen
+  out.push(el('h2', '', 'Its pen'));
+  out.push(el('div', 'hint', c.pen !== null ? 'Its Creature Pen stands: it sleeps there, and comes back there if it dies.' : 'It has no pen: it sleeps by the camp, and if it dies it cannot come back until a Creature Pen is built (the build menu, Town tab).'));
+  return out;
 }
 
 /** Its picture, facing you, from its own sheets' still rotations (art/iso/creature/<kind>/, beside the page); tinted

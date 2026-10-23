@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { ASK_HOURS, CREATURE_DEFS, CREATURE_KINDS, kindStats, CREATURE_SAGA, CREATURE_TOPIC, GROW_PACED_DAYS, TINT_GOOD, creatureTint } from '../src/shared/data/creature';
+import { ASK_HOURS, CREATURE_DEFS, CREATURE_PEN, CREATURE_KINDS, kindStats, CREATURE_SAGA, CREATURE_TOPIC, GROW_PACED_DAYS, TINT_GOOD, creatureTint } from '../src/shared/data/creature';
 import { forgone } from '../src/shared/data/originResearch';
 import { ORIGINS } from '../src/shared/data/origins';
 import { DANGER_PACE } from '../src/shared/data/pace';
@@ -46,13 +46,16 @@ test('God Creatures is a second-age topic every people studies', () => {
   for (const o of ORIGINS) assert.ok(!forgone(CREATURE_TOPIC, o), `${o} studies it`);
 });
 
-test('the saga begins only after the research, and its pick holds the game for the five kinds', () => {
+test('the saga begins only after the research and the pen, and its pick holds the game for the five kinds', () => {
   const s = town('beast-saga');
   s.autopilot = true;
   hour(s);
   creatureArrives(s);
   assert.ok(!(s.sagas ?? []).length, 'no saga before the research');
   s.research.done.push(CREATURE_TOPIC);
+  creatureArrives(s);
+  assert.ok(!(s.sagas ?? []).length, 'nor before its pen is built');
+  put(s, CREATURE_PEN, campXY(s).x / 32 - 8, row(s));
   creatureArrives(s);
   assert.equal(s.sagas?.[0]?.id, CREATURE_SAGA, 'the saga begins');
   creatureArrives(s);

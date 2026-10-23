@@ -2,6 +2,7 @@
 // with what it can carry (maybe ambushed on the way). While away, members are off the map: no town work,
 // and they eat the food they packed. Fights and questions for the player pause the trip.
 
+import { creatureBattleOver, creatureFighter, watchBattle } from './creatureFolk';
 import { noteBossFelled, noteFinders } from './provenance';
 import { addDeed } from './deeds';
 import { assaultDestination, assaultOver, assaultTargets, isAssaultDest, leviesFor, planAssault } from './factions';
@@ -463,6 +464,7 @@ export function updateExpeditions(s: GameState, rng: Rng): void {
     if (e.prompt !== null) continue;
     if (e.battle) {
       stepBattle(e.battle, rng, { retreatAt: STANCES[e.stance].retreatAt, mainId: members.some((p) => p.id === s.mainId) ? s.mainId : null });
+      watchBattle(s, e, e.battle); // (the God creature, if it went along, watches the casters: sim/creatureFolk.ts)
       // what the bosses did, for the Journal
       if (e.battle.shouts?.length) {
         for (const t of e.battle.shouts) notify(s, `At ${the(d.name)}: ${t}`, true);
@@ -589,6 +591,9 @@ function fightGroup(s: GameState, e: Expedition, d: Destination, members: Person
   meet(s, Object.keys(group)); // (the Bestiary)
   // summoned spirits and tamed wolves join in (they act on their own first beat)
   for (const f of classAllies(members)) e.battle.fighters.push({ ...f, cooldown: f.interval });
+  // (and the God creature, if it came along: sim/creatureFolk.ts)
+  const beast = creatureFighter(s, e);
+  if (beast) e.battle.fighters.push(beast);
   // an epic boss announces itself
   for (const kind of new Set(Object.keys(group))) if (ENEMIES[kind]?.kit) notify(s, `At ${the(d.name)}: ${ENEMIES[kind].kit!.roar}`, true);
   notify(s, `${The(d.name)} party is attacked by ${describeGroup(group)}!`);
@@ -599,6 +604,7 @@ function fightGroup(s: GameState, e: Expedition, d: Destination, members: Person
 function finishBattle(s: GameState, e: Expedition, d: Destination, members: Person[], rng: Rng): void {
   const b = e.battle!;
   e.battle = null;
+  creatureBattleOver(s, e, b);
   // the victory screen's tally: each member's experience and levels before and after
   const result: FightResult = { tick: s.tick, outcome: b.outcome ?? 'won', members: [], loot: {}, coins: 0, foes: [...new Set(b.fighters.filter((f) => f.side === 'enemy').map((f) => f.name))], boss: b.fighters.find((f) => f.side === 'enemy' && ENEMIES[f.kind]?.boss)?.name ?? null };
   // carry the fight's wounds back to the people (and count the stones thrown)

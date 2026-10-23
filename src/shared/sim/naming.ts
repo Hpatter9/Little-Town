@@ -2,10 +2,14 @@
 // newborn of their family (a question with three suggestions and a box to type in) and a unique weapon when it is forged.
 // A building's name is kept in `Building.homeName` (the same place a home's own name is, so every sign and card that shows
 // that shows this) with `Building.named` set; a child's is their `name`; a unique's is in `GameState.uniqueNames` and
-// the renderer lays it over the item's name (renderer/art/givenNames.ts). The command is `name`; `cleanName` checks it.
+// the renderer lays it over the item's name (renderer/art/givenNames.ts). The God creature is named by the town when it
+// comes (`askCreatureName`: three names that fit its kind) and may be renamed from its menu; its name is `creature.name`,
+// which every line about it uses. The command is `name`; `cleanName` checks it.
 // The questions (autopilot only) draw from their own side stream and lapse, after `NAME_HOURS`, to keeping what it has.
 
 import { BUILDING_BY_ID } from '../data/buildings';
+import { CREATURE_DEFS, CREATURE_NAMES } from '../data/creature';
+import type { CreatureState } from './creature';
 import { NAMES } from '../data/people';
 import { ITEM_BY_ID } from '../data/items';
 import { hashSeed, Rng } from '../rng';
@@ -18,7 +22,9 @@ export const NAME_MAX = 24;
 /** How long a naming question waits before the name stays as it is. */
 export const NAME_HOURS = 24;
 
-export type NameKind = 'building' | 'person' | 'unique';
+export type NameKind = 'building' | 'person' | 'unique' | 'creature';
+/** The God creature's id in a naming (there is only ever one). */
+export const CREATURE_NAMING = 'creature';
 export type NameResult = { ok: true; name: string } | { ok: false; reason: string };
 
 /** What a unique may be called, for the suggestions. */
@@ -60,6 +66,16 @@ export function applyName(s: GameState, kind: NameKind, id: number | string, raw
     const was = p.name;
     p.name = name;
     notify(s, `${was} is named ${name}.`, true);
+    return { ok: true, name };
+  }
+  if (kind === 'creature') {
+    const c = s.creature;
+    if (!c) return { ok: false, reason: 'There is no God creature' };
+    if (s.people.some((q) => q.name.toLowerCase() === name.toLowerCase())) return { ok: false, reason: `Someone is already called ${name}` };
+    const was = c.name;
+    c.name = name;
+    (c.history ??= []).push({ tick: s.tick, text: was === name ? `Named ${name} by the town.` : `Named ${name} by the town (it was called ${was}).` });
+    notify(s, `The God creature is named ${name}.`, true);
     return { ok: true, name };
   }
   if (typeof id !== 'string' || !(s.uniques ?? []).includes(id)) return { ok: false, reason: 'That cannot be named' };
@@ -108,6 +124,19 @@ export function askUniqueName(s: GameState, id: string): void {
   while (suggest.length < 3) suggest.push(pool.splice(rng.int(0, pool.length - 1), 1)[0]);
   const was = ITEM_BY_ID[id].name;
   ask(s, { kind: 'unique', id }, `${was} is forged`, `There is no other like it. What will you call it?`, suggest, was);
+}
+
+/** The God creature has come: the town names it (three names that fit its kind, or one typed; left, it keeps the one it
+ *  goes by). */
+export function askCreatureName(s: GameState, c: CreatureState): void {
+  if (s.autopilot === false) return;
+  const rng = new Rng(hashSeed(`${s.seed}:naming:${s.tick}:creature`));
+  const taken = new Set(s.people.map((p) => p.name.toLowerCase()));
+  const pool = CREATURE_NAMES[c.kind].filter((n) => n !== c.name && !taken.has(n.toLowerCase()));
+  const suggest: string[] = [];
+  while (suggest.length < 3 && pool.length) suggest.push(pool.splice(rng.int(0, pool.length - 1), 1)[0]);
+  const kind = CREATURE_DEFS[c.kind].name.toLowerCase();
+  ask(s, { kind: 'creature', id: CREATURE_NAMING }, 'Name the God creature', `The young ${kind} follows ${s.people.find((p) => p.id === s.mainId)?.name ?? 'you'} about, and the town wants a name for it. It will be called by it from now on. For now it answers to ${c.name}.`, suggest, c.name);
 }
 
 /** A naming question answered by tapping one of its options. */

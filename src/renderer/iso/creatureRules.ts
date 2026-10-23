@@ -50,6 +50,9 @@ const AT_WORK: Record<CreatureDeed, CreatureAnim[]> = {
   eat: ['eat'],
   sleep: ['idle'],
   wander: ['idle'],
+  // (at the founder's side it walks with them, and stands by when they stop; a spell is the miracle move)
+  follow: ['idle'],
+  miracle: ['miracle'],
 };
 /** Deeds it hurries to. */
 const HURRIES: ReadonlySet<CreatureDeed> = new Set(['hunt', 'fight', 'scare', 'eat_villager']);

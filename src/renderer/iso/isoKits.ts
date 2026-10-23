@@ -163,7 +163,7 @@ export function roleOf(defId: string): Drawn {
   if (/turret|ballista|catapult|cannon|mortar|tesla|gun_nest|bastion|thrower|sprayer|arrow_wagon|militia_post|sentry_bot/.test(defId)) return { role: 'watchtower' };
   // (a gathering round a fire, and the pens for beasts: the kit's own fire or pen where it has one)
   if (/storyteller/.test(defId)) return { role: 'hearth' };
-  if (/^(kennels|beast_ranch|stable)$/.test(defId)) return { role: 'pen' };
+  if (/^(kennels|beast_ranch|creature_pen|stable)$/.test(defId)) return { role: 'pen' };
   // (the halls of learning, healing and show are halls)
   if (/^(school|scriptorium|library|university|arcane_academy|arcane_library|hospital|infirmary|trauma_center|theatre|cinema|bathhouse|gaol|prison|monster_guild|print_shop)$/.test(defId)) return { role: 'longhouse' };
   if (/shrine|temple|cathedral|chapel|altar|idol/.test(defId)) return { role: 'chapel' };

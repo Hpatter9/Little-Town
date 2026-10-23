@@ -19,6 +19,8 @@
 
 import { BUILDING_BY_ID } from '../data/buildings';
 import { castsMagic, CLASS_DEFS } from '../data/classes';
+import { SIGHT_TILES } from '../data/creatureSpells';
+import { creatureKit, creatureWatches, practise } from './creatureSpells';
 import { ENEMIES } from '../data/enemies';
 import { RAID_KIND_BY_ID } from '../data/raids';
 import { TILE } from '../constants';
@@ -736,7 +738,8 @@ export function startTactics(s: GameState, r: Raid): void {
     return false;
   };
   for (const p of sorted) place(`p${p.id}`, ranged(p) || castsMagic(p.cls), { kit: kitOf(p), st: {} });
-  for (const a of allies) place(`r${a.id}`, ENEMIES[a.kind].ranged);
+  // (the God creature fights with its spells, a kit of its own: sim/creatureSpells.ts)
+  for (const a of allies) place(`r${a.id}`, ENEMIES[a.kind].ranged, a.creature && s.creature ? { kit: creatureKit(s.creature), st: {} } : undefined);
   // the town's towers on the board take turns of their own (they stand on their blocks)
   for (const b of s.buildings) {
     const d = BUILDING_BY_ID[b.def]?.defense;
@@ -922,17 +925,33 @@ function asRaider(rd: Raider): Combatant {
   };
 }
 
+/** Who casts from a unit's kit: a townsperson, or the God creature (its spells, sim/creatureSpells.ts). */
+function caster(s: GameState, r: Raid, me: TacUnit): Combatant | null {
+  const p = personOf(s, me.key);
+  if (p) return asPerson(me, p);
+  const rd = raiderOf(r, me.key);
+  if (!rd?.creature || !me.kit) return null;
+  const base = asRaider(rd);
+  const k = rd.might ?? 1; // (its blow as it is grown)
+  return { ...base, damage: [Math.round(base.damage[0] * k), Math.round(base.damage[1] * k)], name: s.creature?.name ?? ENEMIES[rd.kind].name, kit: me.kit, get hp() { return rd.hp; }, set hp(v) { rd.hp = Math.max(0, Math.round(v)); }, get down() { return rd.down; }, set down(v) { rd.down = v; } };
+}
+/** A God creature's unit (it casts from its kit like a townsperson). */
+const isBeast = (r: Raid, u: TacUnit) => !!raiderOf(r, u.key)?.creature;
+/** How far a unit's spells reach: its own reach, the God creature's `BEAST_SPELL_REACH` (it fights in close, but its
+ *  magic carries). */
+const BEAST_SPELL_REACH = 3;
+const spellReach = (s: GameState, r: Raid, me: TacUnit) => (isBeast(r, me) ? Math.max(BEAST_SPELL_REACH, statsOf(s, r, me).reach) : statsOf(s, r, me).reach);
+
 /** The board as a spell or skill sees it: the caster, the foes and friends it may touch. */
 function arenaFor(s: GameState, r: Raid, t: Tactics, me: TacUnit, foes: TacUnit[], friends: TacUnit[], rng: Rng): (Arena & { me: Combatant }) | null {
-  const p = personOf(s, me.key);
-  if (!p) return null;
+  const self = caster(s, r, me);
+  if (!self) return null;
   const c = (u: TacUnit): Combatant | null => {
     const q = personOf(s, u.key);
     if (q) return asPerson(u, q);
     const rd = raiderOf(r, u.key);
     return rd ? asRaider(rd) : null;
   };
-  const self = asPerson(me, p);
   const others = [...friends, ...foes].filter((u) => u !== me).map(c).filter((x): x is Combatant => !!x);
   return {
     me: self,
@@ -1447,8 +1466,8 @@ function play(s: GameState, r: Raid, t: Tactics, rng: Rng): void {
     else if (a.skill) did = cast(s, r, t, me, a.skill, a.at ?? (target ? [target.u, target.v] : [me.u, me.v]), rng);
     else if (target && target.count === undefined && canStrike(s, t, statsOf(s, r, me), me, target)) {
       // (a caster reaches for a spell or skill first, if one's worth it; else the blow)
-      did = (me.key[0] === 'p' && !t.await && kitTurn(s, r, t, me, rng)) || (strike(s, r, t, me, target, rng), true);
-    } else if (me.key[0] === 'p' && !t.await) did = kitTurn(s, r, t, me, rng);
+      did = ((me.key[0] === 'p' || isBeast(r, me)) && !t.await && kitTurn(s, r, t, me, rng)) || (strike(s, r, t, me, target, rng), true);
+    } else if ((me.key[0] === 'p' || isBeast(r, me)) && !t.await) did = kitTurn(s, r, t, me, rng);
     if (t.await) t.await.acted = true;
     a.stage = 'beat';
     a.next = s.tick + (did ? BEAT_TICKS : WAIT_TICKS);
@@ -1478,7 +1497,8 @@ function kitTurn(s: GameState, r: Raid, t: Tactics, me: TacUnit, rng: Rng): bool
   arena.me.kit = me.kit;
   const used = takeTurn(arena, arena.me);
   me.kit.actions = all;
-  if (used) personOf(s, me.key)!.lastBlow = s.tick;
+  const p = personOf(s, me.key);
+  if (used && p) p.lastBlow = s.tick;
   return used;
 }
 
@@ -1490,10 +1510,9 @@ function touchedBy(t: Tactics, me: TacUnit, tiles: readonly Tile[], foe: boolean
 
 /** The town's pick of spell or skill and where to aim it (null: nothing worth it). */
 export function bestCast(s: GameState, r: Raid, t: Tactics, me: TacUnit): { act: KitAction; at: Tile; score: number } | null {
-  const p = personOf(s, me.key);
-  if (!p || !me.kit) return null;
-  const pay = asPerson(me, p);
-  const reach = statsOf(s, r, me).reach;
+  const pay = me.kit ? caster(s, r, me) : null;
+  if (!pay || !me.kit) return null;
+  const reach = spellReach(s, r, me);
   let best: { act: KitAction; at: Tile; score: number } | null = null;
   for (const act of me.kit.actions) {
     if (act.ready > s.tick || !canPay(pay, act) || held(pay, s.tick)) continue;
@@ -1530,7 +1549,7 @@ export function bestCast(s: GameState, r: Raid, t: Tactics, me: TacUnit): { act:
 function cast(s: GameState, r: Raid, t: Tactics, me: TacUnit, id: string, at: Tile, rng: Rng): boolean {
   const act = me.kit?.actions.find((x) => x.id === id);
   if (!act) return false;
-  const area = areaOf(act, statsOf(s, r, me).reach);
+  const area = areaOf(act, spellReach(s, r, me));
   const aim = aimOf(act);
   const tiles = areaTiles(area, [me.u, me.v], at, t.w, t.h);
   const foes = aim === 'foe' ? touchedBy(t, me, tiles, true) : [];
@@ -1554,7 +1573,15 @@ function cast(s: GameState, r: Raid, t: Tactics, me: TacUnit, id: string, at: Ti
   // (facing the mark)
   if (at[0] !== me.u || at[1] !== me.v) me.facing = Math.abs(at[0] - me.u) >= Math.abs(at[1] - me.v) ? (at[0] > me.u ? 0 : 2) : at[1] > me.v ? 1 : 3;
   numbers(s, r, t, hp);
-  personOf(s, me.key)!.lastBlow = s.tick;
+  const p = personOf(s, me.key);
+  if (p) p.lastBlow = s.tick;
+  // (the God creature gets better at what it casts, and watches what the townsfolk cast near it: sim/creatureSpells.ts)
+  const beast = s.creature && !s.creature.dead ? s.creature : null;
+  if (beast && !p && isBeast(r, me)) practise(beast, act.id);
+  else if (beast && p && act.spell) {
+    const eye = t.units.find((u) => isBeast(r, u));
+    if (eye && apart(eye, me) <= SIGHT_TILES) creatureWatches(s, beast, act.id, p.name);
+  }
   return true;
 }
 
