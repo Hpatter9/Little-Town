@@ -24,6 +24,7 @@ import { renderAlerts } from './alertsPanel';
 import { founderKey, renderFounder, renderFounderCharacter } from './founderPanel';
 import { renderStory, storyKey } from './storyPanel';
 import { renderNewGame, restartNewGame } from './newGamePanel';
+import { devKey, ensureDevStyle, renderDev } from './devPanel';
 import { isVenuePanel, renderShop, shopKey, venueView } from './shopPanel';
 import { hkKnow } from '../art/hkFolk';
 import { folkKnow } from '../art/folkPortrait';
@@ -117,6 +118,8 @@ function keyOf(): string {
                     ? 'f' + founderKey(snap) + '|' + storyKey(snap)
                   : shown === 'newgame'
                     ? 'n' + !!snap.gameOver + legendsVersion()
+                  : shown === 'dev'
+                    ? 'd' + devKey(snap)
                     : shown;
   return `${key}|${tabKey(shown ?? '')}|${detailsKey()}`;
 }
@@ -139,7 +142,7 @@ function render(): void {
   if (pressing) return;
   renderedKey = keyed;
   const tab = PANELS.find((p) => p.id === shown);
-  title.textContent = tab ? panelLabel(tab.id, tab.label, currentTheme()) : (shown === 'alerts' ? 'Phone alerts' : shown === 'founder' ? 'The founder' : shown === 'newgame' ? 'New town' : isVenuePanel(shown) ? (venueView(snap, shown)?.name ?? (shown === 'shop' ? 'Shop' : shown === 'tavern' ? 'Tavern' : 'Shop')) : '');
+  title.textContent = tab ? panelLabel(tab.id, tab.label, currentTheme()) : (shown === 'alerts' ? 'Phone alerts' : shown === 'founder' ? 'The founder' : shown === 'newgame' ? 'New town' : shown === 'dev' ? 'Developer' : isVenuePanel(shown) ? (venueView(snap, shown)?.name ?? (shown === 'shop' ? 'Shop' : shown === 'tavern' ? 'Tavern' : 'Shop')) : '');
   const scroll = body.scrollTop;
   if (snap && shown === 'journal') {
     // fetched separately: the whole journal is too big to send with every snapshot
@@ -174,6 +177,7 @@ function render(): void {
     body.replaceChildren(...renderShop(snap, shown, render));
   }
   else if (snap && shown === 'newgame') body.replaceChildren(...renderNewGame(snap, bridge));
+  else if (snap && shown === 'dev') body.replaceChildren(...tabbed(renderDev(snap, bridge, render)));
   else body.replaceChildren(el('p', 'empty', 'Loading…'));
   // (drawing may have settled which sub-tab is open: the key as it is now, so the next snapshot doesn't redraw for nothing)
   renderedKey = keyOf();
@@ -193,6 +197,7 @@ function render(): void {
 }
 
 ensureStructureStyle();
+ensureDevStyle();
 // (a swipe to the right closes the card opened last, or a sheet)
 installSwipe(body, closeLatestCard);
 // (a tapped name's card over the menu: infoCard.ts; the phone page opens one too, from the news or a reveal card)

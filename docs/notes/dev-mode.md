@@ -1,0 +1,29 @@
+## Developer mode
+
+The owner's ask: "a developer mode button in the settings. When on, it allows me to instantly kill, build, research, harvest, and other things like this... to play through quickly to see what bugs I run into."
+
+**The switch.** The ☰ menu has a Developer section: `Developer mode: on/off`, kept per device in `localStorage` `littletown.dev` (off by default; `mobile/mobile.ts`, `devOn`, `setDev`), and `Developer menu…` while it's on. Turning it on sends the command `devMode { on }`; the page keeps the town in step with the device's switch (a town loaded or begun with it on is put in developer mode, one played with it off is taken out; asked at most every 5 s, never for an ironman town). While it's on, a red vertical **DEV** mark sits at the left edge, half way down (`#dev-mark`, pointer-events none), and a **Dev** tab (⚙) joins the tab bar (`makeTab`, `showDev`: the bar's grid takes one more column, inline, so no `@media` rule changes).
+
+**The sim side** (`sim/dev.ts`, `sim/devOrders.ts`). New optional `GameState` fields: `dev` (orders taken), `devSave` (it was ever on: a dev save for good), `devBuild` (orders build at once), `devSkipTo` (the tick a fast-forward runs to). `setDevMode` refuses an ironman town. Every cheat is one command, `dev { order: DevOrder }` (`commands.ts`, `isDevCommand`), checked by `parseDevOrder` and applied in `sim.ts` only `if (s.dev && !s.ironman)`. They go through the town's own calls, and draw from a side stream (`hashSeed(`${seed}:dev:<what>:${tick}`)`), never the town's:
+- `finishBuilds` / `finishBuilding { id }`: each blueprint finished as a builder finishes it (overgrown cells cleared with `clearCell`, a hold's room dug, `hp` set, `onBuilt`); the ring wall through `finishRing`; the planned streets laid (`layAll`). `instantBuild { on }`: `devTick` (run each step after the commands) finishes any blueprint while `devBuild` is on.
+- `finishResearch`: the topic under study (or the first on offer, through `chooseOffer`) learned via `learnTopic`, now exported from `people.ts` (the end of `workResearch`, moved out unchanged), then `keepOffer` draws the next offer.
+- `harvest`: every field with a crop in is reaped into the stores, as a farmer's harvest (yield × soil, the soil tires, an orchard keeps bearing). `fill { amount }`: that much grain, wood and stone into the stores (nearest first; what won't fit goes in the first store anyway) and coins into the treasury and the founder's purse (`DEV_FILL_MOST` 100000).
+- `kill { target: person | raider | roamer, id }`: a person through `killPerson` (cause `DEV_CAUSE`, "by the developer’s hand": succession, the annals, funerals and the phoenix feather all apply); a raider struck down (`hp` 0, `down`); a band on the land gone, or its skirmish won. `killRaiders`, `winFight` (the raid's raiders and every party or skirmish battle's foes struck down: the fights' own steps then call them won), `down { id }` (`knockDown`, to test bleeding and rescue).
+- `heal { id | null }`: health, bleeding, sickness, wounds, hunger and rest (lost limbs stay lost).
+- `skip { hours }` (1 to `DEV_SKIP_MOST_HOURS` 240), `stopSkip`: sets `devSkipTo`. `shared/gameLoop.ts` runs the steps flat out, `DEV_SLICE_MS` 40 a frame, like a skipped raid; open questions answer themselves on their clocks, and a raid met on the way is skipped to its recap (`skipRaid`). It waits while the town is paused (a menu open), while a page card is up (a recap, a reveal: `cardsUp`), and while a question waits on the founder; `devTick` ends it at its tick.
+- `raid { kind | null }` (`startRaid` with `raidBudget`: the kind asked, or one drawn from the era's and land's kinds), `event { id }` (`startEvent`; refused while an event waits), `levelUp { id | null, levels }` (the founder by default, as fight XP through `gainLevelXp`, so stat points and evolutions follow), `creatureSaga` (Great Beasts learned if not, then `beginSaga(CREATURE_SAGA)`), `disaster { kind }` (`startDisaster`), `reveal` (the fog lifted: `s.explored` all seen).
+
+The snapshot gains `dev: { build, skipHours } | null` and `devSave`.
+
+**The Developer menu** (`panel/devPanel.ts`, `renderDev`, `devKey`, `ensureDevStyle`; `PanelId` `'dev'` in `shared/ipc.ts`, drawn in `panel/panel.ts`). Three sub-tabs (`GROUPS.dev` in `panel/subtabs.ts`): **Town** (Building, Research, Fields and stores, Time), **Fights** (Raids and fights, People), **Story** (Events, Sagas, Disasters, The land). Buttons are at least 40 px high and wrap. Lists: raid kinds, the townsfolk (Kill, Knock down, Heal, +1 level), every event by title and id. The existing "Every building unlocked" cheat (`cheatUnlockAll`) is there too.
+
+**Tap cards** (`main.ts`, `inspectInfo` now wraps the old `cardInfo`): in developer mode a person's, building's, raider's or roaming band's card ends with **Dev…**, which swaps its buttons for the dev ones (person: Kill, Knock down, Heal, +1 / +10 levels; building: Finish it now (a blueprint), Finish all building, Harvest every field, Fill the stores; raider: Kill, Kill every raider, Win the fight; band: Kill the band) and Back.
+
+Tests: `test/devMode.test.ts` (each order's effect, refusal while off and in ironman, the IPC checks, no draw from the town's stream, the game loop's fast-forward). Screenshots at 393×852 and 852×393: `docs/notes/dev-mode/`.
+
+### For the owner
+- A dev save stays marked (`devSave`) after developer mode is turned off; nothing yet shows that on the save slots. Say if it should.
+- A fast-forward stops for the same pop-ups as play does (recap cards, reveals, a question for the founder) until they're closed; questions to the town answer themselves.
+- The event list holds every event, other peoples' too (a settlers' town can be put a vampire's ball); some may read oddly out of place.
+- Arena bouts and the founder's duels aren't covered by "Win the fight".
+- The switch is on the phone page only; the desktop app has none (its dock has no Dev tab).
