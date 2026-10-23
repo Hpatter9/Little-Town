@@ -6,6 +6,7 @@ import { newGame } from '../src/shared/sim/state';
 import { BOARD_FACING, STRIKE_TICKS, boardCreatureMoves, boardFacing, boardFolkAnim, type BoardMoment } from '../src/renderer/iso/boardRules';
 import { BLOW_TICKS, HURT_TICKS, RUN_SPEED, play, wantedAnim, type FolkAnim, type FolkState } from '../src/renderer/iso/folkRules';
 import { folkWho } from '../src/renderer/iso/folkWho';
+import { FEET_UP, HEAD_UP, markAt, wearsMark } from '../src/renderer/iso/founderMark';
 
 const still: BoardMoment = { moving: false, casting: false };
 const ready = { downed: null, hp: 30, sinceHit: 99, sinceBlow: 99 };
@@ -83,4 +84,17 @@ test('on the map a defender runs to the foe between blows, and strikes in their 
   assert.equal(wantedAnim(st(), RUN_SPEED, 'sw'), 'run');
   assert.equal(wantedAnim(st({ sinceBlow: 2 }), 40, 'sw'), 'attack_1h', 'a blow struck on the move still shows');
   assert.equal(wantedAnim(st({ sinceHit: 1 }), 40, 'sw'), 'hurt');
+});
+
+test('the founder wears the marker while in sight: a crown over the head, a ring at the feet', () => {
+  const p = { id: 1, indoors: false, away: null as string | null };
+  assert.ok(wearsMark(p, 1));
+  assert.ok(!wearsMark(p, 2), 'only the founder');
+  assert.ok(!wearsMark(p, null));
+  assert.ok(!wearsMark({ ...p, indoors: true }, 1), 'indoors: hidden with them');
+  assert.ok(!wearsMark({ ...p, away: 'the Barrow' }, 1), 'away on a trip');
+  const at = markAt(100, 0.5, 0);
+  assert.equal(at.ringY, 100 - FEET_UP * 0.5);
+  assert.ok(at.crownY < 100 - HEAD_UP * 0.5 + 1 && at.crownY > 100 - HEAD_UP * 0.5 - 8, 'just over the head');
+  assert.ok(markAt(100, 1, 0).crownY < at.crownY, 'a taller figure, a higher crown');
 });

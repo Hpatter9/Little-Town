@@ -53,6 +53,9 @@ import fluteUrl from '../art/life/flute.png';
 import { markWalker } from '../iso/seeThrough';
 import { boardFacing, boardFolkAnim, type BoardMoment } from '../iso/boardRules';
 import { ITEM_BY_ID } from '../../shared/data/items';
+import { CROWN_SCALE, RING_W, markAt, wearsMark } from '../iso/founderMark';
+import { iconSheet } from '../art/icons';
+import { CROWN } from '../../shared/data/emblems';
 
 /** Standing still, a person breathes (a pixel's rise every couple of seconds) and shifts their weight now and then
  *  (a step frame for a moment every few seconds), each on their own clock, so nobody looks frozen. */
@@ -124,6 +127,18 @@ const CRY_FOR = 6500;
 const BARROW_SCALE = 0.62;
 const BARROW_AHEAD = 13;
 let barrowTex: Texture | null = null;
+/** The founder's crown: DawnLike's crown (the Hat sheet's, as the class emblems' crown: art/emblems.ts). */
+let crownTex: Texture | null = null;
+{
+  const sheet = iconSheet(CROWN[0]);
+  loadImage(sheet.url)
+    .then((im) => {
+      const src = Texture.from(im).source;
+      src.scaleMode = 'nearest';
+      crownTex = new Texture({ source: src, frame: new Rectangle((CROWN[1] % sheet.cols) * sheet.cell, Math.floor(CROWN[1] / sheet.cols) * sheet.cell, sheet.cell, sheet.cell) });
+    })
+    .catch(() => undefined);
+}
 let pailTex: Texture | null = null;
 loadImage(pailUrl)
   .then((im) => {
@@ -196,6 +211,9 @@ interface Drawn {
   levelAt?: number;
   levelUp?: Sprite;
   aura?: Sprite;
+  /** The founder's marker: a gold crown over their head and a soft gold ring at their feet (iso/founderMark.ts). */
+  crown?: Sprite;
+  crownRing?: Graphics;
   /** Their harm as it shows (map/bodyMarks.ts): a patch, a peg, a hook, a crutch, a bandage; and what's drawn. */
   marks?: Graphics;
   marksKey?: string;
@@ -396,7 +414,7 @@ export class MapPeople {
     }
     for (const [id, d] of this.drawn)
       if (!seen.has(id)) {
-        for (const o of [d.cough, d.sprite, d.shadow, d.ring.g, d.horse, d.horseFront, d.load, d.bubble, d.spray, d.barrow, d.pail, d.reflect, d.kite, d.props, d.blood, d.emote, d.levelUp, d.aura, d.lamp, d.tail, d.folk, d.speech, d.marks, d.work, d.hpBar]) o?.destroy();
+        for (const o of [d.cough, d.sprite, d.shadow, d.ring.g, d.horse, d.horseFront, d.load, d.bubble, d.spray, d.barrow, d.pail, d.reflect, d.kite, d.props, d.blood, d.emote, d.levelUp, d.aura, d.crown, d.crownRing, d.lamp, d.tail, d.folk, d.speech, d.marks, d.work, d.hpBar]) o?.destroy();
         this.drawn.delete(id);
       }
   }
@@ -866,6 +884,27 @@ export class MapPeople {
           d.folkAt = now;
           s.visible = false;
         } else if (d.folk) d.folk.visible = false;
+      }
+      // the founder's marker: a crown over their head and a gold ring at their feet, always, so the player's character
+      // stands out (marked as a walker, so a roof in front of it fades as one in front of them does: iso/seeThrough.ts)
+      const crowned = this.isoFolk && folkOn && !!crownTex && wearsMark(v, this.founderId);
+      if (crowned && !d.crown) {
+        markWalker((d.crown = this.layer.addChild(new Sprite(crownTex!))));
+        d.crown.anchor.set(0.5, 1);
+        d.crownRing = this.layer.addChild(new Graphics());
+        d.crownRing.ellipse(0, 0, RING_W / 2, RING_W / 5).fill({ color: 0xffd860, alpha: 0.22 }).stroke({ color: 0xffe9a0, width: 1.2, alpha: 0.75 });
+      }
+      if (d.crown && d.crownRing) {
+        d.crown.visible = d.crownRing.visible = crowned;
+        if (crowned && d.folk) {
+          const at = markAt(d.folk.y, FOLK_SCALE * grown, now / 1000 + v.id);
+          d.crown.scale.set(CROWN_SCALE);
+          d.crown.position.set(Math.round(d.folk.x), Math.round(at.crownY));
+          d.crown.zIndex = z + 0.6;
+          d.crownRing.position.set(Math.round(d.folk.x), Math.round(at.ringY));
+          d.crownRing.alpha = 0.8 + 0.2 * Math.sin(now / 600);
+          d.crownRing.zIndex = z - 0.35;
+        }
       }
       // their harm, over the sprite (bodyMarks.ts)
       const marks = v.body.marks;

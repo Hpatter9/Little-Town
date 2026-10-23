@@ -62,17 +62,28 @@ art/heroForms.ts keeps `HERO_FORM` (test/mythic.test.ts checks the mythic callin
 sheets themselves stay: bosses, strangers and foes use them. The `form` field on the callings' data
 (data/originCallings.ts, `formOf`) is now unused by the renderer, kept for saves and the tests.
 
+**The founder's marker** (the owner's choice, "a marker over the head", no new art; new iso/founderMark.ts, pure, and
+map/mapPeople.ts). The founder (the snapshot's `mainId`: `MapPeople.founderId`, set by main.ts and now by tacticsView
+too) wears a small gold crown floating over their head and a soft gold ring on the ground at their feet, always, on the
+map and on the raid board. The crown is DawnLike's (the Hat sheet's `CROWN` glyph, `['Hat', 26]` in data/emblems.ts,
+the same the class emblems wear: already in `src`, so nothing new copied and CREDITS.md unchanged), at `CROWN_SCALE`
+0.75 (about a quarter of a person's height, bobbing `CROWN_BOB`) so it reads at phone size and hides nobody. Placed by
+`markAt` from the look's frame (`HEAD_UP` 127, `FEET_UP` 30 of 156); the ring is `RING_W` 26 world px across, under the
+figure. `wearsMark` hides it indoors and away on a trip. The crown is marked as a walker (`markWalker`), so a roof in
+front of it fades as one in front of them does. The founder's existing origin-coloured aura stays. The camera is
+untouched (no founder follow).
+
 **Tools.** tools/make-save.ts takes `CREATURE=wolf` (the town given its God creature after the run, with no naming
 question waiting) for previews of it fighting.
 
 **Tests** (test/raidLooks.test.ts): the board's animation for each action and weapon, the fallbacks for looks without
 the weapon's move, the board facings, the God creature's board moves, the map's fighter running in between blows, and
 that a townsperson's look and colours are the same in the town and as tacticsView hands them to the board (settlers,
-dwarves, orcs, lich, vampire, knights).
+dwarves, orcs, lich, vampire, knights), and who wears the founder's marker and where it goes.
 
-Screenshots in `docs/notes/raid-looks/` (393x852 and 852x393): a wolf pack raid on the board for knights (with the God
-wolf), settlers (the God bear), dwarves, orcs, lich and vampire towns, and before (`before-knights-*`: the red
-samurai).
+Screenshots in `docs/notes/raid-looks/` (393x852 and 852x393): each town as the raid is called (`*-map`, the
+founder's crown among the defenders) and a wolf pack raid on the board for knights (with the God wolf), settlers (the
+God bear), dwarves, orcs, lich and vampire towns; and before (`before-knights`: the red samurai).
 
 ### For the owner
 - **The Shapeshifter's beast and the Moon Pack's wolf.** A Shapeshifter now fights in their own look (no beast). A

@@ -247,6 +247,7 @@ export class TacticsScene {
     const poses = new Map<number, { facing: number; moving: boolean; casting: boolean }>();
     this.raiders.boardPose = poses;
     this.raiders.creature = next.creature;
+    this.people.founderId = next.mainId; // (the founder's crown on the board too)
     for (const u of t.units) {
       if (u.tower) continue;
       const pose = { facing: u.facing, moving: act?.key === u.key && act.stage === 'move', casting: this.lastAct.get(u.key) === 'cast' };
