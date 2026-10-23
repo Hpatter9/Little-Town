@@ -14,6 +14,7 @@ import { loadImage } from '../art/loadImage';
 import { glowTexture } from '../town/layer';
 import { visibility } from './groundArt';
 import type { MapView } from './mapView';
+import { markWalker } from '../iso/seeThrough';
 
 /** The atlas's columns (tools/compose-wildlife.cjs keeps this order). */
 export const WILD_KINDS = ['deer', 'stag', 'boar', 'fox', 'wolf', 'squirrel', 'bear', 'camel', 'snowfox'] as const;
@@ -450,6 +451,7 @@ export class MapWildlife {
   private spawn(kind: WildKind, x: number, y: number, lead: Beast | null): Beast {
     const s = this.layer.addChild(new Sprite(frames![WILD_KINDS.indexOf(kind)][0]));
     s.anchor.set(0.5, 0.95);
+    markWalker(s); // (the iso view fades what stands in front of it: iso/seeThrough.ts)
     const d = DEFS[kind];
     s.scale.set((Math.random() < 0.5 ? -1 : 1) * d.scale, d.scale);
     s.alpha = 0;

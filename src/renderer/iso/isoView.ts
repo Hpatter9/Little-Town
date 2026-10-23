@@ -24,6 +24,11 @@ import { fitted, groundTile, kitOf, kitUrl, liesAlongY, pieceFor, roleOf, shared
 import { IsoCastleView, type CastleIn } from './isoCastleView';
 import { anyoneNear, doorSpot, gateSpan, hasWindows, lightBox, swing, windowSpots, worldMatrix } from './isoLight';
 import { cellsInView, footBase, footDepth, footWidth, isoBounds, isoOrigin, isoToWorld, ISO_TH, ISO_TW, standingDepth, tileToIso, worldToIso, type Rect } from './isoMath';
+import { flickerKind, isLit, lightAt, lightsIn, lightTint, placed, type LightKind } from './windowLights';
+import { BoxGrid, behind, coverBox, fadeAlpha, fadeStep, isWalker, type Box } from './seeThrough';
+import { flicker, flickerSize, phaseOf } from '../map/flicker';
+import { reducedMotion } from '../ui/motion';
+import { LIGHT_KIND } from '../../shared/data/lighting';
 
 /** A building's picture may stand this much wider than its footprint before it is shrunk to fit (a big piece on a
  *  small building: a cottage piece on a one-cell trap). */
@@ -48,6 +53,76 @@ const LANDMARK_PIECES: Readonly<Record<LandmarkKind, string[]>> = {
 const LANDMARK_SCALE = 0.8;
 /** Ground tiles are drawn this much over their cell so neighbours overlap and no edge shows. */
 const OVERLAP = 1.06;
+/** How fast a window's light comes on or goes out (a share a second). */
+const LIGHT_RATE = 1.5;
+/** Props that are lights of their own (a lamp post, a brazier beside a tavern): a flame at their head after dark. */
+const LIGHT_PROP = /torch|brazier|lamp|lantern/;
+
+/** A light in a building's picture after dark (iso/windowLights.ts): its glow (`halo`, added over the night) and, for a
+ *  window, the lit pane itself (`core`). */
+interface PicLight {
+  core: Sprite | null;
+  halo: Sprite;
+  kind: LightKind;
+  phase: number;
+  /** The halo's size unflickered. */
+  w: number;
+  h: number;
+  /** Lit now (by who is inside and the hour), how far it has come on (0..1), and whether something drawn in front of
+   *  it hides it. */
+  on: boolean;
+  level: number;
+  hidden: boolean;
+  /** How strongly it shows at full (the old guess's soft glows are fainter). */
+  strength: number;
+}
+
+/** A picture's box on the screen (iso px), from its texture, scale and anchor (or its bounds, for a container). */
+function boxOf(c: Container): Box {
+  if (c instanceof Sprite) {
+    const w = Math.abs(c.scale.x) * c.texture.width;
+    const h = Math.abs(c.scale.y) * c.texture.height;
+    const ax = c.scale.x < 0 ? 1 - c.anchor.x : c.anchor.x;
+    const x0 = c.x - ax * w;
+    const y0 = c.y - c.anchor.y * h;
+    return { x0, y0, x1: x0 + w, y1: y0 + h };
+  }
+  const b = c.getLocalBounds();
+  return { x0: c.x + b.x * c.scale.x, y0: c.y + b.y * c.scale.y, x1: c.x + (b.x + b.width) * c.scale.x, y1: c.y + (b.y + b.height) * c.scale.y };
+}
+
+/** A colour taken part way to white. */
+const mixWhite = (c: number, t: number): number => {
+  const ch = (sh: number) => Math.round(((c >> sh) & 255) + (255 - ((c >> sh) & 255)) * t);
+  return (ch(16) << 16) | (ch(8) << 8) | ch(0);
+};
+
+/** A lit window's pane (white, its corners trimmed) and a round one (a rose window), made once. */
+let panes: { square: Texture; round: Texture } | null = null;
+function paneTexture(round: boolean): Texture {
+  if (!panes) {
+    const make = (draw: (g: CanvasRenderingContext2D) => void) => {
+      const c = document.createElement('canvas');
+      c.width = c.height = 16;
+      const g = c.getContext('2d')!;
+      g.fillStyle = '#fff';
+      draw(g);
+      return Texture.from(c);
+    };
+    panes = {
+      square: make((g) => {
+        g.fillRect(1, 0, 14, 16);
+        g.fillRect(0, 1, 16, 14);
+      }),
+      round: make((g) => {
+        g.beginPath();
+        g.arc(8, 8, 8, 0, Math.PI * 2);
+        g.fill();
+      }),
+    };
+  }
+  return round ? panes.round : panes.square;
+}
 
 interface DrawnBuilding {
   sprite: Sprite;
@@ -57,8 +132,10 @@ interface DrawnBuilding {
   props: Sprite[];
   /** Its door or gate, drawn open while someone walks through (0 shut to 1 open; `held` seconds until it closes). */
   door?: { g: Graphics; gate: boolean; open: number; held: number };
-  /** Its windows' glow after dark. */
-  windows: Sprite[];
+  /** The lights in its picture after dark: its windows, the braziers and lanterns on it, a forge's mouth. */
+  lights: PicLight[];
+  /** A tavern or a shop: its windows lit of an evening whoever is inside. */
+  venue: boolean;
   /** Flames while it burns (`b.fire`), flickering in `animate`. */
   flames?: Sprite[];
 }
@@ -107,6 +184,23 @@ export class IsoView {
   readonly air = new Container();
   private lamps: { x: number; y: number; lit: boolean }[] = [];
   private lampSprites: Container[] = [];
+  /** The lit street lamps' glows, flickering in `animate` as their kind of light does. */
+  private lampGlows: { s: Sprite; phase: number }[] = [];
+  private lampKind = 'torch';
+  /** The pictures that can hide someone behind them (buildings, props, the land's trees and rocks, the castle's
+   *  pieces), their cover boxes and draw order, by grid square: worked out again when any of them changes. */
+  private covers: { s: Sprite; box: Box; z: number }[] = [];
+  private readonly coverGrid = new BoxGrid();
+  private coversDirty = true;
+  /** The pictures fading or faded now, and how far (iso/seeThrough.ts), and each one's own alpha unfaded. */
+  private readonly fades = new Map<Sprite, number>();
+  private readonly baseAlpha = new WeakMap<Sprite, number>();
+  private readonly hitNow = new Set<Sprite>();
+  private readonly nearNow = new Set<number>();
+  /** The building picked (its tap card open): it fades less, so it still reads plainly. */
+  private picked: number | null = null;
+  /** What the see-through pass cost lately (ms a frame, smoothed), for measuring on a phone. */
+  seeCost = 0;
   private lampEra: Era | null = null;
   private lampHadTex = false;
   private markedKey = '';
@@ -276,6 +370,8 @@ export class IsoView {
       s.destroy({ children: true });
     }
     this.lampSprites = [];
+    this.lampGlows = [];
+    this.lampKind = LIGHT_KIND[era]?.name ?? 'torch';
     for (const l of this.lamps) {
       const p = tileToIso(l.x + 0.5, l.y + 0.5, this.ox);
       const foot = { x: Math.round(p.x), y: Math.round(p.y) };
@@ -308,6 +404,7 @@ export class IsoView {
       s.position.set(foot.x, foot.y - 26);
       this.glow.addChild(s);
       this.lampSprites.push(s);
+      this.lampGlows.push({ s, phase: phaseOf(l.x + 0.5, l.y + 0.5) });
     }
   }
 
@@ -420,7 +517,7 @@ export class IsoView {
         sprite.anchor.set(0.5, 1);
         this.things.addChild(sprite);
         this.own.add(sprite);
-        d = { sprite, key: '', foot, props: [], windows: [] };
+        d = { sprite, key: '', foot, props: [], lights: [], venue: false };
         this.buildings.set(b.id, d);
       }
       d.foot = foot;
@@ -438,16 +535,18 @@ export class IsoView {
       s.zIndex = footDepth(foot);
       // (a blueprint or a building going up: a ghost of what it will be)
       s.alpha = b.status === 'done' ? 1 : 0.45;
+      this.baseAlpha.set(s, s.alpha);
       s.tint = b.fire !== undefined ? 0xff9060 : 0xffffff;
-      // (a shared piece is drawn whole: no cottage's barrels beside it, nor a cottage's door and windows on it)
+      d.venue = 'role' in role && (role.role === 'tavern' || role.role === 'market');
+      // (a shared piece is drawn whole: no cottage's barrels beside it, nor a cottage's door on it; its own lights only)
       if (shared) {
         this.clearProps(d);
         this.clearDoor(d);
-      } else {
-        this.setProps(d, b, role);
-        this.setDoor(d, b, role, foot);
-      }
+      } else this.setDoor(d, b, role, foot);
+      this.setLights(d, b, role, piece, !!shared, flip, k, tex);
+      if (!shared) this.setProps(d, b, role);
     }
+    this.coversDirty = true;
     this.setFlames(list);
     for (const [id, d] of this.buildings) {
       if (seen.has(id)) continue;
@@ -455,6 +554,7 @@ export class IsoView {
       this.own.delete(d.sprite);
       this.clearProps(d);
       this.clearDoor(d);
+      this.clearLights(d);
       for (const f of d.flames ?? []) {
         f.destroy();
         this.own.delete(f);
@@ -502,12 +602,84 @@ export class IsoView {
   private clearDoor(d: DrawnBuilding): void {
     d.door?.g.destroy();
     d.door = undefined;
-    for (const w of d.windows) w.destroy();
-    d.windows = [];
   }
 
-  /** A finished building's door (a gate's opening) and its windows' glow after dark. The door is a dark opening drawn
-   *  over the picture while someone walks through (`animate`); no art is changed. */
+  private clearLights(d: DrawnBuilding): void {
+    for (const l of d.lights) {
+      l.halo.destroy();
+      l.core?.destroy();
+    }
+    d.lights = [];
+  }
+
+  /** A light at a point on the screen (iso px) with its pane `w` by `h` px (none: a soft glow only), in the glow
+   *  layer over the night's dark. */
+  private addLight(d: DrawnBuilding, x: number, y: number, w: number, h: number, kind: LightKind, strength = 1): void {
+    const tint = lightTint(this.kit.name, kind);
+    const flame = kind === 'flame' || kind === 'forge';
+    const halo = new Sprite(glowTexture());
+    halo.anchor.set(0.5);
+    halo.tint = tint;
+    halo.visible = false;
+    // (a window's light spills a little round its frame; a flame's glows wider)
+    const hw = w > 0 ? Math.max(8, w * (flame ? 3.2 : 2.4)) : 20;
+    const hh = h > 0 ? Math.max(7, h * (flame ? 2.6 : 1.9)) : 14;
+    halo.position.set(Math.round(x), Math.round(y));
+    this.glow.addChild(halo);
+    let core: Sprite | null = null;
+    if (w > 0 && h > 0) {
+      core = new Sprite(flame ? glowTexture() : paneTexture(w === h && w >= 10));
+      core.anchor.set(0.5);
+      // (the pane a paler, hotter shade of the light)
+      core.tint = flame ? 0xfff0b0 : mixWhite(tint, 0.35);
+      core.width = flame ? w * 1.2 : w;
+      core.height = flame ? h * 1.3 : h;
+      core.position.set(Math.round(x), Math.round(y));
+      core.visible = false;
+      this.glow.addChild(core);
+    }
+    d.lights.push({ core, halo, kind, phase: phaseOf(x / ISO_TW, y / ISO_TW), w: hw, h: hh, on: false, level: 0, hidden: false, strength });
+  }
+
+  /** A finished building's lights after dark (iso/windowLights.ts): those placed by hand on its kit's piece; a
+   *  fire's own flame on a hearth; else, on a windowed building of a kit not yet placed, the old guess along its front
+   *  (`windowSpots`). Whether each is lit is `setInside`'s. */
+  private setLights(d: DrawnBuilding, b: Building, role: ReturnType<typeof roleOf>, piece: string, shared: boolean, flip: boolean, k: number, tex: Texture): void {
+    this.clearLights(d);
+    if (b.status !== 'done' || this.artHidden.has(b.id)) return;
+    const s = d.sprite;
+    if (placed(this.kit.name, piece, shared)) {
+      for (const l of lightsIn(this.kit.name, piece, shared)) {
+        const at = lightAt(l, tex.width, tex.height, k, flip, s.x, s.y);
+        this.addLight(d, at.x, at.y, at.w, at.h, l.kind);
+      }
+    } else if ('role' in role && role.role === 'hearth') {
+      this.addLight(d, s.x, s.y - tex.height * k * 0.35, 12, 9, 'flame');
+    } else if (!shared && 'role' in role && hasWindows(role.role)) {
+      for (const at of windowSpots(d.foot)) {
+        const p = tileToIso(at.x, at.y, this.ox);
+        this.addLight(d, p.x, p.y - 15, 0, 0, 'window', 0.8);
+      }
+    }
+    this.lightsKey = '';
+  }
+
+  /** Who is inside after dark (the snapshot's `litInside`) and the hour: which windows are lit. Each snapshot. */
+  private inside = new Set<number>();
+  private lightsKey = '';
+  setInside(ids: readonly number[] | undefined, hour: number): void {
+    const key = `${ids?.join(',') ?? ''}|${hour}`;
+    if (key === this.lightsKey) return;
+    this.lightsKey = key;
+    this.inside = new Set(ids ?? []);
+    for (const [id, d] of this.buildings) {
+      const inside = this.inside.has(id);
+      for (const l of d.lights) l.on = isLit(l.kind, inside, d.venue, hour);
+    }
+  }
+
+  /** A finished building's door (a gate's opening). The door is a dark opening drawn over the picture while someone
+   *  walks through (`animate`); no art is changed. */
   private setDoor(d: DrawnBuilding, b: Building, role: ReturnType<typeof roleOf>, foot: Rect): void {
     this.clearDoor(d);
     if (!('role' in role) || b.status !== 'done') return;
@@ -519,19 +691,6 @@ export class IsoView {
     this.things.addChild(g);
     this.own.add(g);
     d.door = { g, gate, open: 0, held: 0 };
-    if (gate) return;
-    for (const at of windowSpots(foot)) {
-      const w = new Sprite(glowTexture());
-      w.anchor.set(0.5);
-      w.tint = 0xffc870;
-      w.width = 20;
-      w.height = 14;
-      w.alpha = 0.8;
-      const p = tileToIso(at.x, at.y, this.ox);
-      w.position.set(Math.round(p.x), Math.round(p.y - 15));
-      this.glow.addChild(w);
-      d.windows.push(w);
-    }
   }
 
   /** Where townsfolk and raiders walk now (world px, every snapshot): a door or gate with any near is to open. */
@@ -550,14 +709,39 @@ export class IsoView {
   /** Each frame: doors and gates swing open as someone comes, and close behind them. */
   animate(dt: number): void {
     this.flicker += dt;
+    const t = this.flicker;
+    const gentle = reducedMotion();
+    const night = this.glow.visible;
+    // (the street lamps' flames waver, each on its own beat; electric light holds steady)
+    if (night)
+      for (const g of this.lampGlows) {
+        g.s.alpha = flicker(this.lampKind, t, g.phase, gentle);
+        g.s.width = g.s.height = 22 * flickerSize(this.lampKind, t, g.phase, gentle);
+      }
     for (const [id, d] of this.buildings) {
       if (d.flames?.length) {
         d.flames.forEach((f, i) => {
-          const w = Math.sin(this.flicker * (9 + i * 1.7) + i * 2.1);
-          f.width = 26 + w * 6;
-          f.height = 34 + Math.sin(this.flicker * 7 + i) * 8;
-          f.alpha = 0.75 + w * 0.2;
+          const ph = id * 1.37 + i * 2.1;
+          const k = flickerSize('campfire', t * 1.6, ph, gentle);
+          f.width = 26 * k * k;
+          f.height = 34 * flickerSize('campfire', t * 1.9, ph + 1.3, gentle) * k;
+          f.alpha = 0.55 + 0.45 * flicker('campfire', t * 1.6, ph, gentle);
         });
+      }
+      // (its lights come on and go out slowly as people come and go, and flicker as a flame or a candle does)
+      for (const l of d.lights) {
+        l.level = l.on ? Math.min(1, l.level + LIGHT_RATE * dt) : Math.max(0, l.level - LIGHT_RATE * dt);
+        const show = night && l.level > 0.01 && !l.hidden;
+        l.halo.visible = show;
+        if (l.core) l.core.visible = show;
+        if (!show) continue;
+        const kind = flickerKind(l.kind);
+        const f = flicker(kind, t, l.phase, gentle);
+        const k = flickerSize(kind, t, l.phase, gentle);
+        l.halo.alpha = l.level * l.strength * f * (l.core ? 0.55 : 0.8);
+        l.halo.width = l.w * k;
+        l.halo.height = l.h * k;
+        if (l.core) l.core.alpha = l.level * l.strength * (0.55 + 0.45 * f);
       }
       const door = d.door;
       if (!door) continue;
@@ -622,6 +806,9 @@ export class IsoView {
     this.things.addChild(s);
     this.own.add(s);
     d.props.push(s);
+    // (a lamp or a brazier beside it burns after dark)
+    if (LIGHT_PROP.test(pr.piece)) this.addLight(d, s.x, s.y - s.height * 0.82, 4, 5, 'flame', 0.9);
+    this.lightsKey = '';
   }
 
   /** The camera: the screen position (on the diamonds) of the view's top-left, and the view's size. Only the ground
@@ -746,6 +933,81 @@ export class IsoView {
     }
     // (the pool's spare sprites are hidden, not destroyed: the view moves on and needs them again)
     for (let k = trees; k < this.scenery.length; k++) this.scenery[k].visible = false;
+    this.coversDirty = true;
+  }
+
+  /** The building picked (its tap card open), or none: it fades less when someone is behind it. */
+  setPicked(id: number | null): void {
+    this.picked = id;
+  }
+
+  /** The pictures that can hide someone, boxed and put in the grid; and the windows each hides (a window behind a
+   *  building or a tree drawn in front of it doesn't shine through it). */
+  private rebuildCovers(): void {
+    this.coversDirty = false;
+    const list: { s: Sprite; box: Box; z: number }[] = [];
+    const add = (s: Sprite) => {
+      if (!s.visible || s.destroyed || s.texture.width <= 1) return;
+      list.push({ s, box: coverBox(boxOf(s)), z: s.zIndex });
+    };
+    for (const d of this.buildings.values()) {
+      add(d.sprite);
+      for (const p of d.props) add(p);
+    }
+    for (const t of this.scenery) add(t);
+    for (const c of this.castle.pieces()) add(c);
+    this.covers = list;
+    const grid = this.coverGrid;
+    grid.clear();
+    list.forEach((c, i) => grid.add(i, c.box));
+    for (const d of this.buildings.values()) {
+      const z = d.sprite.zIndex;
+      for (const l of d.lights) {
+        const x = l.halo.x;
+        const y = l.halo.y;
+        l.hidden = false;
+        for (const i of grid.near({ x0: x, y0: y, x1: x, y1: y }, this.nearNow)) {
+          const c = list[i];
+          if (c.z <= z || c.s === d.sprite || d.props.includes(c.s)) continue;
+          if (x > c.box.x0 && x < c.box.x1 && y > c.box.y0 && y < c.box.y1) {
+            l.hidden = true;
+            break;
+          }
+        }
+      }
+    }
+  }
+
+  /** Each frame, after `placeLoose`: a picture with someone behind it (a townsperson, the founder, the creature, a
+   *  raider, a beast: iso/seeThrough.ts `markWalker`) fades to see them, and comes back once they've gone. Only the
+   *  pictures near someone are looked at (`BoxGrid`). */
+  seeThrough(dt: number): void {
+    const t0 = performance.now();
+    if (this.coversDirty) this.rebuildCovers();
+    const hit = this.hitNow;
+    hit.clear();
+    if (this.covers.length)
+      for (const c of this.things.children) {
+        if (!c.visible || c.alpha < 0.05 || !isWalker(c)) continue;
+        const box = boxOf(c);
+        for (const i of this.coverGrid.near(box, this.nearNow)) {
+          const cv = this.covers[i];
+          if (!hit.has(cv.s) && behind(box, c.zIndex, cv.box, cv.z)) hit.add(cv.s);
+        }
+      }
+    for (const s of hit) if (!this.fades.has(s)) this.fades.set(s, 0);
+    const picked = this.picked === null ? null : (this.buildings.get(this.picked)?.sprite ?? null);
+    for (const [s, f] of this.fades) {
+      if (s.destroyed) {
+        this.fades.delete(s);
+        continue;
+      }
+      const n = fadeStep(f, hit.has(s), dt);
+      s.alpha = (this.baseAlpha.get(s) ?? 1) * fadeAlpha(n, s === picked);
+      if (n <= 0) this.fades.delete(s);
+      else this.fades.set(s, n);
+    }
+    this.seeCost = this.seeCost * 0.95 + (performance.now() - t0) * 0.05;
   }
 
   /** Everything others put in `things` in world px (the townsfolk: map/mapPeople.ts), moved to its spot on the

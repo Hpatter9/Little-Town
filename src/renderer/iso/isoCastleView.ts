@@ -72,6 +72,11 @@ export class IsoCastleView {
     }
   }
 
+  /** The castle's pieces drawn now (they can hide someone behind them: iso/isoView.ts `seeThrough`). */
+  pieces(): Sprite[] {
+    return this.sprites.filter((e) => e.sprite.visible).map((e) => e.sprite);
+  }
+
   /** The room whose piece is under a view point (px on the diamonds), front-most first. */
   roomAt(x: number, y: number): number | null {
     let best: { id: number; z: number } | null = null;

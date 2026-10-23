@@ -18,6 +18,7 @@ import { stillTexture } from '../art/stills';
 import { SideRing } from '../art/sideRing';
 import { glowTexture } from '../town/layer';
 import { corpseAlpha, FALL_TICKS, motionOf, moveSprite, TickClock } from '../fight/fightMotion';
+import { markWalker } from '../iso/seeThrough';
 
 /** How much of the fight screen's motion a raider on the map gets (a smaller picture, a smaller step). */
 const MOTION_K = 0.6;
@@ -69,6 +70,7 @@ export class MapRaiders {
         this.layer.addChild(ring.g);
         const load = this.layer.addChild(bundle());
         const sprite = this.layer.addChild(new Sprite());
+        markWalker(sprite); // (the iso view fades what stands in front of them: iso/seeThrough.ts)
         const bar = this.layer.addChild(new Graphics());
         const spark = this.layer.addChild(new Sprite());
         spark.visible = false;

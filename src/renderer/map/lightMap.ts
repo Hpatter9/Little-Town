@@ -15,7 +15,8 @@ import { Container, Graphics, RenderTexture, Sprite, Texture, type Renderer } fr
 import { footprint } from '../../shared/sim/buildings';
 import { clearLine, falloff, FLAME, lightSources, occluders, type LightSource } from '../../shared/sim/lightField';
 import type { Snapshot } from '../../shared/sim/snapshot';
-import { flicker, flickers, phaseOf } from './flicker';
+import { flicker, flickerSize, flickers, phaseOf } from './flicker';
+import { reducedMotion } from '../ui/motion';
 import { torchHours } from './townLife';
 import { LIGHT_KIND } from '../../shared/data/lighting';
 
@@ -157,6 +158,9 @@ interface Flame {
   pool: Pool;
   kind: string;
   phase: number;
+  /** Where the flame stands in the light map's texels (its pool grows and shrinks round it). */
+  cx: number;
+  cy: number;
 }
 
 /** What a light's pool depends on: its reach, its strength and what stands in it (and the castle's cells there). */
@@ -341,7 +345,7 @@ export class LightMap {
       // (a flame flickers: its pool is drawn each frame on its own, not baked into the land's light)
       if (flickers(src.kind)) {
         p.tex ??= flameTexture(p, src.color);
-        flames.push({ pool: p, kind: src.kind, phase: phaseOf(src.x, src.y) });
+        flames.push({ pool: p, kind: src.kind, phase: phaseOf(src.x, src.y), cx: src.x * PER_CELL, cy: src.y * PER_CELL });
         continue;
       }
       for (let y = 0; y < p.bh; y++)
@@ -445,15 +449,19 @@ export class LightMap {
     lit.position.set(-x0, -y0);
     // (how strongly the lights show: fully at night, faintly by day but for the cave)
     lit.alpha = cave ? 1 : Math.max(0, Math.min(1, (0.75 - daylight) / 0.5));
-    // the flames, each wavering on its own beat (steady on a slow phone)
+    // the flames, each wavering on its own beat, in brightness and a little in reach (steady on a slow phone, gentler
+    // with "Reduce motion")
     const t = now / 1000;
+    const gentle = reducedMotion();
     for (const f of this.flames) {
       const p = f.pool;
       if (!p.tex || p.x0 > x0 + tw || p.y0 > y0 + th || p.x0 + p.bw < x0 || p.y0 + p.bh < y0) continue;
       const s = c.addChild(new Sprite(p.tex));
       s.blendMode = 'add';
-      s.position.set(p.x0 - x0, p.y0 - y0);
-      s.alpha = lit.alpha * (this.calm ? 0.92 : flicker(f.kind, t, f.phase));
+      const k = this.calm ? 1 : flickerSize(f.kind, t, f.phase, gentle);
+      s.scale.set(k);
+      s.position.set(f.cx - x0 + (p.x0 - f.cx) * k, f.cy - y0 + (p.y0 - f.cy) * k);
+      s.alpha = lit.alpha * (this.calm ? 0.92 : flicker(f.kind, t, f.phase, gentle));
     }
     // the torches carried: each a street torch's pool where it's held, the shadows of what stands near thrown from it
     if (lit.alpha > 0.2 && this.field)
@@ -463,7 +471,7 @@ export class LightMap {
         const s = c.addChild(new Sprite(pl.tex));
         s.blendMode = 'add';
         s.position.set(pl.x0 - x0, pl.y0 - y0);
-        s.alpha = lit.alpha * (this.calm ? 0.92 : flicker('torch', t, (p.id * 2.39) % 6.283));
+        s.alpha = lit.alpha * (this.calm ? 0.92 : flicker('torch', t, (p.id * 2.39) % 6.283, gentle));
       }
     // the lanterns people carry
     if (lit.alpha > 0.2)
@@ -472,7 +480,7 @@ export class LightMap {
         s.anchor.set(0.5);
         s.blendMode = 'add';
         s.tint = LANTERN;
-        s.alpha = lit.alpha * 0.8 * (this.calm ? 1 : flicker('carried', t, (p.id * 2.39) % 6.283));
+        s.alpha = lit.alpha * 0.8 * (this.calm ? 1 : flicker('carried', t, (p.id * 2.39) % 6.283, gentle));
         s.width = s.height = (LANTERN_RADIUS * CELL * 2) / SCALE;
         s.position.set(p.x / SCALE - x0, (p.y - 8) / SCALE - y0);
       }
