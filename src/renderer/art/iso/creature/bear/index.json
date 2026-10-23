@@ -1,0 +1,68 @@
+{
+ "look": "bear",
+ "people": "god",
+ "frame": [
+  156,
+  156
+ ],
+ "directions": [
+  "south",
+  "south-east",
+  "east",
+  "north-east",
+  "north",
+  "north-west",
+  "west",
+  "south-west"
+ ],
+ "animations": {
+  "joy": {
+   "frames": 9
+  },
+  "sad": {
+   "frames": 8
+  },
+  "death": {
+   "frames": 7
+  },
+  "pickup": {
+   "frames": 5
+  },
+  "getup": {
+   "frames": 5
+  },
+  "run": {
+   "frames": 6
+  },
+  "push": {
+   "frames": 6
+  },
+  "uppercut": {
+   "frames": 7
+  },
+  "pull": {
+   "frames": 6
+  },
+  "miracle": {
+   "frames": 6
+  },
+  "throw": {
+   "frames": 7
+  },
+  "walk": {
+   "frames": 6
+  },
+  "hit": {
+   "frames": 6
+  },
+  "punch": {
+   "frames": 6
+  },
+  "idle": {
+   "frames": 4
+  },
+  "eat": {
+   "frames": 6
+  }
+ }
+}
