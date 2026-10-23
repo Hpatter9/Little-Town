@@ -14,6 +14,7 @@ import { creatureFeet, creatureFlip, creatureFrame, creaturePoseFrames, creature
 import { loadCreatureSet, type SheetSet } from '../iso/folkLoader';
 import { creatureMoves, creaturePlay, gentleTint, turnFrame, type CreatureAnim } from '../iso/creatureRules';
 import { facingFromVector, type FolkDir } from '../iso/folkRules';
+import { markWalker } from '../iso/seeThrough';
 
 /** How fast the drawn creature catches up with where the sim has it (a share of the gap a second). */
 const EASE = 6;
@@ -69,6 +70,7 @@ export class MapCreature {
     this.root.addChild(this.shadow, this.halo, this.body, this.mark);
     this.root.visible = false;
     into.addChild(this.root);
+    markWalker(this.root); // (the iso view fades what stands in front of it: iso/seeThrough.ts)
   }
 
   sync(v: CreatureView | null): void {

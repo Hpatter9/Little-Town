@@ -2331,6 +2331,7 @@ async function start(): Promise<void> {
     {
       iso.setWalkers([...next.people.filter((p) => p.away === null && !p.indoors), ...inSightOnly(next.raid?.phase === 'active' ? next.raid.raiders : [])]);
       iso.setLamps(next.lights ? next.lights.lights.filter((l) => l.room === null) : [], next.era);
+      iso.setInside(next.litInside, next.calendar.hour); // (whose windows glow after dark)
     }
     // (the gates shut at night and when raiders come: the palisade's are drawn closed)
     map.gatesShut = next.calendar.hour >= GATES_SHUT_FROM || next.calendar.hour < GATES_OPEN_AT || !!next.raid;
@@ -2570,6 +2571,8 @@ async function start(): Promise<void> {
     gainsView.render(ticker.deltaMS / 1000, map.calm);
     chores.render(ticker.deltaMS / 1000, performance.now(), map.calm, map.wind());
     iso.placeLoose(); // (everyone drawn into the things in world px, moved onto the diamonds)
+    iso.setPicked(inspected?.kind === 'building' ? inspected.id : (selected?.id ?? null));
+    iso.seeThrough(ticker.deltaMS / 1000); // (what stands in front of someone fades, so they show)
     if (snap && minimap.shown)
       minimap.render({
         people: snap.people.filter((p) => p.away === null).map((p) => ({ x: p.x, y: p.y })),

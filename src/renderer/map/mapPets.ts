@@ -13,6 +13,7 @@ import { loadImage } from '../art/loadImage';
 import { glowTexture } from '../town/layer';
 import type { MapView } from './mapView';
 import { petLine, petsOf, type PetDef, type PetKind } from './pets';
+import { markWalker } from '../iso/seeThrough';
 
 /** The atlas's first pet column (tools/compose-wildlife.cjs): four dogs, four cats, the rooster, the hen. */
 const PET_COL = 14;
@@ -123,6 +124,7 @@ export class MapPets {
         const y = h.door.y + 6 + i * 3;
         const s = this.layer.addChild(new Sprite(frames![column(def)][0]));
         s.anchor.set(0.5, 0.95);
+        markWalker(s); // (the iso view fades what stands in front of it: iso/seeThrough.ts)
         const sh = this.layer.addChild(new Sprite(glowTexture()));
         sh.anchor.set(0.5);
         sh.tint = 0x000000;

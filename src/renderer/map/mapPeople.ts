@@ -51,6 +51,7 @@ import { gossipLine, gossipReply, type Gossip } from '../../shared/sim/gossip';
 import { hooded, sceneMoment } from './sceneMoments';
 import luteUrl from '../art/life/lute.png';
 import fluteUrl from '../art/life/flute.png';
+import { markWalker } from '../iso/seeThrough';
 
 /** Standing still, a person breathes (a pixel's rise every couple of seconds) and shifts their weight now and then
  *  (a step frame for a moment every few seconds), each on their own clock, so nobody looks frozen. */
@@ -352,6 +353,7 @@ export class MapPeople {
         horseFront.visible = false;
         const sprite = this.layer.addChild(new Sprite());
         sprite.anchor.set(CENTRE_X / FRAME_SIZE, FEET_Y / FRAME_SIZE);
+        markWalker(sprite); // (the iso view fades what stands in front of them: iso/seeThrough.ts)
         const bubble = this.layer.addChild(questionBubble());
         const spray = this.layer.addChild(new Sprite());
         spray.anchor.set(0.5, 0.5);
@@ -890,7 +892,8 @@ export class MapPeople {
       const folkOn = this.isoFolk && !hidden && !swimming && !form && !(v.beast && inCombat && v.downed === null);
       if (this.isoFolk) {
         if (folkOn) {
-          const f = (d.folk ??= this.layer.addChild(new FolkSprite()));
+          if (!d.folk) markWalker((d.folk = this.layer.addChild(new FolkSprite()))); // (iso/seeThrough.ts)
+          const f = d.folk;
           f.visible = true;
           // (not the side-on sprite's child shrink: a child's iso look is drawn child-sized, scaled by folkRules' own)
           f.scale.set(FOLK_SCALE * grown);

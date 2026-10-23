@@ -9,6 +9,7 @@ import { CELL } from '../../shared/sim/land';
 import type { Building } from '../../shared/sim/state';
 import { animalFrames } from '../art/livestockArt';
 import { noTone } from '../art/pixelArt';
+import { markWalker } from '../iso/seeThrough';
 
 /** How far in from the fence the animals keep (px). */
 const INSET = 6;
@@ -86,6 +87,7 @@ export class MapHerds {
     const frames = animalFrames(pen.look, n, noTone, 'map');
     const sprite = this.layer.addChild(new Sprite(frames.walk[0].texture));
     sprite.anchor.set(0.5, 1);
+    markWalker(sprite); // (the iso view fades what stands in front of it: iso/seeThrough.ts)
     const r = (k: number) => ((((Math.sin(n * 12.9898 + k * 78.233) * 43758.5453) % 1) + 1) % 1);
     const { x0, y0, x1, y1 } = pen.box;
     return { sprite, x: x0 + r(1) * (x1 - x0), y: y0 + r(2) * (y1 - y0), dir: r(3) < 0.5 ? 1 : -1, still: 0, speed: 3 + r(4) * 4, n };
