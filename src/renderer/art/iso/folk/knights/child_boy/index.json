@@ -1,0 +1,29 @@
+{
+ "look": "child_boy",
+ "people": "knights",
+ "frame": [
+  148,
+  148
+ ],
+ "directions": [
+  "south",
+  "south-east",
+  "east",
+  "north-east",
+  "north",
+  "north-west",
+  "west",
+  "south-west"
+ ],
+ "animations": {
+  "walk": {
+   "frames": 6
+  },
+  "death": {
+   "frames": 7
+  },
+  "idle": {
+   "frames": 4
+  }
+ }
+}

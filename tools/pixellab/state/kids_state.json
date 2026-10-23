@@ -1,0 +1,1034 @@
+{
+ "settlers_boy": {
+  "edited": true,
+  "character_id": "3583d189-8f56-4089-8d2a-780a65691f4f",
+  "walk": {
+   "done": [
+    "south",
+    "south-east",
+    "east",
+    "north-east",
+    "north",
+    "north-west",
+    "west",
+    "south-west"
+   ],
+   "group": "42942b50-b3bb-4695-be51-77468f116bb0"
+  },
+  "idle": {
+   "done": [
+    "south",
+    "south-east",
+    "east",
+    "north-east",
+    "north",
+    "north-west",
+    "west",
+    "south-west"
+   ],
+   "group": "96813dbd-3562-4af2-8b95-f1315d8db5ae"
+  },
+  "death": {
+   "done": [
+    "south",
+    "south-east",
+    "east",
+    "north-east",
+    "north",
+    "north-west",
+    "west",
+    "south-west"
+   ],
+   "group": "bda02d91-63e6-419a-b930-3ed5705991af"
+  }
+ },
+ "settlers_girl": {
+  "edited": true,
+  "character_id": "d611750e-9ae7-4f68-b5f5-e39c804a205f",
+  "walk": {
+   "done": [
+    "south",
+    "south-east",
+    "east",
+    "north-east",
+    "north",
+    "north-west",
+    "west",
+    "south-west"
+   ],
+   "group": "22e9ec98-555e-4ad6-9027-be19b1fcc881"
+  },
+  "idle": {
+   "done": [
+    "south",
+    "south-east",
+    "east",
+    "north-east",
+    "north",
+    "north-west",
+    "west",
+    "south-west"
+   ],
+   "group": "ffa77264-869e-4247-800d-5532486e01b4"
+  },
+  "death": {
+   "done": [
+    "south",
+    "south-east",
+    "east",
+    "north-east",
+    "north",
+    "north-west",
+    "west",
+    "south-west"
+   ],
+   "group": "ce67f951-1882-415e-b30b-e90548bad653"
+  }
+ },
+ "orcs_boy": {
+  "edited": true,
+  "character_id": "be41fcc1-bf5a-4a2c-9896-0f9e87facd75",
+  "walk": {
+   "done": [
+    "south",
+    "south-east",
+    "east",
+    "north-east",
+    "north",
+    "north-west",
+    "west",
+    "south-west"
+   ],
+   "group": "7102f98f-dd92-4782-905b-8743f0edd954"
+  },
+  "idle": {
+   "done": [
+    "south",
+    "south-east",
+    "east",
+    "north-east",
+    "north",
+    "north-west",
+    "west",
+    "south-west"
+   ],
+   "group": "e61e746c-ba2f-4488-bbe9-26ef5de12382"
+  },
+  "death": {
+   "done": [
+    "south",
+    "south-east",
+    "east",
+    "north-east",
+    "north",
+    "north-west",
+    "west",
+    "south-west"
+   ],
+   "group": "50dba2a9-8df1-47f1-823c-7f9a97a0e79f"
+  }
+ },
+ "orcs_girl": {
+  "edited": true,
+  "character_id": "50120bb4-1cc7-4dca-9233-25129bbdb719",
+  "walk": {
+   "done": [
+    "south",
+    "south-east",
+    "east",
+    "north-east",
+    "north",
+    "north-west",
+    "west",
+    "south-west"
+   ],
+   "group": "63025549-b3c5-40d6-a377-97d2c777650d"
+  },
+  "idle": {
+   "done": [
+    "south",
+    "south-east",
+    "east",
+    "north-east",
+    "north",
+    "north-west",
+    "west",
+    "south-west"
+   ],
+   "group": "81afdd4f-f812-4e84-b054-e7d80257d35d"
+  },
+  "death": {
+   "done": [
+    "south",
+    "south-east",
+    "east",
+    "north-east",
+    "north",
+    "north-west",
+    "west",
+    "south-west"
+   ],
+   "group": "613524cd-fa11-40ef-ad9e-df53d866d953"
+  }
+ },
+ "lich_boy": {
+  "edited": true,
+  "character_id": "3ed59648-f706-42d5-a3ef-32779eed90a1",
+  "walk": {
+   "done": [
+    "south",
+    "south-east",
+    "east",
+    "north-east",
+    "north",
+    "north-west",
+    "west",
+    "south-west"
+   ],
+   "group": "ef5fdfa9-673f-4f47-bd54-f23bb3b8d144"
+  },
+  "idle": {
+   "done": [
+    "south",
+    "south-east",
+    "east",
+    "north-east",
+    "north",
+    "north-west",
+    "west",
+    "south-west"
+   ],
+   "group": "d8236a0d-b757-4153-9211-8d6fa9444df3"
+  },
+  "death": {
+   "done": [
+    "south",
+    "south-east",
+    "east",
+    "north-east",
+    "north",
+    "north-west",
+    "west",
+    "south-west"
+   ],
+   "group": "83730573-d1a1-499d-a002-45a8553541e6"
+  }
+ },
+ "lich_girl": {
+  "edited": true,
+  "character_id": "2c1e4d23-85e5-4f2c-a19d-e6fb860c7bd3",
+  "walk": {
+   "done": [
+    "south",
+    "south-east",
+    "east",
+    "north-east",
+    "north",
+    "north-west",
+    "west",
+    "south-west"
+   ],
+   "group": "6be0ba8e-0913-4e82-9452-44dd0db76f8e"
+  },
+  "idle": {
+   "done": [
+    "south",
+    "south-east",
+    "east",
+    "north-east",
+    "north",
+    "north-west",
+    "west",
+    "south-west"
+   ],
+   "group": "7fca6ee3-072f-4b9d-b392-cfac91117fa4"
+  },
+  "death": {
+   "done": [
+    "south",
+    "south-east",
+    "east",
+    "north-east",
+    "north",
+    "north-west",
+    "west",
+    "south-west"
+   ],
+   "group": "f6277bc4-d4c1-4b8a-aa1f-f325ff349466"
+  }
+ },
+ "druid_boy": {
+  "edited": true,
+  "character_id": "0f61d6af-e141-4e56-ba51-42b4bd70acd6",
+  "walk": {
+   "done": [
+    "south",
+    "south-east",
+    "east",
+    "north-east",
+    "north",
+    "north-west",
+    "west",
+    "south-west"
+   ],
+   "group": "1ad134da-76c7-48a0-a723-45e2be1eea01"
+  },
+  "idle": {
+   "done": [
+    "south",
+    "south-east",
+    "east",
+    "north-east",
+    "north",
+    "north-west",
+    "west",
+    "south-west"
+   ],
+   "group": "b60b6eed-2e25-4eb1-bebc-d8fc0282075d"
+  },
+  "death": {
+   "done": [
+    "south",
+    "south-east",
+    "east",
+    "north-east",
+    "north",
+    "north-west",
+    "west",
+    "south-west"
+   ],
+   "group": "4e75a02d-a0f5-49ba-b520-282a0f15982c"
+  }
+ },
+ "druid_girl": {
+  "edited": true,
+  "character_id": "f169881e-469a-4319-927b-a65c6c9cade6",
+  "walk": {
+   "done": [
+    "south",
+    "south-east",
+    "east",
+    "north-east",
+    "north",
+    "north-west",
+    "west",
+    "south-west"
+   ],
+   "group": "d364be45-3ac7-4479-81fc-068aa222e37e"
+  },
+  "idle": {
+   "done": [
+    "south",
+    "south-east",
+    "east",
+    "north-east",
+    "north",
+    "north-west",
+    "west",
+    "south-west"
+   ],
+   "group": "30051fe1-991a-4362-bc39-4448244bc3e3"
+  },
+  "death": {
+   "done": [
+    "south",
+    "south-east",
+    "east",
+    "north-east",
+    "north",
+    "north-west",
+    "west",
+    "south-west"
+   ],
+   "group": "d4c879f6-10ff-434f-aa56-a9ce5b2b7182"
+  }
+ },
+ "vampire_boy": {
+  "edited": true,
+  "character_id": "4cef88f8-eff0-4fe4-acf8-57f2ee23f714",
+  "walk": {
+   "done": [
+    "south",
+    "south-east",
+    "east",
+    "north-east",
+    "north",
+    "north-west",
+    "west",
+    "south-west"
+   ],
+   "group": "45a718fe-f380-462e-baef-0d86e7a66073"
+  },
+  "idle": {
+   "done": [
+    "south",
+    "south-east",
+    "east",
+    "north-east",
+    "north",
+    "north-west",
+    "west",
+    "south-west"
+   ],
+   "group": "61d7f9c0-c9c2-4183-92e1-9eaf80fcbcf7"
+  },
+  "death": {
+   "done": [
+    "south",
+    "south-east",
+    "east",
+    "north-east",
+    "north",
+    "north-west",
+    "west",
+    "south-west"
+   ],
+   "group": "7ee7f5d5-c691-4467-a872-80ec82132eb5"
+  }
+ },
+ "vampire_girl": {
+  "edited": true,
+  "character_id": "8d1f71c7-2d5e-4c95-8958-c84fd47efb14",
+  "walk": {
+   "done": [
+    "south",
+    "south-east",
+    "east",
+    "north-east",
+    "north",
+    "north-west",
+    "west",
+    "south-west"
+   ],
+   "group": "34bc0458-3d73-4ca4-9107-3cb9b1cc4065"
+  },
+  "idle": {
+   "done": [
+    "south",
+    "south-east",
+    "east",
+    "north-east",
+    "north",
+    "north-west",
+    "west",
+    "south-west"
+   ],
+   "group": "b49da574-2297-40cc-bedc-becaca386e9a"
+  },
+  "death": {
+   "done": [
+    "south",
+    "south-east",
+    "east",
+    "north-east",
+    "north",
+    "north-west",
+    "west",
+    "south-west"
+   ],
+   "group": "6e0cbe65-f799-4b52-99b5-a857c4bddc42"
+  }
+ },
+ "werewolf_boy": {
+  "edited": true,
+  "character_id": "47b2eb50-b1f1-41a6-be4e-4c3cff701ed7",
+  "walk": {
+   "done": [
+    "south",
+    "south-east",
+    "east",
+    "north-east",
+    "north",
+    "north-west",
+    "west",
+    "south-west"
+   ],
+   "group": "1c4eeac6-f433-4fb4-98c5-f577b5a312b4"
+  },
+  "idle": {
+   "done": [
+    "south",
+    "south-east",
+    "east",
+    "north-east",
+    "north",
+    "north-west",
+    "west",
+    "south-west"
+   ],
+   "group": "1f56db8e-a88f-4d2f-94bd-129b6b43a418"
+  },
+  "death": {
+   "done": [
+    "south",
+    "south-east",
+    "east",
+    "north-east",
+    "north",
+    "north-west",
+    "west",
+    "south-west"
+   ],
+   "group": "7131c8b7-5adb-46b8-8f8d-9b43f237a5fd"
+  }
+ },
+ "werewolf_girl": {
+  "edited": true,
+  "character_id": "6d34c1eb-0dae-4c88-abca-b3a5d83ac4cc",
+  "walk": {
+   "done": [
+    "south",
+    "south-east",
+    "east",
+    "north-east",
+    "north",
+    "north-west",
+    "west",
+    "south-west"
+   ],
+   "group": "97b161eb-b9a1-41d4-8c79-d56987df0652"
+  },
+  "idle": {
+   "done": [
+    "south",
+    "south-east",
+    "east",
+    "north-east",
+    "north",
+    "north-west",
+    "west",
+    "south-west"
+   ],
+   "group": "a801ced2-7737-41aa-881a-d902b61fe6a5"
+  },
+  "death": {
+   "done": [
+    "south",
+    "south-east",
+    "east",
+    "north-east",
+    "north",
+    "north-west",
+    "west",
+    "south-west"
+   ],
+   "group": "c04b5196-d899-4091-957a-1f0ede136748"
+  }
+ },
+ "robot_boy": {
+  "edited": true,
+  "character_id": "08b26c5d-d99a-4f24-a026-2a233f5e4a7f",
+  "walk": {
+   "done": [
+    "south",
+    "south-east",
+    "east",
+    "north-east",
+    "north",
+    "north-west",
+    "west",
+    "south-west"
+   ],
+   "group": "0bcbccf4-290b-470f-8b18-baa8034b8909"
+  },
+  "idle": {
+   "done": [
+    "south",
+    "south-east",
+    "east",
+    "north-east",
+    "north",
+    "north-west",
+    "west",
+    "south-west"
+   ],
+   "group": "cd23a66e-91ae-46fb-9840-9f9e0155ca55"
+  },
+  "death": {
+   "done": [
+    "south",
+    "south-east",
+    "east",
+    "north-east",
+    "north",
+    "north-west",
+    "west",
+    "south-west"
+   ],
+   "group": "d14a8e33-d77d-43b7-b7b7-799ebd661b72"
+  }
+ },
+ "robot_girl": {
+  "edited": true,
+  "character_id": "db814db5-35a5-425f-9dc7-3f726c401fad",
+  "walk": {
+   "done": [
+    "south",
+    "south-east",
+    "east",
+    "north-east",
+    "north",
+    "north-west",
+    "west",
+    "south-west"
+   ],
+   "group": "484a584f-d9de-4839-bdd8-af178c0d9ae5"
+  },
+  "idle": {
+   "done": [
+    "south",
+    "south-east",
+    "east",
+    "north-east",
+    "north",
+    "north-west",
+    "west",
+    "south-west"
+   ],
+   "group": "8d897ed8-85cc-4460-b8f0-49b4f5618e5f"
+  },
+  "death": {
+   "done": [
+    "south",
+    "south-east",
+    "east",
+    "north-east",
+    "north",
+    "north-west",
+    "west",
+    "south-west"
+   ],
+   "group": "3756ab8d-f21a-4225-93b8-b0289dae2619"
+  }
+ },
+ "merfolk_boy": {
+  "edited": true,
+  "character_id": "8f39bc51-9c2c-4a1d-8f88-53a891a1dce7",
+  "walk": {
+   "done": [
+    "south",
+    "south-east",
+    "east",
+    "north-east",
+    "north",
+    "north-west",
+    "west",
+    "south-west"
+   ],
+   "group": "24561406-3fb8-46b6-9c7e-3163c4131e1b"
+  },
+  "idle": {
+   "done": [
+    "south",
+    "south-east",
+    "east",
+    "north-east",
+    "north",
+    "north-west",
+    "west",
+    "south-west"
+   ],
+   "group": "91978d7a-75e1-4801-9786-88feabb167eb"
+  },
+  "death": {
+   "done": [
+    "south",
+    "south-east",
+    "east",
+    "north-east",
+    "north",
+    "north-west",
+    "west",
+    "south-west"
+   ],
+   "group": "432251ec-38b5-4fbc-b84e-690fc645bcab"
+  }
+ },
+ "merfolk_girl": {
+  "edited": true,
+  "character_id": "b2758839-de4f-49cb-9916-f128f7fb9619",
+  "walk": {
+   "done": [
+    "south",
+    "south-east",
+    "east",
+    "north-east",
+    "north",
+    "north-west",
+    "west",
+    "south-west"
+   ],
+   "group": "6847f731-77f1-4e36-b864-2d6da53c5fc5"
+  },
+  "idle": {
+   "done": [
+    "south",
+    "south-east",
+    "east",
+    "north-east",
+    "north",
+    "north-west",
+    "west",
+    "south-west"
+   ],
+   "group": "c3790e0e-7c77-45fd-9186-d16ce9f44858"
+  },
+  "death": {
+   "done": [
+    "south",
+    "south-east",
+    "east",
+    "north-east",
+    "north",
+    "north-west",
+    "west",
+    "south-west"
+   ],
+   "group": "997ca499-54e9-4e4d-b2ac-7cd74605480d"
+  }
+ },
+ "nomads_boy": {
+  "edited": true,
+  "character_id": "bed3a50d-dce1-4a51-8336-db0a1f8c8d0f",
+  "walk": {
+   "done": [
+    "south",
+    "south-east",
+    "east",
+    "north-east",
+    "north",
+    "north-west",
+    "west",
+    "south-west"
+   ],
+   "group": "36ff0990-b1b7-4708-bee9-8a059c2fcbf7"
+  },
+  "idle": {
+   "done": [
+    "south",
+    "south-east",
+    "east",
+    "north-east",
+    "north",
+    "north-west",
+    "west",
+    "south-west"
+   ],
+   "group": "b6fa8a10-837e-4fa8-868e-b98f2a8f115e"
+  },
+  "death": {
+   "done": [
+    "south",
+    "south-east",
+    "east",
+    "north-east",
+    "north",
+    "north-west",
+    "west",
+    "south-west"
+   ],
+   "group": "d1493f12-c5da-478e-be40-4749750a7378"
+  }
+ },
+ "nomads_girl": {
+  "edited": true,
+  "character_id": "94b25d6e-817f-416b-bce9-8413f6e08042",
+  "walk": {
+   "done": [
+    "south",
+    "south-east",
+    "east",
+    "north-east",
+    "north",
+    "north-west",
+    "west",
+    "south-west"
+   ],
+   "group": "cdffd0ff-6774-4ba2-9550-f3df950cbdde"
+  },
+  "idle": {
+   "done": [
+    "south",
+    "south-east",
+    "east",
+    "north-east",
+    "north",
+    "north-west",
+    "west",
+    "south-west"
+   ],
+   "group": "e83dc7fd-b866-4177-b647-56aa3c3d422e"
+  },
+  "death": {
+   "done": [
+    "south",
+    "south-east",
+    "east",
+    "north-east",
+    "north",
+    "north-west",
+    "west",
+    "south-west"
+   ],
+   "group": "184784e0-d75e-48e5-8fe7-56ea074a89d0"
+  }
+ },
+ "fae_boy": {
+  "edited": true,
+  "character_id": "e03c8234-92b9-416d-a9ff-71d1b6f3df7b",
+  "walk": {
+   "done": [
+    "south",
+    "south-east",
+    "east",
+    "north-east",
+    "north",
+    "north-west",
+    "west",
+    "south-west"
+   ],
+   "group": "17476217-cc80-49c0-8dc5-2f213299b456"
+  },
+  "idle": {
+   "done": [
+    "south",
+    "south-east",
+    "east",
+    "north-east",
+    "north",
+    "north-west",
+    "west",
+    "south-west"
+   ],
+   "group": "c8ab6cab-99a5-49f6-9e92-b91e633e3099"
+  },
+  "death": {
+   "done": [
+    "south",
+    "south-east",
+    "east",
+    "north-east",
+    "north",
+    "north-west",
+    "west",
+    "south-west"
+   ],
+   "group": "98ca92fa-1693-4bb6-b424-9cb32dbe72f9"
+  }
+ },
+ "fae_girl": {
+  "edited": true,
+  "character_id": "ef2982f4-5d6b-4511-95b0-61d63100b581",
+  "walk": {
+   "done": [
+    "south",
+    "south-east",
+    "east",
+    "north-east",
+    "north",
+    "north-west",
+    "west",
+    "south-west"
+   ],
+   "group": "72413f92-be29-4146-98cd-91f056d701a2"
+  },
+  "idle": {
+   "done": [
+    "south",
+    "south-east",
+    "east",
+    "north-east",
+    "north",
+    "north-west",
+    "west",
+    "south-west"
+   ],
+   "group": "b5addc21-749a-40e3-99bb-2082466c71a6"
+  },
+  "death": {
+   "done": [
+    "south",
+    "south-east",
+    "east",
+    "north-east",
+    "north",
+    "north-west",
+    "west",
+    "south-west"
+   ],
+   "group": "425937bc-ec32-4691-85e7-575187758497"
+  }
+ },
+ "alchemists_boy": {
+  "edited": true,
+  "character_id": "b5aef8a3-49ab-4bdf-86f5-abe9e1ecea2f",
+  "walk": {
+   "done": [
+    "south",
+    "south-east",
+    "east",
+    "north-east",
+    "north",
+    "north-west",
+    "west",
+    "south-west"
+   ],
+   "group": "24f1a456-bdbf-46b4-adf4-4f3c74870bf5"
+  },
+  "idle": {
+   "done": [
+    "south",
+    "south-east",
+    "east",
+    "north-east",
+    "north",
+    "north-west",
+    "west",
+    "south-west"
+   ],
+   "group": "5f4f1884-6cbb-4142-8bc8-985c9d5bf0e6"
+  },
+  "death": {
+   "done": [
+    "south",
+    "south-east",
+    "east",
+    "north-east",
+    "north",
+    "north-west",
+    "west",
+    "south-west"
+   ],
+   "group": "64dcb192-88f6-4336-ba60-c5b40b7d25a2"
+  }
+ },
+ "alchemists_girl": {
+  "edited": true,
+  "character_id": "73be5faf-602b-40cf-820d-6a063fc7548e",
+  "walk": {
+   "done": [
+    "south",
+    "south-east",
+    "east",
+    "north-east",
+    "north",
+    "north-west",
+    "west",
+    "south-west"
+   ],
+   "group": "bcb6443e-ae86-4e61-a284-796eed2ea318"
+  },
+  "idle": {
+   "done": [
+    "south",
+    "south-east",
+    "east",
+    "north-east",
+    "north",
+    "north-west",
+    "west",
+    "south-west"
+   ],
+   "group": "bf67503d-62f8-45e7-93dd-332ad094993f"
+  },
+  "death": {
+   "done": [
+    "south",
+    "south-east",
+    "east",
+    "north-east",
+    "north",
+    "north-west",
+    "west",
+    "south-west"
+   ],
+   "group": "52a08a78-2ea0-45e3-b9e7-c4ae92ee7467"
+  }
+ },
+ "knights_boy": {
+  "edited": true,
+  "character_id": "f60039f4-b4d0-41c0-a2cc-e73504828ca4",
+  "walk": {
+   "done": [
+    "south",
+    "south-east",
+    "east",
+    "north-east",
+    "north",
+    "north-west",
+    "west",
+    "south-west"
+   ],
+   "group": "2df926a3-1275-41c8-bca0-ae3ff8637d6a"
+  },
+  "idle": {
+   "done": [
+    "south",
+    "south-east",
+    "east",
+    "north-east",
+    "north",
+    "north-west",
+    "west",
+    "south-west"
+   ],
+   "group": "c592eb0f-140b-4f09-8925-aca728d7a541"
+  },
+  "death": {
+   "done": [
+    "south",
+    "south-east",
+    "east",
+    "north-east",
+    "north",
+    "north-west",
+    "west",
+    "south-west"
+   ],
+   "group": "9ea06029-ffdd-4b25-bdf0-eadbb04a7f5c"
+  }
+ },
+ "knights_girl": {
+  "edited": true,
+  "character_id": "41d534b2-d033-4ea4-8ced-e08ebf175ecb",
+  "walk": {
+   "done": [
+    "south",
+    "south-east",
+    "east",
+    "north-east",
+    "north",
+    "north-west",
+    "west",
+    "south-west"
+   ],
+   "group": "a5e1657e-ae23-4478-bc85-36b4a77ae4fe"
+  },
+  "idle": {
+   "done": [
+    "south",
+    "south-east",
+    "east",
+    "north-east",
+    "north",
+    "north-west",
+    "west",
+    "south-west"
+   ],
+   "group": "a685e923-fb19-46ca-91e0-837dba4a5ef1"
+  },
+  "death": {
+   "done": [
+    "south",
+    "south-east",
+    "east",
+    "north-east",
+    "north",
+    "north-west",
+    "west",
+    "south-west"
+   ],
+   "group": "347a7c27-69bd-4ef6-9422-d2282230ed2f"
+  }
+ }
+}

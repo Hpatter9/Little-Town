@@ -1,0 +1,29 @@
+{
+ "look": "child_boy",
+ "people": "lich",
+ "frame": [
+  148,
+  148
+ ],
+ "directions": [
+  "south",
+  "south-east",
+  "east",
+  "north-east",
+  "north",
+  "north-west",
+  "west",
+  "south-west"
+ ],
+ "animations": {
+  "death": {
+   "frames": 7
+  },
+  "idle": {
+   "frames": 4
+  },
+  "walk": {
+   "frames": 6
+  }
+ }
+}

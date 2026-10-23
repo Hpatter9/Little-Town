@@ -8,7 +8,7 @@ import type { Slot } from '../../shared/data/items';
 import type { OriginId } from '../../shared/data/origins';
 import type { LifeStage } from '../../shared/sim/ageing';
 import type { Look } from '../../shared/data/people';
-import { CHILD_SCALE } from '../iso/folkRules';
+import { CHILD_FIGURE } from '../iso/folkRules';
 import { recolour } from '../iso/folkTint';
 import { folkWho } from '../iso/folkWho';
 import { loadImage } from './loadImage';
@@ -113,7 +113,7 @@ export function paintFigure(c: HTMLCanvasElement, f: FolkFigure, o: Pick<Portrai
     g.drawImage(f.canvas, sx, 0, side, side, 0, 0, c.width, c.height);
   } else {
     // (in quarter steps, so the pixels stay square and even)
-    const k = Math.max(0.25, Math.floor(Math.min((c.width * 0.9) / f.w, (c.height * 0.94) / f.h) * 4) / 4) * (o.child ? CHILD_SCALE : 1);
+    const k = Math.max(0.25, Math.floor(Math.min((c.width * 0.9) / f.w, (c.height * 0.94) / f.h) * 4) / 4) * (o.child ? CHILD_FIGURE : 1);
     const w = Math.round(f.w * k), h = Math.round(f.h * k);
     g.drawImage(f.canvas, Math.round((c.width - w) / 2), c.height - h - Math.round(c.height * 0.03), w, h);
   }

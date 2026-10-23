@@ -1,0 +1,29 @@
+{
+ "look": "child_girl",
+ "people": "alchemists",
+ "frame": [
+  148,
+  148
+ ],
+ "directions": [
+  "south",
+  "south-east",
+  "east",
+  "north-east",
+  "north",
+  "north-west",
+  "west",
+  "south-west"
+ ],
+ "animations": {
+  "death": {
+   "frames": 7
+  },
+  "walk": {
+   "frames": 6
+  },
+  "idle": {
+   "frames": 4
+  }
+ }
+}

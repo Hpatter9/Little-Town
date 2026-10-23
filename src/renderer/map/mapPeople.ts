@@ -732,7 +732,8 @@ export class MapPeople {
       s.anchor.set(CENTRE_X / FRAME_SIZE, FEET_Y / FRAME_SIZE);
       const flip = d.view.dir < 0 && !faceWay;
       const founder = d.view.founderCalling;
-      const k = (d.view.growsUpIn !== null ? CHILD_SCALE : 1) * (d.view.look.height ?? 1) * (founder ? FOUNDER_SCALE : 1);
+      const grown = (d.view.look.height ?? 1) * (founder ? FOUNDER_SCALE : 1);
+      const k = (d.view.growsUpIn !== null ? CHILD_SCALE : 1) * grown;
       s.scale.set(flip ? -k : k, k);
       // (nobody standing is frozen: a breath's rise and fall, and now and then a shift of weight: idleFidget)
       const breath = anim === 'walk' && frame === 0 && !fighting ? idleBreath(now, d.view.id) : 0;
@@ -891,7 +892,8 @@ export class MapPeople {
         if (folkOn) {
           const f = (d.folk ??= this.layer.addChild(new FolkSprite()));
           f.visible = true;
-          f.scale.set(FOLK_SCALE * k);
+          // (not the side-on sprite's child shrink: a child's iso look is drawn child-sized, scaled by folkRules' own)
+          f.scale.set(FOLK_SCALE * grown);
           f.position.set(s.x, s.y);
           f.zIndex = z;
           f.update(v, d.x, d.y, now / 1000, Math.max(0.001, (now - (d.folkAt ?? now - 16)) / 1000), undefined, wolfNow);
