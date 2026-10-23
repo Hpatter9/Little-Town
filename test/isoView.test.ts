@@ -4,7 +4,8 @@ import { existsSync } from 'node:fs';
 import { CELL } from '../src/shared/sim/land';
 import { BUILDINGS } from '../src/shared/data/buildings';
 import { cellsInView, footBase, footDepth, footWidth, isoBounds, isoOrigin, isoToTile, isoToWorld, ISO_TH, ISO_TW, pointDepth, standingDepth, tileToIso, worldToIso } from '../src/renderer/iso/isoMath';
-import { groundTile, kitNameFor, kitOf, KIT_NAMES, pieceFor, roleOf, ISO_ART } from '../src/renderer/iso/isoKits';
+import { groundTile, kitNameFor, kitOf, kitUrl, KIT_NAMES, pieceFor, roleOf, sharedPiece, SHARED_PIECES, ISO_ART } from '../src/renderer/iso/isoKits';
+import { BUILDING_BY_ID } from '../src/shared/data/buildings';
 
 const near = (a: number, b: number) => assert.ok(Math.abs(a - b) < 1e-9, `${a} vs ${b}`);
 
@@ -91,8 +92,8 @@ test('every kit has its ground tiles, its pieces on disk and a cottage the same 
     assert.ok(Math.abs(cottage.w * kit.scale - 240) < 2, `${name}: cottage ${cottage.w * kit.scale}`);
     for (const b of BUILDINGS) {
       const piece = pieceFor(kit, b.id);
-      assert.ok(kit.pieces.has(piece), `${name}: ${b.id} -> ${piece}`);
-      assert.ok(existsSync(`src/renderer/art/iso/kits/${name}/${piece}.png`), `${name}/${piece}.png`);
+      assert.ok(kit.pieces.has(piece) || sharedPiece(name, piece), `${name}: ${b.id} -> ${piece}`);
+      assert.ok(existsSync(`src/renderer/art/${kitUrl(name, piece)}`), kitUrl(name, piece));
     }
   }
 });
@@ -110,7 +111,7 @@ test('the game buildings map to kit pieces, falling back to the cottage', () => 
   assert.equal(pieceFor(settlers, 'watchtower'), 'watchtower');
   assert.equal(pieceFor(settlers, 'palisade_wall'), 'palisade_run');
   assert.equal(pieceFor(settlers, 'palisade_gate'), 'palisade_gate');
-  assert.equal(pieceFor(settlers, 'statue'), 'cottage');
+  assert.equal(pieceFor(settlers, 'hold_hallway'), 'cottage');
   assert.equal(pieceFor(kitOf('dwarves'), 'tavern'), 'ale_hall');
   assert.equal(pieceFor(kitOf('knights'), 'barracks'), 'barracks');
   assert.deepEqual(roleOf('garden_plot'), { field: true });
@@ -190,4 +191,29 @@ test('traps, turrets and the halls of learning are not drawn as cottages', () =>
   assert.equal(pieceFor(settlers, 'storytellers_circle'), 'campfire');
   assert.equal(pieceFor(kitOf('knights'), 'stable'), 'stable');
   assert.equal(pieceFor(kitOf('orcs'), 'beast_ranch'), 'warg_pen');
+});
+
+// (the buildings that fell back to a cottage until they had pieces of their own: docs/notes/iso-buildings.md)
+const OWN_PIECES = ['village_green', 'quoits_pitch', 'sparring_yard', 'drill_yard', 'archery_range', 'pleasure_garden', 'bandstand', 'boatyard', 'harbour', 'fishing_jetty', 'statue', 'victory_monument', 'ward_stone', 'portal_arch', 'ai_core', 'clone_vat', 'cryo_pod', 'drone_hub', 'shield_generator', 'launch_site', 'mission_control'];
+
+test('every shared building piece is a real building, with its picture', () => {
+  for (const [id, p] of SHARED_PIECES) {
+    assert.ok(BUILDING_BY_ID[id], `${id} is not a building`);
+    assert.ok(existsSync(`src/renderer/art/iso/buildings/${id}.png`), id);
+    assert.ok(p.w > 0 && p.h > 0 && (p.soil ?? 0) >= 0 && (p.soil ?? 0) < p.h / 4, id);
+  }
+});
+
+test('the open grounds, sea works, monuments and late machines have their own piece in every kit', () => {
+  for (const name of KIT_NAMES) {
+    const kit = kitOf(name);
+    for (const id of OWN_PIECES) {
+      assert.equal(pieceFor(kit, id), id, `${name}: ${id}`);
+      // (a kit's own piece of that name comes first; else the shared one, served from art/iso/buildings/)
+      assert.equal(kitUrl(name, id), kit.pieces.has(id) ? `iso/kits/${name}/${id}.png` : `iso/buildings/${id}.png`);
+    }
+  }
+  // (a kit that isn't a people's, the land's dressing, keeps its own statue)
+  assert.equal(kitUrl('wild', 'statue'), 'iso/kits/wild/statue.png');
+  assert.equal(kitUrl('settlers', 'cottage'), 'iso/kits/settlers/cottage.png');
 });

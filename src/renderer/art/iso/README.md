@@ -36,6 +36,14 @@ with PixelLab from the project's own front views.
 - The settlers: 9 looks (`man_`, `woman_`, `dwarf_` x `base`, `leather` or `apron`, `plate`), each with its six
   armed looks. Laid out by the coordinator's PixelLab script from the downloaded characters.
 
+## buildings/
+
+Pieces for single buildings that no people's kit has, drawn for every people (PixelLab, in the settlers' kit style):
+the open grounds, the sea works, monuments, the ward stone, the portal arch and the late machines. Each is named after
+its building's id; `index.json` gives `id`, `w`, `h`, and where it has one `soil` (px of the soil or water block under
+its ground, cut off when drawn) and `along_y` (its long side lies along y). Each stands on a plinth drawn as its
+footprint, so the view fits it to the footprint's width (iso/isoKits.ts `SHARED_PIECES`, iso/isoView.ts).
+
 ## castles/<people>/
 
 The castle and hold pieces drawn in each people's kit style (PixelLab): `bloodcourt/` (castle_keep, castle_tower,

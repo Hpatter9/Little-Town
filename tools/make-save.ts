@@ -2,7 +2,8 @@
 // (SEED=, ORIGIN=settlers, BIOME=highlands: another town; RELIEF=0 a level land; VALLEY=River_Valley a starting valley
 // drawn by hand, sim/startValleys.ts; SCENARIO=band; EXPLORE=24 the land that far round the camp seen;
 // HOME_DEF=longhouse a home built at the start with everyone's bed in it; VENUES=1 a Fireside Inn and a Trading Post
-// built at the start, to see their own windows)
+// built at the start, to see their own windows); BUILD=statue,harbour,... those built, finished, after the run (to see
+// their pictures: put up after, so the town can't pull them down); UNLOCK=1 every building in the build menu
 import { writeFileSync } from 'node:fs';
 import { serialize } from '../src/shared/sim/save';
 import { Sim } from '../src/shared/sim/sim';
@@ -35,6 +36,16 @@ if (env.VENUES) {
   }
 }
 for (let t = 0; t < Number(process.argv[3] ?? 6) * TICKS_PER_DAY; t++) sim.step();
+if (env.UNLOCK) sim.state.cheats.unlockAll = true;
+if (env.BUILD) {
+  const st = sim.state;
+  for (const id of env.BUILD.split(',')) {
+    const d = BUILDING_BY_ID[id];
+    const r = d && spiralSpot(st.land, d.width, depthOf(d), footprints(st), campCell(st), { maxR: 40, wild: true });
+    if (!r) console.log(`no room for ${id}`);
+    else st.buildings.push({ id: st.nextId++, def: d.id, tile: r.x, row: r.y, status: 'done', delivered: {}, progress: 1, store: {} });
+  }
+}
 // (EXPLORE=24: the land that far round the camp already seen, for previews of the land about the town)
 if (env.EXPLORE && sim.state.explored) {
   const st = sim.state;

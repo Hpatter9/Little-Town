@@ -34,6 +34,8 @@ cpSync('src/renderer/art/iso/kits', 'out/renderer/iso/kits', { recursive: true, 
 cpSync('src/renderer/art/iso/folk', 'out/renderer/iso/folk', { recursive: true });
 // and the God creature's sheets, the same layout (iso/folkLoader.ts `loadCreatureSet`)
 cpSync('src/renderer/art/iso/creature', 'out/renderer/iso/creature', { recursive: true });
+// and the buildings' own pieces drawn for every people (iso/isoKits.ts `SHARED_PIECES`, `kitUrl`)
+cpSync('src/renderer/art/iso/buildings', 'out/renderer/iso/buildings', { recursive: true, filter: (f) => !f.endsWith('.json') && !f.endsWith('.md') });
 // and the castle and hold pieces (iso/isoCastle.ts `castleUrl`)
 cpSync('src/renderer/art/iso/castles', 'out/renderer/iso/castles', { recursive: true, filter: (f) => !f.endsWith('.json') && !f.endsWith('.md') });
 // and the raid map's scenery atlases (tools/compose-props.cjs)

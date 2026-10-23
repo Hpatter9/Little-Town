@@ -6,6 +6,12 @@ The Blood Court castle and the dwarves' hold pieces in `src/renderer/art/iso/cas
 halls, forge, brewery, blood cellar) were generated with PixelLab (pixellab.ai) on the project's own subscription, in
 the style of the project's building kits, and reduced to 256 colours. Made for and owned by the project.
 
+## Isometric building pieces
+
+The 21 building pieces in `src/renderer/art/iso/buildings/` (the open grounds, the sea works, the statue and monuments,
+the ward stone, the portal arch and the late machines) were generated with PixelLab (pixellab.ai) on the project's own
+subscription, in the style of the settlers' building kit, and reduced to 256 colours. Made for and owned by the project.
+
 ## Isometric building kits (the isometric view, in progress)
 
 The twelve peoples' building kits in `src/renderer/art/iso/kits/` (houses, walls, gates, ground tiles, roofs and
