@@ -28,6 +28,7 @@ import type { Snapshot } from '../../shared/sim/snapshot';
 import type { UnderFolk, UnderMark, UnderSiteSeen, UnderView } from '../../shared/sim/underdark';
 import { creatureFeet, creatureFlip, creatureFrame, type CreatureSheet } from '../art/creatures';
 import { hkLayers, hkPose, hkWhoById, hkWhoOfLook, type HkFacing } from '../art/hkFolk';
+import { folkSideById } from '../art/folkSide';
 import { hkSprite } from '../art/hkTexture';
 import { loadImage } from '../art/loadImage';
 import { glowTexture } from '../town/layer';
@@ -852,7 +853,11 @@ export class UnderScene {
     const w = 'gear' in who ? hkWhoById(who.id, who.look, who.gear) : hkWhoOfLook(who.id, who.look);
     const keys = hkLayers(w, { fighting: !!o.working && o.activity === 'fight', activity: o.activity ?? 'walk' });
     const [col, row] = hkPose({ facing, moving: moved > 0.05, walked: a.walked, working: !!o.working, sinceBlow: o.activity === 'fight' ? ((now / 100) % 8) : 999, sinceHit: 999, down: false, ranged: false, now: now + who.id * 137 });
-    a.sprite.visible = hkSprite(a.sprite, keys, col, row, x, y, TILE * 1.35 * (o.height ?? 1));
+    // (in their isometric look, as the map draws them: art/folkSide.ts; the Himeko look while it loads)
+    const pose = { faceLeft: facing === 'left', facing, moving: moved > 0.05, working: !!o.working && o.activity !== 'fight', sinceBlow: o.activity === 'fight' ? (now / 100) % 8 : 999, now: now + who.id * 137 };
+    // (the townsfolk only: those met below keep the paper doll, having no people's look of their own yet)
+    const side = 'gear' in who && folkSideById(a.sprite, who.id, who.look, who.gear, pose, x, y, TILE * 1.35 * (o.height ?? 1));
+    a.sprite.visible = side || hkSprite(a.sprite, keys, col, row, x, y, TILE * 1.35 * (o.height ?? 1));
     a.sprite.tint = o.tint ?? 0xffffff;
     a.sprite.zIndex = y;
   }

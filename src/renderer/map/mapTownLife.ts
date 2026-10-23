@@ -8,6 +8,8 @@ import { Container, Graphics, Sprite, Texture } from 'pixi.js';
 import type { Look } from '../../shared/data/people';
 import { HK_CELL, HK_FEET, HK_FIGURE, hkLayers, hkWhoOfLook, type HkFacing } from '../art/hkFolk';
 import { hkTexture } from '../art/hkTexture';
+import { folkSide } from '../art/folkSide';
+import type { PortraitWho } from '../art/folkPortrait';
 import { loadImage } from '../art/loadImage';
 import coffinUrl from '../art/life/coffin.png';
 import { glowTexture } from '../town/layer';
@@ -33,6 +35,8 @@ interface Lookout {
   s: Sprite;
   lamp: Sprite;
   keys: string[];
+  /** The townsperson up there, for their isometric look (art/folkSide.ts). */
+  who?: PortraitWho;
   x: number;
   y: number;
   id: number;
@@ -101,7 +105,7 @@ export class MapTownLife {
   }
 
   /** The towers a lookout stands on: where their feet go (world px), and the look of the townsperson up there. */
-  syncLookouts(towers: { id: number; x: number; y: number; look: Look }[]): void {
+  syncLookouts(towers: { id: number; x: number; y: number; look: Look; who?: PortraitWho }[]): void {
     const want = new Set(towers.map((t) => t.id));
     for (const [id, l] of this.lookouts)
       if (!want.has(id)) {
@@ -123,6 +127,7 @@ export class MapTownLife {
         this.lookouts.set(t.id, l);
       }
       l.keys = hkLayers(hkWhoOfLook(t.id, t.look, { cls: 'guardian' }), { fighting: false, activity: 'idle' });
+      l.who = t.who;
       l.x = Math.round(t.x);
       l.y = Math.round(t.y);
     }
@@ -132,9 +137,18 @@ export class MapTownLife {
     // the lookouts: a look round every few seconds
     for (const l of this.lookouts.values()) {
       const facing = ROW[Math.floor((now / 3200 + l.id * 0.7) % ROW.length)];
+      // (in their isometric look, as the map draws them: art/folkSide.ts; the paper doll while it loads)
+      if (!this.calm && l.who && folkSide(l.s, l.who, { faceLeft: facing === 'left', facing, now }, l.x, l.y, 48 * LOOKOUT_K * 1.15)) {
+        l.s.visible = true;
+        l.s.zIndex = l.y + 40;
+        l.lamp.visible = true;
+        l.lamp.position.set(l.x, l.y - 18);
+        continue;
+      }
       const tex = this.calm ? null : hkTexture(l.keys, 0, { down: 0, left: 1, right: 2, up: 3 }[facing]);
       l.s.visible = !!tex;
       if (tex) {
+        l.s.anchor.set(0.5, HK_FEET / HK_CELL);
         l.s.texture = tex;
         const k = (48 / HK_FIGURE) * LOOKOUT_K;
         l.s.scale.set(k);

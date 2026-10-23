@@ -5,6 +5,9 @@
 // vote the crowd raises its hands.
 
 import { hkDraw } from '../art/hkFolk';
+import { drawFolk } from '../art/folkCanvas';
+import type { PortraitWho } from '../art/folkPortrait';
+import type { FolkAnim, FolkDir } from '../iso/folkRules';
 import { PACK_LAYOUT, packUrl } from '../art/creatures/packs';
 import { loadImage } from '../art/loadImage';
 import manifest from '../art/backdrops.json';
@@ -27,6 +30,10 @@ const frac = (x: number) => x - Math.floor(x);
 const rnd = (i: number, k: number) => frac(Math.sin(i * 12.9898 + k * 78.233) * 43758.5453);
 /** The paper doll's row for each facing. */
 const ROW = { f: 0, l: 1, r: 2, b: 3 } as const;
+/** The isometric look's facing for each (a picture is side-on: the looks turned east, west, toward us or away). */
+const DIR: Record<keyof typeof ROW, FolkDir> = { f: 'south', l: 'west', r: 'east', b: 'north' };
+/** The isometric look's animation for each pose (art/folkCanvas.ts). */
+const FOLK_ANIM: Record<string, FolkAnim> = { walk: 'walk', work: 'hammer', attack: 'attack_1h', shoot: 'attack_bow', read: 'idle', talk: 'idle', kneel: 'idle', cheer: 'cast_1h', idle: 'idle' };
 
 /** What a playing scene has been told (a vote taken), and how to draw it once more when it doesn't run on (reduced
  *  motion). */
@@ -56,16 +63,21 @@ export function sceneStats(): { frames: number; meanMs: number; maxMs: number } 
 
 /** Play a scene into any container (the New Town sheets, and whatever else wants a moving picture): `script` is a
  *  SceneScript, or the name of one in `scripts`. Returns the canvas; it stops by itself once removed from the page. */
-export function playScene(container: HTMLElement, script: SceneScript | string, dolls: string[][] = [], scripts: Record<string, SceneScript> = {}): HTMLCanvasElement | null {
+export function playScene(container: HTMLElement, script: SceneScript | string, dolls: string[][] = [], scripts: Record<string, SceneScript> = {}, folk: Folk = []): HTMLCanvasElement | null {
   const sc = typeof script === 'string' ? scripts[script] : script;
   if (!sc) return null;
-  const c = animScene(sc, dolls);
+  const c = animScene(sc, dolls, folk);
   container.append(c);
   return c;
 }
 
-/** A canvas that plays `script`; `dolls` are the paper dolls' layer keys (hkFolk.ts), the one an actor's `who` names. */
-export function animScene(script: SceneScript, dolls: string[][]): HTMLCanvasElement {
+/** Who wears each doll's place in their isometric look (art/folkCanvas.ts): drawn so where it is given and in, else the
+ *  paper doll. */
+export type Folk = readonly (PortraitWho | null | undefined)[];
+
+/** A canvas that plays `script`; `dolls` are the paper dolls' layer keys (hkFolk.ts), the one an actor's `who` names;
+ *  `folk`, by the same places, who to draw in their isometric look instead. */
+export function animScene(script: SceneScript, dolls: string[][], folk: Folk = []): HTMLCanvasElement {
   const c = document.createElement('canvas');
   c.className = 'nt-scene nt-anim';
   c.width = VIEW_W;
@@ -101,7 +113,7 @@ export function animScene(script: SceneScript, dolls: string[][]): HTMLCanvasEle
     const t0 = performance.now();
     // (a vote's raised hands last a moment; with reduced motion they stay raised)
     const cue = state.cue && (reduced || now - state.cueAt < 2200) ? { what: state.cue, since: reduced ? 1 : (now - state.cueAt) / 1000 } : null;
-    draw(g, script, dolls, backImg, sheets, props, reduced ? 2 : (now - born) / 1000, cue);
+    draw(g, script, dolls, folk, backImg, sheets, props, reduced ? 2 : (now - born) / 1000, cue);
     if (state.ms.length < 400) state.ms.push(performance.now() - t0);
   };
   const frame = (now: number) => {
@@ -121,7 +133,7 @@ export function animScene(script: SceneScript, dolls: string[][]): HTMLCanvasEle
 
 type Cue = { what: string; since: number } | null;
 
-function draw(g: CanvasRenderingContext2D, s: SceneScript, dolls: string[][], backImg: HTMLImageElement | null, sheets: Map<string, HTMLImageElement>, props: Map<string, HTMLImageElement>, t: number, cue: Cue): void {
+function draw(g: CanvasRenderingContext2D, s: SceneScript, dolls: string[][], folk: Folk, backImg: HTMLImageElement | null, sheets: Map<string, HTMLImageElement>, props: Map<string, HTMLImageElement>, t: number, cue: Cue): void {
   g.clearRect(0, 0, VIEW_W, VIEW_H);
   // (a quake: the whole picture jolts now and then)
   const jolt = s.shake && frac(t / 1.7) < 0.3 ? Math.round(Math.sin(t * 60) * s.shake) : 0;
@@ -146,8 +158,8 @@ function draw(g: CanvasRenderingContext2D, s: SceneScript, dolls: string[][], ba
   // (back to front: whatever stands further up the picture first; things hung on the wall before all)
   const order: { y: number; draw: () => void }[] = [];
   for (const p of s.props ?? []) order.push({ y: p.back ? -1 : (p.z ?? p.y ?? 0.9), draw: () => prop(g, p, props, t) });
-  s.actors.forEach((a, i) => order.push({ y: a.y ?? 0.9, draw: () => actor(g, a, dolls, sheets, t, i === s.speaker ? 'talk' : null) }));
-  for (const cr of s.crowd ?? []) for (const m of crowdOf(cr, dolls.length)) order.push({ y: m.y, draw: () => member(g, cr, m, dolls, t, cue) });
+  s.actors.forEach((a, i) => order.push({ y: a.y ?? 0.9, draw: () => actor(g, a, dolls, folk, sheets, t, i === s.speaker ? 'talk' : null) }));
+  for (const cr of s.crowd ?? []) for (const m of crowdOf(cr, dolls.length)) order.push({ y: m.y, draw: () => member(g, cr, m, dolls, folk, t, cue) });
   order.sort((a, b) => a.y - b.y);
   for (const o of order) o.draw();
   s.fx.forEach((f, j) => fx(g, f, t, j));
@@ -206,7 +218,7 @@ function poseCol(anim: Anim | 'talk', t: number, ref: number): number {
   }
 }
 
-function member(g: CanvasRenderingContext2D, cr: Crowd, m: { i: number; doll: number; x: number; y: number; k: number }, dolls: string[][], t: number, cue: Cue): void {
+function member(g: CanvasRenderingContext2D, cr: Crowd, m: { i: number; doll: number; x: number; y: number; k: number }, dolls: string[][], folk: Folk, t: number, cue: Cue): void {
   const keys = dolls[m.doll];
   if (!keys) return;
   // (a murmur: now and then one shifts their weight, or turns to a neighbour)
@@ -219,10 +231,12 @@ function member(g: CanvasRenderingContext2D, cr: Crowd, m: { i: number; doll: nu
   const col = voting ? 3 : poseCol(cr.anim ?? 'idle', t, r);
   const h = cr.h * ACTOR_SCALE * m.k;
   const feet = m.y * VIEW_H - (voting ? Math.abs(Math.sin(t * 6 + m.i)) : 0);
+  const who = folk[m.doll];
+  if (who && drawFolk(g, who, voting ? 'cast_1h' : (FOLK_ANIM[cr.anim ?? 'idle'] ?? 'idle'), DIR[turn], t + r * 3, m.x * VIEW_W + shift, feet, h)) return;
   hkDraw(g, keys, col, ROW[turn], m.x * VIEW_W + shift, feet, h);
 }
 
-function actor(g: CanvasRenderingContext2D, a: Actor, dolls: string[][], sheets: Map<string, HTMLImageElement>, t: number, as: 'talk' | null): void {
+function actor(g: CanvasRenderingContext2D, a: Actor, dolls: string[][], folk: Folk, sheets: Map<string, HTMLImageElement>, t: number, as: 'talk' | null): void {
   const u = frac(t / LOOP + (a.phase ?? 0));
   const x = (a.x[0] + (a.x[1] - a.x[0]) * u) * VIEW_W;
   const moving = a.x[0] !== a.x[1];
@@ -240,7 +254,8 @@ function actor(g: CanvasRenderingContext2D, a: Actor, dolls: string[][], sheets:
     g.save();
     g.shadowColor = 'rgba(0,0,0,0.45)';
     g.shadowOffsetY = 1;
-    hkDraw(g, keys, col, row, x, feet + hop, h);
+    const who = folk[Math.min(a.who, dolls.length - 1)];
+    if (!who || !drawFolk(g, who, FOLK_ANIM[as ?? a.anim ?? 'idle'] ?? 'idle', DIR[face], t + (a.phase ?? 0) * 3, x, feet, h)) hkDraw(g, keys, col, row, x, feet + hop, h);
     g.restore();
     return;
   }

@@ -1,6 +1,7 @@
-// Plays an event card's scene (eventScenes.ts) with the town's own people in it: the cast from eventCast.ts dressed
-// as their paper dolls, and the outsiders the event brings (strangers, a herald, a priest, a merchant) dressed from a
-// look drawn on the event's own id, so the same card always shows the same faces.
+// Plays an event card's scene (eventScenes.ts) with the town's own people in it: the cast from eventCast.ts in their
+// isometric looks (art/folkCanvas.ts; the paper doll while a look loads), and the outsiders the event brings
+// (strangers, a herald, a priest, a merchant) dressed from a look drawn on the event's own id, so the same card always
+// shows the same faces.
 
 import { randomLook } from '../../shared/data/people';
 import type { ClassId } from '../../shared/data/classes';
@@ -9,7 +10,8 @@ import type { PersonView, PromptView, Snapshot } from '../../shared/sim/snapshot
 import { hkLayers, hkWhoOf, hkWhoOfLook } from '../art/hkFolk';
 import { eventCast, SLOT } from './eventCast';
 import { EVENT_SCENES, sceneFor } from './eventScenes';
-import { playScene, sceneCue } from './scenePlayer';
+import { playScene, sceneCue, type Folk } from './scenePlayer';
+import type { PortraitWho } from '../art/folkPortrait';
 import type { EventSceneId } from '../../shared/data/eventSceneIds';
 
 const IDLE = { fighting: false, activity: 'idle' };
@@ -36,9 +38,16 @@ export function playEventScene(container: HTMLElement, p: PromptView, snap: Snap
   const lead = p.who != null && byId.has(p.who) ? p.who : null;
   const cast = eventCast(p.id, home.map((q) => ({ id: q.id, grown: q.growsUpIn === null })), lead, founder);
   const rng = new Rng(hashSeed(`outsiders:${p.id}`));
-  const outsider = (n: number, o: { traveller?: boolean; cls?: ClassId }) => hkLayers(hkWhoOfLook(-1000 - n, randomLook(rng), o), IDLE);
+  // (an outsider wears a settler's look: the town's own people theirs)
+  const folk: (PortraitWho | null)[] = [];
+  const outsider = (n: number, o: { traveller?: boolean; cls?: ClassId }) => {
+    const look = randomLook(rng);
+    folk[n] = { id: -1000 - n, look, gear: {} };
+    return hkLayers(hkWhoOfLook(-1000 - n, look, o), IDLE);
+  };
   const doll = (pid: number | null | undefined, n: number) => {
     const q = pid != null ? byId.get(pid) : undefined;
+    if (q) folk[n] = q;
     return q ? hkLayers(hkWhoOf(q), IDLE) : outsider(n, { traveller: true });
   };
   const dolls: string[][] = [];
@@ -47,7 +56,7 @@ export function playEventScene(container: HTMLElement, p: PromptView, snap: Snap
   [SLOT.elder, SLOT.elder2, SLOT.elder3].forEach((at, i) => (dolls[at] = doll(cast.elders[i], at)));
   for (const [at, o] of OUTSIDERS) dolls[at] = outsider(at, o);
   cast.crowd.forEach((pid, i) => (dolls[SLOT.crowd + i] = doll(pid, SLOT.crowd + i)));
-  const canvas = playScene(container, EVENT_SCENES[id], dolls);
+  const canvas = playScene(container, EVENT_SCENES[id], dolls, {}, folk as Folk);
   if (!canvas) return null;
   canvas.dataset.scene = id;
   return { canvas, answered: () => VOTES.has(id) && sceneCue(canvas, 'vote') };

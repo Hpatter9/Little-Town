@@ -21,6 +21,7 @@ import { CENTRE_X, FEET_Y, FRAME_COUNT, lpcFrame, type LpcAnim } from '../art/lp
 import type { HumanSprite, MachineSprite, StillSprite } from '../../shared/data/enemies';
 import { stillTexture } from '../art/stills';
 import { hkLayers, hkPose, hkWhoById } from '../art/hkFolk';
+import { folkSideById } from '../art/folkSide';
 import { hkSprite } from '../art/hkTexture';
 import type { Slot } from '../../shared/data/items';
 import { machineFrame, machineSize } from '../art/machines';
@@ -160,10 +161,12 @@ export class ExpeditionPane {
         frame = phase < 0.7 ? Math.floor((phase / 0.7) * count) : 0;
       }
       const flip = walking ? dir < 0 : false;
-      // (in the Himeko look, as the map draws them: art/hkFolk.ts; the old look while their layers load)
+      // (in their isometric look side-on, as the map draws them: art/folkSide.ts; the Himeko look while it loads, and
+      // the old look while that loads)
       const keys = hkLayers(hkWhoById(m.id, m.look, m.gear), { fighting: false, activity: walking ? 'idle' : anim === 'thrust' ? 'chop' : 'build' });
       const col = walking ? [1, 0, 2, 0][Math.floor(secs * 7 + i * 3) % 4] : frame ? (frame % 2 ? 3 : 4) : 0;
-      if (!hkSprite(m.sprite, keys, col, flip ? 1 : 2, x, WALK_Y, 48)) {
+      const side = folkSideById(m.sprite, m.id, m.look, m.gear, { faceLeft: flip, moving: walking, working: !walking, now: secs * 1000 + i * 370 }, x, WALK_Y, 48);
+      if (!side && !hkSprite(m.sprite, keys, col, flip ? 1 : 2, x, WALK_Y, 48)) {
         m.sprite.anchor.set(0);
         m.sprite.texture = lpcFrame(m.look, anim, frame, null, m.wear);
         m.sprite.scale.set(flip ? -1 : 1, 1);
@@ -255,7 +258,9 @@ export class ExpeditionPane {
         // (a townsperson in the Himeko look, as the map draws them)
         const hkKeys = !hs && f.look ? hkLayers(hkWhoById(f.ref, f.look, f.gear), { fighting: true, activity: 'fight' }) : null;
         const [hc, hr] = hkPose({ facing: faceLeft ? 'left' : 'right', moving: false, walked: 0, working: false, sinceBlow: acting ? f.sinceAction : 999, sinceHit: f.sinceHit, down: f.down, ranged: f.ranged, now: secs * 1000 });
-        if (hkKeys && hkSprite(s, hkKeys, hc, hr, x, WALK_Y, 48)) {
+        if (!hs && f.look && folkSideById(s, f.ref, f.look, f.gear, { faceLeft, sinceBlow: acting ? f.sinceAction : 999, sinceHit: f.sinceHit, down: f.down, ranged: f.ranged, now: secs * 1000 + f.ref * 97 }, x, WALK_Y, 48)) {
+          top = WALK_Y - 50;
+        } else if (hkKeys && hkSprite(s, hkKeys, hc, hr, x, WALK_Y, 48)) {
           top = WALK_Y - 50;
         } else {
           s.anchor.set(0);
