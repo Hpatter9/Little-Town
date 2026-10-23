@@ -242,8 +242,12 @@ export interface FounderView {
   /** The winds the founder can be sent to explore toward, and whether any fog is left that way (sim/explore.ts). */
   winds: { dir: number; name: string; open: boolean }[];
   id: number;
-  /** What the founder was told to do, in words (null: nothing). */
+  /** What the founder was told to do, in words (null: nothing), and which kind of order it is. */
   order: string | null;
+  orderKind?: 'go' | 'work' | 'rest' | 'explore';
+  /** The trip the founder is on, if any: where, which leg, whether they lead it, a fight or a question holding it, and
+   *  how far along (whole days, or hours left on a trip shorter than a day). For the founder card's "Now" line. */
+  trip?: { name: string; phase: ExpeditionPhase; leads: boolean; fighting: boolean; waiting: boolean; day: number; days: number; hoursLeft: number };
   /** Who leads after them (the named heir, then the partner, then the eldest grown child), and whether they were named. */
   heir: { id: number; name: string; named: boolean } | null;
   /** Grown-ups who could be named, partner and children first. */
@@ -1413,6 +1417,25 @@ function founderShopsView(s: GameState): Pick<FounderView, 'shops' | 'buyable' |
   return { shops, buyable, hires };
 }
 
+/** The trip the founder is on, in the founder view's terms (none: at home). */
+function founderTrip(s: GameState, f: Person): FounderView['trip'] {
+  const e = f.away === null ? undefined : s.expeditions.find((x) => x.members.includes(f.id));
+  if (!e) return undefined;
+  const total = Math.max(1, e.outTicks + e.workTicks + e.backTicks);
+  const done = Math.min(total, e.elapsed + (e.phase === 'out' ? 0 : e.outTicks) + (e.phase === 'back' ? e.workTicks : 0));
+  const days = Math.max(1, Math.ceil(total / TICKS_PER_DAY));
+  return {
+    name: destinationOf(s, e.dest)?.name ?? 'a trip',
+    phase: e.phase,
+    leads: e.members[0] === f.id,
+    fighting: e.battle !== null,
+    waiting: e.prompt !== null,
+    day: Math.min(days, Math.floor(done / TICKS_PER_DAY) + 1),
+    days,
+    hoursLeft: Math.max(1, Math.ceil((total - done) / TICKS_PER_HOUR)),
+  };
+}
+
 function founderView(s: GameState): FounderView | null {
   const f = founderOf(s);
   if (!f) return null;
@@ -1428,7 +1451,7 @@ function founderView(s: GameState): FounderView | null {
     .sort((a, b) => rank[a.role] - rank[b.role]);
   const open = windsOpen(s);
   const winds = EXPLORE_DIRS.map((name, dir) => ({ dir, name, open: open[dir] }));
-  return { id: f.id, winds, order, heir: next ? { id: next.id, name: next.name, named: next.id === s.heirId } : null, heirs, jobs: JOBS.filter((j) => j !== 'defend'), ...founderShopsView(s), duels: slow(s, 'duels', () => duelChoices(s)), duelBlock: duelBlock(s), duel: s.duel ? { foe: s.duel.foe.name, to: s.duel.to, over: s.duel.ended !== undefined, text: s.duel.text ?? null } : null, uniqueNames: { ...(s.uniqueNames ?? {}) }, dealings: dealingsView(s) };
+  return { id: f.id, winds, order, orderKind: o?.kind, trip: founderTrip(s, f), heir: next ? { id: next.id, name: next.name, named: next.id === s.heirId } : null, heirs, jobs: JOBS.filter((j) => j !== 'defend'), ...founderShopsView(s), duels: slow(s, 'duels', () => duelChoices(s)), duelBlock: duelBlock(s), duel: s.duel ? { foe: s.duel.foe.name, to: s.duel.to, over: s.duel.ended !== undefined, text: s.duel.text ?? null } : null, uniqueNames: { ...(s.uniqueNames ?? {}) }, dealings: dealingsView(s) };
 }
 
 
@@ -2660,6 +2683,9 @@ export function describe(s: GameState, p: Person): string {
       // (the small scenes and the rain: sim/idleScenes.ts)
       const scene = task.pastime && SCENE_DOING[task.pastime];
       if (scene) return (task.type === 'wander' && task.pastime !== 'tag' && SCENE_GOING[task.pastime!]) || scene;
+      // (the founder's own walks: sent to a building, or out to the fog's edge: sim/founder.ts)
+      if (task.type === 'wander' && task.explore) return s.founderOrder?.kind === 'explore' && p.id === s.mainId ? `Exploring to the ${windName(s.founderOrder.dir)}` : 'Off to look at the land beyond';
+      if (task.type === 'wander' && p.id === s.mainId && s.founderOrder?.kind === 'go') return `Walking to the ${name(s.founderOrder.building).toLowerCase()}`;
       return 'Idling at camp';
     case 'gather': {
       if (task.scrounge) return 'Hungry: picking wild berries (nothing in storage)';

@@ -25,8 +25,9 @@ const GROUPS: Record<string, MenuTabs> = {
     ],
     intro: 'Overview',
   },
-  // the founder's card: their orders and purse, and their story (chapters, one book a founder)
-  founder: { groups: [['Founder', /^(Orders|Your shops|People|Host a feast)/], ['Story', /^(The founder's story|.*'s story)/]], intro: 'Founder' },
+  // the founder's card: their orders and purse, their character (the sheet the People tab shows for anyone else: the
+  // founder isn't on its list), and their story (chapters, one book a founder)
+  founder: { groups: [['Founder', /^(Orders|Your shops|People|Host a feast)/], ['Character', /^Character$/], ['Story', /^(The founder's story|.*'s story)/]], intro: 'Founder' },
   research: { groups: [['Studying', /^(Studying|Choose|Stations)/], ['All topics', /^All topics/]], intro: 'Studying' },
   // the Quests tab (the panel's id is still 'expeditions'): what's out now (with the companies), the quests, the places, the rest
   expeditions: {
