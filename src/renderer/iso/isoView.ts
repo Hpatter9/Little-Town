@@ -728,7 +728,9 @@ export class IsoView {
           f.alpha = 0.55 + 0.45 * flicker('campfire', t * 1.6, ph, gentle);
         });
       }
-      // (its lights come on and go out slowly as people come and go, and flicker as a flame or a candle does)
+      // (its lights come on and go out slowly as people come and go, and flicker as a flame or a candle does; they
+      // fade with the building when someone behind it shows through)
+      const seen = this.fades.has(d.sprite) ? d.sprite.alpha / (this.baseAlpha.get(d.sprite) ?? 1) : 1;
       for (const l of d.lights) {
         l.level = l.on ? Math.min(1, l.level + LIGHT_RATE * dt) : Math.max(0, l.level - LIGHT_RATE * dt);
         const show = night && l.level > 0.01 && !l.hidden;
@@ -738,10 +740,10 @@ export class IsoView {
         const kind = flickerKind(l.kind);
         const f = flicker(kind, t, l.phase, gentle);
         const k = flickerSize(kind, t, l.phase, gentle);
-        l.halo.alpha = l.level * l.strength * f * (l.core ? 0.55 : 0.8);
+        l.halo.alpha = l.level * l.strength * seen * f * (l.core ? 0.55 : 0.8);
         l.halo.width = l.w * k;
         l.halo.height = l.h * k;
-        if (l.core) l.core.alpha = l.level * l.strength * (0.55 + 0.45 * f);
+        if (l.core) l.core.alpha = l.level * l.strength * seen * (0.55 + 0.45 * f);
       }
       const door = d.door;
       if (!door) continue;
