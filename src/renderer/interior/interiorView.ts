@@ -14,6 +14,7 @@ import type { InteriorView } from '../../shared/sim/interiors';
 import type { PersonView } from '../../shared/sim/snapshot';
 import { BUILDING_BY_ID } from '../../shared/data/buildings';
 import { hkDraw, hkLayers, hkPose, hkWhoOf } from '../art/hkFolk';
+import { drawFolk } from '../art/folkCanvas';
 import { loadImage } from '../art/loadImage';
 import { kindOf, type RoomKind } from '../map/roomKinds';
 import decorUrl from '../art/interior/decor.png';
@@ -499,7 +500,9 @@ export class InteriorScene {
             g.ellipse(x, y, 5 * k, 1.6 * k, 0, 0, Math.PI * 2);
             g.fill();
             const bob = !working && Math.sin(now / 700 + who.id) > 0.6 ? k : 0;
-            hkDraw(g, keys, col, rowCell, Math.round(x), Math.round(y - bob), h);
+            // (in their isometric look, as the map draws them: art/folkCanvas.ts; the paper doll while it loads)
+            const anim = working ? 'hammer' : who.at === 'desk' ? 'cast_1h' : who.at === 'floor' && who.child ? 'walk' : 'idle';
+            if (!drawFolk(g, pv, anim, facing === 'up' ? 'north' : 'south', now / 1000 + who.id * 0.37, Math.round(x), Math.round(y - bob), h)) hkDraw(g, keys, col, rowCell, Math.round(x), Math.round(y - bob), h);
           },
         });
       });

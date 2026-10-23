@@ -4,17 +4,17 @@ import { test } from 'node:test';
 import { BIOME_DEFS, BIOMES } from '../src/shared/data/biomes';
 import { BUILDING_BY_ID } from '../src/shared/data/buildings';
 import { QUARRY } from '../src/shared/data/hills';
-import { canPlace, depthOf, footprint, isUnlocked, layStreet, placeBlueprint, unlockInfo } from '../src/shared/sim/buildings';
+import { canPlace, depthOf, footprint, isUnlocked, placeBlueprint, unlockInfo } from '../src/shared/sim/buildings';
 import { quarryLoad } from '../src/shared/sim/farming';
 import { hillHarvest } from '../src/shared/sim/hills';
-import { findPath, groundAt, idx, isPlannedRoad, makeLand, planRoad, setGround, type LandMap } from '../src/shared/sim/land';
+import { findPath, groundAt, idx, isPlannedRoad, makeLand, setGround, type LandMap } from '../src/shared/sim/land';
 import { rockSpot } from '../src/shared/sim/planner';
 import { climbs, cutInto, HIGH, isHigh, RAMP, RANGE, reliefShares, rockBeside, QUARRY_ROCK } from '../src/shared/sim/relief';
 import { Sim } from '../src/shared/sim/sim';
 import { campCell, newGame, type GameState } from '../src/shared/sim/state';
 import { pave } from '../src/shared/sim/streets';
 import { TICKS_PER_DAY } from '../src/shared/sim/time';
-import { tunnelThrough } from '../src/shared/sim/tunnels';
+import { drawPath, pathRefusal } from '../src/shared/sim/pathPlans';
 import { clearAround, plainGame } from './helpers';
 
 const setRelief = (m: LandMap, x: number, y: number, c: string) => {
@@ -138,49 +138,36 @@ function ridge(s: GameState): number {
   return x0;
 }
 
-test('a street tunnels through a thin ridge where going round is far longer, and walkers then take the tunnel', () => {
+test('a path drawn through a thin ridge is a tunnel, cut slowly, and walkers then take it; thick rock and a level land are refused', () => {
   const s = plainGame('tunnel-1');
-  s.townBuilds = true;
   clearAround(s, 10);
   const x0 = ridge(s);
   const c = campCell(s);
   const m = s.land;
-  // (no way round: the street tunnels)
-  const through = tunnelThrough(s, { x: x0 - 1, y: c.y + 2 }, { x: 1, y: 0 });
-  assert.ok(through, 'a tunnel planned');
-  assert.equal(through!.cells.length, 3);
-  assert.deepEqual(through!.over, { x: x0 + 3, y: c.y + 2 });
-  assert.equal(findPath(m, { x: x0 - 1, y: c.y + 2 }, through!.over), null, 'no way through before it is cut');
-  for (const p of [{ x: x0 - 1, y: c.y + 2 }, ...through!.cells, through!.over]) planRoad(m, p.x, p.y);
-  for (const p of [{ x: x0 - 1, y: c.y + 2 }, ...through!.cells, through!.over]) pave(s, idx(m, p.x, p.y));
-  for (const p of through!.cells) assert.equal(groundAt(m, p.x, p.y), 'hall', 'the rock dug out');
+  const row = [-1, 0, 1, 2, 3].map((k) => ({ x: x0 + k, y: c.y + 2 }));
+  assert.equal(findPath(m, row[0], row[4]), null, 'no way through before it is cut');
+  assert.equal(drawPath(s, row.map((p) => idx(m, p.x, p.y)), true), 5, 'the path is laid through the rock');
+  for (const p of row) assert.ok(isPlannedRoad(m, p.x, p.y));
+  for (const p of row) pave(s, idx(m, p.x, p.y));
+  for (const p of row.slice(1, 4)) assert.equal(groundAt(m, p.x, p.y), 'hall', 'the rock dug out');
   const way = findPath(m, { x: c.x, y: c.y + 2 }, { x: x0 + 5, y: c.y + 2 });
   assert.ok(way, 'a way through the tunnel');
   assert.ok(way!.some((p) => p.x === x0 + 1 && p.y === c.y + 2), 'the way goes through it');
   for (const p of way!) assert.notEqual(groundAt(m, p.x, p.y), 'mountain');
-  // (a building's street, or a gate's path, through the ridge: planned through the rock, a tunnel to be cut)
-  const t4 = plainGame('tunnel-4');
-  t4.townBuilds = true;
-  clearAround(t4, 10);
-  const x4 = ridge(t4);
-  const c4 = campCell(t4);
-  assert.ok(layStreet(t4, { x: x4 + 4, y: c4.y + 3 }, { x: c4.x, y: c4.y + 3 }));
-  assert.ok([0, 1, 2].every((k) => isPlannedRoad(t4.land, x4 + k, c4.y + 3) || [-1, 1, -2, 2].some((d) => isPlannedRoad(t4.land, x4 + k, c4.y + 3 + d))), 'planned through the rock');
-  assert.ok([0, 1, 2].every((k) => groundAt(t4.land, x4 + k, c4.y + 3) === 'mountain'));
-  // (a ridge too thick, or one with a short way round, is not tunnelled)
+  // (a ridge too thick to tunnel)
   const t2 = plainGame('tunnel-2');
-  t2.townBuilds = true;
   clearAround(t2, 10);
   const c2 = campCell(t2);
-  for (let y = c2.y - 2; y <= c2.y + 2; y++) for (let x = c2.x + 5; x < c2.x + 8; x++) {
+  for (let y = 0; y < t2.land.h; y++) for (let x = c2.x + 5; x < c2.x + 15; x++) {
     setGround(t2.land, x, y, 'mountain');
     setRelief(t2.land, x, y, RANGE);
   }
-  assert.equal(tunnelThrough(t2, { x: c2.x + 4, y: c2.y }, { x: 1, y: 0 }), null, 'a short way round');
+  assert.equal(pathRefusal(t2, c2.x + 8, c2.y), 'Solid rock');
   // (a level land never tunnels)
   const flat = newGame('tunnel-3', { relief: false });
-  flat.townBuilds = true;
-  assert.equal(tunnelThrough(flat, { x: campCell(flat).x, y: campCell(flat).y }, { x: 1, y: 0 }), null);
+  const cf = campCell(flat);
+  setGround(flat.land, cf.x + 3, cf.y, 'mountain');
+  assert.equal(pathRefusal(flat, cf.x + 3, cf.y), 'Solid rock');
 });
 
 /** A face of rock north of the camp: three rows of it, thirteen cells wide, its foot `foot` rows above the camp. */

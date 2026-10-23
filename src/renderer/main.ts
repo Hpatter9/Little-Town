@@ -93,7 +93,7 @@ import { OPERATORS } from '../shared/data/operators';
 import { SKILL_NAMES, SKILLS } from '../shared/data/skills';
 import { TERRAIN } from '../shared/data/terrain';
 import type { Bridge, InspectInfo, StripState } from '../shared/ipc';
-import { blueprintCount, buildingCentre, buildingDoor, canPlace, defOf, isUnlocked, type PlaceCheck } from '../shared/sim/buildings';
+import { blueprintCount, buildingCentre, buildingDoor, builtOnIndex, canPlace, defOf, hasPath, isUnlocked, type PlaceCheck } from '../shared/sim/buildings';
 import type { PersonView, RaiderView, RoamerView, Snapshot, TravellerView } from '../shared/sim/snapshot';
 import { lineOfDef, venueOfDef } from '../shared/data/shop';
 import { DRAW_PATH, storePanel, type PanelId } from '../shared/ipc';
@@ -179,8 +179,11 @@ import { bleedLeft } from '../shared/format';
 import { poolSize } from '../shared/sim/state';
 import { hashSeed } from '../shared/rng';
 import { MARK_CLEAR_CAP } from '../shared/sim/commands';
+import type { DevOrder } from '../shared/sim/devOrders';
 import { CELL, cellAt, groundAt, idx, isMarked, isPlannedRoad, isRoad, wet, WILD } from '../shared/sim/land';
-import { PATH_CAP, pathLine } from '../shared/sim/pathPlans';
+import { PATH_CAP, pathRoute, refusalOn, type PathGround } from '../shared/sim/pathPlans';
+import { BRIDGE_WOOD } from '../shared/sim/streets';
+import { thinRock } from '../shared/sim/tunnels';
 import { loadCreatures } from './art/creatures';
 import { loadEffects } from './art/effects';
 import { loadStills } from './art/stills';
@@ -731,15 +734,17 @@ async function start(): Promise<void> {
     }
   });
   document.body.append(clearButton);
-  // (Draw a path (the owner's ask): while it's on, a drag lays a path's blueprint cell by cell, a tap lays a straight
-  //  run from the last cell laid, and a tap on a cell of blueprint lifts it. Each stretch is sent as a `drawPath` as the
-  //  finger goes, so the ghost shows under it; Cancel takes back what this go laid and lifted, Done keeps it.)
+  // (Draw a path (the owner's asks): while it's on, a finger down on a cell starts a path and a drag shows its blueprint
+  //  live, the cells it will cover from there to under the finger, a straight run or two at a corner (sim/pathPlans.ts
+  //  `pathRoute`), the cells it can't take marked blocked, and what it will cost; lifting the finger lays it as one order.
+  //  A tap lays the one cell. A press on a cell of blueprint lifts instead: the drag shows what it will take up. A second
+  //  finger (a pinch) drops the drag. Cancel takes back what this go laid and lifted, Done keeps it.)
   let drawing = false;
-  let stroke: { id: number; on: boolean; last: { x: number; y: number }; lastCell: number | null; moved: boolean } | null = null;
-  /** The last cell laid, for a tap's straight run; what this go laid and lifted, for Cancel. */
-  let anchor: number | null = null;
+  let stroke: { id: number; on: boolean; from: number; to: number; x: number; y: number; moved: boolean; ground: PathGround } | null = null;
+  /** What this go laid and lifted, for Cancel. */
   const laid = new Set<number>();
   const lifted = new Set<number>();
+  const DRAW_HINT = 'Drag from one spot to another and lift to lay it · drag from a path to lift it';
   const pathButton = document.createElement('button');
   pathButton.id = 'draw-path';
   pathButton.setAttribute('data-hit', '');
@@ -752,25 +757,30 @@ async function start(): Promise<void> {
     if (placing) stopPlacing();
     drawing = true;
     stroke = null;
-    anchor = null;
     laid.clear();
     lifted.clear();
     pathButton.classList.add('on');
-    banner.show('Drawing a path', 'Drag to lay it · tap its cells to lift them', () => endDraw(true));
+    banner.show('Drawing a path', DRAW_HINT, () => endDraw(true));
+  };
+  /** A drag let go of with nothing laid (a pinch, or the page taking the touch). */
+  const dropStroke = () => {
+    if (!stroke) return;
+    stroke = null;
+    iso.setPathPreview(null);
+    setHighlight(null);
+    if (drawing) banner.show('Drawing a path', DRAW_HINT, () => endDraw(true));
   };
   /** Out of the mode: kept (Done), or what this go changed taken back (Cancel). */
   const endDraw = (keep: boolean) => {
     if (!drawing) return;
     drawing = false;
-    stroke = null;
+    dropStroke();
     pathButton.classList.remove('on');
     setHighlight(null);
     banner.hide();
     if (!keep) {
-      const back = [...laid].filter((i) => !lifted.has(i));
-      const again = [...lifted].filter((i) => !laid.has(i));
-      for (let k = 0; k < back.length; k += PATH_CAP) bridge.command({ type: 'drawPath', cells: back.slice(k, k + PATH_CAP), on: false });
-      for (let k = 0; k < again.length; k += PATH_CAP) bridge.command({ type: 'drawPath', cells: again.slice(k, k + PATH_CAP), on: true });
+      sendCells([...laid].filter((i) => !lifted.has(i)), false);
+      sendCells([...lifted].filter((i) => !laid.has(i)), true);
     }
     laid.clear();
     lifted.clear();
@@ -787,31 +797,65 @@ async function start(): Promise<void> {
     return map.cellAt(w.x, w.y);
   };
   const plannedAt = (i: number) => isPlannedRoad(snap.land, i % snap.land.w, Math.floor(i / snap.land.w));
-  /** Lay (or lift) these cells now. */
-  const sendPath = (cells: number[], on: boolean) => {
-    const fresh = cells.filter((i) => (on ? !plannedAt(i) && !isRoad(snap.land, i % snap.land.w, Math.floor(i / snap.land.w)) : plannedAt(i)));
-    if (!fresh.length) return;
-    for (const i of fresh) (on ? laid : lifted).add(i);
-    bridge.command({ type: 'drawPath', cells: fresh.slice(0, PATH_CAP), on });
+  const roadAt = (i: number) => isRoad(snap.land, i % snap.land.w, Math.floor(i / snap.land.w));
+  /** The path's rule read from the snapshot (sim/pathPlans.ts `refusalOn`), so the preview blocks what the sim skips.
+   *  (A gap in the ring wall isn't known here: the sim skips it all the same.) */
+  const groundNow = (): PathGround => ({ land: snap.land, explored: snap.explored, origin: snap.origin.id, on: builtOnIndex(snap), wall: null, castle: snap.castle ? new Set(snap.castle.cells) : null, thin: thinRock({ land: snap.land, origin: snap.origin.id }) });
+  /** The orders, a `PATH_CAP` at a time. */
+  const sendCells = (cells: number[], on: boolean) => {
+    for (let k = 0; k < cells.length; k += PATH_CAP) bridge.command({ type: 'drawPath', cells: cells.slice(k, k + PATH_CAP), on });
   };
-  /** The cells from one to another, edge to edge (a straight run along the grid). */
-  const runOf = (a: number, b: number) => {
+  /** The cells the drag covers now: each one laid (ok) or blocked; lifting, only the cells of blueprint it crosses. */
+  const strokeCells = (st: NonNullable<typeof stroke>): { i: number; ok: boolean }[] => {
     const w = snap.land.w;
-    return pathLine({ x: a % w, y: Math.floor(a / w) }, { x: b % w, y: Math.floor(b / w) }).map((p) => p.y * w + p.x);
+    const ok = (x: number, y: number) => {
+      const i = y * w + x;
+      return st.on ? roadAt(i) || plannedAt(i) || refusalOn(st.ground, x, y) === null : plannedAt(i);
+    };
+    const route = pathRoute({ x: st.from % w, y: Math.floor(st.from / w) }, { x: st.to % w, y: Math.floor(st.to / w) }, ok);
+    const cells = route.map((p) => ({ i: p.y * w + p.x, ok: ok(p.x, p.y) }));
+    return st.on ? cells : cells.filter((c) => c.ok);
   };
-  /** A finger moving in Draw a path: each new cell under it joins the last along an edge. */
+  /** The preview under the finger, and what it will cost on the banner. */
+  const showStroke = () => {
+    if (!stroke) return;
+    const cells = strokeCells(stroke);
+    iso.setPathPreview(cells, !stroke.on);
+    if (!stroke.on) return banner.show('Lifting a path', `${cells.length} ${cells.length === 1 ? 'cell' : 'cells'} · lift to take ${cells.length === 1 ? 'it' : 'them'} up`, () => endDraw(true));
+    const fresh = cells.filter((c) => c.ok && !roadAt(c.i) && !plannedAt(c.i));
+    const blocked = cells.length - cells.filter((c) => c.ok).length;
+    const g = (i: number) => groundAt(snap.land, i % snap.land.w, Math.floor(i / snap.land.w));
+    const bridges = fresh.filter((c) => wet(g(c.i))).length;
+    const tunnels = fresh.filter((c) => g(c.i) === 'mountain').length;
+    const parts = [`${fresh.length} ${fresh.length === 1 ? 'cell' : 'cells'}`];
+    if (bridges) parts.push(`${bridges} of bridge, ${bridges * BRIDGE_WOOD} wood`);
+    if (tunnels) parts.push(`${tunnels} of tunnel, slow to cut`);
+    if (blocked) parts.push(`${blocked} blocked, skipped`);
+    banner.show('Drawing a path', `${parts.join(' · ')} · lift to lay it`, () => endDraw(true));
+  };
+  /** A finger moving in Draw a path: the path runs from where it went down to the cell under it. */
   const strokeOver = (sx: number, sy: number) => {
     if (!stroke) return;
-    const cell = cellUnder(sx, sy);
-    stroke.last = { x: sx, y: sy };
-    setHighlight(cell);
-    if (cell === null || cell === stroke.lastCell) return;
-    // (the cell first pressed goes down with the first step)
-    const run = stroke.lastCell === null ? [cell] : runOf(stroke.lastCell, cell).slice(stroke.moved ? 1 : 0);
+    if (!stroke.moved && Math.hypot(sx - stroke.x, sy - stroke.y) < DRAG_THRESHOLD) return;
     stroke.moved = true;
-    stroke.lastCell = cell;
-    sendPath(run, stroke.on);
-    if (stroke.on) anchor = cell;
+    const cell = cellUnder(sx, sy);
+    if (cell === null || cell === stroke.to) return;
+    stroke.to = cell;
+    setHighlight(cell);
+    showStroke();
+  };
+  /** The finger lifted: what the drag covers is laid (or lifted) as one order. */
+  const strokeDone = () => {
+    if (!stroke) return;
+    const st = stroke;
+    const cells = strokeCells(st).filter((c) => c.ok && (st.on ? !roadAt(c.i) && !plannedAt(c.i) : true)).map((c) => c.i);
+    dropStroke();
+    if (!cells.length) {
+      if (st.on && !roadAt(st.from) && !plannedAt(st.from)) toasts.push(refusalOn(st.ground, st.from % snap.land.w, Math.floor(st.from / snap.land.w)) ?? 'No path there');
+      return;
+    }
+    for (const i of cells) (st.on ? laid : lifted).add(i);
+    sendCells(cells, st.on);
   };
   camera.centreOn(first.camp, app.screen.width, app.screen.height); // (a nomad tribe's camp may be away on its pasture)
 
@@ -1069,7 +1113,9 @@ async function start(): Promise<void> {
           const parts = (Object.entries(def.cost) as [Material, number][]).map(([m, n]) => `${MATERIAL_NAMES[m]} ${Math.floor(b.delivered[m] ?? 0)}/${n}`);
           lines.push(b.progress > 0 ? `Under construction: ${Math.floor(b.progress * 100)}%` : `Materials delivered: ${parts.join(' · ')}`);
           if (b.overgrown) lines.push('Clearing the ground first: the trees and rocks on it are being cut and dug out');
+          if (!hasPath(snap, b)) lines.push('No path to its door yet: draw one with ⛙');
         } else {
+          if (!hasPath(snap, b)) lines.push('No path to its door: draw one with ⛙');
           if (b.fire !== undefined) lines.push(`ON FIRE! ${Math.floor(b.fire * 100)}% burned — everyone is fighting it`);
           lines.push(def.purpose);
           // whose it is, and who lives in it (homes are bought by the townsfolk and let out: sim/property.ts)
@@ -1303,10 +1349,13 @@ async function start(): Promise<void> {
   let duelAsk: number | null = null;
   let inspectKey = '';
   const inspectRuns = new Map<string, () => void>();
+  // (developer mode: the card shows its Dev… list in place of its own: sim/dev.ts)
+  let devCard = false;
   const inspectTarget = (h: Hover) => {
     inspected = h && h.kind !== 'scenery' ? h : null;
     inspectMenu = 'main';
     duelAsk = null;
+    devCard = false;
     publishInspect();
     refreshHover();
   };
@@ -1319,7 +1368,43 @@ async function start(): Promise<void> {
     inspectKey = key;
     bridge.inspect?.(info);
   };
+  /** A card's own actions, with a Dev… button in developer mode; and the dev list once it's tapped. */
   const inspectInfo = (h: NonNullable<Hover>): InspectInfo | null => {
+    const info = cardInfo(h);
+    if (!info || !snap.dev || (h.kind !== 'person' && h.kind !== 'building' && h.kind !== 'raider' && h.kind !== 'roamer')) return info;
+    const act = (id: string, label: string, run: () => void, extra: { danger?: boolean; primary?: boolean } = {}) => {
+      inspectRuns.set(id, run);
+      return { id, label, ...extra };
+    };
+    if (!devCard) return { ...info, actions: [...info.actions, act('dev', 'Dev…', () => ((devCard = true), publishInspect()))] };
+    const dev = (order: DevOrder, close = false) => () => {
+      bridge.command({ type: 'dev', order });
+      if (close) inspectTarget(null);
+    };
+    const list: InspectInfo['actions'] = [];
+    if (h.kind === 'person' && snap.people.some((p) => p.id === h.person.id)) {
+      const id = h.person.id;
+      list.push(
+        act('devKill', 'Kill', dev({ op: 'kill', target: 'person', id }, true), { danger: true }),
+        act('devDown', 'Knock down', dev({ op: 'down', id })),
+        act('devHeal', 'Heal', dev({ op: 'heal', id })),
+        act('devLevel', '+1 level', dev({ op: 'levelUp', id, levels: 1 })),
+        act('devLevel10', '+10 levels', dev({ op: 'levelUp', id, levels: 10 })),
+      );
+    } else if (h.kind === 'building') {
+      const b = snap.buildings.find((q) => q.id === h.id);
+      if (b?.status === 'blueprint') list.push(act('devFinish', 'Finish it now', dev({ op: 'finishBuilding', id: h.id }), { primary: true }));
+      list.push(act('devAll', 'Finish all building', dev({ op: 'finishBuilds' })), act('devHarvest', 'Harvest every field', dev({ op: 'harvest' })), act('devFill', 'Fill the stores +1000', dev({ op: 'fill', amount: 1000 })));
+    } else if (h.kind === 'raider') {
+      list.push(
+        act('devKill', 'Kill', dev({ op: 'kill', target: 'raider', id: h.id }, true), { danger: true }),
+        act('devKillAll', 'Kill every raider', dev({ op: 'killRaiders' }, true), { danger: true }),
+        act('devWin', 'Win the fight', dev({ op: 'winFight' }, true)),
+      );
+    } else if (h.kind === 'roamer') list.push(act('devKill', 'Kill the band', dev({ op: 'kill', target: 'roamer', id: h.id }, true), { danger: true }));
+    return { title: info.title, lines: ['Developer: these act at once.', ...info.lines.slice(0, 2)], actions: [...list, act('devBack', 'Back', () => ((devCard = false), publishInspect()))] };
+  };
+  const cardInfo = (h: NonNullable<Hover>): InspectInfo | null => {
     inspectRuns.clear();
     const act = (id: string, label: string, run: () => void, extra: { danger?: boolean; primary?: boolean } = {}) => {
       inspectRuns.set(id, run);
@@ -1434,7 +1519,7 @@ async function start(): Promise<void> {
             ...(snap.creature?.ask ? [act('praise', 'Praise', () => bridge.command({ type: 'creature', op: 'praise' }), { primary: true }), act('scold', 'Scold', () => bridge.command({ type: 'creature', op: 'scold' }), { danger: true })] : []),
             act('feed', 'Feed', () => bridge.command({ type: 'creature', op: 'feed' })),
             act('rest', 'Rest', () => bridge.command({ type: 'creature', op: 'rest' })),
-            act('more', 'Townsfolk…', () => bridge.openPanel('townsfolk')),
+            act('more', `${snap.creature?.name ?? 'Its'} menu…`, openCreature),
           ],
         };
       case 'pet':
@@ -1537,6 +1622,14 @@ async function start(): Promise<void> {
       localStorage.setItem('littletown.subtab.build', 'More');
     } catch {}
     bridge.openPanel('build');
+  };
+
+  /** The People menu's Creature tab (the God creature's overview: panel/townsfolkPanel.ts), asked for the same way. */
+  const openCreature = () => {
+    try {
+      localStorage.setItem('littletown.subtab.townsfolk', 'Creature');
+    } catch {}
+    bridge.openPanel('townsfolk');
   };
 
   /* -------------------------------------------------------- placing buildings */
@@ -1763,7 +1856,7 @@ async function start(): Promise<void> {
         if (camera.dragging) camera.endDrag(e.timeStamp);
         press = null;
         sweep = null;
-        stroke = null;
+        dropStroke();
         pinchFrom = Math.max(20, spread());
         bridge.pinch('start', pinchFrom, ...between());
         return;
@@ -1771,10 +1864,12 @@ async function start(): Promise<void> {
       if (pinchFrom !== null || afterPinch) return;
     }
     if (drawing && e.button === 0 && !stroke) {
-      // (a press on a cell of blueprint lifts; anywhere else lays)
+      // (a press on a cell of blueprint lifts; anywhere else lays; off the land, nothing)
       const cell = cellUnder(e.clientX, e.clientY);
-      stroke = { id: e.pointerId, on: cell === null || !plannedAt(cell), last: { x: e.clientX, y: e.clientY }, lastCell: cell, moved: false };
+      if (cell === null) return;
+      stroke = { id: e.pointerId, on: !plannedAt(cell), from: cell, to: cell, x: e.clientX, y: e.clientY, moved: false, ground: groundNow() };
       setHighlight(cell);
+      showStroke();
       canvas.setPointerCapture(e.pointerId);
       return;
     }
@@ -1846,21 +1941,10 @@ async function start(): Promise<void> {
     }
     if (touches.size === 0) afterPinch = false;
     if (stroke && e.pointerId === stroke.id) {
-      const done = stroke;
-      stroke = null;
       if (canvas.hasPointerCapture(e.pointerId)) canvas.releasePointerCapture(e.pointerId);
-      setHighlight(null);
-      const cell = done.lastCell;
-      // (a tap: on a cell of blueprint, it's lifted; elsewhere a straight run from the last cell laid, or the one cell)
-      if (!done.moved && e.type === 'pointerup' && cell !== null) {
-        if (!done.on) {
-          sendPath([cell], false);
-          if (anchor === cell) anchor = null;
-        } else {
-          sendPath(anchor !== null && anchor !== cell ? runOf(anchor, cell) : [cell], true);
-          anchor = cell;
-        }
-      } else if (done.moved && done.on && done.lastCell !== null) anchor = done.lastCell;
+      // (a touch the page takes back, as its own pinch might, lays nothing)
+      if (e.type === 'pointerup') strokeDone();
+      else dropStroke();
       return;
     }
     if (sweep && e.pointerId === sweep.id) {
@@ -2255,6 +2339,7 @@ async function start(): Promise<void> {
     {
       iso.setWalkers([...next.people.filter((p) => p.away === null && !p.indoors), ...inSightOnly(next.raid?.phase === 'active' ? next.raid.raiders : [])]);
       iso.setLamps(next.lights ? next.lights.lights.filter((l) => l.room === null) : [], next.era);
+      iso.setInside(next.litInside, next.calendar.hour); // (whose windows glow after dark)
     }
     // (the gates shut at night and when raiders come: the palisade's are drawn closed)
     map.gatesShut = next.calendar.hour >= GATES_SHUT_FROM || next.calendar.hour < GATES_OPEN_AT || !!next.raid;
@@ -2383,7 +2468,7 @@ async function start(): Promise<void> {
             .filter((b) => b.status === 'done' && LOOKOUT_TOWERS.has(b.def) && next.raid?.phase !== 'active')
             .flatMap((b) => {
               const pic = map.pictureOf(b.id);
-              return pic ? [{ id: b.id, x: pic.x + pic.w / 2, y: pic.top + Math.round(pic.h * 0.3), look: lookouts[b.id % lookouts.length].look }] : [];
+              return pic ? [{ id: b.id, x: pic.x + pic.w / 2, y: pic.top + Math.round(pic.h * 0.3), look: lookouts[b.id % lookouts.length].look, who: lookouts[b.id % lookouts.length] }] : [];
             })
         : [],
     );
@@ -2494,6 +2579,8 @@ async function start(): Promise<void> {
     gainsView.render(ticker.deltaMS / 1000, map.calm);
     chores.render(ticker.deltaMS / 1000, performance.now(), map.calm, map.wind());
     iso.placeLoose(); // (everyone drawn into the things in world px, moved onto the diamonds)
+    iso.setPicked(inspected?.kind === 'building' ? inspected.id : (selected?.id ?? null));
+    iso.seeThrough(ticker.deltaMS / 1000); // (what stands in front of someone fades, so they show)
     if (snap && minimap.shown)
       minimap.render({
         people: snap.people.filter((p) => p.away === null).map((p) => ({ x: p.x, y: p.y })),

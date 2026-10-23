@@ -1,7 +1,8 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { BUILDING_BY_ID } from '../src/shared/data/buildings';
-import { builtOn, layStreet } from '../src/shared/sim/buildings';
+import { builtOn } from '../src/shared/sim/buildings';
+import { drawPath } from '../src/shared/sim/pathPlans';
 import { idx, isPlannedRoad, isRoad, planRoad, setRoad } from '../src/shared/sim/land';
 import { PLAN_TICKS, runPlanner } from '../src/shared/sim/planner';
 import { isGate, lineOf, missingPieces, ringWallCells, wallOnly } from '../src/shared/sim/ringWall';
@@ -38,8 +39,9 @@ test('no road over the ring wall but at a gate; old roads there are lifted so th
   s.buildings = s.buildings.filter((b) => b !== builtOn(s, p.x, p.y));
   assert.ok(wallOnly(s, p.x, p.y), 'the broken piece is the wall\'s ground');
 
-  // (a street wanted straight through the gap goes round by a gate, never over the gap)
-  assert.ok(layStreet(s, { x: p.x + 1, y: p.y }, { x: p.x - 3, y: p.y }, 400));
+  // (a path drawn straight through the gap is laid either side of it, never over the gap)
+  assert.ok(drawPath(s, [1, 0, -1, -2, -3].map((k) => idx(s.land, p.x + k, p.y)), true) > 0);
+  assert.ok(!isPlannedRoad(s.land, p.x, p.y), 'not on the gap');
   for (const i of ringWallCells(s)) {
     const x = i % s.land.w, y = Math.floor(i / s.land.w);
     if (!wallOnly(s, x, y)) continue;

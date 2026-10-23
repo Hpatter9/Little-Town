@@ -44,6 +44,7 @@ import { stillTexture } from '../art/stills';
 import { HK_FIGURE, hkLayers, hkPose, hkWhoById } from '../art/hkFolk';
 import { TAIL_W, tailTexture, WAIST } from '../art/merTail';
 import { hkSprite } from '../art/hkTexture';
+import { folkSideById } from '../art/folkSide';
 /** A townsperson's height on the fight screen, in the Himeko look (as the side-on figures were at 0.75). */
 const HK_HEIGHT = 36;
 
@@ -472,10 +473,12 @@ export class FightScene {
       const frame = walking && !afloat ? 1 + (Math.floor(now / 100 + i * 3) % 8) : 0;
       // (stopped down a dungeon they stand and look; at the site they work it)
       const still = !walking && v.delve && v.phase === 'work';
-      // (in the Himeko look, as the map draws them: art/hkFolk.ts; the old look while their layers load)
+      // (in their isometric look turned side-on, as the map draws them: art/folkSide.ts; the Himeko look while it
+      // loads, and the old look while that loads)
       const keys = hkLayers(hkWhoById(m.id, m.look, m.gear), { fighting: false, activity: still || walking ? 'idle' : 'build' });
       const col = walking ? [1, 0, 2, 0][Math.floor(now / 140 + i * 3) % 4] : still ? 0 : Math.floor(now / 350 + i) % 2 ? 4 : 3;
-      if (hkSprite(f.sprite, keys, col, 2, x, Math.round(this.hy + 40) + bob, HK_HEIGHT)) {
+      const feet = Math.round(this.hy + 40) + bob;
+      if (folkSideById(f.sprite, m.id, m.look, m.gear, { faceLeft: false, moving: walking, working: !walking && !still, now: now + i * 300 }, x, feet, HK_HEIGHT) || hkSprite(f.sprite, keys, col, 2, x, feet, HK_HEIGHT)) {
         f.sprite.zIndex = i;
         f.sprite.alpha = 1;
         f.sprite.tint = 0xffffff;
@@ -891,6 +894,12 @@ export class FightScene {
       // (on a tail they fall standing: the motion topples them, as there's no lying frame to cut at the waist)
       const finned = this.wet && this.mers.has(f.ref);
       const [col, row] = hkPose({ facing: faceLeft ? 'left' : 'right', moving: false, walked: 0, working: false, sinceBlow: acting ? f.sinceAction : 999, sinceHit: f.sinceHit, down: f.down && !finned, ranged: f.ranged, now });
+      // (their isometric look side-on, as the map draws them: art/folkSide.ts; a merfolk on their tail keeps the paper
+      // doll, whose waist the tail is cut to)
+      if (!finned && folkSideById(s, f.ref, f.look, f.gear, { faceLeft, sinceBlow: acting ? f.sinceAction : 999, sinceHit: f.sinceHit, down: f.down, ranged: f.ranged, now: now + f.ref * 97 }, x, y, HK_HEIGHT)) {
+        this.finTail(s, false, true, f.ref, faceLeft, now);
+        return f.down; // (the look's own fall, held lying)
+      }
       if (hkSprite(s, keys, col, row, x, y, HK_HEIGHT)) {
         this.finTail(s, finned, true, f.ref, faceLeft, now);
         return false;

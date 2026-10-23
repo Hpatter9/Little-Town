@@ -2,10 +2,11 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { BUILDINGS, type BuildingDef } from '../src/shared/data/buildings';
 import { parseCommand } from '../src/shared/sim/commands';
-import { depthOf, isUnlocked, NO_ROAD, unlockInfo } from '../src/shared/sim/buildings';
+import { builtOnIndex, depthOf, isUnlocked, NO_ROAD, unlockInfo } from '../src/shared/sim/buildings';
 import { pinRefusal } from '../src/shared/sim/pins';
 import { doorOf, idx, isPlannedRoad, isRoad, onPath, setGround, setRoad } from '../src/shared/sim/land';
-import { drawPath, PATH_CAP, pathLine, pathRefusal } from '../src/shared/sim/pathPlans';
+import { drawPath, PATH_CAP, pathLine, pathRefusal, pathRoute, refusalOn } from '../src/shared/sim/pathPlans';
+import { snapshot } from '../src/shared/sim/snapshot';
 import { findSpot } from '../src/shared/sim/planner';
 import { parseSave, serialize } from '../src/shared/sim/save';
 import { Sim } from '../src/shared/sim/sim';
@@ -140,4 +141,30 @@ test('a drawn path is saved, an old save with none takes one, and the same strok
   const t = bareTown('path-save');
   drawPath(t, line, true);
   assert.equal(t.land.plannedRoads, old.land.plannedRoads);
+});
+
+test("a drag's route runs straight, or turns one corner, by the corner with more cells a path can take", () => {
+  const all = () => true;
+  const straight = pathRoute({ x: 2, y: 5 }, { x: 8, y: 5 }, all);
+  assert.equal(straight.length, 7);
+  assert.ok(straight.every((p) => p.y === 5));
+  // (along the longer way first, then across)
+  const corner = pathRoute({ x: 0, y: 0 }, { x: 5, y: 2 }, all);
+  assert.equal(corner.length, 8);
+  assert.deepEqual(corner[5], { x: 5, y: 0 }, 'the turn at the far end of the long run');
+  for (let k = 1; k < corner.length; k++) assert.equal(Math.abs(corner[k].x - corner[k - 1].x) + Math.abs(corner[k].y - corner[k - 1].y), 1);
+  // (a building on that corner: the other one is taken)
+  const round = pathRoute({ x: 0, y: 0 }, { x: 5, y: 2 }, (x, y) => !(y === 0 && x >= 3));
+  assert.deepEqual(round[2], { x: 0, y: 2 }, 'down first, then along');
+  assert.deepEqual(pathRoute({ x: 3, y: 3 }, { x: 3, y: 3 }, all), [{ x: 3, y: 3 }]);
+});
+
+test("the preview's rule, read from the snapshot, refuses what the sim refuses", () => {
+  const s = bareTown('path-preview');
+  const c = campCell(s);
+  setGround(s.land, c.x + 3, c.y + 6, 'forest');
+  put(s, 'campfire', c.x - 3, c.y + 6);
+  const snap = snapshot(s);
+  const view = { land: snap.land, explored: snap.explored, origin: snap.origin.id, on: builtOnIndex(snap), wall: null, castle: snap.castle ? new Set(snap.castle.cells) : null, thin: null };
+  for (let x = c.x - 6; x <= c.x + 6; x++) for (let y = c.y + 4; y <= c.y + 8; y++) assert.equal(refusalOn(view, x, y), pathRefusal(s, x, y), `${x},${y}`);
 });

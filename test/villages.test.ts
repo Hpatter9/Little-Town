@@ -58,7 +58,8 @@ test('a big town is asked to let some go; blessed, they found a village out on t
   assert.ok(v.plots.some((p) => p.def === 'campfire') && v.plots.some((p) => p.field) && v.plots.some((p) => BUILDING_BY_ID[p.def].housing), 'a fire, a home and a field');
   let planned = 0;
   for (let y = 0; y < s.land.h; y++) for (let x = 0; x < s.land.w; x++) if (isPlannedRoad(s.land, x, y)) planned++;
-  assert.ok(planned > 5, 'a road is planned out to it');
+  assert.equal(planned, 0, 'no road is planned out to it: the player draws one');
+  assert.ok(s.notices.some((n) => n.text.startsWith(`Draw a path from ${v.name} to the town`)), 'and is told so');
   // the map draws its plots, never as the town's; nothing of the town's may go there
   const bs = villageBuildings(s);
   assert.ok(bs.length >= 3 && bs.every((b) => b.id < 0));

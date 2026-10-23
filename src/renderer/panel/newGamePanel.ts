@@ -23,7 +23,7 @@ import { loadLpc, lpcCanvas } from '../art/lpc/lpcCompose';
 import { FOUNDER_ID } from '../art/heroForms';
 import { button, el } from './dom';
 import { BIOME_SCENE, DANGER_GLYPH, figureSymbol, glyphSymbol, ORIGIN_GLYPH, SCENARIO_GLYPH, sceneSymbol, tileGrid, type Tile } from './newTownTiles';
-import { animScene } from './scenePlayer';
+import { animScene, type Folk } from './scenePlayer';
 import { BIOME_SCRIPTS, DANGER_SCRIPTS, founderScript, ORIGIN_SCRIPTS, SCENARIO_SCRIPTS } from './sceneScripts';
 
 
@@ -86,6 +86,9 @@ function drawFounderArt(art: HTMLCanvasElement, id: string, look: (typeof FOUNDE
 
 /** The paper doll's layers for a founder (what scenePlayer.ts draws; the same dress as the founder's tile). */
 const dollKeys = (f: (typeof FOUNDERS)[OriginId][number]): string[] => hkLayers(hkWhoOfLook(FOUNDER_ID, f.look, { cls: FOUNDER_CLASS[f.id]?.base ?? null, founder: true }), { fighting: true, activity: 'idle' });
+/** The founders in their isometric looks, in the same places (scenePlayer.ts draws these, the paper doll while a look
+ *  loads): as the founder's tile shows them. */
+const folkOf = (origin: OriginId, list: readonly (typeof FOUNDERS)[OriginId][number][]): Folk => list.map((f) => ({ id: FOUNDER_ID, origin, look: f.look, gear: {} }));
 /** A founder's picture for a tile. */
 function doll(f: (typeof FOUNDERS)[OriginId][number]): HTMLCanvasElement {
   lpcReady ??= loadLpc();
@@ -115,7 +118,7 @@ export function renderNewGame(snap: Snapshot, bridge: Bridge): HTMLElement[] {
             id,
             name: o.name,
             symbol: () => glyphSymbol(ORIGIN_GLYPH[id]),
-            scene: () => animScene(ORIGIN_SCRIPTS[id], FOUNDERS[id].map(dollKeys)),
+            scene: () => animScene(ORIGIN_SCRIPTS[id], FOUNDERS[id].map(dollKeys), folkOf(id, FOUNDERS[id])),
             lines: () => [o.description, ...o.features.map((f) => `• ${f}`)],
           };
         })),
@@ -130,7 +133,7 @@ export function renderNewGame(snap: Snapshot, bridge: Bridge): HTMLElement[] {
           id: sc.id,
           name: sc.name,
           symbol: () => glyphSymbol(SCENARIO_GLYPH[sc.id] ?? ['Food', 7, 2]),
-          scene: () => animScene(SCENARIO_SCRIPTS[sc.id] ?? SCENARIO_SCRIPTS.lone, FOUNDERS[origin].map(dollKeys)),
+          scene: () => animScene(SCENARIO_SCRIPTS[sc.id] ?? SCENARIO_SCRIPTS.lone, FOUNDERS[origin].map(dollKeys), folkOf(origin, FOUNDERS[origin])),
           lines: () => [sc.description],
         }))),
         scenario,
@@ -150,7 +153,7 @@ export function renderNewGame(snap: Snapshot, bridge: Bridge): HTMLElement[] {
                 id: b,
                 name: BIOME_DEFS[b].name,
                 symbol: () => sceneSymbol(BIOME_SCENE[b]),
-                scene: () => animScene(BIOME_SCRIPTS[b], FOUNDERS[origin].map(dollKeys)),
+                scene: () => animScene(BIOME_SCRIPTS[b], FOUNDERS[origin].map(dollKeys), folkOf(origin, FOUNDERS[origin])),
                 lines: () => [BIOME_DEFS[b].description],
               }))),
               biome,
@@ -164,7 +167,7 @@ export function renderNewGame(snap: Snapshot, bridge: Bridge): HTMLElement[] {
           id: d,
           name: DIFFICULTY_DEFS[d].name,
           symbol: () => glyphSymbol(DANGER_GLYPH[d]),
-          scene: () => animScene(DANGER_SCRIPTS[d], FOUNDERS[origin].map(dollKeys)),
+          scene: () => animScene(DANGER_SCRIPTS[d], FOUNDERS[origin].map(dollKeys), folkOf(origin, FOUNDERS[origin])),
           lines: () => [DIFFICULTY_DEFS[d].description],
         }))),
         difficulty,
@@ -195,7 +198,8 @@ export function renderNewGame(snap: Snapshot, bridge: Bridge): HTMLElement[] {
           scene: () => {
             const levels = founderSkills(f.background);
             const loves = f.background.passions.slice().sort((x, y) => levels[y] - levels[x])[0];
-            return animScene(founderScript(origin, loves), [f, ...list.filter((o) => o !== f)].map(dollKeys));
+            const cast = [f, ...list.filter((o) => o !== f)];
+            return animScene(founderScript(origin, loves), cast.map(dollKeys), folkOf(origin, cast));
           },
           lines: () => {
             const levels = founderSkills(f.background);

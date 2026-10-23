@@ -11,6 +11,7 @@ import { DEEP_LEVELS } from '../../shared/data/deep';
 import type { Command } from '../../shared/sim/commands';
 import type { DeepView } from '../../shared/sim/snapshot';
 import { hkLayers, hkPose, hkWhoById, type HkFacing } from '../art/hkFolk';
+import { folkSideById } from '../art/folkSide';
 import { hkSprite } from '../art/hkTexture';
 import { loadImage } from '../art/loadImage';
 import { glowTexture } from '../town/layer';
@@ -334,8 +335,10 @@ export class DeepScene {
       const walking = far > 1;
       const swinging = m.digging && !walking && m.cell !== null;
       const keys = hkLayers(hkWhoById(m.id, m.look, m.gear), { fighting: false, activity: 'mine' });
-      const [col, row] = hkPose({ facing: walking ? (gx < d.x ? 'left' : gx > d.x ? 'right' : gy < d.y ? 'up' : 'down') : facing, moving: walking, walked: (d.x + d.y) / 2, working: swinging, sinceBlow: 999, sinceHit: 999, down: false, ranged: false, now: now + m.id * 137 });
-      d.sprite.visible = hkSprite(d.sprite, keys, col, row, d.x, d.y, TILE * 1.35);
+      const way = walking ? (gx < d.x ? 'left' : gx > d.x ? 'right' : gy < d.y ? 'up' : 'down') : facing;
+      const [col, row] = hkPose({ facing: way, moving: walking, walked: (d.x + d.y) / 2, working: swinging, sinceBlow: 999, sinceHit: 999, down: false, ranged: false, now: now + m.id * 137 });
+      // (in their isometric look, as the map draws them: art/folkSide.ts; the Himeko look while it loads)
+      d.sprite.visible = folkSideById(d.sprite, m.id, m.look, m.gear, { faceLeft: way === 'left', facing: way, moving: walking, working: swinging, now: now + m.id * 137 }, d.x, d.y, TILE * 1.35) || hkSprite(d.sprite, keys, col, row, d.x, d.y, TILE * 1.35);
       d.sprite.zIndex = d.y;
       d.dust.clear();
       if (swinging) {

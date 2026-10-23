@@ -165,6 +165,9 @@ export class TacticsScene {
     this.people = new MapPeople(this.board);
     this.raiders = new MapRaiders(this.board);
     this.people.raid = true;
+    // (the townsfolk in their isometric looks, as on the map: the board is drawn in the iso kits)
+    this.people.isoFolk = true;
+    this.people.board = true;
     this.people.rings = 'board';
     this.raiders.rings = 'board';
     this.fx.addChild(this.lines, this.fxSprites, this.shots.container, this.life.container);

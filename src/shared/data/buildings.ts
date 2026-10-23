@@ -11,6 +11,7 @@ import { SHAFT_BUILDING } from './deep';
 import { PORTAL_BUILDINGS } from './portals';
 import { RECREATION_BUILDINGS } from './recreation';
 import { RANCH_BUILDING } from './ranch';
+import { CREATURE_PEN_BUILDING } from './creature';
 import { ARENA_BUILDING } from './arena';
 import { STATUE_BUILDING } from './memorials';
 import { TRAINING_BUILDINGS } from './training';
@@ -212,7 +213,7 @@ const BASE_BUILDINGS: readonly BuildingDef[] = [
  *  makes nothing. Placed by the planner (sim/planner.ts `tryHall`), from the entrance hall inward. */
 export const HOLD_HALLWAY: BuildingDef = { id: 'hold_hallway', name: 'Hallway', layer: 'mid', width: 2, depth: 4, cost: { stone: 3 }, buildSeconds: 30, purpose: 'A passage cut into the mountain for the rooms to open off.', origin: 'dwarves' };
 
-export const BUILDINGS: readonly BuildingDef[] = [HOLD_HALLWAY, ...BASE_BUILDINGS, ...DEFENSE_BUILDINGS, ...ORIGIN_DEFENSES, ...SEAT_DEFS, BLOOD_FARM, ...WORKSHOP_BUILDINGS, ...MINERAL_BUILDINGS, QUARRY_BUILDING, ...STORE_BUILDINGS, BOATYARD, HARBOUR, AIRSHIP_MAST, MONSTER_GUILD, ...PRISON_BUILDINGS, ...FAITH_BUILDINGS, ...RELIGION_BUILDINGS, ...RECREATION_BUILDINGS, ...TRAINING_BUILDINGS, WARD_BUILDING, MONUMENT_BUILDING, SHAFT_BUILDING, ...PORTAL_BUILDINGS, STATUE_BUILDING, RANCH_BUILDING, ARENA_BUILDING, ...MAGIC_BUILDINGS];
+export const BUILDINGS: readonly BuildingDef[] = [HOLD_HALLWAY, ...BASE_BUILDINGS, ...DEFENSE_BUILDINGS, ...ORIGIN_DEFENSES, ...SEAT_DEFS, BLOOD_FARM, ...WORKSHOP_BUILDINGS, ...MINERAL_BUILDINGS, QUARRY_BUILDING, ...STORE_BUILDINGS, BOATYARD, HARBOUR, AIRSHIP_MAST, MONSTER_GUILD, ...PRISON_BUILDINGS, ...FAITH_BUILDINGS, ...RELIGION_BUILDINGS, ...RECREATION_BUILDINGS, ...TRAINING_BUILDINGS, WARD_BUILDING, MONUMENT_BUILDING, SHAFT_BUILDING, ...PORTAL_BUILDINGS, STATUE_BUILDING, RANCH_BUILDING, CREATURE_PEN_BUILDING, ARENA_BUILDING, ...MAGIC_BUILDINGS];
 export const BUILDING_BY_ID: Readonly<Record<string, BuildingDef>> = Object.fromEntries(BUILDINGS.map((b) => [b.id, b]));
 
 

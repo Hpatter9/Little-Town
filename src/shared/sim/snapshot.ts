@@ -187,7 +187,7 @@ import { huntDestinations, huntsView, type HuntView, type ForgeView } from './hu
 import { dragonDestinations, dragonView, type DragonView } from './dragon';
 import { creatureView, type CreatureView } from './creature';
 import { villageBuildings, villageDestinations, villageViews, type VillageView } from './villages';
-import { interiorView, type InteriorView } from './interiors';
+import { interiorView, litInside, type InteriorView } from './interiors';
 import { dynastyView, type DynastyView } from './dynasty';
 import { alignView, townTitle } from './alignment';
 import { generationLines, tierName, tierPhrase } from './tiers';
@@ -621,7 +621,7 @@ export interface PromptView {
   /** Waits as long as it takes: a road question for the founder holds the game (sim/founderQuests.ts). */
   waits?: boolean;
   /** A naming question (sim/naming.ts): what is to be named; the box also takes a typed name. */
-  naming?: { kind: 'building' | 'person' | 'unique'; id: number | string };
+  naming?: { kind: 'building' | 'person' | 'unique' | 'creature'; id: number | string };
   /** A commanded party's result: who came home and who did not, then the haul (sim/muster.ts `debrief`). */
   debrief?: Debrief;
   /** For the card's scene (renderer/panel/eventScenes.ts): the choice event's id, and what a question of politics or of a
@@ -1239,6 +1239,8 @@ export interface Snapshot {
    *  gate, and the rectangle round the whole. */
   /** The town's lights (sim/lighting.ts): each burning or not, how far they reach; null when lighting is off. */
   lights: ReturnType<typeof lightsView>;
+  /** The buildings with a light inside after dark (sim/interiors.ts `litInside`): their windows glow. None by day. */
+  litInside?: number[];
   castle: { hold: Hold; cells: number[]; core: { x: number; y: number; w: number; h: number }; gate: { x: number; y: number }; bounds: { x: number; y: number; w: number; h: number }; doors: string[]; galleries: number[]; /** The side gates a growing castle opens (sim/castle.ts `sideGates`): the cell inside each and its wall. */ gates?: { x: number; y: number; side: 'n' | 's' | 'w' | 'e' }[] } | null;
   /** The middle of the camp on the land (px). */
   camp: { x: number; y: number };
@@ -1292,14 +1294,17 @@ export interface Snapshot {
   /** The game is held for the founder's answer to a road question (sim/founderQuests.ts). */
   waitingOnFounder: boolean;
   unlockAll: boolean;
+  /** Developer mode (sim/dev.ts): null while off; whether orders build at once, and the hours a fast-forward has left
+   *  to run (null: none running). `devSave`: the town was ever played in developer mode. */
+  dev: { build: boolean; skipHours: number | null } | null;
+  devSave: boolean;
   research: ResearchView;
   /** The player's building wishes (sim/pins.ts): what, whether it's going up and how far, or what it waits on. */
   pins: { def: string; name: string; building: boolean; progress: number; why: string | null }[];
-  /** What the town would build next if asked (planner.ts recommendBuilding), the founder's orders for the wall and the
-   *  streets, and what the wall stands at. Refreshed about every game hour. */
+  /** What the town would build next if asked (planner.ts recommendBuilding), the founder's order for the wall, and what
+   *  the wall stands at. Refreshed about every game hour. */
   recommend: Recommendation | null;
   ringOrdered: boolean;
-  streetsOrdered: boolean;
   ringState: 'none' | 'building' | 'standing';
   notices: Notice[];
   /** Spare items (not worn), and the craft queue. */
@@ -1748,6 +1753,7 @@ function snapshotOf(s: GameState): Snapshot {
         }
       : null,
     enclosure: enclosure(s),
+    litInside: litInside(s),
     castle: castleOn(s) ? { hold: holdOf(s)!, cells: [...castleCells(s)], core: coreRect(s), gate: castleGate(s), bounds: castleBounds(s), doors: [...castleLayout(s)!.doors], galleries: galleryCells(s), gates: castleLayout(s)!.gates.slice(1).map((g) => ({ x: g.inside.x, y: g.inside.y, side: g.side })) } : null,
     spells: (s.spellFx ?? []).filter((f) => s.tick - f.tick < Math.min(SPELL_FX_TICKS, f.secs * TICK_HZ + 10)).map((f) => ({ n: f.n, spell: f.spell, name: spellName(f.spell), since: s.tick - f.tick, x: f.x, y: f.y ?? null, by: f.by ?? null, targets: f.targets, secs: f.secs })),
     moonNight: moonPhaseOf(nightDay(s.tick)) === FULL_MOON_PHASE && (calendarOf(s).hour >= 20 || calendarOf(s).hour < 5),
@@ -1768,10 +1774,11 @@ function snapshotOf(s: GameState): Snapshot {
     story: storyView(s),
     waitingOnFounder: waitingOnFounder(s),
     unlockAll: s.cheats.unlockAll,
+    dev: s.dev ? { build: !!s.devBuild, skipHours: s.devSkipTo !== undefined ? Math.max(0, Math.ceil((s.devSkipTo - s.tick) / TICKS_PER_HOUR)) : null } : null,
+    devSave: !!s.devSave,
     research: researchView(s),
     recommend: recommendationOf(s),
     ringOrdered: !!s.ringOrder,
-    streetsOrdered: !!s.streetsOrder,
     ringState: !s.ring ? 'none' : s.ring.done ? 'standing' : 'building',
     pins: (s.pins ?? []).map((p) => {
       const b = p.building !== undefined ? s.buildings.find((q) => q.id === p.building) : undefined;

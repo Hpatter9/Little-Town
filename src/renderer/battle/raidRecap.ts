@@ -61,7 +61,8 @@ function strip(c: Recap, snap: Snapshot | null): HTMLElement {
   const people = snap?.people ?? [];
   const cast = order.map((r) => people.find((p) => p.id === r.id)).filter((p): p is Snapshot['people'][number] => !!p);
   const filler = people.filter((p) => !cast.includes(p) && p.indoors === false && p.away === null && !p.growsUpIn).slice(0, 3);
-  const dolls = [...cast, ...filler].slice(0, 4).map((p) => hkLayers(hkWhoOf(p), { fighting: true, activity: 'idle' }));
+  const four = [...cast, ...filler].slice(0, 4);
+  const dolls = four.map((p) => hkLayers(hkWhoOf(p), { fighting: true, activity: 'idle' }));
   const night = !!snap && snap.calendar.daylight < 0.3;
   const turn = c.boss && c.outcome === 'victory'
     ? `${c.boss} falls!`
@@ -85,7 +86,7 @@ function strip(c: Recap, snap: Snapshot | null): HTMLElement {
   const box = el('div', 'rs-strip');
   for (const [which, cap] of panels) {
     const panel = el('div', 'rs-panel');
-    playScene(panel, recapScript(which, sprites, c.outcome, night, !!c.boss), dolls);
+    playScene(panel, recapScript(which, sprites, c.outcome, night, !!c.boss), dolls, {}, four); // (in their isometric looks)
     panel.append(el('div', 'rs-cap', cap));
     box.append(panel);
   }

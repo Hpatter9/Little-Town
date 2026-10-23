@@ -1,39 +1,43 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { connectRoad, layStreet } from '../src/shared/sim/buildings';
+import { doorCell, hasPath, placeBlueprint } from '../src/shared/sim/buildings';
 import { Sim } from '../src/shared/sim/sim';
-import { TICK_HZ } from '../src/shared/sim/time';
+import { TICK_HZ, TICKS_PER_DAY, TICKS_PER_HOUR } from '../src/shared/sim/time';
 import { groundAt, idx, isPlannedRoad, isRoad, planRoad, setGround, setRoad } from '../src/shared/sim/land';
-import { BRIDGE_WOOD, gatePaths, isBridge, pave, paveOrder, PAVE_SECONDS, paveTask, planStreets, plannedCells, STREET_WEAR, streetShare, streetWork } from '../src/shared/sim/streets';
-import { campCell } from '../src/shared/sim/state';
+import { drawPath } from '../src/shared/sim/pathPlans';
+import { BRIDGE_WOOD, isBridge, pave, paveOrder, PAVE_SECONDS, paveTask, plannedCells, streetsHourly, streetShare, streetWork } from '../src/shared/sim/streets';
+import { campCell, newGame } from '../src/shared/sim/state';
 import { camp, clearAround, plainGame, priorities, put } from './helpers';
 
-test('a worn footpath that joins a street is planned as a street', () => {
+/** How many cells of street are down, and planned. */
+const roadCount = (s: { land: { roads: string; plannedRoads?: string } }) => ({ roads: s.land.roads.split('#').length - 1, planned: (s.land.plannedRoads ?? '').split('#').length - 1 });
+
+test('a worn footpath stays a footpath: the town plans no street from it', () => {
   const s = plainGame('streets-wear');
+  s.autopilot = true;
   clearAround(s, 20);
   const c = campCell(s);
   for (let x = c.x - 3; x <= c.x + 3; x++) setRoad(s.land, x, c.y + 1);
   s.land.wear = '0'.repeat(s.land.w * s.land.h);
-  const worn = (x: number, y: number) => {
-    const i = idx(s.land, x, y);
-    s.land.wear = s.land.wear!.slice(0, i) + String.fromCharCode(48 + STREET_WEAR + 2) + s.land.wear!.slice(i + 1);
-  };
-  worn(c.x + 2, c.y + 2); // joins the street
-  worn(c.x + 9, c.y + 9); // joins nothing
-  assert.equal(planStreets(s), 1);
-  assert.ok(isPlannedRoad(s.land, c.x + 2, c.y + 2));
-  assert.ok(!isPlannedRoad(s.land, c.x + 9, c.y + 9));
+  const i = idx(s.land, c.x + 2, c.y + 2);
+  s.land.wear = s.land.wear.slice(0, i) + String.fromCharCode(48 + 24) + s.land.wear.slice(i + 1);
+  for (let h = 0; h < 48; h++) {
+    s.tick = h * TICKS_PER_HOUR;
+    streetsHourly(s);
+  }
+  assert.equal(plannedCells(s).length, 0, 'nothing planned');
+  assert.ok(!isRoad(s.land, c.x + 2, c.y + 2));
 });
 
-test('a street over a river is a bridge, laid with wood', () => {
+test('a path drawn over a river is a bridge, laid with wood', () => {
   const s = plainGame('streets-bridge');
   clearAround(s, 20);
   const c = campCell(s);
   // a river two cells wide across the way
   for (let y = c.y - 10; y <= c.y + 10; y++) for (const x of [c.x + 5, c.x + 6]) setGround(s.land, x, y, 'water');
-  assert.ok(layStreet(s, { x: c.x + 9, y: c.y + 1 }, { x: c.x, y: c.y + 1 }));
+  assert.ok(drawPath(s, [0, 1, 2, 3, 4, 5, 6, 7, 8, 9].map((k) => idx(s.land, c.x + k, c.y + 3)), true) >= 9);
   const bridges = plannedCells(s).filter((i) => isBridge(s, i));
-  assert.ok(bridges.length >= 2, 'over the water');
+  assert.equal(bridges.length, 2, 'over the water');
   s.buildings[0].store = { wood: BRIDGE_WOOD * 2 };
   const i = bridges[0];
   assert.ok(pave(s, i));
@@ -43,17 +47,22 @@ test('a street over a river is a bridge, laid with wood', () => {
   assert.equal(pave(s, bridges[1]), false, 'no wood, no bridge');
 });
 
-test("every gate of the ring wall gets a street to it, through it and out", () => {
+test('a gate of the ring wall gets no path of its own; a path drawn through it crosses at the gate', () => {
   const s = plainGame('streets-gate');
+  s.autopilot = true;
   clearAround(s, 30);
   const c = camp(s);
   setRoad(s.land, c.x, c.y + 1);
   const g = put(s, 'palisade_gate', c.x - 12, c.y, { ring: 1 });
   s.ring = { gen: 1, rect: { x: c.x - 12, y: c.y - 12, w: 25, h: 25 }, wall: 'palisade_wall', gate: 'palisade_gate', gates: [{ x: g.tile, y: g.row }] };
-  gatePaths(s);
+  for (let h = 0; h < 24; h++) {
+    s.tick = h * TICKS_PER_HOUR;
+    streetsHourly(s);
+  }
+  assert.equal(plannedCells(s).length, 0, 'no path to the gate by itself');
+  drawPath(s, [1, 0, -1].map((k) => idx(s.land, g.tile + k, g.row)), true);
   assert.ok(isPlannedRoad(s.land, g.tile, g.row), 'under the gate');
-  assert.ok(isPlannedRoad(s.land, g.tile + 1, g.row), 'inside it');
-  assert.ok(isPlannedRoad(s.land, g.tile - 1, g.row), 'and out beyond it');
+  assert.ok(isPlannedRoad(s.land, g.tile + 1, g.row) && isPlannedRoad(s.land, g.tile - 1, g.row), 'inside it and out');
 });
 
 test('a planned street is paved as one job: every hand adds to one pool and the cells go down in order from the road', () => {
@@ -98,16 +107,36 @@ test('whoever has nothing to build paves the street, a quarter of the town at mo
   assert.ok(paveTask(q, q.people[2], true), 'unless they have nothing else to do');
 });
 
-test('streets are planned from the first buildings, before any footpath is worn', () => {
+test('no street is planned to a building put up: its card says it has no path until one is drawn to its door', () => {
   const s = plainGame('streets-early');
+  s.autopilot = true;
+  s.cheats.unlockAll = true;
   clearAround(s, 20);
   const c = campCell(s);
-  assert.equal(plannedCells(s).length, 0);
-  const b = put(s, 'workbench', c.x + 6, c.y + 2);
-  connectRoad(s, b);
-  assert.ok(plannedCells(s).length > 0, 'a street is planned to the first building put up');
-  const n = plannedCells(s).length;
-  const b2 = put(s, 'workbench', c.x - 8, c.y + 4);
-  connectRoad(s, b2);
-  assert.ok(plannedCells(s).length > n, 'and to the next');
+  assert.ok(placeBlueprint(s, 'workbench', c.x + 6, c.y + 2).ok);
+  const b = s.buildings.at(-1)!;
+  assert.equal(plannedCells(s).length, 0, 'no street to it');
+  assert.equal(hasPath(s, b), false);
+  const d = doorCell(b);
+  drawPath(s, [idx(s.land, d.x, d.y + 1)], true);
+  assert.equal(hasPath(s, b), true, 'a path drawn to its door');
+  // (fields, pens and walls need none)
+  assert.equal(hasPath(s, put(s, 'palisade_wall', c.x - 8, c.y - 8)), true);
+});
+
+test('a town left to run lays no path by itself', () => {
+  for (const townBuilds of [false, true]) {
+    const s = newGame(`streets-none-${townBuilds}`);
+    if (townBuilds) s.townBuilds = true;
+    s.cheats.unlockAll = true;
+    s.nextRaidTick = Number.MAX_SAFE_INTEGER;
+    s.buildings[0].store = { wood: 400, stone: 200, fiber: 60, berries: 200 };
+    const before = roadCount(s);
+    const sim = new Sim(s);
+    for (let t = 0; t < 2 * TICKS_PER_DAY; t++) sim.step();
+    assert.ok(s.buildings.length > 1 || !townBuilds, 'the town got on with building');
+    const after = roadCount(s);
+    assert.equal(after.planned, 0, `no street planned (townBuilds ${townBuilds})`);
+    assert.ok(after.roads <= before.roads, `no street laid (townBuilds ${townBuilds}): ${before.roads} then ${after.roads}`);
+  }
 });

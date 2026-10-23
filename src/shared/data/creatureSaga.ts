@@ -1,13 +1,16 @@
-// The God creature's saga (sim/creature.ts begins it once the town has studied God Creatures). Signs in the night,
-// a broken nest with five young beasts, the player's pick of one (`{ creature: kind }`), its first deed, a test of its
+// The God creature's saga (sim/creature.ts begins it once the town has studied God Creatures and built its pen). Signs
+// in the night, a broken nest with five young beasts, the player's pick of one (`{ creature: kind }`), its first deed, a test of its
 // nature, and its coming of age. Its questions hold the game until they are answered (`waits`), like a question on the
 // founder's own trip. {beast} is the creature's name. See data/sagas.ts for how a saga is built.
 
-import { CREATURE_DEFS, CREATURE_KINDS, CREATURE_SAGA } from './creature';
+import { CREATURE_DEFS, CREATURE_KINDS, CREATURE_PEN, CREATURE_SAGA } from './creature';
 import type { SagaDef } from './sagas';
 import { mood, rep } from './sagaKit';
 
-const grownOrGone = (s: Parameters<SagaDef['when']>[0]) => !s.creature || !!s.creature.dead || s.creature.size >= 0.6;
+// (dead, it comes back while its pen stands: sim/creature.ts `creatureReturns`; the saga waits for it, and ends in its
+// loss only with no pen to come back to)
+const penStands = (s: Parameters<SagaDef['when']>[0]) => s.buildings.some((b) => b.def === CREATURE_PEN && b.status === 'done');
+const grownOrGone = (s: Parameters<SagaDef['when']>[0]) => !s.creature || (!!s.creature.dead && !penStands(s)) || (!s.creature.dead && s.creature.size >= 0.6);
 
 export const CREATURE_SAGA_DEF: SagaDef = {
   id: CREATURE_SAGA,
@@ -107,7 +110,7 @@ export const CREATURE_SAGA_DEF: SagaDef = {
     lost: {
       kind: 'end',
       outcome: 'ruin',
-      text: 'The God creature is dead before it was grown. The hollow past the fields is quiet again.',
+      text: 'The God creature is dead before it was grown, and there is no pen for it to come back to. The hollow past the fields is quiet again.',
       effects: [mood(-4, 48, 'The God creature is dead')],
     },
   },

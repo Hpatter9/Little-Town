@@ -40,6 +40,7 @@ import { holdForFight } from './raidWait';
 import { fightClock, openPrompt, parkPrompt, stoodTick, type Hold } from './popups';
 import { leadQuest, waitingOnFounder } from './founderQuests';
 import { creatureArrives, creatureTick, feedCreature, restCreature, teachCreature } from './creature';
+import { nudgeLiking } from './creatureFolk';
 import { stewardTick } from './steward';
 import { storyHourly } from './story';
 import { maybeEvent } from './events';
@@ -150,6 +151,7 @@ import { setFavourite } from './favourites';
 import { buyRare } from './rareStall';
 import { founderBuyShop, founderShopManager, founderShopPrice, founderShopStock } from './founderShops';
 import { founderApprentice, founderFeast, founderHaggle, founderMatch, founderVisitor } from './founderDealings';
+import { applyDev, devTick, setDevMode } from './dev';
 import { founderExplore, founderGive, founderGo, founderHeir, founderRest, founderTick, founderWork } from './founder';
 
 /** How the town trades at its shop: the planner decides what's spare and what to buy. */
@@ -200,6 +202,7 @@ export class Sim {
       return;
     }
     for (const c of this.pending) this.apply(c);
+    devTick(s); // (developer mode: orders built at once, a fast-forward's end: sim/dev.ts)
     skipRaidsTick(s); // (a town set to skip its raids: sim/raidSkip.ts)
     this.pending = [];
     if (s.paused) return;
@@ -466,9 +469,6 @@ export class Sim {
       case 'orderRing':
         s.ringOrder = true;
         break;
-      case 'orderStreets':
-        s.streetsOrder = true;
-        break;
       case 'pinBuilding': {
         const no = setPin(s, c.def, c.on);
         if (no) notify(s, `Can't wish for that: ${no.toLowerCase()}.`);
@@ -704,6 +704,11 @@ export class Sim {
         else if (c.op === 'rest') restCreature(s);
         else teachCreature(s, c.op === 'praise');
         break;
+      case 'creatureNudge': {
+        const why = nudgeLiking(s, c.liking, c.up);
+        if (why) notify(s, `${why}.`);
+        break;
+      }
       case 'recallExpedition':
         recallExpedition(s, c.expedition);
         break;
@@ -729,6 +734,13 @@ export class Sim {
       }
       case 'cheatUnlockAll':
         if (!s.ironman) s.cheats.unlockAll = c.on; // (no cheating in ironman)
+        break;
+      case 'devMode':
+        setDevMode(s, c.on);
+        break;
+      case 'dev':
+        // (refused unless the town has developer mode on: sim/dev.ts)
+        if (s.dev && !s.ironman) applyDev(s, c.order);
         break;
       case 'setPaused':
         s.paused = c.paused;

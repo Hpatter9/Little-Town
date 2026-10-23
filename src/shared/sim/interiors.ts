@@ -78,6 +78,24 @@ export function insideOf(s: GameState, p: Person): { building: number; at: Insid
   return null;
 }
 
+/** Until this hour of the night a home where someone has gone to bed still shows a light (a candle by the bed). */
+export const BEDTIME_LIGHT_UNTIL = 23;
+
+/** The buildings with a light inside after dark, for their windows to glow (the owner's ask): someone awake in them
+ *  (at a station or a desk, at the table, at home of an evening), or asleep there before `BEDTIME_LIGHT_UNTIL`. None
+ *  by day. Ids, smallest first. Looking only: nothing in the town changes. */
+export function litInside(s: GameState): number[] {
+  const cal = calendarOf(s);
+  if (cal.daylight >= 0.6) return [];
+  const late = cal.hour >= BEDTIME_LIGHT_UNTIL || cal.hour < 7;
+  const out = new Set<number>();
+  for (const p of s.people) {
+    const r = insideOf(s, p);
+    if (r && (r.at !== 'bed' || !late)) out.add(r.building);
+  }
+  return [...out].sort((a, b) => a - b);
+}
+
 /** Look into a building (null to come out again): the shop's and tavern's own windows aside. */
 export function lookInside(s: GameState, building: number | null): boolean {
   if (building === null) {

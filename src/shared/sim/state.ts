@@ -830,7 +830,7 @@ export interface Prompt {
   /** A people's own question (the origins made deeper: sim/heritage.ts `answerWays`): whose, and about what. */
   ways?: { system: string; about: string; id?: number };
   /** A naming (sim/naming.ts): what is to be named. The options are suggestions; the box also takes a name typed in. */
-  naming?: { kind: 'building' | 'person' | 'unique'; id: number | string };
+  naming?: { kind: 'building' | 'person' | 'unique' | 'creature'; id: number | string };
   /** A dispute the founder judges (sim/disputes.ts) or a duel put to them (sim/duel.ts): the people it is about. */
   dispute?: { kind: 'quarrel' | 'theft'; a: number; b: number; guilty?: boolean };
   duel?: { foe: number; to: 'yield' | 'death' };
@@ -1095,8 +1095,6 @@ export interface Muster {
 }
 
 export interface GameState {
-  /** Gates of the ring the town found no street to, and when it last tried (sim/streets.ts `gatePaths`). */
-  gateTried?: Record<string, number>;
   /** Seconds of paving work done toward the next cell of the streets planned: every paver adds to the one pool, and the
    *  cells go down in order as it covers them (sim/streets.ts `streetWork`). */
   streetSec?: number;
@@ -1258,6 +1256,13 @@ export interface GameState {
   eraReady: boolean;
   /** Testing aids toggled from the tray's Debug menu. */
   cheats: { unlockAll: boolean };
+  /** Developer mode (sim/dev.ts): its commands are taken only while this is on. `devSave`: it was ever on, so this
+   *  town is a dev save for good. `devBuild`: every order is built the moment it is placed. `devSkipTo`: the tick a
+   *  fast-forward runs to (shared/gameLoop.ts runs the steps flat out until it is reached). */
+  dev?: boolean;
+  devSave?: boolean;
+  devBuild?: boolean;
+  devSkipTo?: number;
   /** Where the town was founded (forest when left out). */
   biome?: Biome;
   /** A boss's roar shakes the town until this tick; a boss slain cheers it (until, and who). The last big boss moment (for the screen shake). */
@@ -1323,8 +1328,6 @@ export interface GameState {
   townBuilds?: boolean;
   /** The founder has ordered the ring wall raised, widened or upgraded: the planner works it until it stands. */
   ringOrder?: boolean;
-  /** The founder has ordered the streets laid: done at the next hour. */
-  streetsOrder?: boolean;
   /** The player's veto on destinations, the treasury's bounties on them (coins set aside), and when the last party
    *  formed itself (sim/parties.ts). */
   vetoed?: string[];

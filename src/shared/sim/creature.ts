@@ -12,22 +12,29 @@
 //  - a notable deed puts a small card to the player (`ask`): praise makes that deed likelier, a scolding less likely
 //    (`teachCreature`); unanswered in `ASK_HOURS` it counts as neither. Praise is its attention too (play).
 // It grows from young to huge over `GROW_PACED_DAYS` paced days (slower when it is hungry), and bigger is stronger
-// (`sizeShare`). Starved, or beaten in a raid, it can die. Every roll is from its own side stream; the player's
-// commands (feed, rest, praise, scold) work with the autopilot off too.
+// (`sizeShare`). Starved, or beaten in a raid, it can die; it comes back at its pen (`creatureReturns`) after
+// `RESPAWN_HOURS`, weakened, its name, learning and nature kept, or waits for a pen to be built again. Every roll is from
+// its own side stream; the player's commands (feed, rest, praise, scold, nudge a liking) work with the autopilot off too.
+// The second round of the owner's asks (docs/notes/god-creature-2.md): the town names it (the naming question:
+// sim/naming.ts `askCreatureName`), it comes once a Creature Pen is built and sleeps there, it learns spells
+// (sim/creatureSpells.ts), and it lives among the townsfolk, the founder first (sim/creatureFolk.ts).
 
-import { ASK_GAP_HOURS, ASK_HOURS, BORN_SIZE, HIDE_HURT, RAID_DEATH, creatureUnit, CREATURE_SAGA, CREATURE_TOPIC, CREATURE_DEEDS, CREATURE_DEFS, GROW_PACED_DAYS, LEARN_MOST, LEARN_STEP, MEAL, MEND_HP, NEED_LOW, NEGLECT_AT, SLEEP_HOURS, STARVE_HP, alignWord, creatureTint, drawScale, sizeShare, sizeStage, type CreatureDeed, type CreatureKind, type CreatureMood } from '../data/creature';
+import { ASK_GAP_HOURS, ASK_HOURS, BACK_HP, BACK_SHRINK, BORN_SIZE, CREATURE_LIKINGS, CREATURE_NAMES, CREATURE_PEN, FOUNDER_HELP, FOUNDER_PULL, HIDE_HURT, LIKING_NAMES, NUDGE_HOURS, RAID_DEATH, RESPAWN_HOURS, creatureUnit, CREATURE_SAGA, CREATURE_TOPIC, CREATURE_DEEDS, CREATURE_DEFS, GROW_PACED_DAYS, LEARN_MOST, LEARN_STEP, MEAL, MEND_HP, NEED_LOW, NEGLECT_AT, SLEEP_HOURS, STARVE_HP, alignWord, creatureTint, drawScale, sizeShare, sizeStage, type CreatureDeed, type CreatureKind, type CreatureLiking, type CreatureMood } from '../data/creature';
+import { befriend, creatureAwayTick, driftLike, favourites, joinAdventures, likeOf, likingOf, startLikes } from './creatureFolk';
+import { learnByNature, miracleFor, spellsSeen, watchInTown, workMiracle, type CreatureSpell } from './creatureSpells';
+import { askCreatureName } from './naming';
 import { DANGER_PACE } from '../data/pace';
 import { FOOD_VALUE } from '../data/people';
 import type { Material } from '../data/materials';
 import { hashSeed, Rng } from '../rng';
-import { buildingCentre, deliveredShare, depositNear, storages } from './buildings';
+import { buildingCentre, deliveredShare, depositNear, footprint, storages } from './buildings';
 import { takeFromStorage } from './expeditions';
 import { cropOf, isField } from './farming';
 import { killPerson } from './health';
 import { CELL, type Pt } from './land';
 import { beginSaga } from './sagas';
 import { isChild } from './social';
-import { campXY, maxHp, notify, type GameState, type Raid, type Raider } from './state';
+import { campXY, maxHp, notify, type Building, type GameState, type Raid, type Raider } from './state';
 import { TICKS_PER_DAY, TICKS_PER_HOUR, calendarOf } from './time';
 import { walk, type Walker } from './walk';
 
@@ -68,8 +75,25 @@ export interface CreatureState extends Walker {
   done: Partial<Record<CreatureDeed, number>>;
   /** Its last few deeds told, newest last. */
   log: string[];
-  /** Dead, when and how (it stays for the card). */
-  dead?: { tick: number; cause: string };
+  /** Dead, when and how (it stays for the card); it comes back at its pen from `backAt` (tick). */
+  dead?: { tick: number; cause: string; backAt?: number };
+  /** Times it has died and come back, and when it last came back (tick: the map shows it rising). */
+  deaths?: number;
+  cameBack?: number;
+  /** It waited with no pen to come back to (told once). */
+  penless?: boolean;
+  /** The spells it knows, and how often it has seen each cast (sim/creatureSpells.ts); when it last worked one. */
+  spells?: Record<string, CreatureSpell>;
+  seen?: Record<string, number>;
+  castAt?: number;
+  /** Its likings, -1 to 1 (sim/creatureFolk.ts), when the player last nudged one, and whom it is fond of (person id). */
+  likes?: Partial<Record<CreatureLiking, number>>;
+  nudged?: number;
+  fond?: Record<number, number>;
+  /** Away with a party (sim/creatureFolk.ts): which, whether the founder's, since when, and where to. */
+  away?: { expedition: number; founder: boolean; since: number; dest: string };
+  /** What it has done that the town remembers (newest last): its naming, its spells, its deaths, its adventures. */
+  history?: { tick: number; text: string }[];
 }
 
 const clamp = (n: number, lo = 0, hi = 100) => Math.max(lo, Math.min(hi, n));
@@ -78,6 +102,29 @@ const def = (c: CreatureState) => CREATURE_DEFS[c.kind];
 /** The creature, if it lives. */
 export const creatureOf = (s: GameState): CreatureState | null => (s.creature && !s.creature.dead ? s.creature : null);
 const LOG_MOST = 8;
+const HISTORY_MOST = 40;
+
+/** Something the town remembers of it (its history of deeds, on its menu). */
+export function remember(s: GameState, c: CreatureState, text: string): void {
+  (c.history ??= []).push({ tick: s.tick, text });
+  if (c.history.length > HISTORY_MOST) c.history.splice(0, c.history.length - HISTORY_MOST);
+}
+
+/** Its pen, if the town has one standing (where it sleeps, and comes back). */
+export const penOf = (s: GameState): Building | undefined => s.buildings.find((b) => b.def === CREATURE_PEN && b.status === 'done');
+/** Its straw at the pen's front (so it is seen, not hidden under the pen's roof). */
+function penFront(b: Building): Pt {
+  const c = buildingCentre(b);
+  const r = footprint(b);
+  return { x: c.x, y: (r.y + r.h + 0.6) * CELL };
+}
+/** Where it sleeps: at its pen, or by the camp. */
+function bedOf(s: GameState): Pt {
+  const pen = penOf(s);
+  if (pen) return penFront(pen);
+  const camp = campXY(s);
+  return { x: camp.x + CELL * 3, y: camp.y + CELL * 2 };
+}
 
 /** Its health when unhurt, by kind and size. */
 export const creatureMaxHp = (c: Pick<CreatureState, 'kind' | 'size'>) => Math.round(CREATURE_DEFS[c.kind].hp * sizeShare(c.size));
@@ -86,39 +133,46 @@ export const creatureAttack = (c: Pick<CreatureState, 'kind' | 'size'>) => Math.
 /** How much a deed's work is worth: bigger, and good at it, is more. */
 const workOf = (c: CreatureState, d: CreatureDeed) => sizeShare(c.size) * (def(c).strengths[d] ?? 1);
 
-/** The names a beast is given, by kind (the first that's free of the townsfolk's own). */
-const NAMES: Record<CreatureKind, string[]> = {
-  ape: ['Bramble', 'Old Knuckle', 'Mossback', 'Pip'],
-  wolf: ['Greyfang', 'Ash', 'Moonjaw', 'Sleet'],
-  bear: ['Bruin', 'Honeypaw', 'Old Thunder', 'Barley'],
-  bull: ['Ironhorn', 'Thudd', 'Blackhoof', 'Bellow'],
-  golem: ['Flint', 'Cairn', 'Old Granite', 'Pebble'],
-};
-
-/** The beast is the town's: the kind the player picked (the saga's choice), by the camp. */
+/** The beast is the town's: the kind the player picked (the saga's choice), at its pen. It goes by the first of its
+ *  kind's names free of the townsfolk's own until the town names it (the naming question it puts). */
 export function adoptCreature(s: GameState, kind: CreatureKind): CreatureState {
-  const at = campXY(s);
+  const pen = penOf(s);
+  const at = pen ? penFront(pen) : { x: campXY(s).x + CELL * 2, y: campXY(s).y + CELL };
   const taken = new Set(s.people.map((p) => p.name));
-  const name = NAMES[kind].find((n) => !taken.has(n)) ?? NAMES[kind][0];
+  const name = CREATURE_NAMES[kind].find((n) => !taken.has(n)) ?? CREATURE_NAMES[kind][0];
   const c: CreatureState = {
     kind, name, born: s.tick, size: BORN_SIZE, hp: 0, align: 0,
     hunger: 80, rest: 80, play: 70, anger: 0, fear: 0, neglect: 0,
     weights: {}, praised: {}, scolded: {}, done: {}, log: [],
     doing: 'wander', until: s.tick,
-    x: at.x + CELL * 2, y: at.y + CELL, dir: 1,
+    x: at.x, y: at.y, dir: 1,
   };
   c.hp = creatureMaxHp(c);
   s.creature = c;
-  notify(s, `${name} the ${def(c).name} is the town's now. Praise and scold it to teach it.`, true);
+  startLikes(s, c);
+  remember(s, c, `Came to the town, a young ${def(c).name.toLowerCase()} from a broken nest.`);
+  notify(s, `The young ${def(c).name.toLowerCase()} is the town's now. Praise and scold it to teach it.`, true);
+  askCreatureName(s, c);
   return c;
 }
 
 /* ------------------------------------------------------------ the hour */
 
-/** Every tick: it walks where its deed takes it; on the hour, it lives (autopilot only). */
+/** Every tick: it walks where its deed takes it (to the founder, at their side); on the hour, it lives (autopilot only).
+ *  Dead, it comes back at its pen in time; away with a party, it waits for the party. */
 export function creatureTick(s: GameState): void {
+  if (s.creature?.dead) return creatureReturns(s, s.creature);
   const c = creatureOf(s);
   if (!c) return;
+  if (c.away) {
+    creatureAwayTick(s, c);
+    if (c.away) return;
+  }
+  if (c.doing === 'follow') {
+    const f = s.people.find((p) => p.id === s.mainId && p.away === null);
+    // (re-aimed only once the founder has moved off a little, so it doesn't plan a new path every step)
+    if (f && (!c.goal || Math.hypot(c.goal.x - f.x, c.goal.y - f.y) > CELL * 2.5)) c.goal = { x: f.x + CELL * 1.5 * (c.dir > 0 ? -1 : 1), y: f.y + CELL * 0.5 };
+  }
   if (c.goal && c.doing !== 'sleep' && !inRaid(s)) walk(s, c, c.goal, c.size > 0.6 ? 4.2 : 4.8, undefined, s.tick);
   if (s.tick % TICKS_PER_HOUR !== 0) return;
   if (c.ask && s.tick - c.ask.tick >= ASK_HOURS * TICKS_PER_HOUR) c.ask = undefined; // (unanswered: neither)
@@ -132,6 +186,10 @@ export function creatureHourly(s: GameState, c: CreatureState): void {
   if (c.dead) return;
   if (s.tick < c.until && c.doing === 'sleep') return; // (asleep: let it be)
   if (inRaid(s)) return; // (it is fighting: `creatureRaidOver` tells of it)
+  // (always learning: its nature's miracles, and the spells it sees the casters about it practise)
+  learnByNature(s, c);
+  watchInTown(s, c);
+  if (joinAdventures(s, c)) return;
   const rng = rngOf(s, 1);
   const deed = chooseDeed(s, c, rng);
   // (a deed waiting on an answer is left to stand; the next is asked about only after a while)
@@ -189,17 +247,27 @@ function chances(s: GameState, c: CreatureState): { deed: CreatureDeed; at: Pt; 
   const storeAt = store ? buildingCentre(store) : camp;
   const h = Math.floor(s.tick / TICKS_PER_HOUR);
   out.push({ deed: 'wander', at: { x: camp.x + ((h % 7) - 3) * CELL, y: camp.y + ((h % 5) - 2) * CELL } });
-  out.push({ deed: 'sleep', at: { x: camp.x + CELL * 3, y: camp.y + CELL * 2 } });
-  if (store) out.push({ deed: 'eat', at: storeAt }, { deed: 'steal', at: storeAt }, { deed: 'haul', at: storeAt });
-  const site = s.buildings.find((b) => b.status === 'blueprint' && deliveredShare(b) > b.progress + 0.02);
+  out.push({ deed: 'sleep', at: bedOf(s) });
+  // (the founder first: at their side, at their work, their wounds before anyone's)
+  const founder = home.find((p) => p.id === s.mainId);
+  if (founder) out.push({ deed: 'follow', at: { x: founder.x, y: founder.y }, on: founder.id });
+  const wish = miracleFor(s, c, moodOf(c) === 'angry');
+  if (wish) out.push({ deed: 'miracle', at: wish.on ? { x: wish.on.x, y: wish.on.y } : { x: camp.x, y: camp.y - CELL * 2 }, on: wish.on?.id });
+  // (hauling: beside the founder when they carry, else at the stores)
+  const carrying = founder && founder.task && (founder.task.type === 'gather' || founder.task.type === 'fetch' || founder.task.type === 'deliver' || founder.task.type === 'store');
+  if (store) out.push({ deed: 'eat', at: storeAt }, { deed: 'steal', at: storeAt }, { deed: 'haul', at: carrying ? { x: founder.x, y: founder.y } : storeAt, on: carrying ? founder.id : undefined });
+  const founderSite = founder?.task?.type === 'build' ? s.buildings.find((b) => b.id === (founder.task as { building: number }).building && b.status === 'blueprint' && deliveredShare(b) > b.progress + 0.02) : undefined;
+  const site = founderSite ?? s.buildings.find((b) => b.status === 'blueprint' && deliveredShare(b) > b.progress + 0.02);
   if (site) out.push({ deed: 'build', at: buildingCentre(site), on: site.id });
   const growing = s.buildings.find((b) => isField(b) && cropOf(b).stage === 'growing');
   if (growing) out.push({ deed: 'farm', at: buildingCentre(growing), on: growing.id }, { deed: 'eat_crops', at: buildingCentre(growing), on: growing.id });
   out.push({ deed: 'hunt', at: { x: camp.x - CELL * 12, y: camp.y + CELL * 4 } });
   if (calendarOf(s).hour >= 19 || calendarOf(s).hour < 6) out.push({ deed: 'guard', at: { x: camp.x + CELL * 6, y: camp.y } });
-  const child = home.find((p) => isChild(p));
-  if (child) out.push({ deed: 'play', at: { x: child.x, y: child.y }, on: child.id });
-  const hurt = home.find((p) => p.hp < maxHp(p) * 0.7);
+  // (a playmate: a child, or a grown-up it is fond of, or the founder; by the hour, so it goes round them)
+  const mates = [...home.filter((p) => isChild(p)), ...home.filter((p) => !isChild(p) && ((c.fond?.[p.id] ?? 0) >= 3 || p.id === s.mainId))];
+  const mate = mates.length ? mates[h % mates.length] : undefined;
+  if (mate) out.push({ deed: 'play', at: { x: mate.x, y: mate.y }, on: mate.id });
+  const hurt = [...(founder ? [founder] : []), ...home].find((p) => p.hp < maxHp(p) * 0.7);
   if (hurt) out.push({ deed: 'heal', at: { x: hurt.x, y: hurt.y }, on: hurt.id });
   const victims = home.filter((p) => p.id !== s.mainId && !isChild(p));
   if (victims.length) {
@@ -212,7 +280,7 @@ function chances(s: GameState, c: CreatureState): { deed: CreatureDeed; at: Pt; 
 }
 
 /** The weight of a deed now: kind, needs, mood, nature and what it has learned. Exported for the tests. */
-export function deedWeight(c: CreatureState, deed: CreatureDeed): number {
+export function deedWeight(c: CreatureState, deed: CreatureDeed, s?: GameState, on?: number): number {
   const d = CREATURE_DEEDS[deed];
   const k = def(c);
   const bend = MOOD_BEND[moodOf(c)];
@@ -226,13 +294,26 @@ export function deedWeight(c: CreatureState, deed: CreatureDeed): number {
   if (deed === 'sleep') w *= c.rest < NEED_LOW ? 1 + (NEED_LOW - c.rest) / 3 : c.rest < 60 ? 0.6 : 0.1;
   // (a good beast leans to good deeds, a cruel one to cruel)
   if (d.align) w *= Math.max(0.15, 1 + (Math.sign(d.align) * c.align) / 100);
+  // (its likings: what it loves it does more, what it shuns less)
+  const l = likingOf(deed);
+  if (l && deed !== 'fight') w *= Math.max(0.2, 1 + likeOf(c, l));
+  // (the founder first: their company, and their work and wounds)
+  if (s && deed === 'follow') w *= FOUNDER_PULL * (1 + Math.min(1, (c.fond?.[s.mainId] ?? 0) / 40));
+  if (s && on !== undefined && on === s.mainId && deed !== 'follow') w *= FOUNDER_HELP;
   return w * 2 ** (c.weights[deed] ?? 0);
 }
+
+/** Is this the building the founder is raising (their own work, to help first)? */
+const isFounderSite = (s: GameState, id: number | undefined) => {
+  const t = s.people.find((p) => p.id === s.mainId)?.task;
+  return id !== undefined && t?.type === 'build' && t.building === id;
+};
 
 /** What it does this hour (drawn by weight). */
 export function chooseDeed(s: GameState, c: CreatureState, rng: Rng): CreatureDeed {
   const opts = chances(s, c);
-  const ws = opts.map((o) => deedWeight(c, o.deed));
+  // (whom each is for: a building raised is the founder's when it is their site)
+  const ws = opts.map((o) => deedWeight(c, o.deed, s, o.deed === 'build' ? (isFounderSite(s, o.on) ? s.mainId : undefined) : o.on));
   const total = ws.reduce((a, b) => a + b, 0);
   let r = rng.next() * total;
   for (let i = 0; i < opts.length; i++) if ((r -= ws[i]) <= 0) return opts[i].deed;
@@ -267,12 +348,17 @@ export function doDeed(s: GameState, c: CreatureState, deed: CreatureDeed, rng: 
       const n = Math.max(1, Math.round(3 * f));
       depositNear(s, camp, { wood: n, stone: Math.ceil(n / 2) });
       bump(c, 'haul', n + Math.ceil(n / 2));
-      what = `hauled ${n + Math.ceil(n / 2)} loads of wood and stone in from the wild`;
+      what = on ? `hauled ${n + Math.ceil(n / 2)} loads beside ${on.name}` : `hauled ${n + Math.ceil(n / 2)} loads of wood and stone in from the wild`;
+      if (on) befriend(s, c, on.id, 1);
       break;
     }
     case 'build': {
       const b = s.buildings.find((q) => q.id === opt?.on);
       if (b) b.progress = Math.min(deliveredShare(b) - 0.001, b.progress + 0.06 * f);
+      if (b && isFounderSite(s, b.id)) {
+        what = `helped ${s.people.find((p) => p.id === s.mainId)?.name ?? 'the founder'} raise a building`;
+        befriend(s, c, s.mainId, 1);
+      }
       bump(c, 'build', 1);
       break;
     }
@@ -295,12 +381,36 @@ export function doDeed(s: GameState, c: CreatureState, deed: CreatureDeed, rng: 
     }
     case 'play':
       for (const p of s.people) if (p.away === null && isChild(p)) p.morale = clamp(p.morale + 6);
+      if (on) {
+        on.morale = clamp(on.morale + 8);
+        befriend(s, c, on.id, 2);
+        what = isChild(on) ? `played with ${on.name} and the children` : `played with ${on.name}`;
+      }
       c.play = clamp(c.play + 35);
       c.anger = clamp(c.anger - 10);
       bump(c, 'play', 1);
       break;
+    case 'follow':
+      if (on) {
+        on.morale = clamp(on.morale + 2);
+        befriend(s, c, on.id, 1);
+      }
+      c.play = clamp(c.play + 12);
+      c.until = s.tick + TICKS_PER_HOUR;
+      bump(c, 'follow', 1);
+      break;
+    case 'miracle': {
+      const wish = miracleFor(s, c, moodOf(c) === 'angry');
+      if (wish) {
+        what = workMiracle(s, c, wish, rng);
+        if (wish.on && wish.magic === 'heal') befriend(s, c, wish.on.id, 2);
+        bump(c, 'miracle', 1);
+      }
+      break;
+    }
     case 'heal':
       if (on) on.hp = Math.min(maxHp(on), on.hp + Math.round(15 * f));
+      if (on) befriend(s, c, on.id, 2);
       bump(c, 'heal', 1);
       what = on ? `tended ${on.name}'s wounds` : what;
       break;
@@ -345,6 +455,9 @@ export function doDeed(s: GameState, c: CreatureState, deed: CreatureDeed, rng: 
   }
   const dd = CREATURE_DEEDS[deed];
   c.align = clamp(c.align + dd.align, -100, 100);
+  // (what it does content, it comes to like)
+  const liking = likingOf(deed);
+  if (liking) driftLike(c, liking, moodOf(c) === 'happy');
   if (!dd.notable) return;
   const text = `${c.name} the ${k.name} ${what}.`;
   c.log.push(text);
@@ -353,18 +466,58 @@ export function doDeed(s: GameState, c: CreatureState, deed: CreatureDeed, rng: 
     c.ask = { id: s.nextId++, deed, tick: s.tick, text };
     c.asked = s.tick;
   }
-  if (dd.bad || deed === 'heal') notify(s, text, deed === 'eat_villager');
+  if (dd.bad || deed === 'heal' || deed === 'miracle') notify(s, text, deed === 'eat_villager');
+  if (deed === 'eat_villager' || deed === 'miracle') remember(s, c, text);
 }
 
 const bump = (c: CreatureState, d: CreatureDeed, n: number) => (c.done[d] = (c.done[d] ?? 0) + n);
 
-function creatureDies(s: GameState, c: CreatureState, cause: string): void {
-  c.dead = { tick: s.tick, cause };
+export function creatureDies(s: GameState, c: CreatureState, cause: string): void {
+  c.dead = { tick: s.tick, cause, backAt: s.tick + RESPAWN_HOURS * TICKS_PER_HOUR };
   c.hp = 0;
   c.ask = undefined;
   c.goal = undefined;
   c.path = undefined;
-  notify(s, `${c.name} the ${def(c).name} is dead: ${cause}.`, true);
+  c.away = undefined;
+  c.deaths = (c.deaths ?? 0) + 1;
+  remember(s, c, `Died: ${cause}.`);
+  notify(s, `${c.name} the ${def(c).name} is dead: ${cause}.${penOf(s) ? ' Its pen stands: it may yet come back.' : ''}`, true);
+}
+
+/** Dead, it comes back at its pen once its time is up (autopilot only): weakened (`BACK_HP` of its health, a little
+ *  smaller, hungry and shaken), its name, learning, likings and nature all kept. With no pen standing it waits, and is
+ *  told of once. An old save's dead beast (no `backAt`) comes back the same way, from now. */
+export function creatureReturns(s: GameState, c: CreatureState): void {
+  if (!c.dead || s.tick % TICKS_PER_HOUR !== 0 || s.autopilot === false || s.gameOver) return;
+  c.dead.backAt ??= s.tick + RESPAWN_HOURS * TICKS_PER_HOUR;
+  if (s.tick < c.dead.backAt) return;
+  const pen = penOf(s);
+  if (!pen) {
+    if (!c.penless) notify(s, `${c.name}'s spirit lingers, but it has no pen to come back to. Build a Creature Pen.`, true);
+    c.penless = true;
+    return;
+  }
+  c.dead = undefined;
+  c.penless = undefined;
+  c.size = Math.max(BORN_SIZE, c.size - BACK_SHRINK);
+  c.hp = Math.max(1, Math.round(creatureMaxHp(c) * BACK_HP));
+  c.hunger = 40;
+  c.rest = 50;
+  c.play = 40;
+  c.anger = 0;
+  c.fear = 40;
+  c.neglect = 0;
+  const at = penFront(pen);
+  c.x = at.x;
+  c.y = at.y;
+  c.goal = undefined;
+  c.path = undefined;
+  c.doing = 'wander';
+  c.until = s.tick;
+  c.cameBack = s.tick;
+  const text = `${c.name} has come back! It rose from the straw of its pen, weak but whole.`;
+  remember(s, c, text);
+  notify(s, text, true);
 }
 
 /* ------------------------------------------------------------ raids */
@@ -378,7 +531,7 @@ export const inRaid = (s: GameState) => !!unitOf(s) && s.raid?.phase !== 'warnin
  *  too badly hurt (autopilot only). */
 export function creatureAllies(s: GameState, raid: Raid, make: (kind: string) => Raider): boolean {
   const c = creatureOf(s);
-  if (!c || s.autopilot === false || c.hp < creatureMaxHp(c) * HIDE_HURT) return false;
+  if (!c || c.away || s.autopilot === false || c.hp < creatureMaxHp(c) * HIDE_HURT) return false;
   const a = make(creatureUnit(c.kind));
   const k = sizeShare(c.size);
   a.maxHp = creatureMaxHp(c);
@@ -436,7 +589,7 @@ export function learn(c: CreatureState, d: CreatureDeed, by: number): void {
 /** The player feeds it from the stores (stone for a golem): hunger met, and it likes the attention. */
 export function feedCreature(s: GameState): boolean {
   const c = creatureOf(s);
-  if (!c) return false;
+  if (!c || c.away) return false;
   const got = def(c).eats === 'stone' ? takeFromStorage(s, 'stone', MEAL) * 0.6 : eatFood(s, MEAL);
   if (got <= 0) return false;
   c.hunger = clamp(c.hunger + got * 15);
@@ -445,14 +598,13 @@ export function feedCreature(s: GameState): boolean {
   return true;
 }
 
-/** The player sends it to rest: it lies down by the camp. */
+/** The player sends it to rest: it lies down in its pen (by the camp without one). */
 export function restCreature(s: GameState): boolean {
   const c = creatureOf(s);
-  if (!c) return false;
-  const camp = campXY(s);
+  if (!c || c.away) return false;
   c.doing = 'sleep';
   c.until = s.tick + SLEEP_HOURS * TICKS_PER_HOUR;
-  c.goal = { x: camp.x + CELL * 3, y: camp.y + CELL * 2 };
+  c.goal = bedOf(s);
   c.path = undefined;
   return true;
 }
@@ -492,10 +644,32 @@ export interface CreatureView {
   dead: string | null;
   /** Ticks since it was last praised (left out if never): the map shows its joy. */
   praisedAgo?: number;
+  /** Ticks since it came back from the dead (left out if never): the map shows it rising. */
+  backAgo?: number;
+  /** Dead: game hours till it comes back (null: no pen to come back to). */
+  backIn?: number | null;
+  /** How many times it has died and come back. */
+  deaths: number;
+  /** Its pen: where (building id), or null with none built. */
+  pen: number | null;
+  /** Away with a party: where, and whether it is the founder's. */
+  away: { dest: string; founder: boolean } | null;
+  /** Its spells (best first), and what it has seen cast but not learned yet. */
+  spells: { name: string; skill: number; uses: number; from: string }[];
+  learning: { name: string; seen: number }[];
+  /** Its likings (-1 to 1) by name, whether a nudge is ready, and its favourites among the townsfolk. */
+  likes: { id: CreatureLiking; name: string; value: number }[];
+  nudgeReady: boolean;
+  friends: string[];
+  /** What the town remembers of it, newest first. */
+  history: { day: number; text: string }[];
+  /** Whom its deed is with (a person's name), if anyone. */
+  with: string | null;
 }
 
 const DEED_NAMES: Record<CreatureDeed, string> = {
-  haul: 'hauling', build: 'building', guard: 'guarding', hunt: 'hunting', farm: 'the fields', play: 'playing with children',
+  follow: 'keeping at the founder\'s side', miracle: 'working miracles',
+  haul: 'hauling', build: 'building', guard: 'guarding', hunt: 'hunting', farm: 'the fields', play: 'playing with the townsfolk',
   heal: 'healing', fight: 'fighting raiders', eat_crops: 'eating crops', steal: 'raiding the stores', scare: 'scaring folk',
   eat_villager: 'eating folk', eat: 'eating', sleep: 'sleeping', wander: 'wandering',
 };
@@ -505,6 +679,7 @@ export function creatureView(s: GameState): CreatureView | null {
   const c = s.creature;
   if (!c) return null;
   const learned = (Object.entries(c.weights) as [CreatureDeed, number][]).filter(([, w]) => Math.abs(w) >= 0.25);
+  const seen = spellsSeen(c);
   return {
     kind: c.kind, kindName: def(c).name, name: c.name, x: c.x, y: c.y, dir: c.dir,
     size: c.size, stage: sizeStage(c.size), scale: drawScale(c.size), tint: creatureTint(c.align),
@@ -518,13 +693,38 @@ export function creatureView(s: GameState): CreatureView | null {
     log: c.log.slice(-4),
     dead: c.dead ? c.dead.cause : null,
     ...(c.praisedAt !== undefined ? { praisedAgo: s.tick - c.praisedAt } : {}),
+    ...(c.cameBack !== undefined ? { backAgo: s.tick - c.cameBack } : {}),
+    ...(c.dead ? { backIn: penOf(s) ? Math.max(0, Math.ceil(((c.dead.backAt ?? s.tick) - s.tick) / TICKS_PER_HOUR)) : null } : {}),
+    deaths: c.deaths ?? 0,
+    pen: penOf(s)?.id ?? null,
+    away: c.away ? { dest: c.away.dest, founder: c.away.founder } : null,
+    spells: seen.known.map(({ name, skill, uses, from }) => ({ name, skill, uses, from })),
+    learning: seen.learning,
+    likes: CREATURE_LIKINGS.map((l) => ({ id: l, name: LIKING_NAMES[l], value: Math.round(likeOf(c, l) * 100) / 100 })),
+    nudgeReady: c.nudged === undefined || s.tick - c.nudged >= NUDGE_HOURS * TICKS_PER_HOUR,
+    friends: favourites(s, c),
+    history: (c.history ?? []).slice(-12).reverse().map((h) => ({ day: Math.floor(h.tick / TICKS_PER_DAY) + 1, text: h.text })),
+    with: c.goal && (c.doing === 'play' || c.doing === 'follow' || c.doing === 'heal' || c.doing === 'scare') ? withOf(s, c) : null,
   };
 }
 
-/** Once the town has studied God Creatures, its saga begins (once): the beast comes in it (autopilot only). */
+/** Whom it is with, for its "Now" line: the nearest townsperson to where its deed took it. */
+function withOf(s: GameState, c: CreatureState): string | null {
+  const g = c.goal!;
+  let best: { name: string; d: number } | null = null;
+  for (const p of s.people) {
+    if (p.away !== null) continue;
+    const d = Math.hypot(p.x - g.x, p.y - g.y);
+    if (d < CELL * 3 && (!best || d < best.d)) best = { name: p.name, d };
+  }
+  return best?.name ?? null;
+}
+
+/** Once the town has studied God Creatures and built a Creature Pen, its saga begins (once): the beast comes in it
+ *  (autopilot only). A town whose saga had begun before the pen came keeps it going as it was. */
 export function creatureArrives(s: GameState): void {
   if (s.tick % TICKS_PER_HOUR !== 0 || s.autopilot === false || s.gameOver || s.creature) return;
-  if (!s.research.done.includes(CREATURE_TOPIC)) return;
+  if (!s.research.done.includes(CREATURE_TOPIC) || !penOf(s)) return;
   if ((s.sagas ?? []).some((r) => r.id === CREATURE_SAGA) || (s.sagasDone ?? []).some((d) => d.id === CREATURE_SAGA)) return;
   beginSaga(s, CREATURE_SAGA);
 }

@@ -1,6 +1,6 @@
 // The town plan (the owner: "Is there any way to have more thought go into the town layout? It seems so random").
 // Early on the planner lays down a plan from the seat and the land (`makeLayout`, kept on `GameState.layout`): a square
-// in front of the seat, paved, with the fire on it; a high street through the square west and east to the ring's
+// in front of the seat, with the fire on it; a high street through the square west and east to the ring's
 // gates, and a road south from it to the south gate; and side streets every `BLOCK` rows, crossed by lanes every
 // `CROSS` columns, so the town is laid out in blocks. Every kind of building has its quarter (`zoneOf`): the shop, the
 // tavern, the temple and the well on the square; the storehouses at its edge on the craft side; the workshops, kilns
@@ -8,9 +8,8 @@
 // the other side and to the north and south; the library and the tower beside the seat; the barracks by the south
 // gate; the graveyard and memorials at the edge; fields and pens in a belt outside the homes. `layoutSpot` (asked by
 // planner.ts `findSpot`) picks the best free spot of the building's quarter: its door on a street, its walls clear of
-// the streets to come, beside its own kind, never a cell's sliver from a neighbour. The main streets are planned a
-// few cells ahead of the buildings as the town grows (`extendMains`, hourly), and every new building's way to the
-// streets keeps to the plan's lines (buildings.ts `layStreet`, `planBias`), so the paved streets follow the plan.
+// the streets to come, beside its own kind, never a cell's sliver from a neighbour. The plan lays no street itself
+// (the owner's ask: the founder draws every path, sim/pathPlans.ts): its lines are kept clear for the paths to come.
 // Each people lays its town its own way (`STYLE_OF`): most in blocks; the machines on a tighter grid; the pack, the
 // orcs and the nomads once settled in rings round the fire; the druids and the fae in a glade with no straight lines.
 // An older town gets a plan fitted round what stands (`fitted`): only what is built after follows it.
@@ -21,21 +20,18 @@ import { HERDS } from '../data/livestock';
 import { RESEARCH_STATIONS } from '../data/research';
 import { MAGIC_BUILDINGS } from '../data/magic';
 import { isSeat } from '../data/seats';
-import { builtOn, cellCleared, depthOf, doorCell, footprint, layStreet } from './buildings';
+import { depthOf, doorCell, footprint } from './buildings';
 import { castleCells, castleGate, castleOn } from './castle';
 import { rectExplored } from './fog';
-import { buildable, doorOf, groundAt, idx, inMap, isMarked, isOpen, isPlannedRoad, isRoad, planRoad, setGround, setMarked, setRoad, wet, wildToClear, touchesWater, type Pt, type Rect } from './land';
-import { openGround } from '../data/biomes';
+import { buildable, doorOf, groundAt, idx, inMap, isOpen, isPlannedRoad, isRoad, wet, wildToClear, touchesWater, type Pt, type Rect } from './land';
 import { nomadic } from './nomads';
 import { isRingPiece, ringShapeOf, ringWallCells, shapeTest } from './ringWall';
 import { seaBuild } from './sea';
 import { campCell, type GameState } from './state';
 import { hashSeed } from '../rng';
 import { TICKS_PER_HOUR } from './time';
-import { cliffAhead } from './relief';
 import { hillShare } from './hills';
 import { SLOPE_CROPS } from '../data/hills';
-import { tunnelThrough } from './tunnels';
 
 /** Side streets run west to east every this many rows (three rows of buildings between, their doors on the street
  *  below them). */
@@ -46,15 +42,11 @@ export const CROSS_TIGHT = 8;
 /** The square: this many cells wide (an odd number, the seat's door in its middle) and deep. */
 export const SQUARE_W = 11;
 export const SQUARE_H = 5;
-/** The main streets are planned this many cells beyond the town's furthest building. */
-export const STREET_AHEAD = 4;
 /** The town's core is never reckoned smaller than this (cells from the square's middle). */
 export const CORE_MIN = 6;
 /** How far past the core a building of the town looks for a spot (fields further: `FARM_REACH`). */
 export const SPOT_REACH = 14;
 export const FARM_REACH = 20;
-/** A building's way to the streets costs this much more a cell off the plan's lines (so it runs along them). */
-export const OFF_PLAN = 0.9;
 
 /** How a people lays out its town: in blocks (`grid`), or in rings round the fire with no grid (`ring`), or loosely, as
  *  a glade (`glade`, no straight lines). */
@@ -123,19 +115,12 @@ export function onPlanLine(s: Pick<GameState, 'layout' | 'origin'>, x: number, y
 }
 const inSquare = (L: TownLayout, x: number, y: number) => x >= L.sq.x && x < L.sq.x + L.sq.w && y >= L.sq.y && y < L.sq.y + L.sq.h;
 
-/** The extra a street's step costs off the plan's lines (buildings.ts `layStreet`): none in a glade or without a plan. */
-export function planBias(s: Pick<GameState, 'layout' | 'origin'>): ((x: number, y: number) => number) | undefined {
-  const L = s.layout;
-  if (!L || L.style === 'glade') return undefined;
-  return (x, y) => (onPlanLine(s, x, y) ? 0 : OFF_PLAN);
-}
-
 /** The quarter a building belongs in. */
 export function zoneOf(def: BuildingDef, s?: Pick<GameState, 'origin'>): Zone {
   const id = def.id;
   if (id === 'well' || id === 'statue' || id === 'god_idol' || id === 'victory_monument') return 'square';
   if (isSeat(id) || def.floor) return 'civic';
-  if (CROPS[id] || HERDS[id] || id === 'windmill' || id === 'stable' || id === 'beast_ranch' || id === 'kennels') return 'farm';
+  if (CROPS[id] || HERDS[id] || id === 'windmill' || id === 'stable' || id === 'beast_ranch' || id === 'creature_pen' || id === 'kennels') return 'farm';
   if (def.shore || def.onWater) return 'shore';
   if (def.defense) return 'defense';
   if (def.housing) return 'home';
@@ -164,15 +149,6 @@ export function ensureLayout(s: GameState): TownLayout | null {
   if (s.autopilot === false || nomadic(s)) return null;
   const L = makeLayout(s);
   s.layout = L;
-  // (the square is paved: at once for a town just founded, as its first streets; an older town's planned for its pavers)
-  const fresh = s.tick < TICKS_PER_HOUR;
-  for (let y = L.sq.y; y < L.sq.y + L.sq.h; y++)
-    for (let x = L.sq.x; x < L.sq.x + L.sq.w; x++) {
-      if (!inMap(s.land, x, y) || builtOn(s, x, y) || isRoad(s.land, x, y) || !buildable(groundAt(s.land, x, y))) continue;
-      if (fresh) setRoad(s.land, x, y);
-      else planRoad(s.land, x, y);
-    }
-  extendMains(s, fresh);
   return L;
 }
 
@@ -202,83 +178,6 @@ export function coreRadius(s: GameState, L: TownLayout, only?: readonly Zone[]):
     r = Math.max(r, Math.abs(f.x - L.col), Math.abs(f.x + f.w - 1 - L.col), Math.abs(f.y - L.row), Math.abs(f.y + f.h - 1 - L.row));
   }
   return r;
-}
-
-/** The main streets planned out ahead of the town: the high street west and east, the road south, `STREET_AHEAD` cells
- *  past the core, straight along their lines, never past the ring wall's line but at its gates (the gates' own paths
- *  join them: streets.ts `gatePaths`). A wood or rocks on the line are cleared first (`MAIN_CLEAR` cells marked at a
- *  time, the street waiting on them); a river is bridged. Laid at once at the founding (`now`), else planned for the
- *  pavers. */
-export const MAIN_CLEAR = 3;
-export function extendMains(s: GameState, now = false): void {
-  const L = s.layout;
-  if (!L) return;
-  const m = s.land;
-  const reach = coreRadius(s, L) + STREET_AHEAD;
-  const wall = s.ring ? ringWallCells(s) : null;
-  const ends: [Pt, Pt][] = [
-    [{ x: L.sq.x, y: L.row }, { x: -1, y: 0 }],
-    [{ x: L.sq.x + L.sq.w - 1, y: L.row }, { x: 1, y: 0 }],
-    [{ x: L.col, y: L.sq.y + L.sq.h - 1 }, { x: 0, y: 1 }],
-  ];
-  const lay = (x: number, y: number) => {
-    if (now) setRoad(m, x, y);
-    else planRoad(m, x, y);
-  };
-  for (const [from, d] of ends) {
-    let cleared = 0;
-    for (let k = 1; k <= reach; k++) {
-      const x = from.x + d.x * k, y = from.y + d.y * k;
-      if (!isOpen(m, x, y) || (wall && wall.has(idx(m, x, y)))) break;
-      if (isRoad(m, x, y) || isPlannedRoad(m, x, y)) continue;
-      const b = builtOn(s, x, y);
-      if (b) break; // (an older town's building stands on the line: the street ends there)
-      const g = groundAt(m, x, y);
-      if (buildable(g) && cliffAhead(m, x - d.x, y - d.y, x, y)) break;
-      if (buildable(g)) {
-        if (!cleared) lay(x, y);
-        continue;
-      }
-      if (wet(g)) {
-        // (a river: bridged to the dry ground past it, if that's near)
-        let j = k;
-        while (j <= reach + 6 && inMap(m, from.x + d.x * j, from.y + d.y * j) && wet(groundAt(m, from.x + d.x * j, from.y + d.y * j))) j++;
-        const over = { x: from.x + d.x * j, y: from.y + d.y * j };
-        if (cleared || j - k > 6 || !inMap(m, over.x, over.y) || !buildable(groundAt(m, over.x, over.y)) || builtOn(s, over.x, over.y)) break;
-        if (!layStreet(s, { x: x - d.x, y: y - d.y }, over, (j - k) * 3 + 6)) break;
-        k = j;
-        continue;
-      }
-      // (a thin ridge of rock, far round: the street is tunnelled through it, sim/tunnels.ts)
-      if (g === 'mountain') {
-        const through = cleared ? null : tunnelThrough(s, { x: x - d.x, y: y - d.y }, d);
-        if (!through) break;
-        for (const c of through.cells) lay(c.x, c.y);
-        lay(through.over.x, through.over.y);
-        k += through.cells.length;
-        continue;
-      }
-      // (a cliff: the high ground's face, sim/relief.ts; the street stops at its foot or its top but at a ramp)
-      if (cliffAhead(m, x - d.x, y - d.y, x, y)) break;
-      // (a wood or rocks: cleared for the street, a few cells at a time; one with nothing left on it at once)
-      if (!wildToClear(m, x, y) || cleared >= MAIN_CLEAR) break;
-      if (!m.pools[idx(m, x, y)]) {
-        setGround(m, x, y, openGround(s.biome));
-        cellCleared(s, x, y);
-        if (!cleared) lay(x, y);
-        continue;
-      }
-      if (!isMarked(m, idx(m, x, y))) setMarked(m, idx(m, x, y), true);
-      cleared++;
-    }
-  }
-}
-
-/** Hourly (streets.ts): the main streets kept ahead of the town. */
-export function layoutHourly(s: GameState): void {
-  if (s.autopilot === false || !s.layout) return;
-  if (Math.floor(s.tick / TICKS_PER_HOUR) % 6 !== 3) return;
-  extendMains(s);
 }
 
 /* ------------------------------------------------------------ spots */

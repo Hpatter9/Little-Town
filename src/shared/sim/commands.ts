@@ -18,8 +18,10 @@ import { ORDER_NAMES, type StandingOrder } from '../data/monsters';
 import { JOBS, type Job, type Priority } from '../data/people';
 import { TOPIC_BY_ID } from '../data/research';
 import { cleanName } from './naming';
+import { CREATURE_LIKINGS, type CreatureLiking } from '../data/creature';
 import { DIRECTIONS, type Direction } from './planner';
 import { PATH_CAP } from './pathPlans';
+import { parseDevOrder, type DevOrder } from './devOrders';
 
 export type CreatureOp = 'feed' | 'rest' | 'praise' | 'scold';
 const CREATURE_OPS: readonly CreatureOp[] = ['feed', 'rest', 'praise', 'scold'];
@@ -66,7 +68,6 @@ export type Command =
   /** Order the ring wall raised, widened or upgraded (the town picks the line and works it until it stands). */
   | { type: 'orderRing' }
   /** Order the streets laid where folk walk and to the gates (done at the next hour). */
-  | { type: 'orderStreets' }
   /** Move a hand-picked topic a place earlier (-1) or later (1) among the picks. */
   | { type: 'moveResearch'; topic: string; dir: -1 | 1 }
   /** Move a topic to the front of the queue. */
@@ -104,6 +105,8 @@ export type Command =
   | { type: 'openPrompt'; prompt: number }
   /** The great creature (sim/creature.ts): feed it, send it to rest, or praise or scold its last deed. */
   | { type: 'creature'; op: CreatureOp }
+  /** Encourage (up) or discourage one of the God creature's likings, gently (sim/creatureFolk.ts `nudgeLiking`). */
+  | { type: 'creatureNudge'; liking: CreatureLiking; up: boolean }
   /** Keep one of the origin's powers back to cast yourself (null: let the town cast them all), and cast it. */
   | { type: 'holdPower'; power: string | null }
   | { type: 'castHeld' }
@@ -147,8 +150,8 @@ export type Command =
   | { type: 'arenaBet'; on: 'town' | 'visitor'; amount: number }
   /** Challenge someone to a duel (a person's id; -1 the arena's champion), to yield or to the death (sim/duel.ts). */
   | { type: 'duel'; foe: number; to: 'yield' | 'death' }
-  /** Name a building, a child of the founder's family, or a unique weapon (sim/naming.ts). */
-  | { type: 'name'; kind: 'building' | 'person' | 'unique'; id: number | string; name: string }
+  /** Name a building, a child of the founder's family, a unique weapon, or the God creature (sim/naming.ts). */
+  | { type: 'name'; kind: 'building' | 'person' | 'unique' | 'creature'; id: number | string; name: string }
   /** Open or close a trade route to a power (sim/markets.ts). */
   | { type: 'tradeRoute'; to: string; open: boolean }
   /** Rally a defender in a raid (a burst of courage; sim/rally.ts). */
@@ -194,7 +197,13 @@ export type Command =
   /** Bind the founder's soul into a phylactery (once Lichcraft is learned): the town builds it. */
   | { type: 'becomeLich' }
   /** Debug: make every building available regardless of research. */
-  | { type: 'cheatUnlockAll'; on: boolean };
+  | { type: 'cheatUnlockAll'; on: boolean }
+  /** Developer mode on or off for this town (sim/dev.ts); and one of its orders, refused unless it is on. */
+  | { type: 'devMode'; on: boolean }
+  | { type: 'dev'; order: DevOrder };
+
+/** The commands only developer mode may give (sim/sim.ts refuses them while the town's `dev` is off). */
+export const isDevCommand = (c: Command): boolean => c.type === 'dev';
 
 /** Validate a command that arrived over IPC. */
 export function parseCommand(raw: unknown): Command | null {
@@ -255,7 +264,6 @@ export function parseCommand(raw: unknown): Command | null {
     case 'researchNext':
       return typeof c.topic === 'string' && TOPIC_BY_ID[c.topic] ? { type: c.type, topic: c.topic } : null;
     case 'orderRing':
-    case 'orderStreets':
       return { type: c.type };
     case 'pinBuilding':
       return typeof c.def === 'string' && BUILDING_BY_ID[c.def] && typeof c.on === 'boolean' ? { type: 'pinBuilding', def: c.def, on: c.on } : null;
@@ -317,7 +325,7 @@ export function parseCommand(raw: unknown): Command | null {
     case 'duel':
       return Number.isInteger(c.foe) && (c.to === 'yield' || c.to === 'death') ? { type: 'duel', foe: c.foe as number, to: c.to } : null;
     case 'name':
-      return (c.kind === 'building' || c.kind === 'person' || c.kind === 'unique') && (typeof c.id === 'string' || Number.isInteger(c.id)) && cleanName(c.name) ? { type: 'name', kind: c.kind, id: c.id as number | string, name: cleanName(c.name)! } : null;
+      return (c.kind === 'building' || c.kind === 'person' || c.kind === 'unique' || c.kind === 'creature') && (typeof c.id === 'string' || Number.isInteger(c.id)) && cleanName(c.name) ? { type: 'name', kind: c.kind, id: c.id as number | string, name: cleanName(c.name)! } : null;
     case 'tradeRoute':
       return typeof c.to === 'string' && typeof c.open === 'boolean' ? { type: 'tradeRoute', to: c.to, open: c.open } : null;
     case 'lookInside':
@@ -424,6 +432,8 @@ export function parseCommand(raw: unknown): Command | null {
       return Number.isInteger(c.prompt) ? { type: c.type, prompt: c.prompt as number } : null;
     case 'creature':
       return CREATURE_OPS.includes(c.op as CreatureOp) ? { type: 'creature', op: c.op as CreatureOp } : null;
+    case 'creatureNudge':
+      return CREATURE_LIKINGS.includes(c.liking as CreatureLiking) && typeof c.up === 'boolean' ? { type: 'creatureNudge', liking: c.liking as CreatureLiking, up: c.up } : null;
     case 'recallExpedition':
       return Number.isInteger(c.expedition) ? { type: 'recallExpedition', expedition: c.expedition as number } : null;
     case 'acceptVisitor':
@@ -437,6 +447,12 @@ export function parseCommand(raw: unknown): Command | null {
       return Number.isInteger(c.person) && typeof c.on === 'boolean' ? { type: 'setAutoPriorities', person: c.person as number, on: c.on } : null;
     case 'cheatUnlockAll':
       return typeof c.on === 'boolean' ? { type: 'cheatUnlockAll', on: c.on } : null;
+    case 'devMode':
+      return typeof c.on === 'boolean' ? { type: 'devMode', on: c.on } : null;
+    case 'dev': {
+      const order = parseDevOrder(c.order);
+      return order ? { type: 'dev', order } : null;
+    }
     default:
       return null;
   }
