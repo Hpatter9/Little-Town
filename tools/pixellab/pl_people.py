@@ -17,7 +17,7 @@ import pl
 
 DIRS = ['south', 'south-east', 'east', 'north-east', 'north', 'north-west', 'west', 'south-west']
 STATE = os.environ.get('STATE', 'pl/people_state.json')
-MOVES = {'walk': 'walking', 'idle': 'breathing-idle', 'attack': 'cross-punch', 'death': 'falling-back-death'}
+MOVES = {'walk': 'walking', 'idle': 'breathing-idle', 'attack': 'cross-punch', 'death': 'falling-back-death', 'run': 'running-6-frames', 'hurt': 'taking-punch'}
 # (the casting peoples attack with a thrown spell; the rest with a punch: the mannequin has no weapon template)
 CASTERS = {'lich', 'druid', 'fae', 'alchemists'}
 # (base settler look, what the edit makes of it, the character's description)

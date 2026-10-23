@@ -53,6 +53,32 @@
     "south-west"
    ],
    "group": "0191ae4c-5929-4186-ab8b-5de6ff63235f"
+  },
+  "run": {
+   "done": [
+    "south",
+    "south-east",
+    "east",
+    "north-east",
+    "north",
+    "north-west",
+    "west",
+    "south-west"
+   ],
+   "group": "17e3cca0-8792-4788-9b3b-a6abc2404ae9"
+  },
+  "hurt": {
+   "done": [
+    "south",
+    "south-east",
+    "east",
+    "north-east",
+    "north",
+    "north-west",
+    "west",
+    "south-west"
+   ],
+   "group": "c71865fe-463e-4b40-ae7f-99fa77c585a3"
   }
  },
  "lich_ghoul": {
@@ -109,6 +135,32 @@
     "south-west"
    ],
    "group": "d7396ff3-310e-4431-9388-57ad68d669b2"
+  },
+  "run": {
+   "done": [
+    "south",
+    "south-east",
+    "east",
+    "north-east",
+    "north",
+    "north-west",
+    "west",
+    "south-west"
+   ],
+   "group": "b5d0dd40-87c7-4b7b-af11-32ed92a3e4e7"
+  },
+  "hurt": {
+   "done": [
+    "south",
+    "south-east",
+    "east",
+    "north-east",
+    "north",
+    "north-west",
+    "west",
+    "south-west"
+   ],
+   "group": "e8ebfac9-e594-4dcc-a137-548c96515f08"
   }
  },
  "lich_skeleton": {
@@ -165,6 +217,32 @@
     "south-west"
    ],
    "group": "7ba50f11-eb37-472e-875e-5af0b2c00025"
+  },
+  "run": {
+   "done": [
+    "south",
+    "south-east",
+    "east",
+    "north-east",
+    "north",
+    "north-west",
+    "west",
+    "south-west"
+   ],
+   "group": "683a81bc-9aa7-49f9-b2c5-f01000a6c83f"
+  },
+  "hurt": {
+   "done": [
+    "south",
+    "south-east",
+    "east",
+    "north-east",
+    "north",
+    "north-west",
+    "west",
+    "south-west"
+   ],
+   "group": "069586a1-d107-48a5-95b9-5c42d5bf6d08"
   }
  },
  "druid_elder": {
@@ -389,6 +467,32 @@
     "south-west"
    ],
    "group": "9da5bfb0-f379-4a9b-b21f-85874b39c0ac"
+  },
+  "run": {
+   "done": [
+    "south",
+    "south-east",
+    "east",
+    "north-east",
+    "north",
+    "north-west",
+    "west",
+    "south-west"
+   ],
+   "group": "88c96e60-cdaf-4422-a5c7-97ec8565c006"
+  },
+  "hurt": {
+   "done": [
+    "south",
+    "south-east",
+    "east",
+    "north-east",
+    "north",
+    "north-west",
+    "west",
+    "south-west"
+   ],
+   "group": "5faf0fd4-bb85-477e-b3cf-a02a6b6962d6"
   }
  },
  "vamp_lady": {
@@ -445,6 +549,32 @@
     "south-west"
    ],
    "group": "d746502b-d104-483f-91c7-6441e97464c8"
+  },
+  "run": {
+   "done": [
+    "south",
+    "south-east",
+    "east",
+    "north-east",
+    "north",
+    "north-west",
+    "west",
+    "south-west"
+   ],
+   "group": "51446b94-9024-435e-87a8-e9e9a2ca43f8"
+  },
+  "hurt": {
+   "done": [
+    "south",
+    "south-east",
+    "east",
+    "north-east",
+    "north",
+    "north-west",
+    "west",
+    "south-west"
+   ],
+   "group": "7e8d7a6e-0028-441a-8d04-e1fd9c643db4"
   }
  },
  "vamp_thrall": {
@@ -501,6 +631,32 @@
     "south-west"
    ],
    "group": "f75da5b6-e26b-4aba-b1bb-2297bc9f3999"
+  },
+  "run": {
+   "done": [
+    "south",
+    "south-east",
+    "east",
+    "north-east",
+    "north",
+    "north-west",
+    "west",
+    "south-west"
+   ],
+   "group": "b11a9d3d-4274-47ae-a6f2-2fe4682af0b5"
+  },
+  "hurt": {
+   "done": [
+    "south",
+    "south-east",
+    "east",
+    "north-east",
+    "north",
+    "north-west",
+    "west",
+    "south-west"
+   ],
+   "group": "868e614d-e0f8-4fbf-ada9-453d9f8d7e76"
   }
  },
  "wolf_hunter": {
@@ -940,7 +1096,13 @@
   "death": {
    "done": [
     "south",
-    "south-east"
+    "south-east",
+    "east",
+    "north-east",
+    "north",
+    "north-west",
+    "west",
+    "south-west"
    ],
    "group": "07100602-1ed4-44f0-be36-ceec2a83ca10"
   }
@@ -989,7 +1151,14 @@
   },
   "death": {
    "done": [
-    "south"
+    "south",
+    "south-east",
+    "east",
+    "north-east",
+    "north",
+    "north-west",
+    "west",
+    "south-west"
    ],
    "group": "4024ec14-927b-44e4-9e1c-f3b7e05bc7ab"
   }
@@ -1038,7 +1207,14 @@
   },
   "death": {
    "done": [
-    "south"
+    "south",
+    "south-east",
+    "east",
+    "north-east",
+    "north",
+    "north-west",
+    "west",
+    "south-west"
    ],
    "group": "c35129ac-cb52-447d-8cbc-3fc55afaab17"
   }
@@ -1088,7 +1264,13 @@
   "death": {
    "done": [
     "south",
-    "south-east"
+    "south-east",
+    "east",
+    "north-east",
+    "north",
+    "north-west",
+    "west",
+    "south-west"
    ],
    "group": "eb1af814-66d3-46dd-8e88-360e43f7855a"
   }
@@ -1138,7 +1320,13 @@
   "death": {
    "done": [
     "south",
-    "south-east"
+    "south-east",
+    "east",
+    "north-east",
+    "north",
+    "north-west",
+    "west",
+    "south-west"
    ],
    "group": "4c473032-3524-4ee9-885e-ac272c9561c0"
   }
@@ -1187,7 +1375,14 @@
   },
   "death": {
    "done": [
-    "south"
+    "south",
+    "south-east",
+    "east",
+    "north-east",
+    "north",
+    "north-west",
+    "west",
+    "south-west"
    ],
    "group": "5cecf74b-79f8-4a8a-bcaf-d54d6fcc5cc7"
   }
@@ -1236,7 +1431,14 @@
   },
   "death": {
    "done": [
-    "south"
+    "south",
+    "south-east",
+    "east",
+    "north-east",
+    "north",
+    "north-west",
+    "west",
+    "south-west"
    ],
    "group": "5311d0fa-33ec-4662-9716-421323621df8"
   }
@@ -1286,7 +1488,13 @@
   "death": {
    "done": [
     "south",
-    "south-east"
+    "south-east",
+    "east",
+    "north-east",
+    "north",
+    "north-west",
+    "west",
+    "south-west"
    ],
    "group": "f195950c-92dc-4c9c-88b1-ed993342963d"
   }
@@ -1332,6 +1540,19 @@
     "south-west"
    ],
    "group": "ab970ef5-20bf-4893-87fe-7a804328f0ef"
+  },
+  "death": {
+   "done": [
+    "south",
+    "south-east",
+    "east",
+    "north-east",
+    "north",
+    "north-west",
+    "west",
+    "south-west"
+   ],
+   "group": "a3c6c76f-9e9d-4a68-884e-52639d3137f3"
   }
  },
  "alch_woman": {
@@ -1375,6 +1596,19 @@
     "south-west"
    ],
    "group": "684ee93f-797a-4560-90e0-ca7d8d20348f"
+  },
+  "death": {
+   "done": [
+    "south",
+    "south-east",
+    "east",
+    "north-east",
+    "north",
+    "north-west",
+    "west",
+    "south-west"
+   ],
+   "group": "8a31c391-dce5-4b67-af61-131e118c910c"
   }
  },
  "alch_apprentice": {
@@ -1418,6 +1652,19 @@
     "south-west"
    ],
    "group": "54763b23-b4ea-450a-bb60-76557bb23c8c"
+  },
+  "death": {
+   "done": [
+    "south",
+    "south-east",
+    "east",
+    "north-east",
+    "north",
+    "north-west",
+    "west",
+    "south-west"
+   ],
+   "group": "ce70c2e3-c568-4628-9f84-80abbd1e7703"
   }
  },
  "knight_sir": {
@@ -1461,6 +1708,45 @@
     "south-west"
    ],
    "group": "20605902-f665-4715-9306-0e8507ce5ab5"
+  },
+  "death": {
+   "done": [
+    "south",
+    "south-east",
+    "east",
+    "north-east",
+    "north",
+    "north-west",
+    "west",
+    "south-west"
+   ],
+   "group": "7c4cab96-224e-40ba-9562-f2d442a0f354"
+  },
+  "run": {
+   "done": [
+    "south",
+    "south-east",
+    "east",
+    "north-east",
+    "north",
+    "north-west",
+    "west",
+    "south-west"
+   ],
+   "group": "2e0cc14a-eaa6-4f27-8e47-edd6a46a2ea9"
+  },
+  "hurt": {
+   "done": [
+    "south",
+    "south-east",
+    "east",
+    "north-east",
+    "north",
+    "north-west",
+    "west",
+    "south-west"
+   ],
+   "group": "abbd760e-f59a-49a2-9adb-e9ae1fec0c0e"
   }
  },
  "knight_dame": {
@@ -1504,6 +1790,45 @@
     "south-west"
    ],
    "group": "0f238c0d-b6f6-45c5-8ae3-d19421e55cbe"
+  },
+  "death": {
+   "done": [
+    "south",
+    "south-east",
+    "east",
+    "north-east",
+    "north",
+    "north-west",
+    "west",
+    "south-west"
+   ],
+   "group": "ecd18067-535f-41ca-9fe9-ccf9a259f582"
+  },
+  "run": {
+   "done": [
+    "south",
+    "south-east",
+    "east",
+    "north-east",
+    "north",
+    "north-west",
+    "west",
+    "south-west"
+   ],
+   "group": "0a8a4b8f-a2c5-4e4b-94a2-c6ad1e5b9b1e"
+  },
+  "hurt": {
+   "done": [
+    "south",
+    "south-east",
+    "east",
+    "north-east",
+    "north",
+    "north-west",
+    "west",
+    "south-west"
+   ],
+   "group": "bea8bbb3-079b-4503-90c7-9dca5d2f0da2"
   }
  },
  "knight_squire": {
@@ -1547,6 +1872,45 @@
     "south-west"
    ],
    "group": "95a3060e-26bc-400a-813d-8c773011a384"
+  },
+  "death": {
+   "done": [
+    "south",
+    "south-east",
+    "east",
+    "north-east",
+    "north",
+    "north-west",
+    "west",
+    "south-west"
+   ],
+   "group": "0401e721-4d09-409e-a130-2a9e0e0e6751"
+  },
+  "run": {
+   "done": [
+    "south",
+    "south-east",
+    "east",
+    "north-east",
+    "north",
+    "north-west",
+    "west",
+    "south-west"
+   ],
+   "group": "fe548fba-6d52-44df-b541-bc3073742945"
+  },
+  "hurt": {
+   "done": [
+    "south",
+    "south-east",
+    "east",
+    "north-east",
+    "north",
+    "north-west",
+    "west",
+    "south-west"
+   ],
+   "group": "2930dff0-fcfb-4dbb-b6fd-ee930d3093e6"
   }
  }
 }

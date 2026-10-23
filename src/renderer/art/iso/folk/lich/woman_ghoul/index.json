@@ -22,8 +22,14 @@
   "cast_1h": {
    "frames": 6
   },
+  "run": {
+   "frames": 6
+  },
   "death": {
    "frames": 7
+  },
+  "hurt": {
+   "frames": 6
   },
   "walk": {
    "frames": 6

@@ -16,6 +16,12 @@
   "south-west"
  ],
  "animations": {
+  "hurt": {
+   "frames": 6
+  },
+  "run": {
+   "frames": 6
+  },
   "cast_1h": {
    "frames": 6
   },
