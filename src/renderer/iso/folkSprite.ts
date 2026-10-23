@@ -7,7 +7,7 @@ import { Container, Sprite, type Texture } from 'pixi.js';
 import { ITEM_BY_ID } from '../../shared/data/items';
 import { loadFolkSet, type FolkSet } from './folkLoader';
 import {
-  CHILD_FEET_LIFT, CHILD_SCALE, armedSuffix, facingFromVector, frameAt, isFighting, lookPath, play, wantedAnim, type FolkDir, type FolkPlay, type FolkState,
+  CHILD_FEET_LIFT, CHILD_SCALE, armedSuffix, facingFromVector, otherTool, frameAt, isFighting, lookPath, play, wantedAnim, type FolkDir, type FolkPlay, type FolkState,
 } from './folkRules';
 import { tintKey, type FolkTint } from './folkTint';
 import { folkWho } from './folkWho';
@@ -74,8 +74,9 @@ export class FolkSprite extends Container {
     const wanted = lookPath(pick, suffix);
     // (the same colours on the bare and the armed looks; the wolf form is the Moon Pack's own, never recoloured)
     const tint = turned ? null : who.tint;
+    const alt = otherTool(suffix);
     this.sprite.scale.set(who.child ? CHILD_SCALE : 1);
-    this.ensure(bare, wanted, tint);
+    this.ensure(bare, wanted, tint, alt ? lookPath(pick, alt) : null);
 
     // an armed look that isn't here (yet) is the bare one
     const set = this.set ?? this.bare;
@@ -101,7 +102,7 @@ export class FolkSprite extends Container {
   }
 
   /** Start loading a look (bare and armed) the first time it's asked for, and take it up when it arrives. */
-  private ensure(bare: string, wanted: string, tint: FolkTint | null): void {
+  private ensure(bare: string, wanted: string, tint: FolkTint | null, instead: string | null = null): void {
     const tag = `${wanted}#${tintKey(tint)}`;
     if (tag === this.want) return;
     this.want = tag;
@@ -116,9 +117,12 @@ export class FolkSprite extends Container {
         if (!this.destroyed && this.want === tag) this.set = s;
       });
     } else {
-      void loadFolkSet(wanted, tint).then((s) => {
-        if (!this.destroyed && this.want === tag) this.set = s; // (null: stays on the bare look)
-      });
+      // (null: the look's other tool if it has one, else it stays on the bare look)
+      void loadFolkSet(wanted, tint)
+        .then((s) => s ?? (instead ? loadFolkSet(instead, tint) : null))
+        .then((s) => {
+          if (!this.destroyed && this.want === tag) this.set = s;
+        });
     }
   }
 }

@@ -16,7 +16,7 @@ import { founderSkills, MAX_NAME_LENGTH, SCENARIOS, type FounderSpec } from '../
 import { FOUNDER_BY_ID, FOUNDERS } from '../../shared/data/founders';
 import { TRAITS } from '../../shared/data/people';
 import { SKILL_NAMES, SKILLS } from '../../shared/data/skills';
-import { ORIGIN_DEFS, ORIGINS, type OriginId } from '../../shared/data/origins';
+import { ORIGIN_DEFS, PLAYABLE_ORIGINS, type OriginId } from '../../shared/data/origins';
 import type { Snapshot } from '../../shared/sim/snapshot';
 import { TICKS_PER_HOUR } from '../../shared/sim/time';
 import { loadLpc, lpcCanvas } from '../art/lpc/lpcCompose';
@@ -109,7 +109,7 @@ export function renderNewGame(snap: Snapshot, bridge: Bridge): HTMLElement[] {
   const drawOrigins = () =>
     origins.replaceChildren(
       tileGrid(
-        (stepTiles[0] = ORIGINS.map((id): Tile => {
+        (stepTiles[0] = PLAYABLE_ORIGINS.map((id): Tile => {
           const o = ORIGIN_DEFS[id];
           return {
             id,
@@ -271,7 +271,10 @@ export function renderNewGame(snap: Snapshot, bridge: Bridge): HTMLElement[] {
     );
     const foot = el('div', 'wizard-foot');
     foot.append(...(step <= 4 ? [details] : []), nav);
-    wrap.replaceChildren(el('div', 'wizard-step', `Step ${step + 1} of ${STEPS.length}`), el('h3', 'newgame-head', STEPS[step]), ...page, dots, foot);
+    // (the step's body and its footer side by side on a phone held sideways: panel.html .wizard-main)
+    const main = el('div', 'wizard-main');
+    main.append(el('div', 'wizard-step', `Step ${step + 1} of ${STEPS.length}`), el('h3', 'newgame-head', STEPS[step]), ...page, dots);
+    wrap.replaceChildren(main, foot);
     refreshChosen();
   };
   const go = (i: number) => {

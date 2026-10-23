@@ -2,10 +2,10 @@
 // starts from. Chosen in the New town panel; anything left out is rolled from the seed as before.
 
 import { BIOMES, DIFFICULTIES, type Biome, type Difficulty } from './biomes';
-import { FOUNDER_BY_ID } from './founders';
+import { FOUNDER_BY_ID, FOUNDERS } from './founders';
 import { HAIR_CHOICES, HAIR_STYLES, OUTFIT_CHOICES, SKINS, TRAITS, type Look } from './people';
 import type { Material } from './materials';
-import { ORIGINS, type OriginId } from './origins';
+import { PLAYABLE_ORIGINS, type OriginId } from './origins';
 import { SKILLS, type Skill } from './skills';
 
 /* ------------------------------------------------------------ backgrounds */
@@ -97,8 +97,10 @@ export function cleanNewGameOptions(raw: unknown): { biome: Biome; difficulty: D
   const difficulty = pick(DIFFICULTIES, o.difficulty);
   const scenario = o.scenario === undefined ? 'lone' : typeof o.scenario === 'string' && SCENARIO_BY_ID[o.scenario] ? o.scenario : null;
   const founder = o.founder === undefined ? undefined : cleanFounder(o.founder);
-  const origin = o.origin === undefined ? 'settlers' : pick(ORIGINS, o.origin);
+  // (only the playable peoples: data/origins.ts PLAYABLE_ORIGINS; and a ready-made founder of that people)
+  const origin = o.origin === undefined ? 'settlers' : pick(PLAYABLE_ORIGINS, o.origin);
   if (!biome || !difficulty || !scenario || !origin || founder === null) return null;
+  if (founder?.pick && !FOUNDERS[origin].some((f) => f.id === founder.pick)) return null;
   // (the conquest's realms, 2 to 12: data/conquest.ts)
   const realms = typeof o.realms === 'number' && Number.isFinite(o.realms) ? Math.max(2, Math.min(12, Math.round(o.realms))) : undefined;
   return { biome, difficulty, ironman: o.ironman === true, scenario, origin, ...(founder ? { founder } : {}), ...(realms ? { realms } : {}) };

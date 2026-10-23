@@ -1,5 +1,5 @@
 // The founder's card (the player's character): their portrait, name, calling, purse, gear, health and what they are
-// doing, then four big buttons that each open a small sheet: Orders (go to, work at, give, rest), Shops, People
+// doing (the "Now" line, panel/founderNow.ts) and the order they're set to, then four big buttons that each open a small sheet: Orders (go to, work at, give, rest), Shops, People
 // (visitors, apprentices, matches, the heir) and Feast (sim/founder.ts). Go to is done on the map: tap a building,
 // then "Send the founder here" (main.ts).
 
@@ -10,11 +10,12 @@ import type { Snapshot } from '../../shared/sim/snapshot';
 import type { Bridge } from '../../shared/ipc';
 import { itemIcon } from '../art/icons';
 import { button, el } from './dom';
-import { face } from './townsfolkPanel';
+import { founderNow, type FounderNow } from './founderNow';
+import { face, founderCharacter, founderCharacterKey } from './townsfolkPanel';
 
 /** The redraw key: anything the card shows or a button changes. */
 export function founderKey(s: Snapshot): string {
-  return `${sheet}|${keyOfCard(s)}`;
+  return `${sheet}|${keyOfCard(s)}|${founderCharacterKey(s)}`;
 }
 
 /** Which sheet of the card is open (kept while the panel redraws). */
@@ -24,7 +25,27 @@ let sheet: Sheet = 'home';
 function keyOfCard(s: Snapshot): string {
   const f = s.people.find((p) => p.id === s.mainId);
   if (!f || !s.founder) return 'none';
-  return [f.name, f.clsName, f.level, Math.round(f.hp), f.maxHp, Math.round(f.morale), f.coins, f.doing, s.founder.order, s.founder.winds.map((w) => (w.open ? 1 : 0)).join(''), s.founder.heir?.id, s.founder.heir?.named, s.founder.heirs.map((h) => h.id).join(','), s.founder.shops.map((x) => [x.id, x.manager?.id, x.stock, x.price, x.today, x.last, x.seasonNet].join(':')).join(';'), s.founder.buyable.map((x) => `${x.id}:${x.price}`).join(','), s.founder.hires.map((h) => h.id).join(','), Object.values(f.gear).join(','), s.coins, dealingsKey(s)].join('|');
+  return [f.name, f.clsName, f.level, Math.round(f.hp), f.maxHp, Math.round(f.morale), f.coins, nowKey(founderNow(f, s.founder, s.muster)), s.founder.order, s.founder.winds.map((w) => (w.open ? 1 : 0)).join(''), s.founder.heir?.id, s.founder.heir?.named, s.founder.heirs.map((h) => h.id).join(','), s.founder.shops.map((x) => [x.id, x.manager?.id, x.stock, x.price, x.today, x.last, x.seasonNet].join(':')).join(';'), s.founder.buyable.map((x) => `${x.id}:${x.price}`).join(','), s.founder.hires.map((h) => h.id).join(','), Object.values(f.gear).join(','), s.coins, dealingsKey(s)].join('|');
+}
+
+/** The founder's Character tab: their character sheet (portrait, bars, calling and titles, story, skills, kin, kit) and
+ *  the older pages with every detail (gear, stat points, the calling's road), the same as the People tab draws for
+ *  anyone else (townsfolkPanel.ts). The founder isn't on the People list: this is where they are. */
+export function renderFounderCharacter(s: Snapshot, bridge: Bridge, redraw: () => void): HTMLElement[] {
+  const f = s.people.find((p) => p.id === s.mainId);
+  if (!f) return [];
+  return [el('h2', '', 'Character'), ...founderCharacter(f, s, bridge, redraw)];
+}
+
+const nowKey = (n: FounderNow): string => `${n.icon}${n.now}/${n.set ?? ''}`;
+
+/** The "Now" line (an icon and what they're doing) and, under it, what they're set to when that's something else. */
+function nowLines(n: FounderNow): HTMLElement[] {
+  const line = el('div', 'founder-now');
+  line.style.cssText = 'display:flex;gap:6px;align-items:baseline;margin-top:2px';
+  line.append(el('span', '', n.icon), el('span', '', n.now));
+  if (!n.set) return [line];
+  return [line, el('div', 'hint founder-set', `Set to: ${n.set}`)];
 }
 
 const dealingsKey = (s: Snapshot): string => {
@@ -52,6 +73,7 @@ export function renderFounder(s: Snapshot, bridge: Bridge, redraw: () => void = 
     redraw();
   };
   const d = v.dealings;
+  const now = founderNow(f, v, s.muster);
 
   if (sheet !== 'home') {
     out.push(tall(button('‹ Back', go('home'))));
@@ -65,11 +87,10 @@ export function renderFounder(s: Snapshot, bridge: Bridge, redraw: () => void = 
   const head = el('div', 'founder-head');
   head.style.cssText = 'display:flex;gap:12px;align-items:center';
   const who = el('div');
-  who.append(el('b', '', f.name), el('div', 'hint', f.clsName ? `${f.clsName} · level ${f.level}` : f.typeName), el('div', '', f.doing));
+  who.append(el('b', '', f.name), el('div', 'hint', f.clsName ? `${f.clsName} · level ${f.level}` : f.typeName));
   head.append(face(f, s), who);
-  out.push(head);
+  out.push(head, ...nowLines(now));
   out.push(el('div', 'lock', `Health ${Math.round(f.hp)}/${f.maxHp} · Morale ${Math.round(f.morale)} · Purse ${f.coins ?? 0} coins`));
-  if (v.order) out.push(el('div', 'hint', `Told to: ${v.order.charAt(0).toLowerCase()}${v.order.slice(1)}.`));
 
   // what they wear and carry, on one line (a tap on an item is the item's own card, where the gear is changed)
   const kit = el('div', 'founder-kit');
@@ -97,7 +118,7 @@ export function renderFounder(s: Snapshot, bridge: Bridge, redraw: () => void = 
   };
   const waiting = d.visitor ? `${d.visitor.name} at the gate` : v.heir ? `Heir: ${v.heir.name}` : 'No heir named';
   grid.append(
-    big('Orders', v.order ? 'Told what to do' : 'Work, rest, give', 'orders'),
+    big('Orders', v.order ? 'Change the order' : 'Work, rest, give', 'orders'),
     big('Shops', v.shops.length ? `${v.shops.length} owned` : 'None owned yet', 'shops'),
     big('People', waiting, 'people'),
     big('Feast', d.feasts.some((x) => x.wait <= 0) ? 'Ready to host' : 'Not just now', 'feast'),
@@ -106,7 +127,8 @@ export function renderFounder(s: Snapshot, bridge: Bridge, redraw: () => void = 
   return out;
 
   function orders(): HTMLElement[] {
-    const o: HTMLElement[] = [el('h2', '', 'Orders')];
+    const o: HTMLElement[] = [el('h2', '', 'Orders'), ...nowLines(now)];
+    if (!now.set && v!.order) o.push(el('div', 'hint founder-set', `Set to: ${v!.order.charAt(0).toLowerCase()}${v!.order.slice(1)}`));
     o.push(el('div', 'hint', 'Go to: tap a building on the map, then “Send the founder here”.'));
     o.push(tall(button('Back to the map', () => bridge.closePanel?.())));
     o.push(el('div', 'hint', 'Work at: pick a job for the day. If there is none to do, they carry on as usual.'));

@@ -1402,7 +1402,9 @@ async function start(): Promise<void> {
         }
         const duelAct = foe && p.id !== snap.mainId ? [act('duel', 'Challenge to a duel…', () => ((duelAsk = p.id), publishInspect()))] : [];
         const founderAct = p.id === snap.mainId ? [act('founder', 'The founder…', () => bridge.openPanel('founder'), { primary: true })] : [];
-        return { title: d.title, lines, actions: [...founderAct, ...duelAct, ...watchAct, ...rallyAct, followAct, act('more', 'Townsfolk…', () => bridge.openPanel('townsfolk'))] };
+        // (the founder isn't on the People list: their card leads to their own tab only)
+        const more = p.id === snap.mainId ? [] : [act('more', 'Townsfolk…', () => bridge.openPanel('townsfolk'))];
+        return { title: d.title, lines, actions: [...founderAct, ...duelAct, ...watchAct, ...rallyAct, followAct, ...more] };
       }
       case 'place': {
         const p = snap.places.find((q) => q.id === h.id);
@@ -1469,7 +1471,7 @@ async function start(): Promise<void> {
   /* -------------------------------------------------------- selecting people */
 
   const personCard = createPersonCard(
-    () => bridge.openPanel('townsfolk'),
+    () => bridge.openPanel(selectedPerson !== null && selectedPerson === snap.mainId ? 'founder' : 'townsfolk'), // (the founder: their own tab)
     () => selectPerson(null),
   );
 

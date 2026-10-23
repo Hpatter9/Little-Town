@@ -132,6 +132,10 @@ The twelve peoples. Each changes how the whole game plays and looks: who the tow
 they're good and bad at, three powers the town casts by itself, a heritage line of research, a seat that grows
 grander each era, its own homes, walls, menu materials and fonts, and troops of its own in the war.
 
+A new town can be founded as five of them: the Settlers, the Deep Hold, the Exiled Order, the Lich and the Blood
+Court (`PLAYABLE_ORIGINS` in `data/origins.ts`). The other peoples are kept whole: older towns of theirs still play,
+and they still turn up as rivals, strangers and powers of the realm.
+
 | Origin | Twist | Powers |
 |---|---|---|
 | **Settlers** | The classic game | None |

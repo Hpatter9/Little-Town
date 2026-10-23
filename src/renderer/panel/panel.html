@@ -1832,6 +1832,45 @@
           min-height: 38px;
         }
       }
+      /* a phone held sideways: the step's choices on the left, the details and Back / Accept beside them, so the
+         footer doesn't cover the tiles (it took most of a 393px-high screen) */
+      @media (orientation: landscape) and (max-height: 460px) {
+        .wizard {
+          display: grid;
+          grid-template-columns: minmax(0, 1fr) minmax(220px, 38%);
+          column-gap: 14px;
+          align-items: start;
+        }
+        .wizard-foot {
+          position: sticky;
+          top: 0;
+          bottom: auto;
+          margin: 0;
+          padding: 0 0 0 12px;
+          border-top: none;
+          border-left: 1px solid #4a3722;
+        }
+        .wizard-foot .nt-details {
+          max-height: calc(100vh - 190px);
+          padding-top: 2px;
+        }
+        .wizard .nt-grid {
+          grid-template-columns: repeat(auto-fill, minmax(84px, 1fr));
+          gap: 6px;
+        }
+        .wizard .nt-tile {
+          gap: 3px;
+          padding: 6px 3px 5px;
+        }
+        .wizard .nt-sym,
+        .wizard .nt-sym.figure .nt-doll {
+          width: 48px;
+          height: 48px;
+        }
+        .wizard-dots {
+          margin: 8px 0 2px;
+        }
+      }
       .wizard-nav {
         display: flex;
         justify-content: space-between;
@@ -1847,7 +1886,7 @@
         font-size: 16px;
         font-weight: 700;
       }
-      .wizard-nav .found {
+      .wizard-nav .place.found {
         margin: 0;
       }
       .wizard-nav .next {
