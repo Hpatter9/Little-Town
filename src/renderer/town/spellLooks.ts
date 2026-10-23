@@ -56,7 +56,7 @@ export const LOOKS: Record<string, Look> = {
   'god:blight': { sprite: 'dark_flames', kind: 'fog', color: 0x6a5a20 },
   // natural disasters (sim/disasters.ts)
   'disaster:tornado': { sprite: 'chaos_storm', kind: 'vortex', color: 0x9aa0a8 },
-  'disaster:dust': { sprite: 'spines', kind: 'fog', color: 0xa89878 },
+  'disaster:dust': { sprite: 'px:sand-smoke', kind: 'fog', color: 0xa89878 },
   // the dragon's breath on a roof (sim/dragon.ts)
   'dragon:fire': { sprite: 'mg_ground_fire', kind: 'ring', color: 0xff7a2a },
   // the town's own powers
@@ -80,7 +80,7 @@ export const LOOKS: Record<string, Look> = {
   'town:stone_skin': { sprite: 'spines', kind: 'dome', color: STONE },
   'town:tide_call': { sprite: 'foam', onCaster: true, kind: 'wave', color: SEA },
   'town:whirlpool': { sprite: 'splash', kind: 'vortex', color: SEA },
-  'town:sea_fog': { sprite: 'frost', onCaster: true, kind: 'fog', color: 0xc8d4dc },
+  'town:sea_fog': { sprite: 'px:water-smoke', onCaster: true, kind: 'fog', color: 0xc8d4dc },
   'town:trade_road': { kind: 'coins', color: GOLD },
   'town:swift_riders': { sprite: 'leaves', onCaster: true, kind: 'ring', color: SAND },
   'town:scouting': { sprite: 'leaves', onCaster: true, kind: 'ring', color: GOLD },
@@ -94,7 +94,7 @@ export const LOOKS: Record<string, Look> = {
   'town:shield_wall': { sprite: 'parry', kind: 'dome', color: GOLD },
   'town:oath': { sprite: 'suture', kind: 'rise', color: GOLD },
   'town:war_cry': { sprite: 'blood_storm', onCaster: true, kind: 'ring', color: BLOOD, also: 'aura', alt: EMBER },
-  'town:berserk': { sprite: 'slash_fire', kind: 'bolt', color: BLOOD },
+  'town:berserk': { sprite: 'px:blood-aura', kind: 'aura', color: BLOOD },
   'town:grog_feast': { sprite: 'life_fountain', kind: 'sparkle', color: ACID },
   // rival lords' spells
   'rival:drain_life': { sprite: 'void', kind: 'stream', color: GREEN_DEAD },
@@ -114,7 +114,7 @@ export const LOOKS: Record<string, Look> = {
   'rival:stone_skin': { sprite: 'spines', kind: 'dome', color: STONE },
   'rival:rockfall': { kind: 'rocks', color: STONE },
   'rival:whirlpool': { sprite: 'splash', kind: 'vortex', color: SEA },
-  'rival:sea_fog': { sprite: 'frost', onCaster: true, kind: 'fog', color: 0xc8d4dc },
+  'rival:sea_fog': { sprite: 'px:water-smoke', onCaster: true, kind: 'fog', color: 0xc8d4dc },
   'rival:tide': { sprite: 'splash', kind: 'wave', color: SEA },
   'rival:volley': { sprite: 'missile', kind: 'arrows', color: 0xe8dcc0 },
   'rival:plunder': { kind: 'coins', color: GOLD },
@@ -131,12 +131,12 @@ export const LOOKS: Record<string, Look> = {
   'rival:oath': { sprite: 'suture', kind: 'rise', color: GOLD },
   // the rising powers' lords (data/risingPowers.ts)
   'rival:shogun_banner': { sprite: 'blood_storm', onCaster: true, kind: 'ring', color: BLOOD, also: 'aura', alt: GOLD },
-  'rival:smoke_bombs': { sprite: 'frost', onCaster: true, kind: 'fog', color: 0xb8b0c0 },
+  'rival:smoke_bombs': { sprite: 'px:white-smoke', onCaster: true, kind: 'fog', color: 0xb8b0c0 },
   'rival:shadow_clan': { sprite: 'portal', kind: 'vortex', color: VIOLET },
-  'rival:broadside': { sprite: 'missile', kind: 'arrows', color: EMBER },
+  'rival:broadside': { sprite: 'px:fire-explosion', kind: 'arrows', color: EMBER },
   'rival:press_gang': { sprite: 'portal', kind: 'vortex', color: SEA },
   'rival:pillage': { kind: 'coins', color: GOLD },
-  'rival:hellfire': { sprite: 'prism', kind: 'bolt', color: EMBER },
+  'rival:hellfire': { sprite: 'px:fire-pillar', kind: 'bolt', color: EMBER },
   'rival:soul_drain': { sprite: 'void', kind: 'stream', color: BLOOD },
   'rival:open_the_pit': { sprite: 'portal', kind: 'vortex', color: EMBER },
   'rival:despair': { sprite: 'void', kind: 'stream', color: VIOLET },
@@ -147,3 +147,21 @@ function magicLooks(): Record<string, Look> {
   const colour: Record<SchoolId, number> = { evocation: EMBER, abjuration: GOLD, restoration: LEAF, divination: SILVER, transmutation: RAIN, conjuration: CYAN, forbidden: BLOOD };
   return Object.fromEntries(Object.values(RITES).map((r) => [`magic:${r.id}`, { sprite: SCHOOLS[r.school].fx as SpriteFx, kind: 'sparkle' as Kind, onCaster: true, color: colour[r.school] }]));
 }
+
+/** The file each sheet is cut from (in art/effects/, imported by art/effects.ts): the tests check every effect a spell,
+ *  skill or proc can play has its picture. */
+export const SHEET_FILES: Record<SheetFx, string> = {
+  blood: 'bloodburst.png', vampire: 'vampire.png', undead: 'undead.png', werewolf: 'werewolf.png', heal: 'heal.png', frost: 'frost.png',
+  portal: 'portal.png', cast: 'cast.png', holy: 'holy.png', shock: 'shock.png', conjure: 'conjure.png', acid: 'area_acid.png',
+  roots: 'pvfx_rootscript.png', rain: 'pvfx_rain_field.png', leaves: 'pvfx_leaf_gust.png', bloom: 'pvfx_spectral_bloom.png', venom_ward: 'pvfx_venom_ward.png',
+  parry: 'pvfx_arcane_parry.png', counterfall: 'pvfx_counterfall.png', prism: 'pvfx_prism_loom.png', void: 'pvfx_void_implosion.png', moths: 'pvfx_choir_moths.png',
+  suture: 'pvfx_suturelight.png', charge: 'pvfx_focus_charge.png', splash: 'pvfx_splash_crown.png', foam: 'pvfx_shoreline_foam.png',
+  hourglass: 'pvfx_hourglass_splinter.png', mercury: 'pvfx_mercury_molt.png', spines: 'pvfx_ferrospine.png', orchid: 'pvfx_cinder_orchid.png',
+  missile: 'pvfx_magical_projectile.png', blood_bubble: 'spell_blood_bubble.png', blood_storm: 'spell_blood_storm.png', dark_flames: 'spell_dark_flames.png',
+  gold_vortex: 'spell_gold_vortex.png', life_fountain: 'spell_life_fountain.png', chaos_storm: 'spell_chaos_storm.png',
+  mg_ground_fire: 'mg_ground_fire.png', mg_ground_fire2: 'mg_ground_fire2.png', mg_sigil: 'mg_sigil.png', mg_beam: 'mg_beam.png', mg_strike: 'mg_strike.png',
+  mg_bolt: 'mg_bolt.png', mg_bolt2: 'mg_bolt2.png', mg_pop: 'mg_pop.png', mg_sparks: 'mg_sparks.png', mg_flame: 'mg_flame.png', mg_flare: 'mg_flare.png',
+  mg_spikes: 'mg_spikes.png', mg_creep: 'mg_creep.png', mg_puff: 'mg_puff.png', mg_shards: 'mg_shards.png',
+  slash_wind: 'slash_wind.png', slash_fire: 'slash_fire.png', slash_lightning: 'slash_lightning.png', slash_poison: 'slash_poison.png', slash_gold: 'slash_gold.png',
+  slash_water: 'slash_water.png',
+};

@@ -1,5 +1,6 @@
 // What the renderers see of the sim: a read-only copy sent over IPC each tick.
 
+import type { Proc } from '../data/effects';
 import { recommendBuilding, type Recommendation } from './planner';
 import { foreshadow } from './foreshadow';
 import { upcoming } from './calendar';
@@ -523,7 +524,8 @@ export interface FighterView {
   /** Their road (data/paths.ts), for the form a people's own calling fights in. */
   road?: string | null;
   level: number | null;
-  pop: { age: number; amount: number; heal: boolean } | null;
+  /** `why`: a crit, a block, a spell reflected... (data/effects.ts `Proc`), for its word over them. */
+  pop: { age: number; amount: number; heal: boolean; why?: Proc } | null;
   conjured: boolean;
   /** A delve's elite: its affix (drawn with a tint). */
   elite: string | null;
@@ -2596,7 +2598,7 @@ function expeditionView(s: GameState, e: Expedition): ExpeditionView {
           beast: f.side === 'party' ? ((q) => (q ? beastForm(q) : null))(s.people.find((p) => p.id === f.ref)) : null,
           undead: f.side === 'party' && s.people.find((p) => p.id === f.ref)?.monster === 'undead',
           level: f.side === 'party' ? (s.people.find((p) => p.id === f.ref)?.level ?? 1) : null,
-          pop: f.pop ? { age: e.battle!.tick - f.pop.tick, amount: f.pop.amount, heal: f.pop.heal } : null,
+          pop: f.pop ? { age: e.battle!.tick - f.pop.tick, amount: f.pop.amount, heal: f.pop.heal, ...(f.pop.why ? { why: f.pop.why } : {}) } : null,
           conjured: !!f.conjured,
           elite: f.elite ?? null,
         }))
