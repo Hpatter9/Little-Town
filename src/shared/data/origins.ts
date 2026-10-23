@@ -9,6 +9,11 @@ import type { Era } from './eras';
 
 export const ORIGINS = ['settlers', 'lich', 'druid', 'vampire', 'werewolf', 'robot', 'dwarves', 'merfolk', 'nomads', 'fae', 'alchemists', 'knights', 'orcs'] as const;
 export type OriginId = (typeof ORIGINS)[number];
+/** The peoples a new town can be founded as (the owner's call, October 2026: each people's animations cost a lot to
+ *  draw, so five are offered). The others stay in the game, whole: older towns of theirs load and play as before,
+ *  and they still turn up as rivals, strangers and powers of the realm. Add an id back here to offer it again. */
+export const PLAYABLE_ORIGINS: readonly OriginId[] = ['settlers', 'dwarves', 'knights', 'lich', 'vampire'];
+export const isPlayableOrigin = (id: unknown): id is OriginId => PLAYABLE_ORIGINS.includes(id as OriginId);
 
 /** How an origin bends the rules (anything left out is as usual). */
 export interface OriginRules {
