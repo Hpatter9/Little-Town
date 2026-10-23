@@ -298,13 +298,12 @@ export function foundVillage(s: GameState, plan: Omit<VillagePlan, 'prompt'>, lo
   const reach = Math.ceil(Math.hypot(v.x - s.land.camp.x, v.y - s.land.camp.y)) + VILLAGE_R + 3;
   if (s.land.open < reach) s.land.open = reach;
   layPlots(s, v);
-  // (a road from the village's fire to the town's streets, laid from both ends: sim/villageRoad.ts)
-  const roaded = planVillageRoad(s, v);
   tell(v, `Founded by ${leaderOf(v).name} and ${goers.length - 1} others.`);
   // (the parting, told: data/cutscenes.ts)
   if (s.autopilot !== false) queueScene(s, 'village_founded', { vars: { village: v.name, leader: leaderOf(v).name }, people: { hero: leaderOf(v), worrier: goers.find((p) => p.id !== v.leader && !isChild(p)) } });
   notify(s, `${leaderOf(v).name} leads ${goers.length - 1} others out to found ${v.name}, ${compass(s, v)}.`, true);
-  if (roaded) notify(s, `${v.name} sets about a road to the town.`, true);
+  // (a road to the town, if a path has been drawn to it; else a hint to draw one: sim/villageRoad.ts)
+  if (planVillageRoad(s, v)) notify(s, `${v.name} sets about a road to the town.`, true);
   return v;
 }
 

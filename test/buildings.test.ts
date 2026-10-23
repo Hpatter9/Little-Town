@@ -1,13 +1,14 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { BUILD_QUEUE_SLOTS, BUILDING_BY_ID } from '../src/shared/data/buildings';
-import { canPlace, canUpgrade, placeBlueprint, totalCapacity, totalStock, upgrade } from '../src/shared/sim/buildings';
+import { canPlace, canUpgrade, doorCell, placeBlueprint, totalCapacity, totalStock, upgrade } from '../src/shared/sim/buildings';
 import { isSeat } from '../src/shared/data/seats';
 import { Sim } from '../src/shared/sim/sim';
 import { camp, freeSpot, isWild, nearestWild, plainGame, poolOf, put, row } from './helpers';
 import { addStock, newGame, poolSize, type Building, type GameState } from '../src/shared/sim/state';
 import { TICK_HZ } from '../src/shared/sim/time';
 import { cellAt } from '../src/shared/sim/land';
+import { pathLine } from '../src/shared/sim/pathPlans';
 
 const run = (sim: Sim, seconds: number) => {
   for (let i = 0; i < seconds * TICK_HZ; i++) sim.step();
@@ -47,14 +48,19 @@ test('placement: locked buildings need research (or the debug unlock); the queue
   assert.match(full.reason!, /queue/);
 });
 
-test('a blueprint gets a street to the camp: planned, then laid a stretch at a time by someone with time to spare', () => {
+test('a blueprint gets no street of its own; a path drawn to it is laid a stretch at a time by someone with time to spare', () => {
   const sim = new Sim(plainGame('road'));
   const s = sim.state;
   const at = freeSpot(s, 'stockpile');
   assert.ok(placeBlueprint(s, 'stockpile', at.x, at.y).ok);
-  assert.ok(!s.land.roads.includes('#'), 'nothing laid yet');
-  const planned = s.land.plannedRoads?.split('#').length ?? 1;
-  assert.ok(planned > 1, 'a street planned');
+  assert.ok(!s.land.roads.includes('#') && !s.land.plannedRoads?.includes('#'), 'nothing laid or planned');
+  // (the player draws a path from before the fire to its door)
+  const c = camp(s);
+  const door = doorCell(s.buildings.at(-1)!);
+  const line = pathLine({ x: c.x, y: c.y + 1 }, { x: door.x, y: door.y + 1 }).map((p) => p.y * s.land.w + p.x);
+  sim.command({ type: 'drawPath', cells: line, on: true });
+  sim.step();
+  assert.ok(s.land.plannedRoads?.includes('#'), 'a street planned');
   // the founder, with nothing else to do, lays it out from the camp
   s.people[0].priorities = { ...s.people[0].priorities, haul: 0, gather: 0, craft: 0, research: 0, farm: 0 };
   campfire(s).store = {};

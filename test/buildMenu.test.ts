@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
+import { parseCommand } from '../src/shared/sim/commands';
 import { BUILDING_BY_ID, BUILDINGS } from '../src/shared/data/buildings';
 import { BUILD_KINDS, kindOf } from '../src/renderer/panel/buildKinds';
 import { isUnlocked, unlockInfo } from '../src/shared/sim/buildings';
@@ -70,12 +71,11 @@ test('the wall is not recommended for widening until the inside is mostly built 
   assert.equal(ringAdvice(s, 6, false), null);
 });
 
-test('ordering the ring wall and the streets sets the founder\'s orders', () => {
+test('ordering the ring wall sets the founder\'s order; there is no order to lay the streets (the player draws them)', () => {
   const s = newGame('orders');
   const sim = new Sim(s);
   sim.command({ type: 'orderRing' });
-  sim.command({ type: 'orderStreets' });
   sim.step();
   assert.equal(s.ringOrder, true);
-  assert.ok(s.streetsOrder === true || s.streetsOrder === undefined);
+  assert.equal(parseCommand({ type: 'orderStreets' }), null);
 });

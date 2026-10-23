@@ -42,19 +42,21 @@ function build(s: GameState, id: string): Building {
 const mod = (a: number, n: number) => ((a % n) + n) % n;
 const centre = (r: Rect) => ({ x: r.x + r.w / 2 - 0.5, y: r.y + r.h / 2 - 0.5 });
 
-test('a new town is given a square before its seat, paved, and its high street and road south', () => {
+test('a new town is given a square before its seat, and no street: the plan lays none (the player draws them)', () => {
   const s = planned('layout-square');
   const L = layoutOf(s);
   const seat = s.buildings.find((b) => isSeat(b.def))!;
   const door = doorCell(seat);
   assert.equal(L.sq.y, door.y, "the square's top edge is before the seat's door");
   assert.equal(L.col, door.x, "the seat's door is at the square's middle");
-  let paved = 0;
-  for (let y = L.sq.y; y < L.sq.y + L.sq.h; y++) for (let x = L.sq.x; x < L.sq.x + L.sq.w; x++) if (isRoad(s.land, x, y)) paved++;
-  assert.ok(paved >= L.sq.w * L.sq.h - 6, `the square is paved (${paved} cells; the fire stands on it)`);
-  // (the high street runs on west and east of the square, the road south below it)
-  assert.ok(isRoad(s.land, L.sq.x - 1, L.row) && isRoad(s.land, L.sq.x + L.sq.w, L.row), 'the high street west and east');
-  assert.ok(isRoad(s.land, L.col, L.sq.y + L.sq.h), 'the road south');
+  for (let i = 0; i < s.land.roads.length; i++) assert.ok(s.land.roads[i] !== '#' && s.land.plannedRoads?.[i] !== '#', 'no street laid or planned');
+  // (and none as the town grows)
+  for (let k = 0; k < 4; k++) build(s, 'lean_to');
+  for (let n = 0; n < 10; n++) {
+    s.tick += PLAN_TICKS;
+    runPlanner(s);
+  }
+  assert.ok(!s.land.roads.includes('#') && !s.land.plannedRoads?.includes('#'), 'still none');
 });
 
 test("the ring wall's gates stand where the plan's main streets meet it", () => {

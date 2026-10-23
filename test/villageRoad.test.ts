@@ -2,10 +2,9 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import '../src/shared/data/events'; // (first: the event kit's own import order)
 import { Rng } from '../src/shared/rng';
-import { footprint } from '../src/shared/sim/buildings';
-import { buildable, inRect, CELL, cellAt, groundAt, isPlannedRoad, isRoad, planRoad, wet } from '../src/shared/sim/land';
+import { CELL, findPath, groundAt, idx, isRoad, setGround, WILD } from '../src/shared/sim/land';
+import { drawPath, PATH_CAP, pathGround, refusalOn } from '../src/shared/sim/pathPlans';
 import { makePerson, type GameState } from '../src/shared/sim/state';
-import { thinRock } from '../src/shared/sim/tunnels';
 import { streetWork } from '../src/shared/sim/streets';
 import { START_HOUR, TICKS_PER_DAY, TICKS_PER_HOUR } from '../src/shared/sim/time';
 import { roadShare, villageRoadHourly } from '../src/shared/sim/villageRoad';
@@ -13,12 +12,8 @@ import { foundVillage, villageSpot, type Village } from '../src/shared/sim/villa
 import { VILLAGE_ROAD_HOUR } from '../src/shared/data/villages';
 import { snapshot } from '../src/shared/sim/snapshot';
 import { walk } from '../src/shared/sim/walk';
-import { BUILDING_BY_ID } from '../src/shared/data/buildings';
-import { PLAN_TICKS, runPlanner } from '../src/shared/sim/planner';
-import { ringWallCells } from '../src/shared/sim/ringWall';
-import { newGame, type Building } from '../src/shared/sim/state';
-import { planVillageRoad } from '../src/shared/sim/villageRoad';
-import { clearAround, plainGame } from './helpers';
+import { ROAD_NEAR_TOWN, ROAD_NEAR_VILLAGE } from '../src/shared/sim/villageRoad';
+import { plainGame } from './helpers';
 
 const dayAt = (day: number) => (day - 1) * TICKS_PER_DAY + ((VILLAGE_ROAD_HOUR - START_HOUR + 24) % 24) * TICKS_PER_HOUR;
 
@@ -34,6 +29,26 @@ function townWithVillage(seed: string): { s: GameState; v: Village } {
   const ids = s.people.slice(1, 6).map((p) => p.id);
   const v = foundVillage(s, { ids, leader: ids[0], x: at.x, y: at.y, name: 'Testford' }, 70)!;
   return { s, v };
+}
+
+/** The player draws a path from before the village's fire to before the town's (over the cells a path may take, a
+ *  wood on the way cleared first, as the player would with ⛏), from `from` of the way to `upTo` of it. */
+const ways = new WeakMap<GameState, number[]>();
+function drawRoad(s: GameState, v: Village, upTo = 1, from = 0): number[] {
+  const had = ways.get(s);
+  if (had) return lay(s, had.slice(Math.floor(had.length * from), Math.ceil(had.length * upTo)));
+  const m = s.land;
+  const ground = pathGround(s);
+  const way = findPath(m, { x: v.x, y: v.y + 2 }, { x: m.camp.x, y: m.camp.y + 1 }, (x, y) => !WILD.includes(groundAt(m, x, y)) && refusalOn(ground, x, y) !== null, { four: true, maxNodes: 40000 })!;
+  assert.ok(way, 'a way to draw');
+  for (const p of way) if (WILD.includes(groundAt(m, p.x, p.y))) setGround(m, p.x, p.y, 'grass');
+  const all = [{ x: v.x, y: v.y + 2 }, ...way].map((p) => idx(m, p.x, p.y));
+  ways.set(s, all);
+  return lay(s, all.slice(Math.floor(all.length * from), Math.ceil(all.length * upTo)));
+}
+function lay(s: GameState, cells: number[]): number[] {
+  for (let k = 0; k < cells.length; k += PATH_CAP) drawPath(s, cells.slice(k, k + PATH_CAP), true);
+  return cells;
 }
 
 /** Days of the village's laying (and, with `town`, the town's pavers beside them) until the road is open. */
@@ -55,29 +70,52 @@ function trip(s: GameState, v: Village): number {
   return 6000;
 }
 
-test('a village is founded with a road planned to the town', () => {
+test('a village is founded with no road of its own, and the player is told to draw one', () => {
   const { s, v } = townWithVillage('vroad-plan');
-  assert.ok(v.road && v.road.cells.length > 10, 'the road is planned');
-  assert.equal(v.road!.cells[0], v.y + 2 === 0 ? 0 : (v.y + 2) * s.land.w + v.x, 'from the village');
+  assert.ok(!s.land.plannedRoads?.includes('#'), 'no street planned');
+  assert.equal(roadShare(s, v), null, 'no road yet');
+  assert.ok(s.notices.some((n) => n.text === 'Draw a path from Testford to the town, and both ends will build the road.'), 'the hint');
+  // (and it stays so while nothing is drawn, the hint told once)
+  for (let d = 1; d <= 5; d++) {
+    s.tick = dayAt(d);
+    villageRoadHourly(s);
+  }
+  assert.ok(!s.land.plannedRoads?.includes('#'));
+  assert.equal(s.notices.filter((n) => n.text.startsWith('Draw a path from Testford')).length, 1);
+});
+
+test('a path drawn from the village to the town becomes its road', () => {
+  const { s, v } = townWithVillage('vroad-drawn');
+  drawRoad(s, v);
+  s.tick = dayAt(1);
+  villageRoadHourly(s);
+  assert.ok(v.road && v.road.cells.length > 10, 'the road is taken');
+  const first = v.road!.cells[0], last = v.road!.cells.at(-1)!;
+  const w = s.land.w;
+  assert.ok(Math.max(Math.abs((first % w) - v.x), Math.abs(Math.floor(first / w) - v.y)) <= ROAD_NEAR_VILLAGE, 'from the village');
+  assert.ok(Math.max(Math.abs((last % w) - s.land.camp.x), Math.abs(Math.floor(last / w) - s.land.camp.y - 1)) <= ROAD_NEAR_TOWN, 'to the town');
   const share = roadShare(s, v)!;
   assert.ok(share >= 0 && share < 1);
-  assert.ok(s.journal.some((j) => j.text.includes('road to the town')), 'the journal tells it');
+  assert.ok(s.notices.some((n) => n.text.includes('sets about a road')), 'told');
   assert.equal(snapshot(s).villages[0].road, Math.round(share * 100), 'the view tells how far it is');
 });
 
-test('the road keeps off rock and water but for bridges', () => {
-  const { s, v } = townWithVillage('vroad-ground');
-  const thin = thinRock(s);
-  for (const i of v.road!.cells) {
-    const c = cellAt(s.land, i);
-    const g = groundAt(s.land, c.x, c.y);
-    assert.ok(buildable(g) || wet(g) || g === 'mountain', `cell ${c.x},${c.y} on ${g}`);
-    if (g === 'mountain') assert.ok(thin?.(c.x, c.y), `rock at ${c.x},${c.y} is no tunnel`);
-  }
+test('a path that stops short of the town is no road until it reaches it', () => {
+  const { s, v } = townWithVillage('vroad-drawn');
+  const cells = drawRoad(s, v, 0.5);
+  s.tick = dayAt(1);
+  villageRoadHourly(s);
+  assert.equal(roadShare(s, v), null, 'half a path: no road');
+  assert.ok(cells.every((i) => !isRoad(s.land, i % s.land.w, Math.floor(i / s.land.w))), 'and the village lays none of it');
+  drawRoad(s, v, 1, 0.5);
+  s.tick = dayAt(2);
+  villageRoadHourly(s);
+  assert.ok(v.road!.cells.length > 10, 'the whole way: a road');
 });
 
 test('it is built from both ends and open when they meet', () => {
   const a = townWithVillage('vroad-both');
+  drawRoad(a.s, a.v);
   const days = build(a.s, a.v, true);
   assert.ok(days > 0, 'finished');
   assert.ok(a.v.road!.cells.every((i) => isRoad(a.s.land, i % a.s.land.w, Math.floor(i / a.s.land.w))));
@@ -85,6 +123,7 @@ test('it is built from both ends and open when they meet', () => {
   assert.ok(a.s.journal.some((j) => j.text === 'The road to Testford is open.'));
   // the village alone lays its own end, and the town's hands make it quicker
   const b = townWithVillage('vroad-both');
+  drawRoad(b.s, b.v);
   const alone = build(b.s, b.v, false);
   assert.ok(alone > 0, 'the village alone gets there');
   assert.ok(days <= alone, `${days} days with the town, ${alone} alone`);
@@ -93,127 +132,18 @@ test('it is built from both ends and open when they meet', () => {
 test('a walker takes the road and gets there sooner', () => {
   const { s, v } = townWithVillage('vroad-walk');
   const before = trip(s, v);
+  drawRoad(s, v);
   assert.ok(build(s, v, true) > 0);
   const after = trip(s, v);
   assert.ok(after < before, `${after} ticks after, ${before} before`);
 });
 
-test('a village from an older save gets a road planned on load', () => {
+test('a village from an older save whose road was never found takes the path drawn to it', () => {
   const { s, v } = townWithVillage('vroad-old');
-  for (const i of v.road!.cells) {
-    const c = cellAt(s.land, i);
-    if (isPlannedRoad(s.land, c.x, c.y)) planRoad(s.land, c.x, c.y, false);
-  }
-  delete v.road;
+  v.road = { cells: [], failed: 5, sig: '3|', told: true };
+  drawRoad(s, v);
   s.tick = dayAt(5);
   villageRoadHourly(s);
-  assert.ok((v as Village).road && (v as Village).road!.cells.length > 10, 'planned again');
-  assert.ok(s.notices.some((n) => n.text.includes('sets about a road')));
-});
-
-/** Take a village's road away again, planned cells and all, as if it had never been planned. */
-function unplan(s: GameState, v: Village): void {
-  for (const i of v.road!.cells) {
-    const c = cellAt(s.land, i);
-    if (isPlannedRoad(s.land, c.x, c.y)) planRoad(s.land, c.x, c.y, false);
-  }
-  delete v.road;
-}
-
-/** The ground between a village and the town, wood all across the map (cleared ground has no way). */
-function woodAround(s: GameState, v: Village): void {
-  const m = s.land;
-  const c = m.camp;
-  const lo = Math.min(c.y, v.y);
-  const hi = Math.max(c.y, v.y);
-  const wild = (x: number, y: number) => {
-    const d = Math.hypot(x - c.x, y - c.y);
-    return d > 12 && Math.hypot(x - v.x, y - v.y) > 5;
-  };
-  for (let y = Math.max(0, lo - 30); y < Math.min(m.h, hi + 30); y++) for (let x = Math.max(0, Math.min(c.x, v.x) - 30); x < Math.min(m.w, Math.max(c.x, v.x) + 30); x++) if (wild(x, y) && buildable(groundAt(m, x, y)) && !s.buildings.some((b) => b.tile === x && b.row === y)) m.cells = m.cells.slice(0, y * m.w + x) + 'f' + m.cells.slice(y * m.w + x + 1);
-  m.version++;
-}
-
-test('a village walled off by wild ground gets a road cut through it, cleared as it is laid', () => {
-  const { s, v } = townWithVillage('vroad-wild');
-  unplan(s, v);
-  woodAround(s, v);
-  const wood = (i: number) => groundAt(s.land, i % s.land.w, Math.floor(i / s.land.w)) === 'forest';
-  const before = s.land.cells.split('').filter((c) => c === 'f').length;
-  assert.ok(planVillageRoad(s, v), 'a way is found');
-  assert.ok(s.land.cells.split('').filter((c) => c === 'f').length < before, 'it runs through the wood, which is cleared');
-  assert.ok(v.road!.cells.every((i) => !wood(i)), 'no wood is left under the road');
-  assert.ok(build(s, v, true) > 0, 'and it is laid');
-});
-
-test('a village behind a row of buildings gets a road round it to the town', () => {
-  const { s, v } = townWithVillage('vroad-row');
-  unplan(s, v);
-  woodAround(s, v);
-  const c = s.land.camp;
-  // (a solid row of houses across the village's side of the town)
-  const row = c.y + (v.y < c.y ? -8 : 8);
-  for (let x = c.x - 14; x <= c.x + 14; x += 2) s.buildings.push({ ...s.buildings.find((b) => b.def === 'campfire')!, id: s.nextId++, def: 'lean_to', tile: x, row, status: 'done' } as Building);
-  assert.ok(planVillageRoad(s, v), 'a way round is found');
-  assert.ok(v.road!.cells.length > 10);
-  const on = (x: number, y: number) => s.buildings.some((b) => b.def === 'lean_to' && inRect(footprint(b), x, y));
-  assert.ok(v.road!.cells.every((i) => !on(i % s.land.w, Math.floor(i / s.land.w))), 'none of the road is over a house');
-});
-
-test('a village outside the ring wall gets a road that ends at a gate', () => {
-  const s = newGame('vroad-ring');
-  s.townBuilds = true;
-  s.research.done.push('palisades', 'basic_shelter');
-  clearAround(s, 50);
-  s.buildings[0].store = { wood: 3000, stone: 500, fiber: 300, berries: 400 };
-  const rng = new Rng(9);
-  while (s.people.length < 12) s.people.push(makePerson(rng, s.nextId++, 'gatherer', { x: s.people[0].x + s.people.length, y: s.people[0].y }, s.people.map((p) => p.name)));
-  for (let n = 0; n < 400 && !s.ring?.done; n++) {
-    s.tick += PLAN_TICKS;
-    runPlanner(s);
-    for (const b of s.buildings) if (b.status === 'blueprint' && !b.planned) { b.status = 'done'; b.progress = 1; b.hp = BUILDING_BY_ID[b.def].hp; }
-  }
-  assert.ok(s.ring?.done, 'the ring stands');
-  const at = villageSpot(s, new Rng(4))!;
-  const ids = s.people.slice(1, 6).map((p) => p.id);
-  const v = foundVillage(s, { ids, leader: ids[0], x: at.x, y: at.y, name: 'Outford' }, 70)!;
-  unplan(s, v);
-  s.autopilot = true;
-  assert.ok(planVillageRoad(s, v), 'a way is found');
-  const wall = ringWallCells(s);
-  assert.ok(v.road!.cells.every((i) => !wall.has(i)), 'the road never runs over the wall');
-  const r = s.ring!.rect;
-  const inside = (i: number) => { const x = i % s.land.w; const y = Math.floor(i / s.land.w); return x > r.x && x < r.x + r.w - 1 && y > r.y && y < r.y + r.h - 1; };
-  assert.ok(v.road!.cells.some(inside), 'it goes in, by a gate');
-});
-
-test('a village with no way to the town says so once and does not try again until the land changes', () => {
-  const { s, v } = townWithVillage('vroad-none');
-  unplan(s, v);
-  // (the village shut in by a wall of rock all about)
-  const m = s.land;
-  for (let y = v.y - 20; y <= v.y + 24; y++) for (let x = v.x - 22; x <= v.x + 22; x++) {
-    const edge = Math.max(Math.abs(x - v.x), Math.abs(y - (v.y + 2))) === 20;
-    if (edge && x >= 0 && y >= 0 && x < m.w && y < m.h) m.cells = m.cells.slice(0, y * m.w + x) + 'M' + m.cells.slice(y * m.w + x + 1);
-  }
-  m.version++;
-  s.tick = dayAt(1);
-  villageRoadHourly(s);
-  assert.ok(v.road?.failed !== undefined, 'no way');
-  const lines = () => s.notices.filter((n) => n.text.includes('No way could be found')).length;
-  assert.equal(lines(), 1, 'told once');
-  const sig = v.road!.sig;
-  for (let d = 2; d < 40; d++) {
-    s.tick = dayAt(d);
-    villageRoadHourly(s);
-  }
-  assert.equal(lines(), 1, 'still told once');
-  assert.equal(v.road!.failed, dayAt(1), 'not tried again');
-  assert.equal(v.road!.sig, sig);
-  // (a building pulled down: the land has changed, and it tries again)
-  s.buildings.pop();
-  s.tick = dayAt(41);
-  villageRoadHourly(s);
-  assert.equal(v.road!.failed, dayAt(41), 'tried again');
-  assert.equal(lines(), 1, 'and not told again');
+  assert.ok((v as Village).road!.cells.length > 10, 'taken');
+  assert.equal((v as Village).road!.failed, undefined);
 });

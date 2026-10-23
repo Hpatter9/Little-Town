@@ -9,6 +9,7 @@ import { ITEM_BY_ID } from '../../shared/data/items';
 import { MATERIAL_NAMES, type Material } from '../../shared/data/materials';
 import { OPERATORS } from '../../shared/data/operators';
 import { SKILL_NAMES } from '../../shared/data/skills';
+import { hasPath } from '../../shared/sim/buildings';
 import type { Snapshot } from '../../shared/sim/snapshot';
 import { poolSize } from '../../shared/sim/state';
 import { el } from './dom';
@@ -26,7 +27,7 @@ export function buildingCardKey(s: Snapshot, id: number): string {
   if (!b) return '';
   const orders = s.crafting.filter((o) => o.station === id).map((o) => [o.item, o.count, o.made, Math.floor(o.progress * 20), o.waiting, o.crafter]);
   const living = s.people.filter((p) => p.bedId === id).map((p) => p.id);
-  return JSON.stringify([b.status, b.homeName, Math.floor(b.progress * 50), Math.round(b.hp ?? -1), b.fire !== undefined, b.operator, orders, living, poolSize(b.store), Math.floor(poolSize(b.delivered)), b.crop && [b.crop.stage, Math.floor(b.crop.growth * 20)], b.herd?.head]);
+  return JSON.stringify([b.status, b.homeName, Math.floor(b.progress * 50), Math.round(b.hp ?? -1), b.fire !== undefined, b.operator, orders, living, poolSize(b.store), Math.floor(poolSize(b.delivered)), b.crop && [b.crop.stage, Math.floor(b.crop.growth * 20)], b.herd?.head, hasPath(s, b)]);
 }
 
 const portrait = (art: BuildingArt, p: { id: number; name: string }, note: string): HTMLElement => {
@@ -143,6 +144,8 @@ export function buildingCard(s: Snapshot, id: number, art: BuildingArt, onName?:
     if (def.storage) needs.push([`Stored ${poolSize(b.store)}/${def.storage}`, poolSize(b.store) < def.storage]);
     for (const o of orders) for (const [m, n] of Object.entries(o.needed) as [Material, number][]) if (n > 0) needs.push([`${n} ${MATERIAL_NAMES[m].toLowerCase()} for ${ITEM_BY_ID[o.item]?.name ?? o.item}`, false]);
   }
+  // (the town lays no path of its own: the player draws one to the door with ⛙, sim/pathPlans.ts)
+  if (!hasPath(s, b)) needs.push(['A path to its door (⛙)', false]);
   if (needs.length) {
     sheet.append(el('div', 'pc-sec', 'Needs'));
     const row = el('div', 'pc-chips');

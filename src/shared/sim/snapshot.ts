@@ -1295,11 +1295,10 @@ export interface Snapshot {
   research: ResearchView;
   /** The player's building wishes (sim/pins.ts): what, whether it's going up and how far, or what it waits on. */
   pins: { def: string; name: string; building: boolean; progress: number; why: string | null }[];
-  /** What the town would build next if asked (planner.ts recommendBuilding), the founder's orders for the wall and the
-   *  streets, and what the wall stands at. Refreshed about every game hour. */
+  /** What the town would build next if asked (planner.ts recommendBuilding), the founder's order for the wall, and what
+   *  the wall stands at. Refreshed about every game hour. */
   recommend: Recommendation | null;
   ringOrdered: boolean;
-  streetsOrdered: boolean;
   ringState: 'none' | 'building' | 'standing';
   notices: Notice[];
   /** Spare items (not worn), and the craft queue. */
@@ -1771,7 +1770,6 @@ function snapshotOf(s: GameState): Snapshot {
     research: researchView(s),
     recommend: recommendationOf(s),
     ringOrdered: !!s.ringOrder,
-    streetsOrdered: !!s.streetsOrder,
     ringState: !s.ring ? 'none' : s.ring.done ? 'standing' : 'building',
     pins: (s.pins ?? []).map((p) => {
       const b = p.building !== undefined ? s.buildings.find((q) => q.id === p.building) : undefined;

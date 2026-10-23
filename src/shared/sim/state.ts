@@ -1095,8 +1095,6 @@ export interface Muster {
 }
 
 export interface GameState {
-  /** Gates of the ring the town found no street to, and when it last tried (sim/streets.ts `gatePaths`). */
-  gateTried?: Record<string, number>;
   /** Seconds of paving work done toward the next cell of the streets planned: every paver adds to the one pool, and the
    *  cells go down in order as it covers them (sim/streets.ts `streetWork`). */
   streetSec?: number;
@@ -1323,8 +1321,6 @@ export interface GameState {
   townBuilds?: boolean;
   /** The founder has ordered the ring wall raised, widened or upgraded: the planner works it until it stands. */
   ringOrder?: boolean;
-  /** The founder has ordered the streets laid: done at the next hour. */
-  streetsOrder?: boolean;
   /** The player's veto on destinations, the treasury's bounties on them (coins set aside), and when the last party
    *  formed itself (sim/parties.ts). */
   vetoed?: string[];

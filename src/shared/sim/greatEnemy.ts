@@ -37,7 +37,7 @@ import { eventPicture } from '../data/eventScenes';
 import type { Destination } from '../data/expeditions';
 import { DANGER_PACE } from '../data/pace';
 import { hashSeed, Rng } from '../rng';
-import { connectRoad, placeBlueprint } from './buildings';
+import { placeBlueprint } from './buildings';
 import { calamityDaily, calamityLifts, calamityOmens, calamityPace, calamitySync, stageOfEnemy } from './calamity';
 import { queueScene } from './cutscenes';
 import { declareWar, defOf, realm } from './factions';
@@ -649,7 +649,6 @@ function victory(s: GameState, e: GreatEnemyState, r: Raid | null, where: string
   else if (spot) {
     const b: Building = { id: s.nextId++, def: MONUMENT, tile: spot.x, row: spot.y, status: 'done', delivered: {}, progress: 1, store: {} };
     s.buildings.push(b);
-    connectRoad(s, b);
   }
   log(s, e, `${capital(d.name)} fell ${where}${slayer ? `, ${slayer.name} at the front` : ''}`);
   tell(s, e, `${capital(d.name)} is dead`, `${capital(d.name)} fell ${where}. Its host breaks and scatters, its blight fades from the land, and the powers that knelt to it are free. The town will be called ${e.title}${slayer ? `, and ${slayer.name} will be remembered for the blow` : ''}. A long peace begins.`, 'enemy_victory');
