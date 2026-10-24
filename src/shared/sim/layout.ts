@@ -8,8 +8,8 @@
 // the other side and to the north and south; the library and the tower beside the seat; the barracks by the south
 // gate; the graveyard and memorials at the edge; fields and pens in a belt outside the homes. `layoutSpot` (asked by
 // planner.ts `findSpot`) picks the best free spot of the building's quarter: its door on a street, its walls clear of
-// the streets to come, beside its own kind, never a cell's sliver from a neighbour. The plan lays no street itself
-// (the owner's ask: the founder draws every path, sim/pathPlans.ts): its lines are kept clear for the paths to come.
+// the streets to come, beside its own kind, never a cell's sliver from a neighbour, near a street. The streets are
+// laid along its lines (sim/townRoads.ts: the square, the main streets, a side street to each door).
 // Each people lays its town its own way (`STYLE_OF`): most in blocks; the machines on a tighter grid; the pack, the
 // orcs and the nomads once settled in rings round the fire; the druids and the fae in a glade with no straight lines.
 // An older town gets a plan fitted round what stands (`fitted`): only what is built after follows it.
@@ -23,7 +23,7 @@ import { isSeat } from '../data/seats';
 import { depthOf, doorCell, footprint } from './buildings';
 import { castleCells, castleGate, castleOn } from './castle';
 import { rectExplored } from './fog';
-import { buildable, doorOf, groundAt, idx, inMap, isOpen, isPlannedRoad, isRoad, wet, wildToClear, touchesWater, type Pt, type Rect } from './land';
+import { buildable, doorOf, groundAt, idx, inMap, isOpen, isPlannedRoad, isRoad, onPath, roadDistance, wet, wildToClear, touchesWater, type Pt, type Rect } from './land';
 import { nomadic } from './nomads';
 import { isRingPiece, ringShapeOf, ringWallCells, shapeTest } from './ringWall';
 import { seaBuild } from './sea';
@@ -32,6 +32,7 @@ import { hashSeed } from '../rng';
 import { TICKS_PER_HOUR } from './time';
 import { hillShare } from './hills';
 import { SLOPE_CROPS } from '../data/hills';
+import { planTownRoads } from './townRoads';
 
 /** Side streets run west to east every this many rows (three rows of buildings between, their doors on the street
  *  below them). */
@@ -47,6 +48,8 @@ export const CORE_MIN = 6;
 /** How far past the core a building of the town looks for a spot (fields further: `FARM_REACH`). */
 export const SPOT_REACH = 14;
 export const FARM_REACH = 20;
+/** A spot whose door is this near a street (cells) counts a little better: its side street is short. */
+export const STREET_NEAR = 3;
 
 /** How a people lays out its town: in blocks (`grid`), or in rings round the fire with no grid (`ring`), or loosely, as
  *  a glade (`glade`, no straight lines). */
@@ -149,6 +152,8 @@ export function ensureLayout(s: GameState): TownLayout | null {
   if (s.autopilot === false || nomadic(s)) return null;
   const L = makeLayout(s);
   s.layout = L;
+  // (its square and main streets: laid at once for a town just founded, else planned for its pavers, sim/townRoads.ts)
+  planTownRoads(s, s.tick < TICKS_PER_HOUR);
   return L;
 }
 
@@ -307,9 +312,10 @@ export function layoutSpot(s: GameState, def: BuildingDef): (Pt & { wild?: true 
           z -= 3;
           break;
         }
-    // (a door on a street already there, or planned)
+    // (a door on a street already there, or planned, or a short side street from one: sim/townRoads.ts)
     const door = doorOf(r);
-    if (street(door.x, door.y)) z -= 1;
+    if (street(door.x, door.y) || onPath(m, door)) z -= 3;
+    else if (roadDistance(m, door, STREET_NEAR) <= STREET_NEAR) z -= 1;
     return z;
   };
   // (the land on the square's own side of the water: flooded out from it over dry ground)
