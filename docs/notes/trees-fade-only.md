@@ -1,7 +1,7 @@
 ## Only trees and rocks fade (branch claude/town-roads)
 
-The owner: "Don't turn building opaque when townsfolk walk behind em. Only trees and rocks." Changes the see-through
-part of docs/notes/town-visuals.md ("see-through ... windows"; iso/seeThrough.ts, iso/isoView.ts `seeThrough`).
+The owner: "Don't turn building opaque when townsfolk walk behind em. Only trees and rocks." Changes "Seeing through, lit windows and flames that flicker"
+in docs/notes/town-visuals.md (iso/seeThrough.ts, iso/isoView.ts `seeThrough`).
 
 - `IsoView.rebuildCovers` (iso/isoView.ts) marks each cover with `fades`: the land's scenery (`scenery`: trees, rocks,
   bushes, the starting valley's landmarks) fades for someone behind it as before (`SEE_ALPHA` 0.4, `FADE_SECONDS`);
