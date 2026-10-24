@@ -112,8 +112,9 @@ test("the player's path is kept and joined to the town's streets", () => {
 });
 
 test('a town left to run lays streets that make sense: every door on one, all joined, no doubled or parallel streets, none on a field', () => {
-  for (const origin of ['settlers', 'orcs']) {
-    const s = newGame(`roads-run-${origin}`, { origin: origin as 'settlers' });
+  // (the settlers in two lands: new towns are the settlers only for now, data/origins.ts)
+  for (const origin of ['forest', 'highlands'] as const) {
+    const s = newGame(`roads-run-${origin}`, { origin: 'settlers', biome: origin });
     // (the town orders its own buildings, standing in for the player)
     s.townBuilds = true;
     s.nextRaidTick = Number.MAX_SAFE_INTEGER;

@@ -52,7 +52,7 @@ town layout." Changes HISTORY.md "Streets are built", "The town plan" (sim/layou
   them.
 - Tests: `test/townRoads.test.ts` (the founding's square and mains; a door's street planned with the order; one corner
   on open ground and round a field; round a short wood; a gate joined and its street out; a drawn path kept and joined;
-  a settlers' and an orcs' town left to run six days, by `test/roadAudit.ts`: every door within a cell of a street, every
+  settlers' towns in the forest and the highlands left to run six days, by `test/roadAudit.ts`: every door within a cell of a street, every
   door joined to the square, no two-by-two of street outside the square, no three-long runs side by side a cell apart,
   no street on a field or pen; the late-town fixture given a plan, nothing torn up). Changed: `test/layout.test.ts`
   (the square is paved and each home's door gets a street), `test/streets.test.ts` (its "the town lays no path" tests
@@ -61,15 +61,16 @@ town layout." Changes HISTORY.md "Streets are built", "The town plan" (sim/layou
   town (`townBuilds` on, standing in for the player's orders) and writes a cell picture and the audit at each day
   (dark brown laid, tan planned, buildings by kind, light while blueprints; the light grey rings are the next ring
   wall's blueprints); `--save` writes the game at the next midday for screenshots.
-- Pictures (`docs/notes/town-roads/`): `map-<people>-d10/20/40.png` (settlers in the forest, knights in the highlands,
-  orcs on the steppe); `shot-<people>-d<day>-upright.png` / `-sideways.png` (the phone
-  page at 393x852 and 852x393, the save loaded and continued); `before-after-d10/20/40.png` (the same seed under 0.206,
-  the last version with automatic streets, beside this one).
-- How it measured (`tools/roads-map.mjs`, the audit above, eleven towns of nine peoples to day 20, three to day 40):
-  no street on a field or pen anywhere, every gate reached, no parallel streets a cell apart, every door on a street
-  (but a tribe on the move, which lays none). Left over: in two towns a single square of four street cells by a two-cell
-  gate (the orcs, the settlers' `roads-a` seed), and in one (the orcs' `roads-orcs-d`) one door shut in on all sides by
-  buildings put up round it later, its cell kept as street but no way out (the town picks spots without asking whether
-  another door can still be reached).
+- Pictures (`docs/notes/town-roads/`, settlers only, as new towns are for now, main 0.213.0):
+  `map-settlers-<land>-d10/20/40.png` (the forest, the highlands, the steppe, the desert);
+  `shot-settlers-<land>-d<day>-upright.png` / `-sideways.png` (the phone page at 393x852 and 852x393, the save loaded
+  and continued); `before-after-d10/20/40.png` (the same seed under 0.206, the last version with automatic streets,
+  beside this one).
+- How it measured (`tools/roads-map.mjs`, the audit above): the four settlers' towns to day 40, every day asked clean
+  but for one 2x2 of street beside the road south in the highlands at days 10 and 20 (gone by day 40), and the steppe
+  town at day 40, by then down to one soul, whose wider ring's three new gates and one longhouse had no street planned
+  yet. In earlier runs of other peoples (before the settlers-only change): a single 2x2 by a two-cell gate in two
+  towns, and in one a door shut in on all sides by buildings put up round it later (the town picks spots without
+  asking whether another door can still be reached).
 - Not done: a dead-end street left by a building pulled down stays (the town never lifts a street); a building put up
   round another's door can shut it in (above).
