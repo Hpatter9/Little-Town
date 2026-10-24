@@ -19,7 +19,7 @@ DIRS = ['south', 'south-east', 'east', 'north-east', 'north', 'north-west', 'wes
 STATE = os.environ.get('STATE', 'pl/people_state.json')
 MOVES = {'walk': 'walking', 'idle': 'breathing-idle', 'attack': 'cross-punch', 'death': 'falling-back-death', 'run': 'running-6-frames', 'hurt': 'taking-punch'}
 # (the casting peoples attack with a thrown spell; the rest with a punch: the mannequin has no weapon template)
-CASTERS = {'lich', 'druid', 'fae', 'alchemists'}
+CASTERS = {'lich', 'druid', 'fae', 'alchemists', 'founder'}
 # (base settler look, what the edit makes of it, the character's description)
 CASTS = {
     'orcs': {
@@ -33,6 +33,7 @@ CASTS = {
 }
 
 def c(base, edit, desc): return (base, edit, desc)
+CASTS['founder'] = {'founder_heroine': ('woman_base', '', 'a fierce young huntress with fiery red braided hair with beads and freckles, layered tan leather and hide tribal armour, a fur mantle over one shoulder, leather arm wraps, a small gold hourglass crest, strapped hide leggings and soft boots'), 'founder_hero': ('man_base', '', 'a young heroic adventurer with sandy blond hair, a forest-green tunic with gold trim and a small gold hourglass crest, a deep green hood pushed back, a long dark green cape, brown belt and bracers, light trousers and tall brown boots')}
 M, W, L = 'man_base', 'woman_base', 'man_leather'
 CASTS.update({
     'lich': {
@@ -157,6 +158,7 @@ def look(people, name, base, edit, desc):
 if __name__ == '__main__':
     # (several looks at once, one job each: SLOTS of PixelLab's ten)
     jobs = [(people, name, spec) for people in sys.argv[1:] for name, spec in CASTS[people].items()]
+    if os.environ.get('LOOK_ONLY'): jobs = [j for j in jobs if j[1] == os.environ['LOOK_ONLY']]
     with ThreadPoolExecutor(int(os.environ.get('SLOTS', '1'))) as ex:
         list(ex.map(lambda j: look(j[0], j[1], *j[2]), jobs))
     log('FINISHED', ' '.join(sys.argv[1:]))

@@ -457,12 +457,12 @@
    "done": [
     "south",
     "south-east",
-    "east",
     "north-east",
     "north",
     "north-west",
     "west",
-    "south-west"
+    "south-west",
+    "east"
    ],
    "group": "8613c1fa-8ed1-4a50-a974-ea80761d1602"
   }
@@ -482,6 +482,74 @@
     "south-west"
    ],
    "group": "d7d05381-398f-4ab7-a82a-11073c71b758"
+  }
+ },
+ "founder_hero+axe": {
+  "edited": true,
+  "character_id": "254feb26-53c9-4e82-90be-a882c6062da8",
+  "chop": {
+   "done": [
+    "south",
+    "south-east",
+    "east",
+    "north-east",
+    "north",
+    "north-west",
+    "west",
+    "south-west"
+   ],
+   "group": "a280244f-1351-462c-9b46-73eee68bd612"
+  }
+ },
+ "founder_hero+sword": {
+  "edited": true,
+  "character_id": "c640cbd6-459d-4843-89a3-4a2e10307e4e",
+  "attack_1h": {
+   "done": [
+    "south",
+    "south-east",
+    "east",
+    "north-east",
+    "north",
+    "north-west",
+    "west",
+    "south-west"
+   ],
+   "group": "c5a5574b-7ff5-4b89-bbad-1e2117d567e5"
+  }
+ },
+ "founder_heroine+axe": {
+  "edited": true,
+  "character_id": "3008c422-220e-48ad-b011-eda66c99c673",
+  "chop": {
+   "done": [
+    "south",
+    "south-east",
+    "east",
+    "north-east",
+    "north",
+    "north-west",
+    "west",
+    "south-west"
+   ],
+   "group": "6687baea-332f-4d2a-917e-6c1c0724d9fb"
+  }
+ },
+ "founder_heroine+bow": {
+  "edited": true,
+  "character_id": "d68cc77d-5b8d-40ba-ada7-084287435128",
+  "attack_bow": {
+   "done": [
+    "south",
+    "south-east",
+    "east",
+    "north-east",
+    "north",
+    "north-west",
+    "west",
+    "south-west"
+   ],
+   "group": "dcd0318a-6c90-4194-a764-8b71e9696ebe"
   }
  }
 }
