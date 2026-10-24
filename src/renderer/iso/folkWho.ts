@@ -2,7 +2,7 @@
 // menus' portraits (art/folkPortrait.ts) both use, so a face on a card is always the figure on the map. Pure.
 
 import { ITEM_BY_ID, type Slot } from '../../shared/data/items';
-import { dressOf, isFolkChild, lookPath, pickLook, type FolkLookPick, type FolkState } from './folkRules';
+import { dressOf, isFolkChild, isFounderLook, lookPath, pickLook, type FolkLookPick, type FolkState } from './folkRules';
 import { tintKey, tintOf, type FolkTint } from './folkTint';
 
 export interface FolkWho {
@@ -18,11 +18,21 @@ export interface FolkWho {
   child: boolean;
 }
 
+/** The founder's id, as of the last snapshot (main.ts and panel.ts set it: the snapshot's `mainId`), so every view that
+ *  draws someone dresses the founder in their own look without passing a flag. An heir who takes over is the founder
+ *  from the next snapshot. */
+let founderId: number | null = null;
+export function setFolkFounder(id: number | null | undefined): void {
+  founderId = id ?? null;
+}
+
 /** The look and colours for someone, from what a snapshot (or an obituary) says: id, people, sex, skin, hair and outfit,
- *  age, body armour. */
-export function folkWho(st: Pick<FolkState, 'id' | 'origin' | 'look' | 'lifeStage' | 'growsUpIn'> & { gear: Partial<Record<Slot, string>> }): FolkWho {
+ *  age, body armour; `founder` says outright whether they're the founder (else: their id is the last snapshot's). */
+export function folkWho(st: Pick<FolkState, 'id' | 'origin' | 'look' | 'lifeStage' | 'growsUpIn' | 'founder'> & { gear: Partial<Record<Slot, string>> }): FolkWho {
   const body = st.gear.body ? ITEM_BY_ID[st.gear.body] : undefined;
-  const pick = pickLook(st, undefined, dressOf(body?.weight));
-  const tint = tintOf(st, pick.people);
+  const founder = st.founder ?? (founderId !== null && st.id === founderId);
+  const pick = pickLook({ ...st, founder }, undefined, dressOf(body?.weight));
+  // (the founder's look is a signature costume, worn in its own colours)
+  const tint = isFounderLook(pick.look) ? null : tintOf(st, pick.people);
   return { pick, tint, variant: tintKey(tint), path: lookPath(pick, null), child: isFolkChild(st) };
 }

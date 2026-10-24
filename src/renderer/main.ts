@@ -6,6 +6,8 @@ import { guildsOf } from './art/guildMarks';
 import { withDeltas } from './deltaBridge';
 import { biomeById } from '../shared/data/biomes';
 import { folkKnow, paintPortrait } from './art/folkPortrait';
+import { setFolkFounder } from './iso/folkWho';
+import { findFounderArt } from './iso/founderArt';
 import { hkCell, hkDraw, hkKnow, hkLayers, hkWhoOf, onHkLoad } from './art/hkFolk';
 import { fallenFace } from './art/fallenFace';
 import { SEAT_STAGE } from '../shared/data/seats';
@@ -354,7 +356,9 @@ async function start(): Promise<void> {
   // (the loading screen's pictures are warmed from the first snapshot while the rest is set up: loading/stripLoad.ts)
   const firstSnap = bridge.getSnapshot();
   const stripLoad = firstSnap.then(startStripLoad);
-  const [first] = await Promise.all([firstSnap, loadLpc(), loadCreatures(), loadEffects(), loadStills()]);
+  // (the founder's own looks are looked for meanwhile, so the founder wears theirs from the first frame: iso/founderArt.ts)
+  const [first] = await Promise.all([firstSnap, loadLpc(), loadCreatures(), loadEffects(), loadStills(), findFounderArt()]);
+  setFolkFounder(first.mainId);
   void loadLpcFaces(); // (the townsfolk's up- and down-facing walk rows come in after; side-on until then)
   applySeasonPalette(first.biome, first.calendar.season); // (the land is drawn in the colours of the season)
   const seedHash = hashSeed(first.seed);
@@ -2277,6 +2281,7 @@ async function start(): Promise<void> {
     // (the phone page's feed borrows the town's pictures: a townsperson, or a building in the town's own style, as the
     // map draws it: art/buildingPicture.ts)
     folkKnow(next.people);
+    setFolkFounder(next.mainId); // (the founder wears their own look everywhere: iso/folkWho.ts)
     hkKnow(next.people); // (who's who, for the views that know someone only by id: the fight screen, the mine)
     (window as unknown as { __picture?: (p: { person?: number; building?: string; fallen?: number }) => HTMLCanvasElement | null }).__picture = (h) => {
       // (the dead, from the look their obituary keeps: art/fallenFace.ts)

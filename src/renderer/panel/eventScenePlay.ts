@@ -13,6 +13,7 @@ import { EVENT_SCENES, sceneFor } from './eventScenes';
 import { playScene, sceneCue, type Folk } from './scenePlayer';
 import type { PortraitWho } from '../art/folkPortrait';
 import type { EventSceneId } from '../../shared/data/eventSceneIds';
+import { findFounderArt } from '../iso/founderArt';
 
 const IDLE = { fighting: false, activity: 'idle' };
 /** The outsiders' places and how each is dressed: on the road, in a knight's kit, a healer's robes. */
@@ -31,6 +32,7 @@ export interface PlayedEvent {
 
 /** Play the scene for prompt `p` into `container`. */
 export function playEventScene(container: HTMLElement, p: PromptView, snap: Snapshot): PlayedEvent | null {
+  void findFounderArt(); // (the phone page's own copy of the drawn looks: it may not have looked yet)
   const id = sceneFor({ kind: p.kind, title: p.title, text: p.text, eventId: p.eventId, about: p.about });
   const home = snap.people.filter((q) => q.away === null);
   const byId = new Map<number, PersonView>(home.map((q) => [q.id, q]));
@@ -47,7 +49,8 @@ export function playEventScene(container: HTMLElement, p: PromptView, snap: Snap
   };
   const doll = (pid: number | null | undefined, n: number) => {
     const q = pid != null ? byId.get(pid) : undefined;
-    if (q) folk[n] = q;
+    // (the founder in their own look: iso/folkWho.ts)
+    if (q) folk[n] = { ...q, founder: q.id === snap.mainId };
     return q ? hkLayers(hkWhoOf(q), IDLE) : outsider(n, { traveller: true });
   };
   const dolls: string[][] = [];

@@ -28,6 +28,8 @@ import { devKey, ensureDevStyle, renderDev } from './devPanel';
 import { isVenuePanel, renderShop, shopKey, venueView } from './shopPanel';
 import { hkKnow } from '../art/hkFolk';
 import { folkKnow } from '../art/folkPortrait';
+import { setFolkFounder } from '../iso/folkWho';
+import { findFounderArt } from '../iso/founderArt';
 import { countsFor } from './counts';
 import { ensureStructureStyle, foldSections, installSwipe } from './structure';
 import { noteFood } from './dashboard';
@@ -230,11 +232,20 @@ function onState(s: StripState): void {
   render();
 }
 
+// (the founder's own looks, where the build has them: found, the menus redraw so the founder's pictures wear them)
+void findFounderArt().then((found) => {
+  if (found) {
+    renderedKey = '';
+    render();
+  }
+});
+
 if (bridge) {
   bridge.onState(onState);
   bridge.onSnapshot((next) => {
     applyGivenNames(next);
     snap = next;
+    setFolkFounder(next.mainId);
     refreshCard(next);
     noteFood(next);
     if (applyTheme(next.theme, 'panel')) renderedKey = ''; // (the look changed: redraw, with the new names)
@@ -243,6 +254,7 @@ if (bridge) {
   });
   Promise.all([bridge.getState(), bridge.getSnapshot()]).then(([st, sn]) => {
     snap = sn;
+    setFolkFounder(sn.mainId);
     refreshCard(sn);
     onState(st);
   });

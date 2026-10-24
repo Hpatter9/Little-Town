@@ -53,7 +53,7 @@ import fluteUrl from '../art/life/flute.png';
 import { markWalker } from '../iso/seeThrough';
 import { boardFacing, boardFolkAnim, type BoardMoment } from '../iso/boardRules';
 import { ITEM_BY_ID } from '../../shared/data/items';
-import { CROWN_SCALE, RING_W, markAt, wearsMark } from '../iso/founderMark';
+import { CROWN_SCALE, RING_W, markLift, wearsMark } from '../iso/founderMark';
 import { iconSheet } from '../art/icons';
 import { CROWN } from '../../shared/data/emblems';
 
@@ -212,8 +212,8 @@ interface Drawn {
   levelUp?: Sprite;
   aura?: Sprite;
   /** The founder's marker: a gold crown over their head and a soft gold ring at their feet (iso/founderMark.ts). */
-  crown?: Sprite;
-  crownRing?: Graphics;
+  crown?: Container;
+  crownRing?: Container;
   /** Their harm as it shows (map/bodyMarks.ts): a patch, a peg, a hook, a crutch, a bandage; and what's drawn. */
   marks?: Graphics;
   marksKey?: string;
@@ -888,20 +888,24 @@ export class MapPeople {
       // the founder's marker: a crown over their head and a gold ring at their feet, always, so the player's character
       // stands out (marked as a walker, so a roof in front of it fades as one in front of them does: iso/seeThrough.ts)
       const crowned = this.isoFolk && folkOn && !!crownTex && wearsMark(v, this.founderId);
+      // (each in a holder stood on the figure's own spot, so the iso view carries it onto the diamonds with them; the
+      // lift over the head or to the feet is the child's, in screen px: iso/founderMark.ts `markLift`)
       if (crowned && !d.crown) {
-        markWalker((d.crown = this.layer.addChild(new Sprite(crownTex!))));
-        d.crown.anchor.set(0.5, 1);
-        d.crownRing = this.layer.addChild(new Graphics());
-        d.crownRing.ellipse(0, 0, RING_W / 2, RING_W / 5).fill({ color: 0xffd860, alpha: 0.22 }).stroke({ color: 0xffe9a0, width: 1.2, alpha: 0.75 });
+        markWalker((d.crown = this.layer.addChild(new Container())));
+        d.crown.addChild(new Sprite(crownTex!)).anchor.set(0.5, 1);
+        d.crownRing = this.layer.addChild(new Container());
+        d.crownRing.addChild(new Graphics()).ellipse(0, 0, RING_W / 2, RING_W / 5).fill({ color: 0xffd860, alpha: 0.22 }).stroke({ color: 0xffe9a0, width: 1.2, alpha: 0.75 });
       }
       if (d.crown && d.crownRing) {
         d.crown.visible = d.crownRing.visible = crowned;
         if (crowned && d.folk) {
-          const at = markAt(d.folk.y, FOLK_SCALE * grown, now / 1000 + v.id);
+          const lift = markLift(FOLK_SCALE * grown, now / 1000 + v.id);
           d.crown.scale.set(CROWN_SCALE);
-          d.crown.position.set(Math.round(d.folk.x), Math.round(at.crownY));
+          d.crown.position.set(d.folk.x, d.folk.y);
+          d.crown.children[0].y = Math.round(lift.crownDy / CROWN_SCALE);
           d.crown.zIndex = z + 0.6;
-          d.crownRing.position.set(Math.round(d.folk.x), Math.round(at.ringY));
+          d.crownRing.position.set(d.folk.x, d.folk.y);
+          d.crownRing.children[0].y = Math.round(lift.ringDy);
           d.crownRing.alpha = 0.8 + 0.2 * Math.sin(now / 600);
           d.crownRing.zIndex = z - 0.35;
         }
@@ -1063,8 +1067,9 @@ export class MapPeople {
           const above = (d.work?.visible ? WORK_ABOVE + 6 : WORK_ABOVE) + (plain ? 0 : 8);
           d.hpBar.position.set(Math.round(x) - HP_W / 2, Math.round(y) - above);
           d.hpBar.zIndex = z + 0.16;
-          // (the founder's crown floats over the bar, not on it)
-          if (d.crown?.visible) d.crown.y = Math.min(d.crown.y, d.hpBar.y - 2);
+          // (the founder's crown floats over the bar, not on it: its lift, the holder standing at the feet. On the board,
+          // whose spots are the screen's; on the map the bar is placed on the land and carried onto the diamonds apart)
+          if (d.crown?.visible && this.board) d.crown.children[0].y = Math.min(d.crown.children[0].y, d.hpBar.y - 2 - d.crown.y);
         }
       }
       d.bubble.visible = d.visitor;

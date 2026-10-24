@@ -1912,5 +1912,87 @@
    ],
    "group": "2930dff0-fcfb-4dbb-b6fd-ee930d3093e6"
   }
+ },
+ "founder_hero": {
+  "edited": true,
+  "character_id": "7c6c52a0-5a31-4119-8437-f1ee8376b9d4",
+  "walk": {
+   "done": [
+    "south",
+    "south-east",
+    "east",
+    "north-east",
+    "north",
+    "north-west",
+    "west",
+    "south-west"
+   ],
+   "group": "05a872ef-f720-4ce3-8099-dc63e9038364"
+  },
+  "idle": {
+   "done": [
+    "south",
+    "south-east",
+    "east",
+    "north-east",
+    "north",
+    "north-west",
+    "west",
+    "south-west"
+   ],
+   "group": "f540f772-017d-43fd-878e-50bdf5560b46"
+  },
+  "attack": {
+   "done": [
+    "south",
+    "south-east",
+    "east",
+    "north-east",
+    "north",
+    "north-west",
+    "west",
+    "south-west"
+   ],
+   "group": "3a6871cb-0b80-4aff-b1c5-318d2e5bf12d"
+  },
+  "death": {
+   "done": [
+    "south",
+    "south-east",
+    "east",
+    "north-east",
+    "north",
+    "north-west",
+    "west",
+    "south-west"
+   ],
+   "group": "56cf2370-5b73-4f6a-ab83-3162a976b50f"
+  },
+  "run": {
+   "done": [
+    "south",
+    "south-east",
+    "east",
+    "north-east",
+    "north",
+    "north-west",
+    "west",
+    "south-west"
+   ],
+   "group": "1868505c-4e21-44fb-a72f-1195357296d8"
+  },
+  "hurt": {
+   "done": [
+    "south",
+    "south-east",
+    "east",
+    "north-east",
+    "north",
+    "north-west",
+    "west",
+    "south-west"
+   ],
+   "group": "69e0ae2d-3637-449a-b81f-a81f038a6dd1"
+  }
  }
 }
