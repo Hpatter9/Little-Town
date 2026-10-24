@@ -41,11 +41,33 @@ look missing, the armed paths, untinted, `mainId` and an heir, and the art's mov
 the founder tab, the People list, a raid board, and a party's fight at the Bear Cave; sideways, the party's walk home
 from it). The art (frames 156 and 148, as the everyday looks) stands at the settlers' height with its feet on the same
 spot; drawn as made, the same on every founder. The People list leaves the founder out as before (`listedFolk`): the
-founder's row there is the link to their tab. Seen meanwhile, and not this change's (the same with the founder's art
-taken out): on the map the gold ring stands a little below and right of the founder's feet, and the crown over their
-head didn't show.
+founder's row there is the link to their tab. Seen meanwhile, and fixed on this branch (below): on the map the gold ring
+stood a little below and right of the founder's feet, and the crown didn't show over their head.
 
 The armed looks (`founder_hero+axe`, `+sword`, `founder_heroine+axe`, `+bow`; no hammer looks: a founder at a
 hammer's work swings the axe, `otherTool`) are seen in `hero-upright-chop`, `hero-upright-sword`, `heroine-upright-chop`, `heroine-upright-axe`
 (mining: the hammer's work done with the axe) and `heroine-upright-bow` (on the raid board, where the crown does show over the founder). A new
 town's founder carries no weapon, so for those shots the founder was given a sword or a bow in the save by hand.
+
+## The founder's marks on the isometric map
+
+The crown over the founder's head and the gold ring at their feet (docs/notes/raid-looks.md, `iso/founderMark.ts`)
+stood off to the side on the isometric map: the ring a little down and right of the feet, the crown far off (it looked
+like a prop by the campfire). They were lifted on the map (the top-down y) before the iso view's `placeLoose` carried
+each loose sprite onto the diamonds, so each was carried there as if it stood further north. The raid board was right
+(its spots are already iso). Now each mark is a holder stood on the figure's own spot (`map/mapPeople.ts`: `d.crown`,
+`d.crownRing` are Containers at the folk sprite's position), so the view carries all three alike, and the lift is the
+child's, in screen px: `markLift(scale, t)` (`crownDy`, `ringDy`; `markAt` is the frame foot plus it). Right at every
+zoom and on the move. On the board the crown still floats over the health bar (its lift clamped above it; the
+map's bar is placed on the land apart, so there it is left alone). Test: `test/founderLooks.test.ts` (the lift, and why it must come after the projection).
+
+## Commands checked on the phone too
+
+The phone's worker (`shared/simHost.ts`) passed the page's commands straight to the sim; only the desktop's IPC ran
+`parseCommand`. A command with a field missing (a `sendDelve` with no `dest`) threw inside the step every tick
+(`isPlaceDest`: `undefined.startsWith`), and the town froze. Now the worker parses each command as the desktop does and
+drops a malformed one. Test: `test/commandFuzz.test.ts`: every command type in `parseCommand`'s switch (read from the
+source, so a new one is covered), each tried bare, with every field junk, with its own fields drawn from their literals
+or junk (200 a type, on a seeded stream), and from a few that pass, each field in turn made junk or left out; any that
+parses is applied and the town stepped, and none may throw. No other command had the hole (the fuzz finds the
+`sendDelve` one if its `dest` check is taken out).

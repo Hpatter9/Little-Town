@@ -4,6 +4,8 @@ import { join } from 'node:path';
 import { test } from 'node:test';
 import { FOLK_LOOKS, FOUNDER_LOOKS, armedSuffix, isFounderLook, lookPath, pickLook, type FolkState } from '../src/renderer/iso/folkRules';
 import { folkWho, setFolkFounder } from '../src/renderer/iso/folkWho';
+import { FEET_UP, HEAD_UP, markAt, markLift } from '../src/renderer/iso/founderMark';
+import { worldToIso } from '../src/renderer/iso/isoMath';
 
 const st = (o: Partial<FolkState> = {}): FolkState => ({
   id: 1, activity: 'idle', sinceHit: 999, sinceBlow: 999, defending: false, downed: null, hp: 10,
@@ -86,4 +88,22 @@ test("the founder's art, where it's in, has every move and faces every way", () 
       assert.ok(existsSync(join(dir, `${anim}.png`)), `${look}/${anim}.png`);
     }
   }
+});
+
+test("the founder's marks stand on the figure's own spot and are lifted on the screen, so they stay over the head", () => {
+  for (const scale of [0.25, 0.5, 1]) {
+    const l = markLift(scale, 0);
+    assert.equal(l.ringDy, -FEET_UP * scale, 'the ring at the feet');
+    assert.ok(l.crownDy < -HEAD_UP * scale + 1 && l.crownDy > -HEAD_UP * scale - 8, 'the crown just over the head');
+    assert.deepEqual(markAt(200, scale, 1.3), { crownY: 200 + markLift(scale, 1.3).crownDy, ringY: 200 + l.ringDy });
+  }
+  // (why on the screen: a mark lifted on the map before the view carries it onto the diamonds lands down and to the
+  // side of the figure, the bug this fixes; the same spot projected, then lifted, is straight over them)
+  const [wx, wy, ox] = [400, 300, 1000];
+  const feet = worldToIso(wx, wy, ox);
+  const liftedOnMap = worldToIso(wx, wy + markLift(0.5, 0).crownDy, ox);
+  assert.notEqual(liftedOnMap.x, feet.x, 'lifted on the map: off to the side');
+  const onScreen = { x: feet.x, y: feet.y + markLift(0.5, 0).crownDy };
+  assert.equal(onScreen.x, feet.x);
+  assert.ok(onScreen.y < feet.y);
 });

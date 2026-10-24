@@ -19,9 +19,19 @@ export const CROWN_SCALE = 1;
 /** The ring under their feet (world px across). */
 export const RING_W = 26;
 
-/** Where the crown's foot and the ring's middle go (world y), for a look whose frame foot is at `frameFootY`, drawn
- *  at `scale` (the folk's scale times their height), `t` seconds into its bob. */
-export function markAt(frameFootY: number, scale: number, t: number): { crownY: number; ringY: number } {
+/** How far up the screen from the figure's frame foot the crown's foot and the ring's middle go, for a look drawn at
+ *  `scale` (the folk's scale times their height), `t` seconds into the crown's bob. Screen px, not the map's: on the
+ *  isometric map the marks stand where the figure stands (the view carries all three onto the diamonds from the same
+ *  map spot), and only then are lifted, so they stay over the head and under the feet at every zoom and on the move.
+ *  (Lifted on the map instead, a mark was carried onto the diamonds as if it stood further north, so it drifted off
+ *  down and to the side of the founder.) */
+export function markLift(scale: number, t: number): { crownDy: number; ringDy: number } {
   const bob = Math.sin(t * 2.4) * CROWN_BOB;
-  return { crownY: frameFootY - HEAD_UP * scale - CROWN_GAP + bob, ringY: frameFootY - FEET_UP * scale };
+  return { crownDy: -HEAD_UP * scale - CROWN_GAP + bob, ringDy: -FEET_UP * scale };
+}
+
+/** Where the crown's foot and the ring's middle go (screen y), for a figure whose frame foot is at `frameFootY`. */
+export function markAt(frameFootY: number, scale: number, t: number): { crownY: number; ringY: number } {
+  const l = markLift(scale, t);
+  return { crownY: frameFootY + l.crownDy, ringY: frameFootY + l.ringDy };
 }

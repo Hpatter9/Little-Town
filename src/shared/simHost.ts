@@ -14,7 +14,7 @@ import { isChild } from './sim/social';
 import type { AlertSettings } from './ipc';
 import { GameLoop } from './gameLoop';
 import { SnapDiffer, type SnapDelta } from './snapDelta';
-import type { Command } from './sim/commands';
+import { parseCommand, type Command } from './sim/commands';
 import type { JournalEntryView } from './sim/snapshot';
 import { parseSave, serialize } from './sim/save';
 import { campCell, maxHp, newGame, type GameState, type Roamer } from './sim/state';
@@ -229,8 +229,12 @@ export function startSimHost(post: (m: FromHost) => void): (m: ToHost) => void {
         send(game.snapshot());
         return;
       }
-      case 'command':
-        return game?.command(m.c);
+      case 'command': {
+        // (checked as the desktop's IPC checks it: a malformed command from the page is dropped, never applied)
+        const c = parseCommand(m.c);
+        if (c) game?.command(c);
+        return;
+      }
       case 'hidden':
         hidden = m.on;
         if (game) game.hidden = m.on;
