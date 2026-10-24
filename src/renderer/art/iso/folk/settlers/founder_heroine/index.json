@@ -1,0 +1,38 @@
+{
+ "look": "founder_heroine",
+ "people": "settlers",
+ "frame": [
+  148,
+  148
+ ],
+ "directions": [
+  "south",
+  "south-east",
+  "east",
+  "north-east",
+  "north",
+  "north-west",
+  "west",
+  "south-west"
+ ],
+ "animations": {
+  "run": {
+   "frames": 6
+  },
+  "cast_1h": {
+   "frames": 6
+  },
+  "hurt": {
+   "frames": 6
+  },
+  "idle": {
+   "frames": 4
+  },
+  "walk": {
+   "frames": 6
+  },
+  "death": {
+   "frames": 7
+  }
+ }
+}
