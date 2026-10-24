@@ -44,3 +44,8 @@ spot; drawn as made, the same on every founder. The People list leaves the found
 founder's row there is the link to their tab. Seen meanwhile, and not this change's (the same with the founder's art
 taken out): on the map the gold ring stands a little below and right of the founder's feet, and the crown over their
 head didn't show.
+
+The armed looks (`founder_hero+axe`, `+sword`, `founder_heroine+axe`, `+bow`; no hammer looks: a founder at a
+hammer's work swings the axe, `otherTool`) are seen in `hero-upright-chop`, `hero-upright-sword`, `heroine-upright-axe`
+(mining, with the axe) and `heroine-upright-bow` (on the raid board, where the crown does show over the founder). A new
+town's founder carries no weapon, so for those shots the founder was given a sword or a bow in the save by hand.
