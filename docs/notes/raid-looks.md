@@ -81,9 +81,10 @@ the weapon's move, the board facings, the God creature's board moves, the map's 
 that a townsperson's look and colours are the same in the town and as tacticsView hands them to the board (settlers,
 dwarves, orcs, lich, vampire, knights), and who wears the founder's marker and where it goes.
 
-Screenshots in `docs/notes/raid-looks/` (393x852 and 852x393): each town as the raid is called (`*-map`, the
+Screenshots in `docs/notes/raid-looks/` (393x852 and 852x393): each town as the raid is called (`*-map-tall`, the
 founder's crown among the defenders) and a wolf pack raid on the board for knights (with the God wolf), settlers (the
-God bear), dwarves, orcs, lich and vampire towns; and before (`before-knights`: the red samurai).
+God bear), dwarves, orcs, lich and vampire towns; and before (`before-knights-board-tall`: the red samurai). The board's camera follows whoever's turn it is, so each people has a
+few frames (`*-board-tall-<ms>`, `*-board-wide-<ms>`).
 
 ### For the owner
 - **The Shapeshifter's beast and the Moon Pack's wolf.** A Shapeshifter now fights in their own look (no beast). A
