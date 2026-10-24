@@ -5,7 +5,8 @@
 // built at the start, to see their own windows); BUILD=statue,harbour,... those built, finished, after the run (to see
 // their pictures: put up after, so the town can't pull them down); UNLOCK=1 every building in the build menu;
 // KIDS=4 that many children added after the run, each beside a grown-up, to see children beside grown-ups; FOLK=20 that
-// many more grown townsfolk added after the run, each a fresh look (skin, hair) gathered round the first, to see a crowd
+// many more grown townsfolk added after the run, each a fresh look (skin, hair) gathered round the first, to see a crowd;
+// CREATURE=wolf the town given its God creature after the run (to see it fight in a raid)
 import { writeFileSync } from 'node:fs';
 import { serialize } from '../src/shared/sim/save';
 import { Sim } from '../src/shared/sim/sim';
@@ -16,6 +17,7 @@ import { depthOf, footprints } from '../src/shared/sim/buildings';
 import { TICKS_PER_DAY } from '../src/shared/sim/time';
 import { randomLook } from '../src/shared/data/people';
 import { hashSeed, Rng } from '../src/shared/rng';
+import { adoptCreature } from '../src/shared/sim/creature';
 const env = process.env;
 const sim = new Sim(newGame(env.SEED ?? 'shot', { origin: (env.ORIGIN ?? 'dwarves') as never, relief: env.RELIEF !== '0', ...(env.BIOME ? { biome: env.BIOME as never } : {}), ...(env.VALLEY ? { valley: env.VALLEY } : {}), ...(env.SCENARIO ? { scenario: env.SCENARIO } : {}) }));
 // (HOME=longhouse: one built at the start, everyone's bed in it, to see them inside it)
@@ -71,6 +73,13 @@ if (env.KIDS) {
     kid.x = a.x + 14 * (i % 2 ? 1 : -1);
     st.people.push(kid);
   }
+}
+if (env.CREATURE) {
+  // (the autopilot off while it comes: no naming question waits on the save's first minute)
+  const on = sim.state.autopilot;
+  sim.state.autopilot = false;
+  adoptCreature(sim.state, env.CREATURE as never);
+  sim.state.autopilot = on;
 }
 // (EXPLORE=24: the land that far round the camp already seen, for previews of the land about the town)
 if (env.EXPLORE && sim.state.explored) {

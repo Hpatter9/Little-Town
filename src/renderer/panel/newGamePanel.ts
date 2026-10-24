@@ -39,10 +39,13 @@ let ironman = false;
 /** The legend the founder descends from (sim/legacy.ts), or null for a new line. */
 let heir: string | null = null;
 /** The step showing (kept while the panel re-renders; back to the first once a town is founded). */
-let step = 0;
+/** The first step shown: with one people to found a town as (data/origins.ts PLAYABLE_ORIGINS), "Who founds the
+ *  town?" is skipped and the settlers are taken. */
+const FIRST = PLAYABLE_ORIGINS.length > 1 ? 0 : 1;
+let step = FIRST;
 /** Back to the first question (the panel opened afresh: panel.ts). */
 export const restartNewGame = (): void => {
-  step = 0;
+  step = FIRST;
 };
 // (the realms page only while the conquest is on: data/conquest.ts)
 const STEPS: readonly string[] = ['Who founds the town?', 'Your founder', 'How does it begin?', 'Where will you found your town?', 'How dangerous is the world?', ...(CONQUEST.on ? ['How many realms share the world?'] : []), 'Ready to found it?'];
@@ -52,9 +55,8 @@ const stepTiles: Tile[][] = [];
 
 let lpcReady: Promise<void> | null = null;
 
-/** The founder as the map draws them (map/mapPeople.ts: a founder wears their hero form always): the idle frame of
- *  the hero sheet their calling's base class gives (`founderSheet`, the same choice), feet at the foot of the picture,
- *  facing right. A founder with no calling, or until the sheet loads, is their LPC figure. */
+/** The founder as the map draws them: their people's isometric look, whole, feet at the foot of the picture. Until it
+ *  loads, the paper doll, then their LPC figure. */
 function drawFounderArt(art: HTMLCanvasElement, id: string, look: (typeof FOUNDERS)[OriginId][number]['look']): void {
   const g = art.getContext('2d')!;
   // as the map will draw them: their isometric look (art/folkPortrait.ts), whole; the paper doll (art/hkFolk.ts) in their
@@ -105,7 +107,7 @@ export function renderNewGame(snap: Snapshot, bridge: Bridge): HTMLElement[] {
   const biomes = el('div', 'nt-group');
   const dangers = el('div', 'nt-group');
   const found = button('', () => {
-    step = 0;
+    step = FIRST;
     bridge.newGame(choices());
   }, { cls: 'place found next' });
 
@@ -263,6 +265,7 @@ export function renderNewGame(snap: Snapshot, bridge: Bridge): HTMLElement[] {
     else page.push(summary(), ...lineage(draw), el('h3', 'newgame-head', 'Rules'), iron, ...warning);
     const dots = el('div', 'wizard-dots');
     STEPS.forEach((_, i) => {
+      if (i < FIRST) return;
       const d = el('button', `wizard-dot${i === step ? ' on' : i < step ? ' done' : ''}`);
       d.title = STEPS[i];
       d.addEventListener('click', () => go(i));
@@ -270,19 +273,19 @@ export function renderNewGame(snap: Snapshot, bridge: Bridge): HTMLElement[] {
     });
     const nav = el('div', 'row wizard-nav');
     nav.append(
-      button('‹ Back', () => go(step - 1), { cls: 'place quiet', disabled: step === 0 }),
+      button('‹ Back', () => go(step - 1), { cls: 'place quiet', disabled: step === FIRST }),
       step < STEPS.length - 1 ? button('Accept', () => go(step + 1), { cls: 'place next accept' }) : found,
     );
     const foot = el('div', 'wizard-foot');
     foot.append(...(step <= 4 ? [details] : []), nav);
     // (the step's body and its footer side by side on a phone held sideways: panel.html .wizard-main)
     const main = el('div', 'wizard-main');
-    main.append(el('div', 'wizard-step', `Step ${step + 1} of ${STEPS.length}`), el('h3', 'newgame-head', STEPS[step]), ...page, dots);
+    main.append(el('div', 'wizard-step', `Step ${step + 1 - FIRST} of ${STEPS.length - FIRST}`), el('h3', 'newgame-head', STEPS[step]), ...page, dots);
     wrap.replaceChildren(main, foot);
     refreshChosen();
   };
   const go = (i: number) => {
-    step = Math.max(0, Math.min(STEPS.length - 1, i));
+    step = Math.max(FIRST, Math.min(STEPS.length - 1, i));
     draw();
     wrap.scrollIntoView({ block: 'start' });
   };
@@ -322,7 +325,7 @@ export function renderNewGame(snap: Snapshot, bridge: Bridge): HTMLElement[] {
     for (const l of lines) box.append(el('div', 'purpose', l));
     return box;
   };
-  step = Math.max(0, Math.min(STEPS.length - 1, step));
+  step = Math.max(FIRST, Math.min(STEPS.length - 1, step));
   draw();
   return [wrap];
 }

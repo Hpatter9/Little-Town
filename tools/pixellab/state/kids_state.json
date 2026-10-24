@@ -1030,5 +1030,91 @@
    ],
    "group": "347a7c27-69bd-4ef6-9422-d2282230ed2f"
   }
+ },
+ "dwarves_boy": {
+  "edited": true,
+  "character_id": "dc8100e2-25be-489c-9a3f-04584df0d33e",
+  "walk": {
+   "done": [
+    "south",
+    "south-east",
+    "east",
+    "north-east",
+    "north",
+    "north-west",
+    "west",
+    "south-west"
+   ],
+   "group": "fc3f20ba-8900-4c83-999a-c6062e4a08e4"
+  },
+  "idle": {
+   "done": [
+    "south",
+    "south-east",
+    "east",
+    "north-east",
+    "north",
+    "north-west",
+    "west",
+    "south-west"
+   ],
+   "group": "7c663315-ec79-4626-ac22-b993468aa3bc"
+  },
+  "death": {
+   "done": [
+    "south",
+    "south-east",
+    "east",
+    "north-east",
+    "north",
+    "north-west",
+    "west",
+    "south-west"
+   ],
+   "group": "a746f814-1ced-4ce2-8330-55c304048343"
+  }
+ },
+ "dwarves_girl": {
+  "edited": true,
+  "character_id": "000043ba-2f76-4581-9eb9-6496a1088e2b",
+  "walk": {
+   "done": [
+    "south",
+    "south-east",
+    "east",
+    "north-east",
+    "north",
+    "north-west",
+    "west",
+    "south-west"
+   ],
+   "group": "28c7f066-5b54-407c-a7d8-4381ccaf74d6"
+  },
+  "idle": {
+   "done": [
+    "south",
+    "south-east",
+    "east",
+    "north-east",
+    "north",
+    "north-west",
+    "west",
+    "south-west"
+   ],
+   "group": "79bbccec-4549-4656-a725-2147f9a8a852"
+  },
+  "death": {
+   "done": [
+    "south",
+    "south-east",
+    "east",
+    "north-east",
+    "north",
+    "north-west",
+    "west",
+    "south-west"
+   ],
+   "group": "310f5682-f8f1-41e7-9196-52f2862f5257"
+  }
  }
 }

@@ -8,16 +8,16 @@ import { Sim } from '../src/shared/sim/sim';
 import { newGame } from '../src/shared/sim/state';
 import { TICKS_PER_HOUR } from '../src/shared/sim/time';
 
-// Five peoples to found a town as (the owner's call: docs/notes/five-origins.md; the orcs in place of the knights,
-// docs/notes/orcs-for-knights.md); the rest stay in the game.
+// The peoples to found a town as (the owner's call: the settlers only, docs/notes/settlers-only.md; before that five,
+// docs/notes/five-origins.md); the rest stay in the game.
 
 const base = { biome: 'forest', difficulty: 'normal' };
 const hidden = ORIGINS.filter((o) => !PLAYABLE_ORIGINS.includes(o));
 
-test('a new town offers exactly the five peoples', () => {
-  assert.deepEqual([...PLAYABLE_ORIGINS].sort(), ['dwarves', 'lich', 'orcs', 'settlers', 'vampire']);
+test('a new town offers only the settlers', () => {
+  assert.deepEqual([...PLAYABLE_ORIGINS], ['settlers']);
   for (const o of PLAYABLE_ORIGINS) assert.equal(cleanNewGameOptions({ ...base, origin: o })?.origin, o, `${o} can be founded`);
-  assert.equal(hidden.length, 8);
+  assert.equal(hidden.length, 12);
   for (const o of hidden) assert.equal(cleanNewGameOptions({ ...base, origin: o }), null, `${o} is not offered`);
   assert.equal(cleanNewGameOptions(base)?.origin, 'settlers', 'left out: the settlers, as ever');
 });

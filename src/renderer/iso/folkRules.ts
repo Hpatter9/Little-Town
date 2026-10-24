@@ -64,8 +64,9 @@ const FALLBACK: Record<FolkAnim, FolkAnim[]> = {
   run: ['walk', 'stand'],
   death: ['hurt', 'stand'],
   hurt: ['idle', 'stand'],
-  cast_1h: ['cast_2h', 'attack_1h', 'idle', 'stand'],
-  cast_2h: ['cast_1h', 'attack_2h', 'idle', 'stand'],
+  // (a spell with no cast drawn is a blow: a look with only a punch still acts, never stands idle at it)
+  cast_1h: ['cast_2h', 'attack_1h', 'attack_2h', 'idle', 'stand'],
+  cast_2h: ['cast_1h', 'attack_2h', 'attack_1h', 'idle', 'stand'],
   // (a look with no tool drawn still works, never stands idle at it: the other tool, else its punch or its thrown
   // spell, which reads as hammering, hewing or a druid's working; the owner's ask)
   chop: ['hammer', 'attack_1h', 'cast_1h', 'idle', 'stand'],
@@ -73,7 +74,8 @@ const FALLBACK: Record<FolkAnim, FolkAnim[]> = {
   // (a casting people's cast fights with its thrown spell)
   attack_1h: ['attack_2h', 'chop', 'hammer', 'cast_1h', 'idle', 'stand'],
   attack_2h: ['attack_1h', 'chop', 'hammer', 'cast_1h', 'idle', 'stand'],
-  attack_bow: ['attack_1h', 'idle', 'stand'],
+  // (a bow where the look has none: its punch, else its thrown spell)
+  attack_bow: ['attack_1h', 'attack_2h', 'cast_1h', 'idle', 'stand'],
 };
 
 /** Weapon families (data/weapons.ts) by the armed look that holds them. */
@@ -102,7 +104,9 @@ export const isFighting = (st: Pick<FolkState, 'activity' | 'sinceBlow' | 'defen
 export function wantedAnim(st: FolkState, speed: number, family: string | undefined): FolkAnim {
   if (st.downed || st.hp <= 0) return 'death';
   if (st.sinceHit < HURT_TICKS) return 'hurt';
-  if (isFighting(st)) {
+  // (in a fight but on the move, between blows: they run or walk to the foe rather than swing as they slide)
+  const closing = speed > 1 && st.sinceBlow >= BLOW_TICKS;
+  if (isFighting(st) && !closing) {
     const k = armedKind(family);
     if (k === 'bow') return 'attack_bow';
     if (k === 'staff') return 'cast_2h';
@@ -134,7 +138,7 @@ export function play(wanted: FolkAnim, has: (a: FolkAnim) => boolean): FolkPlay 
 /** The base looks drawn so far, per people (folder names under art/iso/folk/). Add a look here as its art arrives.
  *  `child_boy` and `child_girl` are the children's own looks (CHILD_LOOKS): never picked for a grown person. */
 export const FOLK_LOOKS: Record<string, readonly string[]> = {
-  settlers: ['woman_base', 'woman_leather', 'woman_plate', 'man_base', 'man_leather', 'man_plate', 'dwarf_base', 'dwarf_apron', 'dwarf_plate', 'child_boy', 'child_girl'],
+  settlers: ['woman_base', 'woman_leather', 'woman_plate', 'man_base', 'man_leather', 'man_plate', 'dwarf_base', 'dwarf_apron', 'dwarf_plate', 'child_boy', 'child_girl', 'child_dwarf_boy', 'child_dwarf_girl'],
   // (the peoples' own casts: walk, idle, death and an attack (a punch, or a thrown spell), no armed looks)
   orcs: ['man_brute', 'woman_orc', 'man_shaman', 'child_boy', 'child_girl'],
   lich: ['man_lord', 'woman_ghoul', 'man_skeleton', 'child_boy', 'child_girl'],
@@ -193,12 +197,15 @@ export interface FolkLookPick {
 }
 
 /** Which look a person wears: their people's folder (settlers where their own isn't drawn yet); a child the boy or girl
- *  look (CHILD_LOOKS; dwarf children the settlers'); a grown person a look of their sex (a look named `man_*` or
+ *  look (CHILD_LOOKS; dwarf children the settlers' dwarf boy and girl); a grown person a look of their sex (a look named `man_*` or
  *  `woman_*`), the one in their outfit's colour first, else a stable pick by id. */
 export function pickLook(st: Pick<FolkState, 'id' | 'origin' | 'look'> & Partial<Pick<FolkState, 'lifeStage' | 'growsUpIn'>>, looks: Record<string, readonly string[]> = FOLK_LOOKS, dress?: 'plate' | 'leather' | 'base'): FolkLookPick {
   const people = st.origin && looks[st.origin]?.length ? st.origin : 'settlers';
   const drawn = looks[people] ?? [];
   if (isFolkChild(st)) {
+    // (dwarf children wear the dwarf boy and girl, where the folder has them: stocky, round-nosed, aproned)
+    const dwarfKid = `child_dwarf_${st.look.gender === 'f' ? 'girl' : 'boy'}`;
+    if (st.origin === 'dwarves' && drawn.includes(dwarfKid)) return { people, look: dwarfKid };
     const kids = CHILD_LOOKS[people]?.[st.look.gender === 'f' ? 'girl' : 'boy'].filter((l) => drawn.includes(l));
     if (kids?.length) return { people, look: kids[idHash(st.id, 1) % kids.length] };
   }

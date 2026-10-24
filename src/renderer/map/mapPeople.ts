@@ -17,8 +17,7 @@ import { EMOTE_SIZE, emoteFrame, levelUpFrame, HOLY_SIZE, holyFrame, REVIVE_SIZE
 import { COUGH_FOR, coughing } from './moodRules';
 import { motionOf } from '../fight/fightMotion';
 import { isMythic } from '../../shared/data/paths';
-import { fightAnim, fightPose, founderSheet, heroFrame, heroScale, heroSheet, roadForm, SHOOT_TICKS, skeletonSheet, WOLF_FORMS, WOLF_SCALE } from '../art/combatPoses';
-import { creatureFlip } from '../art/creatures';
+import { fightAnim, fightPose, SHOOT_TICKS } from '../art/combatPoses';
 import { loadImage } from '../art/loadImage';
 import barrowUrl from '../art/shops/gb_barrow.png';
 import pailUrl from '../art/packs/v_bucket.png';
@@ -52,6 +51,11 @@ import { hooded, sceneMoment } from './sceneMoments';
 import luteUrl from '../art/life/lute.png';
 import fluteUrl from '../art/life/flute.png';
 import { markWalker } from '../iso/seeThrough';
+import { boardFacing, boardFolkAnim, type BoardMoment } from '../iso/boardRules';
+import { ITEM_BY_ID } from '../../shared/data/items';
+import { CROWN_SCALE, RING_W, markAt, wearsMark } from '../iso/founderMark';
+import { iconSheet } from '../art/icons';
+import { CROWN } from '../../shared/data/emblems';
 
 /** Standing still, a person breathes (a pixel's rise every couple of seconds) and shifts their weight now and then
  *  (a step frame for a moment every few seconds), each on their own clock, so nobody looks frozen. */
@@ -77,6 +81,8 @@ const HORSE_LEG_CUT = 0.5;
 const BLEED_MINUTES = 120;
 /** A PixelLab look's 160px frame to the map's people (the figure fills about two thirds of the frame). */
 const FOLK_SCALE = 0.55;
+/** A grown look's feet stand this far up from the foot of its 156px frame (measured: 126 of 156). */
+const BOARD_FEET = 30;
 const CHILD_SCALE = 0.7;
 /** A Himeko figure drawn as tall as the side-on townsfolk were (about 48px). */
 const HK_K = 48 / HK_FIGURE;
@@ -85,7 +91,7 @@ const HK_WAIST = 0.67;
 const PX_PER_WALK_FRAME = 4;
 const HIT_HALF_W = 11;
 const HIT_H = 50;
-/** At these a founder's hero swings their blow over and over (their work, in the only pose the sheets have for it). */
+/** At these the Himeko look swings its tool over and over. */
 const WORK_SWING = new Set(['chop', 'mine', 'build', 'reap', 'forage', 'spar']);
 /** Builders cheer a building finished this long (ms: map/mapGains.ts), hopping with an arm raised. */
 const CHEER_MS = 2400;
@@ -93,7 +99,7 @@ const CHEER_MS = 2400;
 const FOUNDER_SCALE = 1.14;
 const AURA: Record<string, number> = { town: 0xffd860, lich: 0x9a6aff, druid: 0x7ae070, vampire: 0xff3048, werewolf: 0xc8d8ff, robot: 0x60e0ff, dwarves: 0xffa040, merfolk: 0x40e0e0, nomads: 0xffc060, fae: 0xff90e0, knights: 0xf0f0ff, alchemists: 0x80ff80, settlers: 0xffd860 };
 
-/** How long after their last blow or wound a fighting calling keeps its combat form (ticks). */
+/** How long after their last blow or wound someone counts as in the fight (ticks): armed, with a health bar. */
 const HERO_LINGER = 50;
 
 /** Each class's Pixel Champions hero: its sheet and block (a mage is the sage sheet's blue-robed wizard). */
@@ -121,6 +127,18 @@ const CRY_FOR = 6500;
 const BARROW_SCALE = 0.62;
 const BARROW_AHEAD = 13;
 let barrowTex: Texture | null = null;
+/** The founder's crown: DawnLike's crown (the Hat sheet's, as the class emblems' crown: art/emblems.ts). */
+let crownTex: Texture | null = null;
+{
+  const sheet = iconSheet(CROWN[0]);
+  loadImage(sheet.url)
+    .then((im) => {
+      const src = Texture.from(im).source;
+      src.scaleMode = 'nearest';
+      crownTex = new Texture({ source: src, frame: new Rectangle((CROWN[1] % sheet.cols) * sheet.cell, Math.floor(CROWN[1] / sheet.cols) * sheet.cell, sheet.cell, sheet.cell) });
+    })
+    .catch(() => undefined);
+}
 let pailTex: Texture | null = null;
 loadImage(pailUrl)
   .then((im) => {
@@ -193,6 +211,9 @@ interface Drawn {
   levelAt?: number;
   levelUp?: Sprite;
   aura?: Sprite;
+  /** The founder's marker: a gold crown over their head and a soft gold ring at their feet (iso/founderMark.ts). */
+  crown?: Sprite;
+  crownRing?: Graphics;
   /** Their harm as it shows (map/bodyMarks.ts): a patch, a peg, a hook, a crutch, a bandage; and what's drawn. */
   marks?: Graphics;
   marksKey?: string;
@@ -297,6 +318,9 @@ export class MapPeople {
   /** On the raid board (tactics/tacticsView.ts): the positions are the board's own iso screen spots, not the map's, so
    *  the iso looks' facing is worked out from them turned back onto the board's grid. */
   board = false;
+  /** On the raid board: each townsperson's turn as the board has it (their grid facing, walking, casting), set by
+   *  tactics/tacticsView.ts before `update`; their look plays the board's animation for it (iso/boardRules.ts). */
+  boardPose = new Map<number, BoardMoment & { facing: number }>();
   /** The latest news (main.ts, per snapshot): the town crier, the best talker about, calls it out now and then. */
   news: { id: number; text: string } | null = null;
   /** The town's talk (main.ts, per snapshot: sim/gossip.ts): what those standing together talk over. */
@@ -390,7 +414,7 @@ export class MapPeople {
     }
     for (const [id, d] of this.drawn)
       if (!seen.has(id)) {
-        for (const o of [d.cough, d.sprite, d.shadow, d.ring.g, d.horse, d.horseFront, d.load, d.bubble, d.spray, d.barrow, d.pail, d.reflect, d.kite, d.props, d.blood, d.emote, d.levelUp, d.aura, d.lamp, d.tail, d.folk, d.speech, d.marks, d.work, d.hpBar]) o?.destroy();
+        for (const o of [d.cough, d.sprite, d.shadow, d.ring.g, d.horse, d.horseFront, d.load, d.bubble, d.spray, d.barrow, d.pail, d.reflect, d.kite, d.props, d.blood, d.emote, d.levelUp, d.aura, d.crown, d.crownRing, d.lamp, d.tail, d.folk, d.speech, d.marks, d.work, d.hpBar]) o?.destroy();
         this.drawn.delete(id);
       }
   }
@@ -752,34 +776,11 @@ export class MapPeople {
       // at a gathering: dancing to the beat (a feast) or still with grief (a funeral): map/dance.ts
       const step = hidden || mounted ? null : v.activity === 'dance' ? danceStep(v.id, now, moving) : v.activity === 'mourn' ? mournStep(v.id) : v.activity === 'pray' ? prayStep(v.id) : (moment?.step ?? null);
       const facing = step?.facing === 'left' || step?.facing === 'right' ? step.facing : d.view.dir < 0 ? 'left' : 'right';
-      // (the side-on townsperson's sprite, which their harm is drawn over; a hero, wolf or class form isn't)
+      // (the side-on townsperson's sprite, which their harm is drawn over; a class form isn't)
       let plain = true;
-      // a fighting calling takes its combat form (a Craftpix hero) while it fights, and a little after
-      // (the raised dead fight as the pack's skeletons, whatever their calling)
-      // (an orc keeps the pack's Orc body in its own gear: no pack hero is green)
-      const orc = v.look.body === 'orc';
-      const hero = v.monster === 'undead' ? skeletonSheet(v.battle.ranged, v.id) : orc ? undefined : heroSheet(v.cls, v.id);
-      // (a defender keeps the form the whole raid: switching only while striking made it flicker between turns)
+      // (no combat form in a fight: the owner's call, "no switching sprites, they need to be consistent". A defender
+      // fights in their own look, armed the whole raid: switching only while striking made it flicker between turns)
       const inCombat = v.defending || v.activity === 'fight' || v.sinceBlow < HERO_LINGER || v.sinceHit < HERO_LINGER;
-      if (hero && inCombat && !hidden && !founder && !(v.cls && CLASS_LOOK[v.cls])) {
-        plain = false;
-        s.texture = heroFrame(hero, { facing, moving: riderMoving, walked: d.walked, sinceBlow: v.sinceBlow, sinceHit: v.sinceHit, sinceBlock: v.sinceBlock, down: v.downed !== null, now, ref: v.id });
-        const hk = heroScale(hero) * k;
-        s.anchor.set(0.5, 1);
-        s.scale.set(hk * creatureFlip(hero, facing), hk);
-      }
-      // a founder wears their combat form always (the owner's ask): walking, standing, fighting, and at work the
-      // hero's blow swung over and over (chopping, digging, building, reaping)
-      if (founder && !hidden && v.monster !== 'undead' && !orc) {
-        const sheet = founderSheet(v.cls, v.id, v.battle.ranged, (v.battle.attrs?.int ?? 0) > (v.battle.attrs?.str ?? 0));
-        const working = WORK_SWING.has(v.activity);
-        const swing = working ? Math.floor((now / 100) % 14) : 999;
-        plain = false;
-        s.texture = heroFrame(sheet, { facing, moving: riderMoving, walked: d.walked, sinceBlow: inCombat ? v.sinceBlow : swing, sinceHit: v.sinceHit, sinceBlock: v.sinceBlock, down: v.downed !== null, now, ref: v.id });
-        const hk = heroScale(sheet) * k;
-        s.anchor.set(0.5, 1);
-        s.scale.set(hk * creatureFlip(sheet, facing), hk);
-      }
       // someone who's taken up a special class looks the part (a Pixel Champions hero, at twice size)
       if (d.view.cls && CLASS_LOOK[d.view.cls] && !hidden && !founder) {
         const [sheet, block] = CLASS_LOOK[d.view.cls]!;
@@ -804,36 +805,6 @@ export class MapPeople {
         s.anchor.set(0.5, HK_FEET / HK_CELL);
         const hk = k * HK_K;
         s.scale.set(hk, hk);
-      }
-      // on a full-moon night, and whenever they fight, werewolves show what they are
-      if (d.view.monster === 'werewolf' && (this.moon || inCombat) && !hidden) {
-        // (the Craftpix werewolves: black, red or white by who they are)
-        const wolf = WOLF_FORMS[v.id % WOLF_FORMS.length];
-        plain = false;
-        s.texture = heroFrame(wolf, { facing, moving: riderMoving, walked: d.walked, sinceBlow: v.sinceBlow, sinceHit: v.sinceHit, sinceBlock: v.sinceBlock, down: v.downed !== null, now, ref: v.id });
-        const wk = heroScale(wolf) * k * WOLF_SCALE;
-        s.anchor.set(0.5, 1);
-        s.scale.set(wk * creatureFlip(wolf, facing), wk);
-      }
-      // a people's own calling fights in its form from the packs (data/originCallings.ts: a Bonewright's skeleton, a
-      // Gearwright's robot), over the Himeko look and the wolf, as the werewolves do
-      const form = inCombat && !hidden && !founder ? roadForm(d.view.roadId) : null;
-      if (form) {
-        plain = false;
-        s.texture = heroFrame(form, { facing, moving: riderMoving, walked: d.walked, sinceBlow: v.sinceBlow, sinceHit: v.sinceHit, sinceBlock: v.sinceBlock, down: v.downed !== null, now, ref: v.id });
-        const fk = heroScale(form) * k;
-        s.anchor.set(0.5, 1);
-        s.scale.set(fk * creatureFlip(form, facing), fk);
-      }
-      // a shapeshifter fights in their beast's shape (data/levels.ts `beastForm`: wolf, lion, bear, drake, wyvern by
-      // stage; a druid's bear)
-      if (v.beast && inCombat && !hidden && v.downed === null) {
-        const b = v.beast;
-        const sheet = b.sheet as CreatureSheet;
-        plain = false;
-        s.texture = creatureFrame(sheet, b.block, facing, riderMoving ? Math.floor(d.walked / 5) : Math.floor(now / 220 + v.id) % 3);
-        s.anchor.set(0.5, 1);
-        s.scale.set(b.scale * k * creatureFlip(sheet, facing), b.scale * k);
       }
       // in the sea a merrow shows to the waist, their tail curling below (art/merTail.ts)
       const swimming = v.swimming && !hidden && v.downed === null;
@@ -890,9 +861,9 @@ export class MapPeople {
         s.y -= SADDLE_LIFT + (stride === 1 ? 1 : 0);
       }
       // the isometric view draws them as the PixelLab looks (iso/folkSprite.ts): the figure stands where the top-down
-      // sprite would, and the view's `placeLoose` carries it onto the diamonds. Their special forms keep the old sprite.
+      // sprite would, and the view's `placeLoose` carries it onto the diamonds. A merrow swimming keeps the old sprite.
       const wolfNow = v.monster === 'werewolf' && (this.moon || inCombat);
-      const folkOn = this.isoFolk && !hidden && !swimming && !form && !(v.beast && inCombat && v.downed === null);
+      const folkOn = this.isoFolk && !hidden && !swimming;
       if (this.isoFolk) {
         if (folkOn) {
           if (!d.folk) markWalker((d.folk = this.layer.addChild(new FolkSprite()))); // (iso/seeThrough.ts)
@@ -900,14 +871,40 @@ export class MapPeople {
           f.visible = true;
           // (not the side-on sprite's child shrink: a child's iso look is drawn child-sized, scaled by folkRules' own)
           f.scale.set(FOLK_SCALE * grown);
-          f.position.set(s.x, s.y);
+          // (on the board their feet go on the tile's middle, as the raiders' and the God creature's do: a look's feet
+          // stand `BOARD_FEET` px up from its frame's foot)
+          f.position.set(s.x, s.y + (this.board ? BOARD_FEET * FOLK_SCALE * grown : 0));
           f.zIndex = z;
           // (the board's spots are already iso: turned back to grid steps, a diamond's half-width being twice its height)
           const [fx, fy] = this.board ? [d.x / 2 + d.y, d.y - d.x / 2] : [d.x, d.y];
-          f.update(v, fx, fy, now / 1000, Math.max(0.001, (now - (d.folkAt ?? now - 16)) / 1000), undefined, wolfNow);
+          const bp = this.board ? this.boardPose.get(v.id) : undefined;
+          const family = v.gear.weapon ? ITEM_BY_ID[v.gear.weapon]?.family : undefined;
+          const onBoard = bp ? { anim: boardFolkAnim(v, bp, family), dir: boardFacing(bp.facing) } : undefined;
+          f.update(v, fx, fy, now / 1000, Math.max(0.001, (now - (d.folkAt ?? now - 16)) / 1000), undefined, wolfNow, onBoard);
           d.folkAt = now;
           s.visible = false;
         } else if (d.folk) d.folk.visible = false;
+      }
+      // the founder's marker: a crown over their head and a gold ring at their feet, always, so the player's character
+      // stands out (marked as a walker, so a roof in front of it fades as one in front of them does: iso/seeThrough.ts)
+      const crowned = this.isoFolk && folkOn && !!crownTex && wearsMark(v, this.founderId);
+      if (crowned && !d.crown) {
+        markWalker((d.crown = this.layer.addChild(new Sprite(crownTex!))));
+        d.crown.anchor.set(0.5, 1);
+        d.crownRing = this.layer.addChild(new Graphics());
+        d.crownRing.ellipse(0, 0, RING_W / 2, RING_W / 5).fill({ color: 0xffd860, alpha: 0.22 }).stroke({ color: 0xffe9a0, width: 1.2, alpha: 0.75 });
+      }
+      if (d.crown && d.crownRing) {
+        d.crown.visible = d.crownRing.visible = crowned;
+        if (crowned && d.folk) {
+          const at = markAt(d.folk.y, FOLK_SCALE * grown, now / 1000 + v.id);
+          d.crown.scale.set(CROWN_SCALE);
+          d.crown.position.set(Math.round(d.folk.x), Math.round(at.crownY));
+          d.crown.zIndex = z + 0.6;
+          d.crownRing.position.set(Math.round(d.folk.x), Math.round(at.ringY));
+          d.crownRing.alpha = 0.8 + 0.2 * Math.sin(now / 600);
+          d.crownRing.zIndex = z - 0.35;
+        }
       }
       // their harm, over the sprite (bodyMarks.ts)
       const marks = v.body.marks;
@@ -1066,6 +1063,8 @@ export class MapPeople {
           const above = (d.work?.visible ? WORK_ABOVE + 6 : WORK_ABOVE) + (plain ? 0 : 8);
           d.hpBar.position.set(Math.round(x) - HP_W / 2, Math.round(y) - above);
           d.hpBar.zIndex = z + 0.16;
+          // (the founder's crown floats over the bar, not on it)
+          if (d.crown?.visible) d.crown.y = Math.min(d.crown.y, d.hpBar.y - 2);
         }
       }
       d.bubble.visible = d.visitor;

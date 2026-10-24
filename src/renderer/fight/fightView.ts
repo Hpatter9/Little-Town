@@ -40,7 +40,7 @@ import { lookFor, type SceneLook } from '../../shared/data/scenes';
 import type { BackdropId } from '../../shared/data/backdrops';
 import type { Biome } from '../../shared/data/biomes';
 import { attackAnim, enemyLook } from '../art/rivals';
-import { fightAnim, heroFrame, heroScale, heroSheet, roadForm, skeletonSheet, WOLF_FORMS } from '../art/combatPoses';
+import { fightAnim } from '../art/combatPoses';
 import { stillTexture } from '../art/stills';
 import { HK_FIGURE, hkLayers, hkPose, hkWhoById } from '../art/hkFolk';
 import { TAIL_W, tailTexture, WAIST } from '../art/merTail';
@@ -902,8 +902,9 @@ export class FightScene {
       s.position.set(Math.round(x - (size / 2) * sc * flip), Math.round(y - size * sc));
       return false;
     }
-    // a shapeshifter fights in their beast's shape (wolf to wyvern by stage)
-    if (f.beast && !f.down) {
+    // a shapeshifter of the foes' side fights in their beast's shape (wolf to wyvern by stage); a townsperson keeps
+    // their own look (the owner's call: no switching sprites)
+    if (f.beast && !f.down && !f.look) {
       const facing = faceLeft ? 'left' : 'right';
       const sheet = f.beast.sheet as CreatureSheet;
       s.texture = creatureFrame(sheet, f.beast.block, facing, Math.floor(now / 160 + f.ref), acting, acting ? undefined : 'idle');
@@ -921,17 +922,16 @@ export class FightScene {
     const look = f.look ?? enemy?.look;
     if (!look) return false;
     const wear = enemy ? enemy.wear : wornLayers(f.gear);
-    // a townsperson in the Himeko look, as the map draws them (art/hkFolk.ts; the founders too): all but a werewolf,
-    // who fights in wolf form, and one of a people's own callings with a form from the packs (data/originCallings.ts)
-    const form = !hs ? roadForm(f.road) : null;
-    if (!hs && !f.wolf && !form && f.look) {
+    // a townsperson in their own look, as the map draws them, whatever their calling (no combat form from the packs:
+    // the owner's call); a werewolf in their wolf form wears the Moon Pack's wolf-headed look, as on the map
+    if (!hs && f.look) {
       const keys = hkLayers(hkWhoById(f.ref, f.look, f.gear), { fighting: true, activity: 'fight' });
       // (on a tail they fall standing: the motion topples them, as there's no lying frame to cut at the waist)
       const finned = this.wet && this.mers.has(f.ref);
       const [col, row] = hkPose({ facing: faceLeft ? 'left' : 'right', moving: false, walked: 0, working: false, sinceBlow: acting ? f.sinceAction : 999, sinceHit: f.sinceHit, down: f.down && !finned, ranged: f.ranged, now });
       // (their isometric look side-on, as the map draws them: art/folkSide.ts; a merfolk on their tail keeps the paper
       // doll, whose waist the tail is cut to)
-      if (!finned && folkSideById(s, f.ref, f.look, f.gear, { faceLeft, sinceBlow: acting ? f.sinceAction : 999, sinceHit: f.sinceHit, down: f.down, ranged: f.ranged, now: now + f.ref * 97 }, x, y, HK_HEIGHT)) {
+      if (!finned && folkSideById(s, f.ref, f.look, f.gear, { faceLeft, sinceBlow: acting ? f.sinceAction : 999, sinceHit: f.sinceHit, down: f.down, ranged: f.ranged, wolf: f.wolf, now: now + f.ref * 97 }, x, y, HK_HEIGHT)) {
         this.finTail(s, false, true, f.ref, faceLeft, now);
         return f.down; // (the look's own fall, held lying)
       }
@@ -945,19 +945,6 @@ export class FightScene {
         this.finTail(s, finned, true, f.ref, faceLeft, now);
         return false;
       }
-    }
-    // a party member of a fighting calling in their combat form (a Craftpix hero: art/combatPoses.ts)
-    // (a werewolf fights in wolf form: the Craftpix werewolves, by who they are)
-    const hero = !hs ? (form ?? (f.wolf ? WOLF_FORMS[f.ref % WOLF_FORMS.length] : f.undead ? skeletonSheet(f.ranged, f.ref) : heroSheet(f.cls, f.ref))) : null;
-    if (hero) {
-      const facing = faceLeft ? 'left' : 'right';
-      s.texture = heroFrame(hero, { facing, moving: false, walked: 0, sinceBlow: acting ? f.sinceAction : 999, sinceHit: f.sinceHit, sinceBlock: 999, down: f.down, now, ref: f.ref, sinceDown: Math.max(0, f.sinceHit - 2) });
-      const sc = heroScale(hero) * k; // (a wolf form at a hero's height: the rows are close on the fight screen)
-      const flip = creatureFlip(hero, facing);
-      s.anchor.set(0.5, 1);
-      s.scale.set(sc * flip, sc);
-      s.position.set(Math.round(x), Math.round(y));
-      return f.down && creaturePoseFrames(hero, 'dead') > 0;
     }
     const weapon = hs ? hs.weapon : heldWeapon(f.gear, 'fight');
     let anim: LpcAnim = 'walk';

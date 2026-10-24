@@ -259,7 +259,7 @@ test('a child wears a child look, and whatever they do they never show a grown l
     for (const dress of [undefined, 'plate', 'leather'] as const) {
       const p = pickLook(st({ id, origin: origin as never, look: { gender, outfit: 'base' } as never, lifeStage: 'child' }), FOLK_LOOKS, dress);
       assert.equal(p.people, people, `a ${origin} child wears ${people}' children`);
-      assert.equal(p.look, gender === 'f' ? 'child_girl' : 'child_boy');
+      assert.equal(p.look, `child_${origin === 'dwarves' ? 'dwarf_' : ''}${gender === 'f' ? 'girl' : 'boy'}`);
     }
   }
   // (only walk, idle and death drawn: every move a child is asked for falls back to one of those, never 'stand' alone

@@ -20,12 +20,12 @@ import { markWalker } from '../iso/seeThrough';
 const EASE = 6;
 /** The sheet's figure is a person's height in its 156px frame, like the folk's: drawn at the folk's scale
  *  (map/mapPeople.ts `FOLK_SCALE`), times its growth. */
-const SHEET_SCALE = 0.55;
+export const SHEET_SCALE = 0.55;
 const SHEET_FRAME = 156;
 /** How much of the frame's height the figure stands (for the "?" over its head). */
 const SHEET_FIGURE = 0.66;
 /** Where its feet are in the frame (a share of its height). */
-const SHEET_FEET = 0.82;
+export const SHEET_FEET = 0.82;
 /** A death seen on the map lies there this long, then fades over `FADE_S` (seconds). */
 const DEAD_SHOW = 8;
 const FADE_S = 2;
