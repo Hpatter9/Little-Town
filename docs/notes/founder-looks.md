@@ -36,3 +36,11 @@ in their cast outright. The New town screen's founder tiles and their little sce
 
 Tests: `test/founderLooks.test.ts` (the look by sex and nobody else's, the child and the dwarf, a stub `looks` with a
 look missing, the armed paths, untinted, `mainId` and an heir, and the art's moves once it's in).
+
+**Seen in the game** (`docs/notes/founder-looks/`, at 393x852 upright and 852x393 sideways, a man and a woman: the map,
+the founder tab, the People list, a raid board, and a party's fight at the Bear Cave; sideways, the party's walk home
+from it). The art (frames 156 and 148, as the everyday looks) stands at the settlers' height with its feet on the same
+spot; drawn as made, the same on every founder. The People list leaves the founder out as before (`listedFolk`): the
+founder's row there is the link to their tab. Seen meanwhile, and not this change's (the same with the founder's art
+taken out): on the map the gold ring stands a little below and right of the founder's feet, and the crown over their
+head didn't show.
