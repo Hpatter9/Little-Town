@@ -1,5 +1,5 @@
-// Seeing people behind things (the owner's ask: a tree, a building, a wall or a big prop fades when someone stands
-// behind it, so they show). The pure rules, no Pixi and no page, so the tests can check them: which pictures count as
+// Seeing people behind things (the owner's ask: a tree or a rock fades when someone stands behind it, so they show;
+// buildings, walls and props no longer do: "Only trees and rocks"). The pure rules, no Pixi and no page, so the tests can check them: which pictures count as
 // people (`markWalker`: townsfolk, the founder, the great creature, raiders, wildlife, pets and herds mark their own
 // body sprites), when a person is behind a picture (drawn before it and overlapping it), how fast a picture fades and
 // how far, and a grid of the pictures' boxes so each frame looks only at the pictures near someone.
