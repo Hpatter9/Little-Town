@@ -189,7 +189,7 @@ export class IsoView {
   private lampKind = 'torch';
   /** The pictures that can hide someone behind them (buildings, props, the land's trees and rocks, the castle's
    *  pieces), their cover boxes and draw order, by grid square: worked out again when any of them changes. */
-  private covers: { s: Sprite; box: Box; z: number }[] = [];
+  private covers: { s: Sprite; box: Box; z: number; fades: boolean }[] = [];
   private readonly coverGrid = new BoxGrid();
   private coversDirty = true;
   /** The pictures fading or faded now, and how far (iso/seeThrough.ts), and each one's own alpha unfaded. */
@@ -975,17 +975,19 @@ export class IsoView {
    *  building or a tree drawn in front of it doesn't shine through it). */
   private rebuildCovers(): void {
     this.coversDirty = false;
-    const list: { s: Sprite; box: Box; z: number }[] = [];
-    const add = (s: Sprite) => {
+    const list: { s: Sprite; box: Box; z: number; fades: boolean }[] = [];
+    const add = (s: Sprite, fades: boolean) => {
       if (!s.visible || s.destroyed || s.texture.width <= 1) return;
-      list.push({ s, box: coverBox(boxOf(s)), z: s.zIndex });
+      list.push({ s, box: coverBox(boxOf(s)), z: s.zIndex, fades });
     };
+    // (only the trees and rocks fade for someone behind them, the owner's ask; buildings, their props and the castle
+    // stay solid, and still hide the lights behind them)
     for (const d of this.buildings.values()) {
-      add(d.sprite);
-      for (const p of d.props) add(p);
+      add(d.sprite, false);
+      for (const p of d.props) add(p, false);
     }
-    for (const t of this.scenery) add(t);
-    for (const c of this.castle.pieces()) add(c);
+    for (const t of this.scenery) add(t, true);
+    for (const c of this.castle.pieces()) add(c, false);
     this.covers = list;
     const grid = this.coverGrid;
     grid.clear();
@@ -1008,7 +1010,7 @@ export class IsoView {
     }
   }
 
-  /** Each frame, after `placeLoose`: a picture with someone behind it (a townsperson, the founder, the creature, a
+  /** Each frame, after `placeLoose`: a tree or a rock with someone behind it (a townsperson, the founder, the creature, a
    *  raider, a beast: iso/seeThrough.ts `markWalker`) fades to see them, and comes back once they've gone. Only the
    *  pictures near someone are looked at (`BoxGrid`). */
   seeThrough(dt: number): void {
@@ -1022,7 +1024,7 @@ export class IsoView {
         const box = boxOf(c);
         for (const i of this.coverGrid.near(box, this.nearNow)) {
           const cv = this.covers[i];
-          if (!hit.has(cv.s) && behind(box, c.zIndex, cv.box, cv.z)) hit.add(cv.s);
+          if (cv.fades && !hit.has(cv.s) && behind(box, c.zIndex, cv.box, cv.z)) hit.add(cv.s);
         }
       }
     for (const s of hit) if (!this.fades.has(s)) this.fades.set(s, 0);

@@ -1,7 +1,7 @@
 // Building rules shared by the sim and the renderer. Every building stands on a footprint of the land's cells
 // (sim/land.ts): `tile` by `row` is its top-left cell, its def's `width` by `depthOf(def)` cells. Its door is the
-// middle of its front (bottom) edge: that's where workers stand. The town lays no road to it: the founder draws the
-// paths (sim/pathPlans.ts), and a building's spot is picked beside one where it can be.
+// middle of its front (bottom) edge: that's where workers stand. A side street is planned from it to the town's streets
+// when it is ordered (sim/townRoads.ts), and the player may draw paths of their own (sim/pathPlans.ts).
 
 import { VILLAGE_KEEP } from '../data/villages';
 import { isGate, isRingPiece, wallOnly } from './ringWall';
@@ -9,6 +9,7 @@ import { cutInto, QUARRY_ROCK, RAMP, rockBeside } from './relief';
 import { isSeat } from '../data/seats';
 import { hallCells, HALLWAY, castleCells, castleGate, castleOn, holdOf, joinsCastle, nearCastle, roomKind, solidCells } from './castle';
 import { seaBuild } from './sea';
+import { streetForNew } from './townRoads';
 import { BUILD_QUEUE_SLOTS, BUILDING_BY_ID, DEMOLISH_REFUND, UPGRADES, type BuildingDef } from '../data/buildings';
 import { ERA_NAMES, eraReached, type Era } from '../data/eras';
 import type { OriginId } from '../data/origins';
@@ -348,7 +349,7 @@ export function placeBlueprint(s: GameState, defId: string, x: number, y: number
     // cut out of the rock as it is built, from its doorway inward: `digRoom`)
     const f = footprint(b);
     for (let cy = f.y; cy < f.y + f.h; cy++) for (let cx = f.x; cx < f.x + f.w; cx++) unsetRoad(s.land, cx, cy);
-  }
+  } else streetForNew(s, b); // (its side street planned with it, the builders lay it as they build: sim/townRoads.ts)
   if (!planned) clearRuinsUnder(s, footprint(b)); // (built over a ruin: it's cleared away, sim/ruins.ts)
   return { ok: true };
 }
@@ -375,8 +376,8 @@ export function cellCleared(s: Pick<GameState, 'land' | 'buildings'>, x: number,
 export const NO_ROAD = (def: BuildingDef) => !!CROPS[def.id] || !!HERDS[def.id] || (!!def.hp && !def.housing) || !!def.defense || def.id === 'campfire';
 
 /** Whether a building's door has a path to it: its door cell, or a cell beside it, a street or a planned one. Kinds
- *  that need no road (`NO_ROAD`) always have. The town lays no path of its own (the owner's ask: the founder draws
- *  every path), so a building without one is shown as such on its tap card. */
+ *  that need no road (`NO_ROAD`) always have. The town plans a side street to each door (sim/townRoads.ts); one it
+ *  found no way for yet is shown as such on its tap card, and the player may draw one. */
 export function hasPath(s: Pick<GameState, 'land'>, b: Building): boolean {
   if (NO_ROAD(defOf(b)) || b.room) return true;
   return onPath(s.land, doorCell(b));
@@ -434,8 +435,11 @@ export function canUpgrade(s: GameState, id: number, absorb?: number): PlaceChec
     if (inWay.length > CLEAR_MOST || !inWay.every((q) => mayClear(q) && q.def !== b.def)) continue;
     if (inWay.reduce((t, q) => t + worthOf(defOf(q)), 0) > worthOf(def) * CLEAR_WORTH) continue;
     if (!roomForSleepers(s, inWay, b, def)) continue;
+    // (never over the ground before another building's door, its street lifted: the door would open onto a wall)
+    if (others.buildings.some((q) => q.id !== b.id && !q.room && !inWay.includes(q) && inRect(r, doorCell(q).x, doorCell(q).y))) continue;
     const m = s.land;
     let roads = m.roads;
+    // (a street cut is joined up again round it: sim/townRoads.ts)
     for (let y = r.y; y < r.y + r.h; y++) for (let x = r.x; x < r.x + r.w; x++) if (isRoad(m, x, y)) roads = roads.slice(0, idx(m, x, y)) + '.' + roads.slice(idx(m, x, y) + 1);
     const cleared = { ...others, land: { ...m, roads }, buildings: others.buildings.filter((q) => !inWay.includes(q)) };
     if (canPlace(cleared, def, p.x, p.y).ok) return { ok: true, to, tile: p.x, row: p.y, clear: inWay.map((q) => q.id) };
@@ -509,9 +513,10 @@ export function upgrade(s: GameState, id: number, absorb?: number): PlaceCheck {
   b.store = {};
   delete b.hp;
   delete b.readyTick;
-  // (a road over the new footprint is lifted)
+  // (a road over the new footprint is lifted; its door gets a street again)
   const f = footprint(b);
   if (!isGate(b.def)) for (let y = f.y; y < f.y + f.h; y++) for (let x = f.x; x < f.x + f.w; x++) if (isRoad(s.land, x, y)) setRoad(s.land, x, y, false); // (the road runs on under a gate)
+  if (!b.room) streetForNew(s, b);
   clearRuinsUnder(s, footprint(b));
   depositNear(s, at, salvage);
   notify(s, `Upgrading to a ${next.name}.`);

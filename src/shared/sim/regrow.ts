@@ -12,7 +12,7 @@ import { RICH_POOL } from '../data/wild';
 import { TERRAIN } from '../data/terrain';
 import type { Material } from '../data/materials';
 import { builtOn, footprint } from './buildings';
-import { cellAt, groundAt, idx, inMap, isMarked, isRoad, setGround, wearAt, WEAR_SHOW, type Ground } from './land';
+import { cellAt, groundAt, idx, inMap, isMarked, isPlannedRoad, isRoad, setGround, wearAt, WEAR_SHOW, type Ground } from './land';
 import { TICKS_PER_DAY, TICKS_PER_HOUR } from './time';
 import type { GameState } from './state';
 
@@ -62,7 +62,7 @@ export function regrowHourly(s: GameState): void {
       }
     }
     // (nothing grows back in the blight round a nest or the Calamity's heart: sim/nests.ts)
-    if (builtOn(s, x, y) || isRoad(m, x, y) || yards.has(i) || isMarked(m, i) || wearAt(m, i) >= WEAR_SHOW || blighted(s, x, y)) {
+    if (builtOn(s, x, y) || isRoad(m, x, y) || isPlannedRoad(m, x, y) || yards.has(i) || isMarked(m, i) || wearAt(m, i) >= WEAR_SHOW || blighted(s, x, y)) {
       m.regrow![i] = [was, s.tick + TICKS_PER_DAY]; // (kept clear: it tries again tomorrow)
       continue;
     }
