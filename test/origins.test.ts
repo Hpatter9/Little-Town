@@ -28,7 +28,8 @@ test('every origin founds a town: its look, its powers (all real), its start', (
     assert.ok(s.people.length >= 1 + (ORIGIN_DEFS[id].start.companions?.length ?? 0), id);
   }
   // (and the New town screen's choice is checked: only the playable peoples, test/playableOrigins.test.ts)
-  assert.equal(cleanNewGameOptions({ biome: 'forest', difficulty: 'normal', origin: 'lich' })?.origin, 'lich');
+  assert.equal(cleanNewGameOptions({ biome: 'forest', difficulty: 'normal', origin: 'settlers' })?.origin, 'settlers');
+  assert.equal(cleanNewGameOptions({ biome: 'forest', difficulty: 'normal', origin: 'lich' }), null, 'hidden while only the settlers are offered');
   assert.equal(cleanNewGameOptions({ biome: 'forest', difficulty: 'normal', origin: 'druid' }), null, 'a hidden people');
   assert.equal(cleanNewGameOptions({ biome: 'forest', difficulty: 'normal', origin: 'dragon' }), null);
   assert.equal(cleanNewGameOptions({ biome: 'forest', difficulty: 'normal' })?.origin, 'settlers');

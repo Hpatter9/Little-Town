@@ -15,5 +15,9 @@
   "west",
   "south-west"
  ],
- "animations": {}
+ "animations": {
+  "attack_1h": {
+   "frames": 9
+  }
+ }
 }
