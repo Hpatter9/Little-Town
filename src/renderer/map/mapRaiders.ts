@@ -19,6 +19,13 @@ import { SideRing } from '../art/sideRing';
 import { glowTexture } from '../town/layer';
 import { corpseAlpha, FALL_TICKS, motionOf, moveSprite, TickClock } from '../fight/fightMotion';
 import { markWalker } from '../iso/seeThrough';
+import { unitKind, type CreatureKind } from '../../shared/data/creature';
+import type { CreatureView } from '../../shared/sim/creature';
+import { loadCreatureSet, type SheetSet } from '../iso/folkLoader';
+import { creaturePlay, gentleTint, turnFrame, type CreatureAnim } from '../iso/creatureRules';
+import { boardCreatureMoves, boardFacing, type BoardMoment } from '../iso/boardRules';
+import { facingFromVector, type FolkDir } from '../iso/folkRules';
+import { SHEET_FEET, SHEET_SCALE } from './mapCreature';
 
 /** How much of the fight screen's motion a raider on the map gets (a smaller picture, a smaller step). */
 const MOTION_K = 0.6;
@@ -43,7 +50,16 @@ interface Drawn {
   walked: number;
   /** Walking up or down the map (from the way they last moved), else side-on. */
   face?: 'up' | 'down' | null;
+  /** The God creature drawn from its own sheets: its facing, the moves playing and since when, its blows seen. */
+  beast?: { dir: FolkDir; turn: string; turnAt: number; blows: number; lastAction: number };
 }
+
+/** The God creature on the board is drawn its growth's size, but between these (a person's height is 1): big enough
+ *  to read as the town's champion, small enough to leave the tiles round it in sight on a phone. */
+const BOARD_GROWTH_MIN = 1.3;
+const BOARD_GROWTH_MOST = 1.8;
+const SHEET_FRAME = 156;
+const SHEET_FIGURE = 0.66;
 
 export class MapRaiders {
   private readonly clock = new TickClock();
@@ -53,6 +69,13 @@ export class MapRaiders {
   rings: 'off' | 'fight' | 'board' = 'off';
   /** The one whose turn it is on the board (a brighter ring). */
   activeId: number | null = null;
+  /** On the raid board (tactics/tacticsView.ts): each unit's turn as the board has it (grid facing, walking, casting),
+   *  for the God creature's sheets (iso/boardRules.ts). */
+  boardPose: Map<number, BoardMoment & { facing: number }> | null = null;
+  /** The town's God creature (the snapshot's), for its tint and growth when it fights as one of these. */
+  creature: CreatureView | null = null;
+  /** The God creature's own sheets by kind (null: none yet, so the stand-in), asked for the first time it's seen. */
+  private readonly beastSets = new Map<CreatureKind, SheetSet<CreatureAnim> | null>();
 
   constructor(private readonly layer: Container) {}
 
@@ -106,7 +129,13 @@ export class MapRaiders {
       const def = ENEMIES[r.kind];
       const facing = r.dir < 0 ? 'left' : 'right';
       let top = y - 50;
-      if ('sheet' in def.sprite) {
+      const beastKind = unitKind(r.kind);
+      const beastSet = beastKind ? this.beastSet(beastKind) : null;
+      if (beastSet) {
+        // the God creature in its own sheets, as on the map (map/mapCreature.ts), not its old stand-in
+        top = this.drawBeast(d, beastSet, x, y, moving, secs);
+        dies = r.down;
+      } else if ('sheet' in def.sprite) {
         const sp = def.sprite as { sheet: CreatureSheet; block: number; scale: number };
         const frame = r.down ? 1 : moving ? Math.floor(d.walked / 6) : Math.floor(secs * 2);
         dies = r.down && creaturePoseFrames(sp.sheet, 'dead') > 0;
@@ -178,7 +207,9 @@ export class MapRaiders {
       s.alpha = r.down ? corpseAlpha(sh - 2, 'enemy') : 1;
       // (an ally keeps its own colours: a green glow underfoot and a green bar mark it as the town's; tinting the
       // whole creature green made a summoned wolf look like a stray monster)
-      s.tint = r.sinceHit < 3 && !r.down ? 0xff7070 : r.down ? 0xb0a0a0 : (def.tint ?? 0xffffff);
+      // (the God creature keeps its nature's gentle tint: iso/creatureRules.ts `gentleTint`)
+      const own = beastSet && this.creature ? gentleTint(this.creature.tint, this.creature.align) : (def.tint ?? 0xffffff);
+      s.tint = r.sinceHit < 3 && !r.down ? 0xff7070 : r.down ? 0xb0a0a0 : own;
       const since = r.sinceHit + t;
       const special = r.hitFx === 'blood' ? bloodFrame(since) : r.hitFx === 'shock' ? shockFrame(since * 1.5) : r.hitFx === 'fire' ? fireHitFrame(since * 1.2) : r.hitFx === 'lightning' ? lightningHitFrame(since * 1.2) : null;
       // (a plain blow: flesh sprays blood, the rest a spark)
@@ -219,24 +250,69 @@ export class MapRaiders {
       }
       d.bar.zIndex = (lift ? y + 400 : y) + 0.4;
       d.shadow.visible = s.visible;
-      // (high up its shadow is smaller and fainter)
-      d.shadow.width = Math.max(10, Math.abs(s.width) * 0.6) * (lift ? 0.7 : 1);
-      d.shadow.height = Math.max(4, Math.abs(s.width) * 0.12) * (lift ? 0.7 : 1);
+      // (high up its shadow is smaller and fainter; the God creature's frame is mostly empty round its figure)
+      const bodyW = Math.abs(s.width) * (beastSet ? 0.5 : 1);
+      d.shadow.width = Math.max(10, bodyW * 0.6) * (lift ? 0.7 : 1);
+      d.shadow.height = Math.max(4, bodyW * 0.12) * (lift ? 0.7 : 1);
       d.shadow.alpha = r.down ? 0.25 : r.ally ? 0.7 : lift ? 0.28 : 0.42;
       d.shadow.tint = r.ally && !r.down ? 0x60e070 : 0x000000;
       d.shadow.position.set(Math.round(x), Math.round(y) + 2);
       d.shadow.zIndex = y - 0.5;
       // the side ring: red for a raider, green for the town's helpers (summoned, raised, tamed, allied)
-      const feet = Math.max(26, Math.abs(s.width) * 0.7);
+      const feet = Math.max(26, bodyW * 0.7);
       d.ring.set(this.rings !== 'off' && s.visible && !lift && !r.swimming ? { side: r.ally ? 'friend' : 'foe', w: this.rings === 'board' ? 44 : Math.min(48, feet), down: r.down, active: this.activeId === r.id } : null, x, y + 2, y - 0.4);
       // the blow's wind-up, lunge and recoil, the struck one's knock back and fall (a smaller step than the fight screen's)
       if (!r.swimming && !lift) {
-        const wide = s.texture.width > s.texture.height * 1.1;
+        const wide = !beastSet && s.texture.width > s.texture.height * 1.1;
         const m = motionOf({ toward: r.dir < 0 ? -1 : 1, sinceAction: sa, sinceHit: sh, down: r.down, ranged: !!def.ranged, hard: 0, friendDown: 999, wide, cheering: false, now, ref: r.id });
         moveSprite(s, x, y + 2, m, MOTION_K, !(dies && r.down));
       } else s.rotation = 0;
     }
     this.clock.prune(new Set([...this.drawn.keys()].flatMap((k) => [`${k}:a`, `${k}:h`])));
+  }
+
+  /** The God creature's sheets for a kind once they're here (null while loading, or for a kind with none). */
+  private beastSet(kind: CreatureKind): SheetSet<CreatureAnim> | null {
+    if (!this.beastSets.has(kind)) {
+      this.beastSets.set(kind, null);
+      void loadCreatureSet<CreatureAnim>(kind).then((set) => this.beastSets.set(kind, set));
+    }
+    return this.beastSets.get(kind) ?? null;
+  }
+
+  /** The God creature from its own sheets: the board's move for its turn (a punch or an uppercut by turns, the
+   *  miracle for a spell, hit, death, walk; iso/boardRules.ts), facing its target or its step. Returns its top (px). */
+  private drawBeast(d: Drawn, set: SheetSet<CreatureAnim>, x: number, y: number, moving: boolean, secs: number): number {
+    const r = d.view;
+    const s = d.sprite;
+    const b = (d.beast ??= { dir: 'south', turn: '', turnAt: secs, blows: 0, lastAction: r.sinceAction });
+    // (a blow seen: its count since the last went back down)
+    if (r.sinceAction < b.lastAction) b.blows++;
+    b.lastAction = r.sinceAction;
+    const pose = this.boardPose?.get(r.id);
+    if (pose) b.dir = boardFacing(pose.facing);
+    else {
+      const f = facingFromVector(d.to.x - d.from.x, d.to.y - d.from.y);
+      if (f && moving) b.dir = f;
+    }
+    const moves = boardCreatureMoves(r, pose ?? { moving, casting: false }, b.blows);
+    const plays = moves.map((m) => creaturePlay(m, (a) => set.has(a)));
+    const key = `${b.blows}:${plays.map((p) => p.anim).join('+')}`;
+    if (key !== b.turn) {
+      b.turn = key;
+      b.turnAt = secs;
+    }
+    const { i, frame } = turnFrame((j) => set.count(plays[j].anim), plays.map((p) => p.fps * p.rate), plays.length, secs - b.turnAt, plays.length > 1 || plays[0].loop);
+    const tex = set.texture(plays[i].anim, b.dir, frame) ?? set.texture('stand', b.dir, 0);
+    s.visible = !!tex;
+    if (tex) s.texture = tex;
+    const growth = this.creature?.scale ?? 1;
+    const k = SHEET_SCALE * (this.boardPose ? Math.max(BOARD_GROWTH_MIN, Math.min(BOARD_GROWTH_MOST, growth)) : growth);
+    s.anchor.set(0.5, SHEET_FEET);
+    s.scale.set(k);
+    s.rotation = 0;
+    s.position.set(Math.round(x), Math.round(y + 2));
+    return y + 2 - SHEET_FRAME * SHEET_FIGURE * k;
   }
 
   raiderAt(wx: number, wy: number): RaiderView | null {

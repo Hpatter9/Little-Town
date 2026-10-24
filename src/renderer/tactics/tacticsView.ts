@@ -15,7 +15,7 @@
 
 import { Container, Graphics, Sprite, Text, Texture } from 'pixi.js';
 import type { Snapshot, PersonView, RaiderView } from '../../shared/sim/snapshot';
-import type { TacticsView, TacTile, TacUnitView } from '../../shared/sim/tactics';
+import type { TacAct, TacticsView, TacTile, TacUnitView } from '../../shared/sim/tactics';
 import type { Command } from '../../shared/sim/commands';
 import { MapPeople } from '../map/mapPeople';
 import { guildBadge, guildsOf } from '../art/guildMarks';
@@ -162,6 +162,8 @@ export class TacticsScene {
   private boxes: { key: string; x: number; y: number; w: number }[] = [];
   private ghosts = new Map<string, { g: number; held: number; flash: number; was: number }>();
   private lastUpdate = 0;
+  /** What each unit did on its last turn (a cast plays as a cast). */
+  private lastAct = new Map<string, TacAct['kind']>();
 
   constructor(
     private readonly map: MapView,
@@ -220,6 +222,7 @@ export class TacticsScene {
       this.tookFirst = false;
       this.ults.clear();
       this.ghosts.clear();
+      this.lastAct.clear();
       if (this.key) {
         for (const c of this.tiles) c.c.destroy({ children: true });
         for (const p of this.pictures) p.destroy();
@@ -244,8 +247,20 @@ export class TacticsScene {
     // the townsfolk and the raiders, each on their tile
     const people: PersonView[] = [];
     const raiders: RaiderView[] = [];
+    // (each unit's turn as the board has it, for its look's animation and facing: iso/boardRules.ts; a cast is
+    // remembered past its turn, so the spell's blow still plays as a cast once the next unit's turn has begun)
+    const act = t.act;
+    if (act) this.lastAct.set(act.key, act.kind);
+    this.people.boardPose.clear();
+    const poses = new Map<number, { facing: number; moving: boolean; casting: boolean }>();
+    this.raiders.boardPose = poses;
+    this.raiders.creature = next.creature;
+    this.people.founderId = next.mainId; // (the founder's crown on the board too)
     for (const u of t.units) {
       if (u.tower) continue;
+      const pose = { facing: u.facing, moving: act?.key === u.key && act.stage === 'move', casting: this.lastAct.get(u.key) === 'cast' };
+      if (u.key[0] === 'p') this.people.boardPose.set(u.ref, pose);
+      else poses.set(u.ref, pose);
       const [x, y] = this.at(u.u, u.v, this.tileH(u.u, u.v));
       // (facing: down the board to the right, down to the left, or away)
       const dir: 1 | -1 = u.facing === 0 || u.facing === 3 ? 1 : -1;

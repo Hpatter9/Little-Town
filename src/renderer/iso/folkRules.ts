@@ -64,8 +64,9 @@ const FALLBACK: Record<FolkAnim, FolkAnim[]> = {
   run: ['walk', 'stand'],
   death: ['hurt', 'stand'],
   hurt: ['idle', 'stand'],
-  cast_1h: ['cast_2h', 'attack_1h', 'idle', 'stand'],
-  cast_2h: ['cast_1h', 'attack_2h', 'idle', 'stand'],
+  // (a spell with no cast drawn is a blow: a look with only a punch still acts, never stands idle at it)
+  cast_1h: ['cast_2h', 'attack_1h', 'attack_2h', 'idle', 'stand'],
+  cast_2h: ['cast_1h', 'attack_2h', 'attack_1h', 'idle', 'stand'],
   // (a look with no tool drawn still works, never stands idle at it: the other tool, else its punch or its thrown
   // spell, which reads as hammering, hewing or a druid's working; the owner's ask)
   chop: ['hammer', 'attack_1h', 'cast_1h', 'idle', 'stand'],
@@ -73,7 +74,8 @@ const FALLBACK: Record<FolkAnim, FolkAnim[]> = {
   // (a casting people's cast fights with its thrown spell)
   attack_1h: ['attack_2h', 'chop', 'hammer', 'cast_1h', 'idle', 'stand'],
   attack_2h: ['attack_1h', 'chop', 'hammer', 'cast_1h', 'idle', 'stand'],
-  attack_bow: ['attack_1h', 'idle', 'stand'],
+  // (a bow where the look has none: its punch, else its thrown spell)
+  attack_bow: ['attack_1h', 'attack_2h', 'cast_1h', 'idle', 'stand'],
 };
 
 /** Weapon families (data/weapons.ts) by the armed look that holds them. */
@@ -102,7 +104,9 @@ export const isFighting = (st: Pick<FolkState, 'activity' | 'sinceBlow' | 'defen
 export function wantedAnim(st: FolkState, speed: number, family: string | undefined): FolkAnim {
   if (st.downed || st.hp <= 0) return 'death';
   if (st.sinceHit < HURT_TICKS) return 'hurt';
-  if (isFighting(st)) {
+  // (in a fight but on the move, between blows: they run or walk to the foe rather than swing as they slide)
+  const closing = speed > 1 && st.sinceBlow >= BLOW_TICKS;
+  if (isFighting(st) && !closing) {
     const k = armedKind(family);
     if (k === 'bow') return 'attack_bow';
     if (k === 'staff') return 'cast_2h';

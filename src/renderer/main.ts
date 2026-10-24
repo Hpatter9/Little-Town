@@ -2481,6 +2481,7 @@ async function start(): Promise<void> {
       next.visitor,
       performance.now(),
     );
+    raiders.creature = next.creature; // (the God creature fighting among them: its tint and growth)
     raiders.update(inSightOnly(next.raid?.phase === 'active' ? next.raid.raiders : []) as RaiderView[], performance.now());
     roamers.update(inSightOnly(roamerFigures(next.roamers)) as RaiderView[], performance.now());
     penned.update(ranchFigures(next.ranchPens ?? [], performance.now()), performance.now());
