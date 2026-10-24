@@ -18,6 +18,8 @@ import { folkWhoById, type PortraitWho } from './folkPortrait';
  *  across the peoples' looks (feet about 0.81 down, the figure about 0.62 of the frame). */
 const FEET = 0.815;
 const FIGURE = 0.62;
+/** The Moon Pack's wolf-headed look, worn in the werewolf's form (as iso/folkSprite.ts `WOLF_LOOK`). */
+const WOLF_LOOK = 'man_beast';
 
 /** What a side-on screen knows of the moment: the same things it gave the paper doll's `hkPose`. */
 export interface SidePose {
@@ -34,6 +36,8 @@ export interface SidePose {
   ranged?: boolean;
   /** Casting a spell (a cutscene's `cast`). */
   casting?: boolean;
+  /** A werewolf in their wolf form: the Moon Pack's wolf-headed look (`man_beast`), as the map draws them. */
+  wolf?: boolean;
   /** Milliseconds, any steady clock (the animation's frame). */
   now: number;
 }
@@ -71,8 +75,11 @@ function animOf(p: SidePose, family: string | undefined): FolkAnim {
 /** Set a sprite to someone's look side-on, feet at (x, feetY), a grown figure `height` tall (a child stands shorter).
  *  False while the look loads (the caller draws the paper doll meanwhile). */
 export function folkSide(s: Sprite, who: PortraitWho, p: SidePose, x: number, feetY: number, height: number): boolean {
-  const w = folkWho(who);
-  const family = who.gear.weapon ? ITEM_BY_ID[who.gear.weapon]?.family : undefined;
+  const own = folkWho(who);
+  // (the wolf form is the Moon Pack's own look, never recoloured, and bare-handed: iso/folkSprite.ts)
+  const turned = !!p.wolf && !own.child;
+  const w = turned ? { ...own, pick: { people: 'werewolf', look: WOLF_LOOK }, tint: null, path: `werewolf/${WOLF_LOOK}` } : own;
+  const family = turned ? undefined : who.gear.weapon ? ITEM_BY_ID[who.gear.weapon]?.family : undefined;
   const want = animOf(p, family);
   // (the armed look for a blow or a swing, where the look has one: else the bare look's own move)
   const suffix = w.child ? null : want === 'hammer' ? 'hammer' : want.startsWith('attack') || want === 'cast_2h' ? (armedKind(family) ?? null) : null;
