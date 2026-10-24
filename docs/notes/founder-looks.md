@@ -46,6 +46,6 @@ taken out): on the map the gold ring stands a little below and right of the foun
 head didn't show.
 
 The armed looks (`founder_hero+axe`, `+sword`, `founder_heroine+axe`, `+bow`; no hammer looks: a founder at a
-hammer's work swings the axe, `otherTool`) are seen in `hero-upright-chop`, `hero-upright-sword`, `heroine-upright-axe`
-(mining, with the axe) and `heroine-upright-bow` (on the raid board, where the crown does show over the founder). A new
+hammer's work swings the axe, `otherTool`) are seen in `hero-upright-chop`, `hero-upright-sword`, `heroine-upright-chop`, `heroine-upright-axe`
+(mining: the hammer's work done with the axe) and `heroine-upright-bow` (on the raid board, where the crown does show over the founder). A new
 town's founder carries no weapon, so for those shots the founder was given a sword or a bow in the save by hand.
