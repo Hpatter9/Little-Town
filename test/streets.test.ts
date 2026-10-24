@@ -2,15 +2,12 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { doorCell, hasPath, placeBlueprint } from '../src/shared/sim/buildings';
 import { Sim } from '../src/shared/sim/sim';
-import { TICK_HZ, TICKS_PER_DAY, TICKS_PER_HOUR } from '../src/shared/sim/time';
+import { TICK_HZ, TICKS_PER_HOUR } from '../src/shared/sim/time';
 import { groundAt, idx, isPlannedRoad, isRoad, planRoad, setGround, setRoad } from '../src/shared/sim/land';
 import { drawPath } from '../src/shared/sim/pathPlans';
 import { BRIDGE_WOOD, isBridge, pave, paveOrder, PAVE_SECONDS, paveTask, plannedCells, streetsHourly, streetShare, streetWork } from '../src/shared/sim/streets';
-import { campCell, newGame } from '../src/shared/sim/state';
+import { campCell } from '../src/shared/sim/state';
 import { camp, clearAround, plainGame, priorities, put } from './helpers';
-
-/** How many cells of street are down, and planned. */
-const roadCount = (s: { land: { roads: string; plannedRoads?: string } }) => ({ roads: s.land.roads.split('#').length - 1, planned: (s.land.plannedRoads ?? '').split('#').length - 1 });
 
 test('a worn footpath stays a footpath: the town plans no street from it', () => {
   const s = plainGame('streets-wear');
@@ -47,7 +44,7 @@ test('a path drawn over a river is a bridge, laid with wood', () => {
   assert.equal(pave(s, bridges[1]), false, 'no wood, no bridge');
 });
 
-test('a gate of the ring wall gets no path of its own; a path drawn through it crosses at the gate', () => {
+test('with no town plan a gate gets no path of its own; a path drawn through it crosses at the gate', () => {
   const s = plainGame('streets-gate');
   s.autopilot = true;
   clearAround(s, 30);
@@ -107,7 +104,7 @@ test('whoever has nothing to build paves the street, a quarter of the town at mo
   assert.ok(paveTask(q, q.people[2], true), 'unless they have nothing else to do');
 });
 
-test('no street is planned to a building put up: its card says it has no path until one is drawn to its door', () => {
+test('with no town plan no street is planned to a building put up: its card says it has no path until one is drawn to its door', () => {
   const s = plainGame('streets-early');
   s.autopilot = true;
   s.cheats.unlockAll = true;
@@ -122,21 +119,4 @@ test('no street is planned to a building put up: its card says it has no path un
   assert.equal(hasPath(s, b), true, 'a path drawn to its door');
   // (fields, pens and walls need none)
   assert.equal(hasPath(s, put(s, 'palisade_wall', c.x - 8, c.y - 8)), true);
-});
-
-test('a town left to run lays no path by itself', () => {
-  for (const townBuilds of [false, true]) {
-    const s = newGame(`streets-none-${townBuilds}`);
-    if (townBuilds) s.townBuilds = true;
-    s.cheats.unlockAll = true;
-    s.nextRaidTick = Number.MAX_SAFE_INTEGER;
-    s.buildings[0].store = { wood: 400, stone: 200, fiber: 60, berries: 200 };
-    const before = roadCount(s);
-    const sim = new Sim(s);
-    for (let t = 0; t < 2 * TICKS_PER_DAY; t++) sim.step();
-    assert.ok(s.buildings.length > 1 || !townBuilds, 'the town got on with building');
-    const after = roadCount(s);
-    assert.equal(after.planned, 0, `no street planned (townBuilds ${townBuilds})`);
-    assert.ok(after.roads <= before.roads, `no street laid (townBuilds ${townBuilds}): ${before.roads} then ${after.roads}`);
-  }
 });

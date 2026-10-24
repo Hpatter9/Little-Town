@@ -1,19 +1,20 @@
 // Streets that are built (the owner's ask: "the town streets shouldn't just show up, they should be built, like the
 // palisade, where a stretch gets put up as a blueprint and built when they have time; a bridge where a street crosses
-// a river"). A street is planned first (`LandMap.plannedRoads`: only ever by the player, who draws every path,
-// sim/pathPlans.ts; the town lays none of its own), shown as a ghost on the map, and laid a cell at a
+// a river"). A street is planned first (`LandMap.plannedRoads`: by the town, from its plan, sim/townRoads.ts; or by the
+// player, who may draw paths of their own, sim/pathPlans.ts), shown as a ghost on the map, and laid a cell at a
 // time by whoever has building to do (the `pave` task in people.ts), out from the streets already laid, so it goes down
 // in stretches: all the hands on the street add to one pool of work, and the cells go down in order as it covers them.
 // A cell over a river is a bridge: slower, and it takes wood.
 
 import { builtOn, depositNear, totalStock } from './buildings';
 import { takeFromStorage } from './expeditions';
-import { CELL, cellAt, groundAt, idx, inMap, isPlannedRoad, isRoad, planRoad, setGround, setRoad, wet } from './land';
+import { CELL, cellAt, clearable, groundAt, idx, inMap, isPlannedRoad, isRoad, planRoad, setGround, setRoad, wet } from './land';
 import { isGate, liftRoadsOffWall, wallOnly } from './ringWall';
 import { campCell, type GameState, type Person } from './state';
 import { isChild } from './social';
 import { TICKS_PER_HOUR } from './time';
 import { isTunnelCell, TUNNEL_SECONDS, TUNNEL_STONE } from './tunnels';
+import { townRoadsHourly } from './townRoads';
 
 /** Seconds of work to lay a cell of street, and of bridge; the wood a cell of bridge takes. */
 export const PAVE_SECONDS = 15;
@@ -36,13 +37,17 @@ export const isBridge = (s: GameState, i: number) => {
   return wet(groundAt(s.land, c.x, c.y));
 };
 
+/** Whether a planned cell still has a wood or rocks on it, marked for the axe and the pick (sim/townRoads.ts): it is
+ *  paved once they're cleared. */
+export const uncleared = (s: GameState, i: number) => clearable(groundAt(s.land, i % s.land.w, Math.floor(i / s.land.w)));
+
 /** A planned cell ready to be laid: beside a street already down (or the camp, or a gate), so a street goes down in
  *  stretches; a bridge only with its wood in store. */
 function ready(s: GameState, i: number, wood: number): boolean {
   const m = s.land;
   const c = cellAt(m, i);
   if (builtOn(s, c.x, c.y) && !isGate(builtOn(s, c.x, c.y)!.def)) return false;
-  if (wallOnly(s, c.x, c.y)) return false;
+  if (wallOnly(s, c.x, c.y) || uncleared(s, i)) return false;
   if (isBridge(s, i) && wood < BRIDGE_WOOD) return false;
   const camp = campCell(s);
   if (Math.abs(c.x - camp.x) + Math.abs(c.y - camp.y) <= 2) return true;
@@ -72,7 +77,7 @@ export function paveOrder(s: GameState): number[] {
   const left = new Set(cells.filter((i) => {
     const c = cellAt(m, i);
     const b = builtOn(s, c.x, c.y);
-    return !(b && !isGate(b.def)) && !(isBridge(s, i) && !wood);
+    return !(b && !isGate(b.def)) && !(isBridge(s, i) && !wood) && !uncleared(s, i);
   }));
   const order: number[] = [];
   const grow = (seeds: number[]) => {
@@ -110,6 +115,8 @@ export const PAVERS_SHARE = 0.25;
 /** A paving task for someone with no building to raise: the street needs hands and the town can spare them. */
 export function paveTask(s: GameState, p: Person, spare = false): { type: 'pave'; cell: number; progress: number } | null {
   if (s.raid || !s.land.plannedRoads || isChild(p)) return null;
+  // (the ring wall going up comes first: only hands with nothing else to do pave meanwhile)
+  if (!spare && s.ring && !s.ring.done) return null;
   // (the cell they're at, still waiting its turn, stays theirs)
   if (p.task?.type === 'pave' && isPlannedRoad(s.land, p.task.cell % s.land.w, Math.floor(p.task.cell / s.land.w)) && paveOrder(s).includes(p.task.cell)) return p.task;
   const grown = s.people.filter((q) => q.away === null && q.bornTick == null && !q.downed).length;
@@ -178,12 +185,12 @@ export const isTunnelling = (s: GameState, i: number) => {
 /** How long a cell takes to lay (seconds of work). */
 export const paveSeconds = (s: GameState, i: number) => (isBridge(s, i) ? BRIDGE_SECONDS : isTunnelling(s, i) ? TUNNEL_SECONDS : PAVE_SECONDS);
 
-/** Hourly: roads an older town laid over the ring wall's line are lifted, so the wall can be raised there. The town
- *  plans no street of its own (the owner's ask, "I want to place them myself to help guide the town shape"): every
- *  street is drawn by the player (sim/pathPlans.ts); the worn footpaths stay footpaths. */
+/** Hourly: roads an older town laid over the ring wall's line are lifted, so the wall can be raised there; and the
+ *  town's own streets seen to (sim/townRoads.ts: a planned layout, not the worn footpaths, which stay footpaths). */
 export function streetsHourly(s: GameState): void {
   if (s.tick % TICKS_PER_HOUR !== 0) return;
   liftRoadsOffWall(s);
+  townRoadsHourly(s);
 }
 
 /** For the snapshot and the tap card: how many cells are planned and how many of them are bridges. */
