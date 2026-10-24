@@ -23,6 +23,8 @@ export interface PortraitWho {
   /** A child wears a child's look and stands shorter (iso/folkRules.ts). */
   lifeStage?: LifeStage;
   growsUpIn?: number | null;
+  /** The founder (or not), said outright: else it's whether their id is the last snapshot's `mainId` (iso/folkWho.ts). */
+  founder?: boolean;
 }
 
 /** A look's south-facing standing frame, tight to the figure. */

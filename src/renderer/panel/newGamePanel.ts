@@ -62,7 +62,7 @@ function drawFounderArt(art: HTMLCanvasElement, id: string, look: (typeof FOUNDE
   // as the map will draw them: their isometric look (art/folkPortrait.ts), whole; the paper doll (art/hkFolk.ts) in their
   // calling's dress, then the plain old look, only until it loads, and never over it
   const keys = hkLayers(hkWhoOfLook(FOUNDER_ID, look, { cls: FOUNDER_CLASS[id]?.base ?? null, founder: true }), { fighting: true, activity: 'idle' });
-  paintPortrait(art, { id: FOUNDER_ID, origin, look, gear: {} }, {
+  paintPortrait(art, { id: FOUNDER_ID, origin, look, gear: {}, founder: true }, {
     mode: 'full',
     stand: () => {
       let drawn = false;
@@ -90,7 +90,7 @@ function drawFounderArt(art: HTMLCanvasElement, id: string, look: (typeof FOUNDE
 const dollKeys = (f: (typeof FOUNDERS)[OriginId][number]): string[] => hkLayers(hkWhoOfLook(FOUNDER_ID, f.look, { cls: FOUNDER_CLASS[f.id]?.base ?? null, founder: true }), { fighting: true, activity: 'idle' });
 /** The founders in their isometric looks, in the same places (scenePlayer.ts draws these, the paper doll while a look
  *  loads): as the founder's tile shows them. */
-const folkOf = (origin: OriginId, list: readonly (typeof FOUNDERS)[OriginId][number][]): Folk => list.map((f) => ({ id: FOUNDER_ID, origin, look: f.look, gear: {} }));
+const folkOf = (origin: OriginId, list: readonly (typeof FOUNDERS)[OriginId][number][]): Folk => list.map((f) => ({ id: FOUNDER_ID, origin, look: f.look, gear: {}, founder: true }));
 /** A founder's picture for a tile. */
 function doll(f: (typeof FOUNDERS)[OriginId][number]): HTMLCanvasElement {
   lpcReady ??= loadLpc();

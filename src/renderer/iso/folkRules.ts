@@ -37,6 +37,8 @@ export type FolkState = Pick<PersonView, 'id' | 'activity' | 'sinceHit' | 'since
   work?: PersonView['work'];
   origin?: PersonView['origin'];
   rally?: PersonView['rally'];
+  /** The founder (the snapshot's `mainId`): wears the founder's own look (FOUNDER_LOOKS), where it is drawn. */
+  founder?: boolean;
 };
 
 /** The speed (map pixels a second) from which a walker is running. */
@@ -154,6 +156,14 @@ export const FOLK_LOOKS: Record<string, readonly string[]> = {
   knights: ['man_knight', 'woman_knight', 'man_squire', 'child_boy', 'child_girl'],
 };
 
+/** The founder's own looks (the player's character), by sex: a signature costume, drawn in its own colours (never
+ *  tinted: iso/folkWho.ts). Not in FOLK_LOOKS until the art is found (iso/founderArt.ts adds them to the settlers'
+ *  list), so a town whose build lacks them dresses the founder as anyone else. */
+export const FOUNDER_LOOKS = { m: 'founder_hero', f: 'founder_heroine' } as const;
+
+/** Is this one of the founder's own looks? */
+export const isFounderLook = (look: string): boolean => look.startsWith('founder_');
+
 /** Is this person a child? (the snapshot's life stage; older callers with only `growsUpIn` still count while it's above 0) */
 export const isFolkChild = (st: Pick<FolkState, 'lifeStage' | 'growsUpIn'>): boolean => st.lifeStage === 'child' || (st.lifeStage === undefined && (st.growsUpIn ?? 0) > 0);
 
@@ -197,9 +207,10 @@ export interface FolkLookPick {
 }
 
 /** Which look a person wears: their people's folder (settlers where their own isn't drawn yet); a child the boy or girl
- *  look (CHILD_LOOKS; dwarf children the settlers' dwarf boy and girl); a grown person a look of their sex (a look named `man_*` or
+ *  look (CHILD_LOOKS; dwarf children the settlers' dwarf boy and girl); the grown founder their own (FOUNDER_LOOKS,
+ *  where `looks` has it); a grown person a look of their sex (a look named `man_*` or
  *  `woman_*`), the one in their outfit's colour first, else a stable pick by id. */
-export function pickLook(st: Pick<FolkState, 'id' | 'origin' | 'look'> & Partial<Pick<FolkState, 'lifeStage' | 'growsUpIn'>>, looks: Record<string, readonly string[]> = FOLK_LOOKS, dress?: 'plate' | 'leather' | 'base'): FolkLookPick {
+export function pickLook(st: Pick<FolkState, 'id' | 'origin' | 'look'> & Partial<Pick<FolkState, 'lifeStage' | 'growsUpIn' | 'founder'>>, looks: Record<string, readonly string[]> = FOLK_LOOKS, dress?: 'plate' | 'leather' | 'base'): FolkLookPick {
   const people = st.origin && looks[st.origin]?.length ? st.origin : 'settlers';
   const drawn = looks[people] ?? [];
   if (isFolkChild(st)) {
@@ -209,8 +220,12 @@ export function pickLook(st: Pick<FolkState, 'id' | 'origin' | 'look'> & Partial
     const kids = CHILD_LOOKS[people]?.[st.look.gender === 'f' ? 'girl' : 'boy'].filter((l) => drawn.includes(l));
     if (kids?.length) return { people, look: kids[idHash(st.id, 1) % kids.length] };
   }
-  // (a grown person never wears a child's look, whatever else the folder lacks)
-  const every = drawn.filter((l) => !isChildLook(l));
+  // (the founder, grown, wears their own look of their sex where it's drawn: the settlers', whose art it is; a dwarf
+  // founder keeps the dwarf looks)
+  const own = FOUNDER_LOOKS[st.look.gender === 'f' ? 'f' : 'm'];
+  if (st.founder && people === 'settlers' && st.origin !== 'dwarves' && drawn.includes(own)) return { people, look: own };
+  // (a grown person never wears a child's look, whatever else the folder lacks; nor anyone but the founder theirs)
+  const every = drawn.filter((l) => !isChildLook(l) && !isFounderLook(l));
   // (dwarves wear the dwarf looks, where a folder has them; everyone else the human ones)
   const dwarf = st.origin === 'dwarves' && every.some((l) => l.startsWith('dwarf_'));
   const kin = every.filter((l) => l.startsWith('dwarf_') === dwarf);
