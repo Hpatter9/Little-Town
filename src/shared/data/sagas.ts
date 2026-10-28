@@ -8,7 +8,8 @@
 //   wait    a while passes
 //   end     the story's end: what it leaves the town (effects, a title for its hero, a unique)
 // A chapter's next is a chapter id, or a function of the flags set so far. {hero} is the saga's hero (the leader of its
-// first trip, else the founder), {founder} the founder, {town} the town, {a} and {b} the townsfolk a saga is about.
+// first trip, else the founder), {founder} the founder, {town} the town, {a} and {b} the townsfolk a saga is about, {beast}
+// and {wild} the God creature's name and the land its nest lies in (data/creatureSaga.ts).
 // The rules are in sim/sagas.ts.
 
 import type { BackdropId } from './backdrops';
@@ -68,6 +69,8 @@ export type Chapter =
       lose: Next;
       /** Nobody went in time (else `lose`). */
       late?: Next;
+      /** The founder leads it: a party is raised with them at its head as soon as they can go (sim/sagas.ts `leadSagaTrip`). */
+      lead?: boolean;
     }
   | { kind: 'task'; text: string; need: string; check: (s: GameState) => boolean; hours: number; done: Next; late: Next }
   | { kind: 'raid'; text: string; raid: 'people' | string; boss?: string; budget: number; after?: number; win: Next; lose: Next }

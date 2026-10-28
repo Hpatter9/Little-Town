@@ -94,6 +94,10 @@ const PROPS: Partial<Record<Role, RegExp[]>> = {
 };
 const PROP_SHARE: Partial<Record<Role, number>> = { cottage: 0.5, longhouse: 0.6, chapel: 0.5, watchtower: 0.4 };
 
+/** The kit's pieces a kind of building keeps beside it (`PROPS`), in order: a yard's props are picked from these. */
+export const propsFor = (ids: readonly string[], role: Role): string[] =>
+  (PROPS[role] ?? []).map((re) => ids.find((i) => re.test(i) && !i.endsWith('_tile'))).filter((i): i is string => !!i);
+
 /** A prop for a building, picked from its id so it is the same every run: the kit's piece, and the spot in cells
  *  beside the footprint (the front-right or the front-left face), or none. */
 export function propFor(ids: readonly string[], role: Role, id: number, f: { x: number; y: number; w: number; h: number }): { piece: string; x: number; y: number } | null {

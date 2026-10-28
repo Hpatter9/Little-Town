@@ -254,6 +254,35 @@ export function pathTo(s: Pick<GameState, 'buildings' | 'land' | 'nomad' | 'orig
   return pts;
 }
 
+/** Boxed into the cell they stand in, built round with rock either side (a wall's pieces laid either side of someone
+ *  standing in a gap in the rock), and no way to the goal: a scramble over the nearest wall to the nearest open cell
+ *  with a way on from it (null: not boxed in, so the walk goes on as before). Without it they stood there for good, and
+ *  starved with food in the stores (docs/notes/smarter-town.md). */
+function wayOut(s: Pick<GameState, 'buildings' | 'land'>, w: Pt, through?: Rect): Pt[] | null {
+  const solid = solidCells(s);
+  const free = (x: number, y: number) => inMap(s.land, x, y) && groundAt(s.land, x, y) !== 'mountain' && (!solid.has(y * 4096 + x) || (!!through && inRect(through, x, y)));
+  const side = (x: number, y: number) => free(x + 1, y) || free(x - 1, y) || free(x, y + 1) || free(x, y - 1);
+  const c = cellOf(w);
+  if (side(c.x, c.y)) return null;
+  for (let r = 1; r <= WAY_OUT_CELLS; r++) {
+    let best: Pt | undefined;
+    let bestD = Infinity;
+    for (let y = c.y - r; y <= c.y + r; y++)
+      for (let x = c.x - r; x <= c.x + r; x++) {
+        if (Math.max(Math.abs(x - c.x), Math.abs(y - c.y)) !== r || !free(x, y) || !side(x, y)) continue;
+        const d = Math.hypot(x - c.x, y - c.y);
+        if (d < bestD) {
+          bestD = d;
+          best = centreOf(x, y);
+        }
+      }
+    if (best) return [best];
+  }
+  return null;
+}
+/** How far a boxed-in walker looks for a way out (cells). */
+const WAY_OUT_CELLS = 4;
+
 /** With no way found, straight at the goal, but only as far as the rock: the mountain is never crossed. */
 function straightShort(m: LandMap, from: Pt, to: Pt): Pt[] {
   const n = Math.ceil(Math.hypot(to.x - from.x, to.y - from.y) / (CELL / 2));
@@ -287,7 +316,7 @@ export function walk(s: Pick<GameState, 'buildings' | 'land' | 'nomad' | 'origin
   const offPath = !!w.path && w.path.length > 1 && Math.hypot(w.path[0].x - w.x, w.path[0].y - w.y) > OFF_PATH;
   const rebuilt = !!w.path && (walls.get(w) ?? null) !== layout;
   if (!w.path || !same(w.goal, to) || offPath || rebuilt || (tick && tick % REPLAN_TICKS === 0)) {
-    w.path = pathTo(s, w, to, through, swim) ?? straightShort(s.land, w, to);
+    w.path = pathTo(s, w, to, through, swim) ?? wayOut(s, w, through) ?? straightShort(s.land, w, to);
     walls.set(w, layout);
     w.goal = { x: to.x, y: to.y };
     // (the first cell is the one we stand in: skip it when we're past its centre already)

@@ -8,7 +8,7 @@
 
 import { Rng, hashSeed } from '../rng';
 import { BUILDING_BY_ID } from '../data/buildings';
-import { CREATURE_SAGA, CREATURE_TOPIC } from '../data/creature';
+import { CREATURE_SAGA } from '../data/creature';
 import { CROPS, SOIL } from '../data/crops';
 import { EVENT_BY_ID } from '../data/events';
 import { LEVEL_SHARE_FIGHT, MAX_LEVEL, levelOf, xpToLevel } from '../data/levels';
@@ -311,9 +311,9 @@ function raidNow(s: GameState, kindId: string | null): void {
   startRaid(s, kind, raidBudget(s), rng);
 }
 
-/** The God creature's saga begun now, the study it follows learned first if it isn't. */
+/** The God creature's saga (its quest) begun now. */
 function creatureSaga(s: GameState): void {
   if (s.creature || (s.sagas ?? []).some((r) => r.id === CREATURE_SAGA) || (s.sagasDone ?? []).some((d) => d.id === CREATURE_SAGA)) return notify(s, 'Developer: the creature’s saga has begun already.');
-  if (!s.research.done.includes(CREATURE_TOPIC)) learnTopic(s, CREATURE_TOPIC);
+  s.creatureQuest ??= { region: 'westwood', began: s.tick };
   if (!beginSaga(s, CREATURE_SAGA)) notify(s, 'Developer: the saga needs a cast the town does not have yet.');
 }

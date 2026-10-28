@@ -54,6 +54,15 @@ function destOf(s: GameState, sort: QuestSort, id: number): string | null {
 export function leadQuest(s: GameState, sort: QuestSort, id: number): SendCheck {
   const dest = destOf(s, sort, id);
   if (!dest) return { ok: false, reason: 'No such quest' };
+  const led = leadTo(s, dest);
+  if (!led.ok) return led;
+  // (it is taken up now, so the clock runs)
+  if (sort === 'quest' ? (s.quests ?? []).some((q) => q.id === id && q.accepted === undefined) : (s.hunts ?? []).some((h) => h.id === id && h.accepted === undefined)) acceptQuest(s, sort, id);
+  return led;
+}
+
+/** Go somewhere on the board at the head of a party (a quest, a hunt, a saga's trip the founder leads). */
+export function leadTo(s: GameState, dest: string): SendCheck {
   const f = s.people.find((p) => p.id === s.mainId);
   if (!f || !askable(s).includes(f)) return { ok: false, reason: `${f?.name ?? 'The founder'} can't go just now` };
   if (s.muster) return { ok: false, reason: 'A party is already being raised' };
@@ -77,8 +86,6 @@ export function leadQuest(s: GameState, sort: QuestSort, id: number): SendCheck 
     cancelMuster(s);
     return sent;
   }
-  // (it is taken up now, so the clock runs)
-  if (sort === 'quest' ? (s.quests ?? []).some((q) => q.id === id && q.accepted === undefined) : (s.hunts ?? []).some((h) => h.id === id && h.accepted === undefined)) acceptQuest(s, sort, id);
   notify(s, `${f.name} leads the party themselves.`);
   return { ok: true };
 }

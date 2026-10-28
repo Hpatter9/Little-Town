@@ -11,7 +11,7 @@ import { cropOf } from '../src/shared/sim/farming';
 import { waitingOnFounder } from '../src/shared/sim/founderQuests';
 import { answerPrompt } from '../src/shared/sim/roadEvents';
 import { parseSave, serialize } from '../src/shared/sim/save';
-import { sagasHourly } from '../src/shared/sim/sagas';
+import { isSagaDest, sagaTripHome, sagasHourly } from '../src/shared/sim/sagas';
 import { Sim } from '../src/shared/sim/sim';
 import { snapshot } from '../src/shared/sim/snapshot';
 import { campXY, makePerson, type GameState } from '../src/shared/sim/state';
@@ -46,24 +46,23 @@ test('God Creatures is a second-age topic every people studies', () => {
   for (const o of ORIGINS) assert.ok(!forgone(CREATURE_TOPIC, o), `${o} studies it`);
 });
 
-test('the saga begins only after the research and the pen, and its pick holds the game for the five kinds', () => {
+test('the saga begins with its quest, and its pick holds the game for the five kinds', () => {
   const s = town('beast-saga');
   s.autopilot = true;
-  hour(s);
-  creatureArrives(s);
-  assert.ok(!(s.sagas ?? []).length, 'no saga before the research');
-  s.research.done.push(CREATURE_TOPIC);
-  creatureArrives(s);
-  assert.ok(!(s.sagas ?? []).length, 'nor before its pen is built');
   put(s, CREATURE_PEN, campXY(s).x / 32 - 8, row(s));
+  hour(s);
   creatureArrives(s);
   assert.equal(s.sagas?.[0]?.id, CREATURE_SAGA, 'the saga begins');
   creatureArrives(s);
   assert.equal(s.sagas!.length, 1, 'and only once');
-  for (let i = 0; i < 30 && !s.prompts.some((p) => p.kind === 'saga'); i++) {
-    hour(s);
-    sagasHourly(s);
-  }
+  // (the quest: the founder goes, and the party clears the hollow)
+  const call = s.prompts.find((p) => p.kind === 'saga')!;
+  answerPrompt(s, call.id, 0, new Rng(1));
+  const trip = s.expeditions.find((e) => isSagaDest(e.dest))!;
+  s.expeditions = s.expeditions.filter((e) => e !== trip);
+  for (const p of s.people) if (trip.members.includes(p.id)) p.away = null;
+  trip.cleared = true;
+  sagaTripHome(s, trip);
   const q = s.prompts.find((p) => p.kind === 'saga')!;
   assert.ok(q, 'the pick is asked');
   assert.equal(q.options.length, 5);
@@ -80,6 +79,10 @@ test('the saga begins only after the research and the pen, and its pick holds th
   const bear = q.options.findIndex((o) => /Bear/.test(o));
   answerPrompt(s, q.id, bear, new Rng(1));
   assert.equal(s.creature?.kind, 'bear', 'the picked kind is the town\'s');
+  // (its first night, then the game goes on)
+  const night = s.prompts.find((p) => p.kind === 'saga')!;
+  assert.match(night.text, /first night/);
+  answerPrompt(s, night.id, 0, new Rng(1));
   assert.ok(!waitingOnFounder(s), 'the game goes on');
   assert.ok(!s.prompts.some((p) => p.kind === 'saga'));
   // (the saga goes on to its first deed, and on to its end when the beast is grown)

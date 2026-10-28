@@ -12,6 +12,7 @@ import { magicSection } from './magicPanel';
 import { TOWN_SIZES } from '../../shared/sim/state';
 import { TAX, TAX_RATES } from '../../shared/data/economy';
 import { BUILDING_BY_ID, BUILDINGS, type BuildingDef } from '../../shared/data/buildings';
+import { CREATURE_PEN } from '../../shared/data/creature';
 import { CROPS } from '../../shared/data/crops';
 import { eraReached } from '../../shared/data/eras';
 import { MATERIAL_NAMES, type Material, type Stock } from '../../shared/data/materials';
@@ -73,7 +74,7 @@ export const buildKey = (s: Snapshot, tab: string | null = null) => {
     on(['Overview'], () => calendarKey(s)),
     on(['Overview', 'Stores'], () => s.coins),
     on(['Stores'], () => ledgerKey(s)),
-    s.guards.n, s.guards.watch, !!s.shop, !!s.tavern, s.era, s.research.revealed, s.buildSlots, s.unlockAll, s.research.done, s.storageCapacity, s.housing, s.direction, s.plan,
+    s.guards.n, s.guards.watch, !!s.shop, !!s.tavern, s.era, s.research.revealed, s.buildSlots, s.unlockAll, s.research.done, s.storageCapacity, s.housing, s.direction, s.plan, !!s.creature,
     Math.round(s.align.score / 2), Math.round(s.align.order / 2), s.align.title, s.align.pact, s.align.swings[0],
     on(['More'], () => s.villages.map((v) => [v.pop, v.loyalty, v.rebel, v.beset, v.helpers, v.cartOut, v.road, v.goods, v.news[0], v.canGift])),
     s.politics && [s.politics.tax, on(['More'], () => [s.politics!.blocs.map((b) => [b.sat, b.members.length, b.wants, b.striking]), s.politics!.laws.map((l) => l.on), s.politics!.log[0], s.politics!.crimes, s.politics!.strike, s.politics!.edictWait])],
@@ -313,6 +314,7 @@ function buildRows(s: Snapshot): (Row & { tab: BuildTab })[] {
   for (const b of BUILDINGS) {
     if (b.never || isRingPiece(b.id) || b.seat || (b.hp && b.width === 1 && !b.defense)) continue;
     if (!isUnlocked(have, b) || (!s.unlockAll && b.research && !(eraReached(s.era, TOPIC_BY_ID[b.research]?.era) && topicKnown(s, b.research)))) continue;
+    if (b.id === CREATURE_PEN && !s.creature) continue; // (the God creature's pen: shown once the creature is the town's)
     rows.push({ tab: tabOf(b), key: `bld:${b.id}`, icon: b.id, name: b.name, cost: b.cost, ordered: false, full: s.pins.length >= PINS_MOST, count: countOf(s, b.id), order: { type: 'pinBuilding', def: b.id, on: true }, more: () => [el('div', 'more-line', b.purpose), el('div', 'more-line', `Why: ${whyOf(b)}`), ...buildingDetails(b, s)] });
   }
   const wall = s.ringState === 'none' ? 'Raise the palisade' : s.ringState === 'building' ? 'Finish the ring wall' : 'Widen or upgrade the wall';

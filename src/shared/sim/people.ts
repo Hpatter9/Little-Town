@@ -65,7 +65,7 @@ import { tireless, remember, addStock, campXY, cellXY, dist, BUILD_MULTIPLIER, c
 import { TICK_HZ, TICKS_PER_HOUR, calendarOf } from './time';
 import { stabilize } from './health';
 import { mended, needsSickbed, sickbedFor } from './sickbeds';
-import { drainNeeds, gainSkill, GROUND_SLEEP, HUNGRY, SLEEP_PER_HOUR, SULK_MORALE, wantsSleep, wantsToWake, workFactor } from './townsfolk';
+import { drainNeeds, gainSkill, GROUND_SLEEP, HUNGRY, SLEEP_PER_HOUR, SUPPER, SULK_MORALE, wantsSleep, wantsToWake, workFactor } from './townsfolk';
 import { buildSpeed, craftSpeed, forageSpeed, researchSpeed } from './origin';
 import { accruePay, accruePayFrom, loadPrice, moneyTown, payFromTreasury } from './economy';
 import { BUILD_PACE, BUILD_PER_HOUR, buildPower, HIRE_PER_HOUR, STUDY_PER_HOUR, TREASURY_KEEP } from '../data/economy';
@@ -147,7 +147,10 @@ export function updatePerson(s: GameState, p: Person, rng: Rng, ctx: TickContext
   if ((loafing && (!p.task || (s.tick + p.id) % LOOK_TICKS === 0)) || (s.tick + p.id) % RECHECK_TICKS === 0) {
     // Switch only to something strictly more urgent, so ongoing work isn't restarted.
     const next = chooseTask(s, p);
-    if (next && (loafing || rank(next, p) < rank(p.task!, p))) p.task = next;
+    // (but a meal breaks off the tasks that outrank it and yet let them eat: a defender waiting on raiders still a while
+    // off (chooseTask's `mealBeforeRaid`), someone held to an event's work, on strike or at a funeral, who once worked on
+    // there till they starved: docs/notes/smarter-town.md)
+    if (next && (loafing || rank(next, p) < rank(p.task!, p) || (next.type === 'eat' && MEAL_BREAKS.has(p.task!.type)))) p.task = next;
   }
   if (!p.task) {
     // (nothing to do: a stretch of street to lay, sim/streets.ts; a break at a place of leisure with a spot free, else
@@ -1185,6 +1188,20 @@ function jobOf(t: Task): Job {
 
 /** So hungry they get up in the night to eat. */
 export const WAKE_TO_EAT = 0.12;
+/** With the raiders at least this far off (ticks; half an hour), the hungry snatch a meal before they take up arms. */
+export const RAID_MEAL_TICKS = TICKS_PER_HOUR / 2;
+
+/** The tasks ranked over a meal that are broken off for one (chooseTask offers one only when they're hungry). */
+const MEAL_BREAKS: ReadonlySet<Task['type']> = new Set(['defend', 'toil', 'protest', 'attend']);
+
+/** A meal while the raid's warning runs, for the hungry with time to eat it (null: none; to arms or to shelter). */
+function mealBeforeRaid(s: GameState, p: Person): Task | null {
+  const r = s.raid;
+  if (!r || r.phase !== 'warning' || r.arrivesTick - s.tick < RAID_MEAL_TICKS || p.needs.food >= HUNGRY || tireless(p) || p.downed) return null;
+  if (p.task?.type === 'eat') return p.task;
+  const st = nearestStorage(s, p, (b) => !!foodIn(b));
+  return st ? { type: 'eat', building: st.id, until: null } : null;
+}
 
 /** To bed (their own, or none): the task they're on kept, so someone sleeping rough keeps the spot they bedded down on. */
 function sleepTask(p: Person): Task {
@@ -1230,8 +1247,8 @@ function chooseTask(s: GameState, p: Person): Task | null {
     const sb = sickbedFor(s, p);
     return sb ? { type: 'sleep', building: sb.id, sick: true } : sleepTask(p);
   }
-  // A raid: defenders fight, everyone else shelters.
-  if (alarmRaised(s)) return p.priorities.defend !== 0 ? (p.task?.type === 'defend' ? p.task : { type: 'defend', cooldown: 0 }) : { type: 'shelter' };
+  // A raid: defenders fight, everyone else shelters (the hungry eat first if the raiders are still a while off).
+  if (alarmRaised(s)) return mealBeforeRaid(s, p) ?? (p.priorities.defend !== 0 ? (p.task?.type === 'defend' ? p.task : { type: 'defend', cooldown: 0 }) : { type: 'shelter' });
   // Someone is bleeding out: the nearest free hands go to them.
   const patient = patientFor(s, p);
   if (patient) return p.task?.type === 'tend' && p.task.patient === patient.id ? p.task : { type: 'tend', patient: patient.id, progress: 0 };
@@ -1244,6 +1261,9 @@ function chooseTask(s: GameState, p: Person): Task | null {
   if (needsSickbed(p) && p.needs.food >= HUNGRY) {
     const sb = sickbedFor(s, p);
     if (sb) return { type: 'sleep', building: sb.id, sick: true };
+    // (no sickbed free: home to their own bed till they're mended, which heals three times as fast as working on
+    // hurt; not the founder while the player has given them an order)
+    if (p.bed != null && byId(s, p.bed) && (p.id !== s.mainId || !s.founderOrder)) return { type: 'sleep', building: p.bed, sick: true };
   }
   // Held to the town's work by an event (sim/events.ts `busy`): they eat when they must, and otherwise toil on.
   if (busyNow(s, p) && p.needs.food >= HUNGRY) return p.task?.type === 'toil' ? p.task : { type: 'toil' };
@@ -1273,6 +1293,9 @@ function chooseTask(s: GameState, p: Person): Task | null {
   if (p.task?.type === 'sleep' || wantsSleep(s, p)) {
     const st = p.task?.type === 'sleep' && p.needs.food < WAKE_TO_EAT && !tireless(p) ? nearestStorage(s, p, (b) => !!foodIn(b)) : null;
     if (st) return { type: 'eat', building: st.id, until: null };
+    // (a supper first, for anyone who'd wake hungry)
+    const supper = p.task?.type !== 'sleep' && p.needs.food < SUPPER && !tireless(p) ? nearestStorage(s, p, (b) => !!foodIn(b)) : null;
+    if (supper) return p.task?.type === 'eat' ? p.task : { type: 'eat', building: supper.id, until: null };
     return sleepTask(p);
   }
   if (p.needs.food < HUNGRY) {
@@ -1522,7 +1545,7 @@ function findJob(s: GameState, p: Person, job: Job): Task | null {
         // (the wall going up is one site: carried to the part of it nearest the hauler)
         const ringS = ringSite(s, b0);
         const b = (ringS && ringHaulTarget(s, ringS, { x: p.x, y: p.y })) || b0;
-        const from = nearestStorage(s, p, (st) => (Object.keys(need) as Material[]).some((m) => (st.store[m] ?? 0) > 0));
+        const from = storeOnTheWay(s, p, buildingDoor(b), (st) => (Object.keys(need) as Material[]).some((m) => (st.store[m] ?? 0) > 0));
         if (!from) continue;
         const amounts: Stock = {};
         let room = carryCapacity(s, p);
@@ -1620,7 +1643,7 @@ function findCraft(s: GameState, p: Person, station?: string): Task | null {
     if (!poolSize(need)) return { type: 'craft', order: o.id, phase: 'work', from: null };
     // already holding some of it (say, after a nap): take it over first
     if (MATERIALS.some((m) => (need[m] ?? 0) > 0 && (p.carrying[m] ?? 0) > 0)) return { type: 'craft', order: o.id, phase: 'deliver', from: null };
-    const from = nearestStorage(s, p, (st) => MATERIALS.some((m) => (need[m] ?? 0) > 0 && (st.store[m] ?? 0) > 0));
+    const from = storeOnTheWay(s, p, buildingDoor(at), (st) => MATERIALS.some((m) => (need[m] ?? 0) > 0 && (st.store[m] ?? 0) > 0));
     if (from) return { type: 'craft', order: o.id, phase: 'fetch', from: from.id };
   }
   return null;
@@ -1813,6 +1836,23 @@ const listCarried = (p: Person) =>
 
 function byId(s: GameState, id: number): Building | undefined {
   return buildingById(s, id);
+}
+
+/** The store to fetch from on the way to `to`: the one making the whole trip (there, then on to `to`) shortest, not
+ *  merely the nearest (docs/notes/smarter-town.md: haulers once walked to the store at their back and then right across
+ *  the town past another that held the same). */
+function storeOnTheWay(s: GameState, at: Pt, to: Pt, ok: (b: Building) => boolean): Building | null {
+  let best: Building | null = null;
+  let bestD = Infinity;
+  for (const b of storages(s)) {
+    if (!ok(b)) continue;
+    const d = distToBuilding(b, at) + distToBuilding(b, to);
+    if (d < bestD) {
+      best = b;
+      bestD = d;
+    }
+  }
+  return best;
 }
 
 function nearestStorage(s: GameState, at: Pt, ok: (b: Building) => boolean): Building | null {

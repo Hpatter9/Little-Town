@@ -1,7 +1,7 @@
 // The God creature (the owner's ask, after Black & White: a creature that learns, has feelings and needs, works with
 // the townsfolk, can be good or evil, and grows; one of five for every people: data/creature.ts). It comes in a saga
-// (data/creatureSaga.ts) once the town has studied Great Beasts (`CREATURE_TOPIC`): signs, a found beast, and the
-// player's pick of the five (`adoptCreature`). Then, every game hour with the autopilot on (`creatureHourly`):
+// (data/creatureSaga.ts), a quest the founder leads from the second morning of a new town (`creatureArrives`): word of a
+// broken nest, the founder's trip to it, and the player's pick of the five (`adoptCreature`). Then, every game hour with the autopilot on (`creatureHourly`):
 //  - its needs run down (hunger, rest, play: 0 to 100), and its mood follows them (`moodOf`): hungry or neglected it
 //    angers, left alone it grows lonely or bored, hurt or in a raid it is afraid;
 //  - it chooses a deed (`chooseDeed`): each deed's weight from its kind's strengths, its needs, its mood, its nature
@@ -16,13 +16,14 @@
 // `RESPAWN_HOURS`, weakened, its name, learning and nature kept, or waits for a pen to be built again. Every roll is from
 // its own side stream; the player's commands (feed, rest, praise, scold, nudge a liking) work with the autopilot off too.
 // The second round of the owner's asks (docs/notes/god-creature-2.md): the town names it (the naming question:
-// sim/naming.ts `askCreatureName`), it comes once a Creature Pen is built and sleeps there, it learns spells
+// sim/naming.ts `askCreatureName`), it sleeps at its Creature Pen once one is built, it learns spells
 // (sim/creatureSpells.ts), and it lives among the townsfolk, the founder first (sim/creatureFolk.ts).
 
-import { ASK_GAP_HOURS, ASK_HOURS, BACK_HP, BACK_SHRINK, BORN_SIZE, CREATURE_LIKINGS, CREATURE_NAMES, CREATURE_PEN, FOUNDER_HELP, FOUNDER_PULL, HIDE_HURT, LIKING_NAMES, NUDGE_HOURS, RAID_DEATH, RESPAWN_HOURS, creatureUnit, CREATURE_SAGA, CREATURE_TOPIC, CREATURE_DEEDS, CREATURE_DEFS, GROW_PACED_DAYS, LEARN_MOST, LEARN_STEP, MEAL, MEND_HP, NEED_LOW, NEGLECT_AT, SLEEP_HOURS, STARVE_HP, alignWord, creatureTint, drawScale, sizeShare, sizeStage, type CreatureDeed, type CreatureKind, type CreatureLiking, type CreatureMood } from '../data/creature';
+import { ASK_GAP_HOURS, ASK_HOURS, QUEST_DAY, QUEST_HOUR, TOPIC_GROW, TOPIC_LEARN, BACK_HP, BACK_SHRINK, BORN_SIZE, CREATURE_LIKINGS, CREATURE_NAMES, CREATURE_PEN, FOUNDER_HELP, FOUNDER_PULL, HIDE_HURT, LIKING_NAMES, NUDGE_HOURS, RAID_DEATH, RESPAWN_HOURS, creatureUnit, CREATURE_SAGA, CREATURE_TOPIC, CREATURE_DEEDS, CREATURE_DEFS, GROW_PACED_DAYS, LEARN_MOST, LEARN_STEP, MEAL, MEND_HP, NEED_LOW, NEGLECT_AT, SLEEP_HOURS, STARVE_HP, alignWord, creatureTint, drawScale, sizeShare, sizeStage, type CreatureDeed, type CreatureKind, type CreatureLiking, type CreatureMood } from '../data/creature';
 import { befriend, creatureAwayTick, driftLike, favourites, joinAdventures, likeOf, likingOf, startLikes } from './creatureFolk';
 import { learnByNature, miracleFor, spellsSeen, watchInTown, workMiracle, type CreatureSpell } from './creatureSpells';
 import { askCreatureName } from './naming';
+import { HOLLOW_FOES } from '../data/creatureSaga';
 import { DANGER_PACE } from '../data/pace';
 import { FOOD_VALUE } from '../data/people';
 import type { Material } from '../data/materials';
@@ -118,10 +119,13 @@ function penFront(b: Building): Pt {
   const r = footprint(b);
   return { x: c.x, y: (r.y + r.h + 0.6) * CELL };
 }
-/** Where it sleeps: at its pen, or by the camp. */
+/** Where it sleeps: at its pen; with none built yet, on straw at the founder's door (by the camp while they have no
+ *  home): it came home with them, and keeps close. */
 function bedOf(s: GameState): Pt {
   const pen = penOf(s);
   if (pen) return penFront(pen);
+  const bed = s.buildings.find((b) => b.id === s.people.find((p) => p.id === s.mainId)?.bed && b.status === 'done');
+  if (bed) return penFront(bed);
   const camp = campXY(s);
   return { x: camp.x + CELL * 3, y: camp.y + CELL * 2 };
 }
@@ -136,8 +140,7 @@ const workOf = (c: CreatureState, d: CreatureDeed) => sizeShare(c.size) * (def(c
 /** The beast is the town's: the kind the player picked (the saga's choice), at its pen. It goes by the first of its
  *  kind's names free of the townsfolk's own until the town names it (the naming question it puts). */
 export function adoptCreature(s: GameState, kind: CreatureKind): CreatureState {
-  const pen = penOf(s);
-  const at = pen ? penFront(pen) : { x: campXY(s).x + CELL * 2, y: campXY(s).y + CELL };
+  const at = bedOf(s);
   const taken = new Set(s.people.map((p) => p.name));
   const name = CREATURE_NAMES[kind].find((n) => !taken.has(n)) ?? CREATURE_NAMES[kind][0];
   const c: CreatureState = {
@@ -151,7 +154,7 @@ export function adoptCreature(s: GameState, kind: CreatureKind): CreatureState {
   s.creature = c;
   startLikes(s, c);
   remember(s, c, `Came to the town, a young ${def(c).name.toLowerCase()} from a broken nest.`);
-  notify(s, `The young ${def(c).name.toLowerCase()} is the town's now. Praise and scold it to teach it.`, true);
+  notify(s, `The young ${def(c).name.toLowerCase()} is the town's now. Praise and scold it to teach it.${penOf(s) ? '' : ' Until it has a pen it sleeps at the founder\'s door: build it a Creature Pen (Build, Town).'}`, true);
   askCreatureName(s, c);
   return c;
 }
@@ -212,7 +215,7 @@ function needsHour(s: GameState, c: CreatureState): void {
   c.anger = clamp(c.anger + sore * (0.5 + d.temper) - (sore ? 0 : 5));
   c.fear = clamp(c.fear - 8 + (s.raid?.phase === 'active' && c.hp < creatureMaxHp(c) * 0.5 ? 25 : 0));
   // (it grows, slowly when hungry)
-  const grow = 1 / (GROW_PACED_DAYS * DANGER_PACE * 24);
+  const grow = (s.research.done.includes(CREATURE_TOPIC) ? TOPIC_GROW : 1) / (GROW_PACED_DAYS * DANGER_PACE * 24);
   c.size = Math.min(1, c.size + grow * (c.hunger > NEED_LOW ? 1 : 0.3));
   const most = creatureMaxHp(c);
   if (c.hunger <= 0) {
@@ -570,7 +573,7 @@ export function teachCreature(s: GameState, praise: boolean): boolean {
   const c = creatureOf(s);
   if (!c?.ask) return false;
   const d = c.ask.deed;
-  learn(c, d, praise ? 1 : -1);
+  learn(c, d, (praise ? 1 : -1) * (s.research.done.includes(CREATURE_TOPIC) ? TOPIC_LEARN : 1));
   (praise ? c.praised : c.scolded)[d] = ((praise ? c.praised : c.scolded)[d] ?? 0) + 1;
   // (praise is attention; a scolding stings)
   if (praise) {
@@ -598,7 +601,7 @@ export function feedCreature(s: GameState): boolean {
   return true;
 }
 
-/** The player sends it to rest: it lies down in its pen (by the camp without one). */
+/** The player sends it to rest: it lies down at its pen (at the founder's door without one). */
 export function restCreature(s: GameState): boolean {
   const c = creatureOf(s);
   if (!c || c.away) return false;
@@ -720,11 +723,24 @@ function withOf(s: GameState, c: CreatureState): string | null {
   return best?.name ?? null;
 }
 
-/** Once the town has studied God Creatures and built a Creature Pen, its saga begins (once): the beast comes in it
- *  (autopilot only). A town whose saga had begun before the pen came keeps it going as it was. */
+/** The quest for the creature: the land its nest lies in (a side stream picks it), and when it was put. */
+export interface CreatureQuest {
+  region: string;
+  began: number;
+}
+
+/** From the second morning of the town (`QUEST_DAY`, `QUEST_HOUR`), its saga begins (once), opening as a quest the
+ *  founder leads to the nest (data/creatureSaga.ts): no research and no pen needed (autopilot only; not while a raid is
+ *  on, nor without a founder at home). An older town whose creature came, or whose saga had begun, goes on as it was. */
 export function creatureArrives(s: GameState): void {
-  if (s.tick % TICKS_PER_HOUR !== 0 || s.autopilot === false || s.gameOver || s.creature) return;
-  if (!s.research.done.includes(CREATURE_TOPIC) || !penOf(s)) return;
+  if (s.tick % TICKS_PER_HOUR !== 0 || s.autopilot === false || s.gameOver || s.creature || s.raid) return;
+  const cal = calendarOf(s);
+  if (cal.day - 1 < QUEST_DAY || (cal.day - 1 === QUEST_DAY && cal.hour < QUEST_HOUR)) return;
   if ((s.sagas ?? []).some((r) => r.id === CREATURE_SAGA) || (s.sagasDone ?? []).some((d) => d.id === CREATURE_SAGA)) return;
+  const f = s.people.find((p) => p.id === s.mainId);
+  if (!f || f.away !== null) return;
+  const rng = new Rng(hashSeed(`${s.seed}:creatureQuest:${s.tick}`));
+  const lands = Object.keys(HOLLOW_FOES);
+  s.creatureQuest = { region: lands[rng.int(0, lands.length - 1)], began: s.tick };
   beginSaga(s, CREATURE_SAGA);
 }

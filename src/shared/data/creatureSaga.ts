@@ -1,7 +1,10 @@
-// The God creature's saga (sim/creature.ts begins it once the town has studied God Creatures and built its pen). Signs
-// in the night, a broken nest with five young beasts, the player's pick of one (`{ creature: kind }`), its first deed, a test of its
-// nature, and its coming of age. Its questions hold the game until they are answered (`waits`), like a question on the
-// founder's own trip. {beast} is the creature's name. See data/sagas.ts for how a saga is built.
+// The God creature's saga (sim/creature.ts begins it on the second morning of a new town: the owner's ask, "I want him to
+// come sooner"). It opens as a quest the founder leads: word of a broken nest out in the wild (`call`), the founder's
+// trip there (`search`, a trip the founder leads: `lead`), the player's pick of the five young (`{ creature: kind }`), its
+// first night in the town, then its first deed, a test of its nature, and its coming of age. Its questions hold the game
+// until they are answered (`waits`), like a question on the founder's own trip. {beast} is the creature's name, {wild}
+// the land the nest lies in (`CreatureQuest.region`). See data/sagas.ts for how a saga is built.
+// (An older town's saga, begun by the old research and pen, may still be at `signs` or `trail`: they are kept.)
 
 import { CREATURE_DEFS, CREATURE_KINDS, CREATURE_PEN, CREATURE_SAGA } from './creature';
 import type { SagaDef } from './sagas';
@@ -10,16 +13,58 @@ import { mood, rep } from './sagaKit';
 // (dead, it comes back while its pen stands: sim/creature.ts `creatureReturns`; the saga waits for it, and ends in its
 // loss only with no pen to come back to)
 const penStands = (s: Parameters<SagaDef['when']>[0]) => s.buildings.some((b) => b.def === CREATURE_PEN && b.status === 'done');
+/** The lands the nest may lie in (a new town's own wild, the first age's), and what prowls the hollow: a fight the
+ *  founder can mostly win alone (a new town is the founder and few else). */
+export const HOLLOW_FOES: Readonly<Record<string, Record<string, number>>> = {
+  westwood: { wolf: 1 },
+  northern_crags: { wolf: 1 },
+  eastwood: { boar: 1 },
+  southern_ridges: { giant_rat: 1 },
+};
+const hollowFoes = (s: Parameters<SagaDef['when']>[0]) => HOLLOW_FOES[s.creatureQuest?.region ?? ''] ?? HOLLOW_FOES.westwood;
 const grownOrGone = (s: Parameters<SagaDef['when']>[0]) => !s.creature || (!!s.creature.dead && !penStands(s)) || (!s.creature.dead && s.creature.size >= 0.6);
 
 export const CREATURE_SAGA_DEF: SagaDef = {
   id: CREATURE_SAGA,
   title: 'The God Creature',
-  blurb: 'Signs in the night, a broken nest, and a young God creature for the town to raise, good or ill.',
+  blurb: 'Word of a broken nest in the wild, a trip to find it, and a young God creature for the town to raise, good or ill.',
   when: () => false,
   apart: true,
-  first: 'signs',
+  first: 'call',
   chapters: {
+    // (the offer doesn't hold the game: it is not yet the founder's quest, and a town left to itself must go on. Left
+    // unanswered it is "not yet", and put again the next day. The questions once the founder is out do hold it.)
+    call: {
+      kind: 'choice',
+      picture: 'forest_3',
+      default: 1,
+      text: 'A trapper comes in from {wild} white-faced. Past the last of the paths there is a hollow full of snapped trees, and in it a broken nest of the old God creatures, the mother long gone. Something is still alive in there, and the beasts of the woods have smelt it too. Whoever gets there first will have it.',
+      options: [
+        { label: '{founder} sets out to find it, with whoever will come', set: ['quest'], next: 'search' },
+        { label: 'Not yet: ask again tomorrow', next: 'later' },
+      ],
+    },
+    later: { kind: 'wait', hours: 20, text: 'The trapper says the hollow will not wait for ever.', next: 'call' },
+    search: {
+      kind: 'trip',
+      place: 'The Broken Nest',
+      text: 'Snapped saplings lead into {wild}, to a hollow where something calls in a voice no one can name. Beasts of the woods are circling it.',
+      foes: hollowFoes,
+      scenery: 'woods',
+      out: 75,
+      loot: { hide: 2 },
+      days: 6,
+      lead: true,
+      win: 'nest',
+      lose: 'beaten',
+      late: 'later',
+    },
+    beaten: {
+      kind: 'wait',
+      hours: 24,
+      text: 'The party limps home from the hollow. The young are still in there, if the beasts have not had them.',
+      next: 'call',
+    },
     signs: {
       kind: 'wait',
       hours: 10,
@@ -37,13 +82,25 @@ export const CREATURE_SAGA_DEF: SagaDef = {
       picture: 'forest_3',
       waits: true,
       beasts: true,
-      text: 'In the hollow lies a broken nest of the old God creatures, the mother long gone. Five young survive, each of a different kind, hungry and watching {founder}. The town can raise only one. Which will {founder} take home?',
+      text: 'The beasts of the hollow are driven off. In the broken nest five young God creatures survive, each of a different kind, hungry and watching {founder}. The town can raise only one. Which will {founder} take home?',
       options: CREATURE_KINDS.map((k) => ({
         label: `The ${CREATURE_DEFS[k].name}: ${CREATURE_DEFS[k].blurb}`,
         effects: [{ creature: k }],
         set: [k],
-        next: 'young',
+        // (found by the founder's own trip: its first night in the town; an older town's saga goes on as it did)
+        next: (flags) => (flags.includes('quest') ? 'first_night' : 'young'),
       })),
+    },
+    first_night: {
+      kind: 'choice',
+      picture: 'meadows_2',
+      waits: true,
+      text: 'The first night home, the young creature will not settle. It cries for its mother, gnaws at the doorposts and will not eat what it is given. How will {founder} settle it?',
+      options: [
+        { label: "{founder} sits up with it by the fire, and shares their own supper", effects: [{ creatureAlign: 8 }, { creatureTeach: 'follow', by: 1 }], next: 'young' },
+        { label: 'Tie it up in the yard: it must learn its place', effects: [{ creatureAlign: -6 }, { creatureTeach: 'guard', by: 1 }], next: 'young' },
+        { label: 'Let it roam, and see where it chooses to sleep', effects: [{ creatureTeach: 'wander', by: 1 }], next: 'young' },
+      ],
     },
     young: {
       kind: 'wait',
