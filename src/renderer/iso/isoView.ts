@@ -29,10 +29,18 @@ import { BoxGrid, behind, coverBox, fadeAlpha, fadeStep, isWalker, type Box } fr
 import { flicker, flickerSize, phaseOf } from '../map/flicker';
 import { reducedMotion } from '../ui/motion';
 import { LIGHT_KIND } from '../../shared/data/lighting';
+import { footDiamond, measureBase, pictureScale, type ArtBase } from './gridAudit';
 
-/** A building's picture may stand this much wider than its footprint before it is shrunk to fit (a big piece on a
- *  small building: a cottage piece on a one-cell trap). */
-const OVERHANG = 1.25;
+/** The grid audit's overlay (docs/notes/grid-audit.md), for developers only: on with `?grid` in the page's address,
+ *  `littletown.grid` set to 1, or `__iso.setGridDebug(true)` from the console. */
+const GRID_KEY = 'littletown.grid';
+const gridAsked = (): boolean => {
+  try {
+    return /[?&]grid\b/.test(location.search) || localStorage.getItem(GRID_KEY) === '1';
+  } catch {
+    return false;
+  }
+};
 /** The kit pieces a starting valley's landmarks are drawn with (sim/startValleys.ts), one picked by the cell, and how
  *  big beside the land's trees. */
 const LANDMARK_PIECES: Readonly<Record<LandmarkKind, string[]>> = {
@@ -218,6 +226,10 @@ export class IsoView {
   private readonly buildings = new Map<number, DrawnBuilding>();
   private builtFrom: Building[] = [];
   private builtGen = -1;
+  /** The grid audit's overlay (`setGridDebug`): the cells, each footprint, each picture's box and its own ground. */
+  private readonly gridG = new Graphics();
+  private gridOn = false;
+  private readonly bases = new Map<number, ArtBase | null>();
   /** A Blood Court castle or a dwarves' hold, from the castle pieces (iso/isoCastle.ts). */
   private readonly castle = new IsoCastleView(this.things, this.own, (url) => this.texUrl(url));
   private castleIn: CastleIn | null = null;
@@ -232,8 +244,99 @@ export class IsoView {
     this.flat.eventMode = 'none';
     this.overFlat.eventMode = 'none';
     this.screenFx.eventMode = 'none';
-    this.world.addChild(this.ground, this.overlay, this.flat, this.things, this.overFlat, this.screenFx, this.lightLayer, this.glow, this.marks);
+    this.gridG.eventMode = 'none';
+    this.world.addChild(this.ground, this.overlay, this.flat, this.things, this.overFlat, this.screenFx, this.lightLayer, this.glow, this.marks, this.gridG);
     this.root.addChild(this.world, this.air);
+    this.gridOn = gridAsked();
+  }
+
+  /** The grid audit's overlay on or off (dev only: docs/notes/grid-audit.md). */
+  setGridDebug(on: boolean): void {
+    this.gridOn = on;
+    if (!on) this.gridG.clear();
+  }
+
+  /** A loaded picture's own ground (iso/gridAudit.ts `measureBase`), measured once from its pixels. */
+  private baseOf(tex: Texture): ArtBase | null {
+    const id = tex.uid;
+    if (this.bases.has(id)) return this.bases.get(id)!;
+    let base: ArtBase | null = null;
+    try {
+      const src = tex.source.resource as CanvasImageSource;
+      const w = Math.round(tex.frame.width), h = Math.round(tex.frame.height);
+      const c = document.createElement('canvas');
+      c.width = w;
+      c.height = h;
+      const g = c.getContext('2d', { willReadFrequently: true })!;
+      g.drawImage(src, tex.frame.x, tex.frame.y, w, h, 0, 0, w, h);
+      const px = g.getImageData(0, 0, w, h).data;
+      base = measureBase((x, y) => px[(y * w + x) * 4 + 3], w, h);
+    } catch {}
+    this.bases.set(id, base);
+    return base;
+  }
+
+  /** The overlay, each frame while on: the cells in view (faint), each building's footprint (green) with its picture's
+   *  box (red), its anchor (yellow) and its picture's own ground (magenta: the plinth's corners and the top face's
+   *  front); each tree, rock and prop's anchor and cell (cyan); each walker's feet and cell (orange). */
+  private drawGrid(): void {
+    const g = this.gridG.clear();
+    const land = this.land;
+    if (!land) return;
+    const o = this.ox;
+    const r = cellsInView(this.view, o, land.w, land.h, 1);
+    for (let y = r.y0; y <= r.y1 + 1; y++) {
+      const a = tileToIso(r.x0, y, o), b = tileToIso(r.x1 + 1, y, o);
+      g.moveTo(a.x, a.y).lineTo(b.x, b.y);
+    }
+    for (let x = r.x0; x <= r.x1 + 1; x++) {
+      const a = tileToIso(x, r.y0, o), b = tileToIso(x, r.y1 + 1, o);
+      g.moveTo(a.x, a.y).lineTo(b.x, b.y);
+    }
+    g.stroke({ color: 0xffffff, width: 1, alpha: 0.4 });
+    const cell = (x: number, y: number, color: number) => {
+      const cx = Math.floor(x), cy = Math.floor(y);
+      const p = [tileToIso(cx, cy, o), tileToIso(cx + 1, cy, o), tileToIso(cx + 1, cy + 1, o), tileToIso(cx, cy + 1, o)];
+      g.poly(p.flatMap((q) => [q.x, q.y])).stroke({ color, width: 1.5, alpha: 0.9 });
+    };
+    const ground = (s: Sprite) => {
+      const base = this.baseOf(s.texture);
+      if (!base) return;
+      const fw = s.texture.frame.width, fh = s.texture.frame.height;
+      const at = (x: number, y: number) => ({ x: s.x + (x + 0.5 - s.anchor.x * fw) * s.scale.x, y: s.y + (y + 1 - s.anchor.y * fh) * s.scale.y });
+      const l = at(base.left.x, base.left.y), f = at(base.front.x, base.front.y), rt = at(base.right.x, base.right.y);
+      g.moveTo(l.x, l.y).lineTo(f.x, f.y).lineTo(rt.x, rt.y).stroke({ color: 0xff40ff, width: 2, alpha: 0.95 });
+      const top = at(base.front.x, base.front.y - base.slab);
+      g.circle(top.x, top.y, 2.5).fill({ color: 0xff40ff });
+    };
+    for (const d of this.buildings.values()) {
+      const s = d.sprite;
+      const at = footBase(d.foot, o);
+      const dia = footDiamond(d.foot).flatMap((q) => [at.x + q.x, at.y + q.y]);
+      g.poly(dia).fill({ color: 0x40ff60, alpha: 0.12 }).stroke({ color: 0x40ff60, width: 2, alpha: 0.95 });
+      if (!s.visible || s.texture.width <= 1) continue;
+      const b = boxOf(s);
+      g.rect(b.x0, b.y0, b.x1 - b.x0, b.y1 - b.y0).stroke({ color: 0xff4040, width: 1, alpha: 0.8 });
+      ground(s);
+      g.circle(s.x, s.y, 3).fill({ color: 0xffe040 });
+      for (const p of d.props) {
+        g.circle(p.x, p.y, 2.5).fill({ color: 0x40e0ff });
+        const w = isoToWorld(p.x, p.y, o);
+        cell(w.x / CELL, w.y / CELL, 0x40e0ff);
+      }
+    }
+    for (const t of this.scenery) {
+      if (!t.visible) continue;
+      g.circle(t.x, t.y, 2.5).fill({ color: 0x40e0ff });
+      const w = isoToWorld(t.x, t.y, o);
+      cell(w.x / CELL, w.y / CELL, 0x40e0ff);
+    }
+    for (const c of this.things.children) {
+      if (this.own.has(c) || !c.visible) continue;
+      g.circle(c.x, c.y, 2.5).fill({ color: 0xffa020 });
+      const w = isoToWorld(c.x, c.y, o);
+      cell(w.x / CELL, w.y / CELL, 0xffa020);
+    }
   }
 
   /** The kit the town is drawn with (iso/isoKits.ts `kitNameFor`). */
@@ -555,8 +658,7 @@ export class IsoView {
       s.visible = !!tex && !this.artHidden.has(b.id);
       if (!tex) continue;
       s.texture = tex;
-      const span = footWidth(foot);
-      const k = fitted(b.def) || shared ? span / tex.width : Math.min(this.kit.scale * ISO_ART, (span * OVERHANG) / tex.width);
+      const k = pictureScale(fitted(b.def) || !!shared, this.kit.scale * ISO_ART, footWidth(foot), tex.width);
       s.scale.set(flip ? -k : k, k);
       const at = footBase(foot, this.ox);
       s.position.set(Math.round(at.x), Math.round(at.y));
@@ -1071,6 +1173,7 @@ export class IsoView {
       c.zIndex = z;
       this.placed.set(c, { x: c.x, y: c.y, z, off });
     }
+    if (this.gridOn) this.drawGrid();
   }
 
   /** Screen to world px (the ground point under it), and back. */
