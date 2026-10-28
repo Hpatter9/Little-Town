@@ -2,8 +2,12 @@
 // phone build (out/web: `npm run web` first) in the pre-installed Chromium with the town as its save and the grid
 // overlay on (`littletown.grid`), and shoots each part of the gallery into docs/notes/grid-audit/. Run by hand.
 //
-//   node tools/grid-shots.mjs            the shots, with the overlay
-//   node tools/grid-shots.mjs --plain    the same without it (for before and after)
+//   node tools/grid-shots.mjs            the gallery's shots, with the overlay
+//   node tools/grid-shots.mjs --plain    the same without it
+//   --scene town     the town as a player might build it (tools/grid-town.ts), not the gallery
+//   --size 393x852   the phone upright (852x393, on its side, by default)
+//   --web <dir>      another build of the phone page (an older one, for before and after)
+//   --out <dir>      where the shots go (docs/notes/grid-audit by default)
 import * as esbuild from 'esbuild';
 import { spawnSync } from 'node:child_process';
 import { createServer } from 'node:http';
@@ -12,14 +16,22 @@ import { extname, join } from 'node:path';
 import { createRequire } from 'node:module';
 
 const plain = process.argv.includes('--plain');
+/** The value after a flag, or a default. */
+const arg = (flag, or) => {
+  const i = process.argv.indexOf(flag);
+  return i > 0 ? process.argv[i + 1] : or;
+};
+const scene = arg('--scene', 'gallery');
+const [vw, vh] = arg('--size', '852x393').split('x').map(Number);
+const web = arg('--web', 'out/web');
 await esbuild.build({ entryPoints: ['tools/grid-town.ts'], outfile: 'out/grid-town.cjs', bundle: true, platform: 'node', format: 'cjs', target: 'es2023', logLevel: 'warning', loader: { '.png': 'empty' } });
-if (spawnSync(process.execPath, ['out/grid-town.cjs'], { stdio: 'inherit' }).status) process.exit(1);
+if (spawnSync(process.execPath, ['out/grid-town.cjs', scene], { stdio: 'inherit' }).status) process.exit(1);
 const town = JSON.parse(readFileSync('out/grid-town.json', 'utf8'));
-if (!existsSync('out/web/index.html')) throw new Error('build the phone version first: npm run web');
+if (!existsSync(`${web}/index.html`)) throw new Error('build the phone version first: npm run web');
 
 const TYPES = { '.html': 'text/html', '.js': 'text/javascript', '.css': 'text/css', '.png': 'image/png', '.json': 'application/json', '.webmanifest': 'application/manifest+json', '.woff2': 'font/woff2', '.svg': 'image/svg+xml', '.mp3': 'audio/mpeg', '.ogg': 'audio/ogg' };
 const server = createServer((req, res) => {
-  let p = join('out/web', decodeURIComponent(req.url.split('?')[0]));
+  let p = join(web, decodeURIComponent(req.url.split('?')[0]));
   if (existsSync(p) && statSync(p).isDirectory()) p = join(p, 'index.html');
   if (!existsSync(p)) return res.writeHead(404).end();
   res.writeHead(200, { 'content-type': TYPES[extname(p)] ?? 'application/octet-stream' }).end(readFileSync(p));
@@ -28,7 +40,7 @@ const port = server.address().port;
 
 const { chromium } = createRequire(import.meta.url)('playwright');
 const browser = await chromium.launch();
-const page = await browser.newPage({ viewport: { width: 852, height: 393 }, deviceScaleFactor: 2 });
+const page = await browser.newPage({ viewport: { width: vw, height: vh }, deviceScaleFactor: 2 });
 await page.addInitScript(([save, grid]) => {
   if (sessionStorage.getItem('gridSeeded')) return;
   sessionStorage.setItem('gridSeeded', '1');
@@ -58,9 +70,7 @@ async function pastMenu() {
   }
   await page.waitForTimeout(6000);
 }
-// (`--out <dir>`: elsewhere than the audit's folder)
-const outAt = process.argv.indexOf('--out');
-const out = outAt > 0 ? process.argv[outAt + 1] : 'docs/notes/grid-audit';
+const out = arg('--out', 'docs/notes/grid-audit');
 mkdirSync(out, { recursive: true });
 /** Put the camera over a cell, zoomed in, and shoot. */
 async function shoot(name, cx, cy) {
@@ -71,30 +81,10 @@ async function shoot(name, cx, cy) {
     cam.centreOn({ x: (cx + 0.5) * 32, y: (cy + 0.5) * 32 }, window.innerWidth, window.innerHeight); // (world px: the camera puts them on the diamonds)
   }, [cx, cy]);
   await page.waitForTimeout(1500);
-  await page.screenshot({ path: `${out}/${name}${plain ? '-plain' : ''}.jpg`, type: 'jpeg', quality: 78 });
+  await page.screenshot({ path: `${out}/${name}${plain ? '-plain' : ''}${vw < vh ? '-upright' : ''}.jpg`, type: 'jpeg', quality: 78 });
   console.log(`shot ${name}`);
 }
-const g = town.gallery;
-const wy = town.walls.y;
-// (numbered worst first, as docs/notes/grid-audit.md lists them; close-ups at twice the phone's zoom, the overviews at
-// its own: the page opened again at each zoom)
-const shots = {
-  2: [
-    ['01-walls-gate', g.x + 6, wy + 2],
-    ['02-folk-float', g.x + 14, wy + 5],
-    ['04-creature-pen', g.x + 7, wy + 10],
-    ['07-stone-wall', g.x + 17, wy + 2],
-    ['08-street-fields-pens', g.x + 29, wy + 3],
-    ['09-trees-rocks', town.camp.x - 6, town.camp.y],
-    ['10-building-sites', g.x + 15, wy + 10],
-  ],
-  1: [
-    ['03-big-buildings', g.x + 22, g.y + 22],
-    ['05-mid-buildings', g.x + 22, g.y + 12],
-    ['06-small-buildings', g.x + 10, g.y + 4],
-    ['11-overview-walls-pens', g.x + 14, wy + 5],
-  ],
-};
+const shots = town.shots;
 for (const [zoom, list] of Object.entries(shots)) {
   await page.evaluate((z) => {
     localStorage.setItem('littletown.zoom4.side', z);

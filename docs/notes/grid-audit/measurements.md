@@ -80,7 +80,6 @@ Written by `node tools/grid-audit.mjs` (tools/grid-audit.ts), the settlers' kit 
 | healers_hut (2x2) | cottage | 2x2 | 2.6x2.4 | 4 | 3 | 1.3 | 2.5 | 66.3% |  |
 | clockmaker (2x2) | cottage | 2x2 | 2.6x2.4 | 4 | 3 | 1.3 | 2.5 | 66.3% |  |
 | deep_shaft (2x2) | cottage | 2x2 | 2.6x2.4 | 4 | 3 | 1.3 | 2.5 | 66.3% |  |
-| stockade (3x2) | palisade_run | 3x2 | 3.6x1.3 | 4 | 16 | 1.0 | 1.3 | 52.2% |  |
 | workbench (2x2) | workshop | 2x2 | 2.5x2.5 | 3 | -1 | 1.3 | 3.1 | 55.3% |  |
 | tanning_rack (2x2) | workshop | 2x2 | 2.5x2.5 | 3 | -1 | 1.3 | 3.1 | 55.3% |  |
 | kiln (2x2) | workshop | 2x2 | 2.5x2.5 | 3 | -1 | 1.3 | 3.1 | 55.3% |  |
@@ -96,7 +95,6 @@ Written by `node tools/grid-audit.mjs` (tools/grid-audit.ts), the settlers' kit 
 | apothecary (2x2) | workshop | 2x2 | 2.5x2.5 | 3 | -1 | 1.3 | 3.1 | 55.3% |  |
 | chandlery (2x2) | workshop | 2x2 | 2.5x2.5 | 3 | -1 | 1.3 | 3.1 | 55.3% |  |
 | dyeworks (2x2) | workshop | 2x2 | 2.5x2.5 | 3 | -1 | 1.3 | 3.1 | 55.3% |  |
-| archery_range (3x1) | shared/archery_range | 3x1 | 2.4x1.5 | 7 | -13 | 1.0 | 1.0 | 37.5% |  |
 | lookout (2x2) | watchtower | 2x2 | 2.3x2.5 | 5 | -2 | 1.2 | 4.2 | 66.3% |  |
 | watchtower (2x2) | watchtower | 2x2 | 2.3x2.5 | 5 | -2 | 1.2 | 4.2 | 66.3% |  |
 | bell_tower (2x2) | watchtower | 2x2 | 2.3x2.5 | 5 | -2 | 1.2 | 4.2 | 66.3% |  |
@@ -153,7 +151,9 @@ Written by `node tools/grid-audit.mjs` (tools/grid-audit.ts), the settlers' kit 
 | stone_gate (2x1) | stone_gate | 2x1 | 2.4x0.6 | 1 | 10 | 1.0 | -0.2 | 16.8% | shrunk to 25% of the kit |
 | clone_vat (2x2) | shared/clone_vat | 2x2 | 1.7x2.3 | 5 | -7 | 1.0 | 1.6 | 42.1% |  |
 | ward_stone (1x2) | shared/ward_stone | 1x2 | 1.3x1.7 | 3 | 8 | 1.0 | 1.1 | 34.4% |  |
+| stockade (3x2) | palisade_gate | 3x2 | 3.3x1.7 | 3 | 7 | 1.0 | 0.5 | 43.2% | shrunk to 65% of the kit |
 | shield_generator (2x2) | shared/shield_generator | 2x2 | 1.7x2.3 | 2 | -6 | 1.0 | 2.1 | 39.3% |  |
+| archery_range (3x2) | shared/archery_range | 3x2 | 3.0x1.9 | 8 | 1 | 1.0 | 1.3 | 46.9% |  |
 | longhouse (4x3) | longhouse | 4x3 | 4.1x3.0 | 5 | 2 | 1.0 | 2.8 | 66.3% |  |
 | barracks (4x3) | longhouse | 4x3 | 4.1x3.0 | 5 | 2 | 1.0 | 2.8 | 66.3% |  |
 | trophy_hall (4x3) | longhouse | 4x3 | 4.1x3.0 | 5 | 2 | 1.0 | 2.8 | 66.3% |  |

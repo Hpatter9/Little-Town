@@ -2,8 +2,8 @@
 // cells it is given. Reads the PNGs themselves (tools/png.ts), finds each picture's own ground (iso/gridAudit.ts
 // `measureBase`) and works out its fit on its footprint the way iso/isoView.ts draws it. Writes a table, the worst
 // first. Run by hand: `node tools/grid-audit.mjs` (it writes docs/notes/grid-audit/measurements.md).
-// `node tools/grid-audit.mjs --check` also judges every building by the proposed rules (docs/notes/grid-audit.md,
-// `RULES`) and fails when any breaks them: the check that would run in CI once the art is brought into line.
+// It measures the drawing before the grid's rules (the pictures fitted to their footprints, as the audit found them);
+// the rules themselves are checked by test/gridRules.test.ts.
 
 import { writeFileSync, mkdirSync, readFileSync } from 'node:fs';
 import { BUILDINGS } from '../src/shared/data/buildings';
@@ -48,18 +48,6 @@ const r0 = (n: number) => String(Math.round(n));
  *  and how far it spills past its diamond. */
 const badness = (f: Fit): number =>
   Math.abs(f.lift) / (ISO_TH / 2) + Math.abs(f.shiftX) / (ISO_TW / 2) + Math.abs(f.artW - f.footW) + Math.abs(f.artH - f.footH) + Math.max(0, f.spread - 1) * 4 + Math.max(0, 0.6 - f.spread) * 4;
-
-/** The proposed rules' tolerances (docs/notes/grid-audit.md): its ground on the footprint's to a px or two, its front
- *  corner on the footprint's, its plinth the footprint's cells to a tenth, and no wider than its diamond but for eaves. */
-const RULES = { lift: 2, shift: 3, cells: 0.15, spread: 1.15 };
-const breaks = (f: Fit): string[] => {
-  const out: string[] = [];
-  if (Math.abs(f.lift) > RULES.lift) out.push(`floats ${Math.round(f.lift)} px`);
-  if (Math.abs(f.shiftX) > RULES.shift) out.push(`off-centre ${Math.round(f.shiftX)} px`);
-  if (Math.abs(f.artW - f.footW) > RULES.cells || Math.abs(f.artH - f.footH) > RULES.cells) out.push(`plinth ${f.artW.toFixed(1)}x${f.artH.toFixed(1)} on ${f.footW}x${f.footH}`);
-  if (f.spread > RULES.spread) out.push(`spills ${Math.round((f.spread - 1) * 100)}% wider`);
-  return out;
-};
 
 /* ------------------------------------------------------------ buildings */
 
@@ -178,10 +166,4 @@ mkdirSync('docs/notes/grid-audit', { recursive: true });
 mkdirSync('out', { recursive: true });
 writeFileSync('out/grid-defs.json', JSON.stringify(Object.fromEntries(BUILDINGS.map((d) => [d.id, [d.width, depthOf(d)]]))));
 writeFileSync('docs/notes/grid-audit/measurements.md', out.join('\n'));
-if (process.argv.includes('--check')) {
-  const bad = rows.map((r) => ({ r, why: breaks(r.fit) })).filter((x) => x.why.length);
-  for (const { r, why } of bad) console.log(`${r.what} (${r.piece}): ${why.join(', ')}`);
-  console.log(`${bad.length} of ${rows.length} buildings break the grid rules`);
-  process.exit(bad.length ? 1 : 0);
-}
 console.log(`wrote docs/notes/grid-audit/measurements.md (${rows.length} buildings, ${loose.length} loose pieces)`);
