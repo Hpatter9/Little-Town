@@ -22,8 +22,8 @@ export interface GridRec {
   /** Whole cells along x and along y, as drawn (mirrored it is [h, w]). */
   foot: [number, number];
   /** 'building'; 'loose' (a tree, a rock, a prop: one cell, its foot on the middle); 'seg' (one cell of a wall or fence,
-   *  lying along x); 'gate' (a gate's middle, lying along x). */
-  kind: 'building' | 'loose' | 'seg' | 'gate';
+   *  lying along x); 'gate' (a gate's middle, lying along x); 'post' (a wall's corner piece, on its cell's middle). */
+  kind: 'building' | 'loose' | 'seg' | 'gate' | 'post';
   /** How much the copy was scaled from the original. */
   bake: number;
   /** A seg's or a gate's: the kit's piece it was cut from. */
@@ -202,6 +202,13 @@ export function wallSeg(kit: string, defId: string): { piece: string; rec: GridR
   const run = wallPieceFor([...kitOf(kit).pieces.keys()], 'run', defId);
   const seg = run && segOf(kit, run);
   return seg ? { piece: seg, rec: GRID[kit][seg] } : null;
+}
+
+/** A wall's corner piece (stone's: a pier cut from the stone gate), standing where its arms meet, if it has one. */
+export function wallPost(kit: string, seg: string): { piece: string; rec: GridRec } | null {
+  const piece = seg.replace(/_seg$/, '_post');
+  const rec = GRID[kit]?.[piece];
+  return rec && rec.kind === 'post' ? { piece, rec } : null;
 }
 
 /** A kit's one-cell fence seg (for pens), if cut. */

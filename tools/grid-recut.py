@@ -38,9 +38,18 @@ SOLID = 24
 BUILDINGS = ['cottage', 'longhouse', 'stockpile', 'workshop', 'tavern', 'well', 'chapel', 'granary', 'watchtower', 'market_stall', 'campfire']
 LOOSE = {'oak_tree': 0.73, 'pine_tree': 0.73, 'bush': 0.7, 'rocks': 0.58, 'barrels': 0.6, 'crates': 0.6, 'woodpile': 0.6, 'hay_bales': 0.6,
          'cart': 0.6, 'lamp_post': 0.6, 'signpost': 0.6}
-# walls and fences: a cell cut from the middle of the kit's run; gates: their middle, this many cells long
+# walls and fences: a cell cut from the middle of the kit's run (a fence's centred on a post, so each cell has one);
+# gates: their middle, this many cells long
 SEGS = {'stone_wall_seg': 'stone_wall_run', 'palisade_seg': 'palisade_run', 'fence_seg': 'fence'}
 GATES = {'stone_gate_seg': ('stone_gate', 2), 'palisade_gate_seg': ('palisade_gate', 2)}
+ON_POST = {'fence'}
+# px taken out of the middle of a run's height (its tips and its foot kept): the palisade's stakes stood half again a
+# person's height and hid the town behind; lowered, they stand about shoulder to head high (the owner's ask)
+LOWER = {'palisade_run': 28, 'palisade_gate': 28}
+# how much of a column's foot is kept under the band taken out (its ground and the stones at the stakes' feet)
+LOWER_KEEP = 45
+# the stone wall's corner: one of the stone gate's towers, a cell across, on the corner cell's middle
+POSTS = {'stone_wall_post': 'stone_gate'}
 # the kit's pieces drawn lying along y (iso/isoKits.ts ALONG_Y): mirrored first, so every cut lies along x
 ALONG_Y = {'stone_wall_run', 'stone_gate', 'fence'}
 # a gate's middle is cut this much wider than its cells, a quarter cell each side (rule 4's eaves)
@@ -206,6 +215,7 @@ def seg_cut(src, cells, mirror):
         im = im.transpose(Image.FLIP_LEFT_RIGHT)
     alpha, w, h = alpha_of(im)
     slab = measure_base(im)['slab']
+    name = os.path.basename(src)[:-4]
     # (its foot: the lowest drawn row of each column; the slope fitted over the middle of the run)
     foot = {}
     for x in range(w):
@@ -218,6 +228,10 @@ def seg_cut(src, cells, mirror):
     my = sum(foot[x] for x in xs) / len(xs)
     slope = sum((x - mx) * (foot[x] - my) for x in xs) / sum((x - mx) ** 2 for x in xs)
     mid = (min(foot) + max(foot)) / 2
+    if name in ON_POST:
+        mid = post_near(im, foot, mid)
+    if name in LOWER:
+        im = lowered(im, foot, LOWER[name])
     half = cells * HC / 2 + (GATE_EAVES * HC if cells > 1 else 1)
     x0, x1 = max(0, int(round(mid - half))), min(w, int(round(mid + half)))
     # (sheared to 2:1 about the middle column: the shift at its edges is how far the run falls short of a half)
@@ -237,6 +251,80 @@ def seg_cut(src, cells, mirror):
     top = bbox[1] if bbox else 0
     out = out.crop((0, top, out.width, bbox[3] if bbox else out.height))
     return out, [anchor[0], anchor[1] - top], [cells, 1], round(slope, 3)
+
+
+def heights(im, foot):
+    """Each column's drawn height (its foot to its top)."""
+    alpha, w, h = alpha_of(im)
+    out = {}
+    for x, f in foot.items():
+        top = next(y for y in range(h) if alpha(x, y) >= SOLID)
+        out[x] = f - top
+    return out
+
+
+def post_near(im, foot, mid):
+    """The middle of the post nearest a column: a run of columns taller than the rails beside them."""
+    hs = heights(im, foot)
+    tall = max(hs.values())
+    cols = sorted(x for x, v in hs.items() if v >= tall - 6)
+    runs, run = [], []
+    for x in cols:
+        if run and x != run[-1] + 1:
+            runs.append(run)
+            run = []
+        run.append(x)
+    runs.append(run)
+    return min(((r[0] + r[-1]) / 2 for r in runs), key=lambda c: abs(c - mid))
+
+
+def lowered(im, foot, cut):
+    """A run with `cut` px taken out of each column's height above its foot (the foot and the tips kept)."""
+    out = Image.new('RGBA', im.size, (0, 0, 0, 0))
+    w, h = im.size
+    for x in range(w):
+        col = im.crop((x, 0, x + 1, h))
+        if x not in foot:
+            continue
+        keep_from = max(0, foot[x] - LOWER_KEEP)
+        top_end = max(0, keep_from - cut)
+        out.paste(col.crop((0, keep_from, 1, h)), (x, keep_from))
+        if top_end > 0:
+            out.paste(col.crop((0, 0, 1, top_end)), (x, cut))
+    return out
+
+
+def post_cut(src, mirror):
+    """A tower cut from a gate as a one-cell corner piece: the first group of columns standing well over the wall, its
+    foot on the middle of its cell, as a wall's seg is (0.3 of a cell behind its ground's front edge)."""
+    im = Image.open(src).convert('RGBA')
+    if mirror:
+        im = im.transpose(Image.FLIP_LEFT_RIGHT)
+    alpha, w, h = alpha_of(im)
+    slab = measure_base(im)['slab']
+    foot = {}
+    for x in range(w):
+        for y in range(h - 1, -1, -1):
+            if alpha(x, y) >= SOLID:
+                foot[x] = y
+                break
+    hs = heights(im, foot)
+    wall = sorted(hs.values())[len(hs) // 2]
+    cols = [x for x in sorted(hs) if hs[x] > wall + 25]
+    group = [cols[0]]
+    for x in cols[1:]:
+        if x != group[-1] + 1:
+            break
+        group.append(x)
+    x0, x1 = group[0], group[-1] + 1
+    cx = (x0 + x1) / 2
+    edge = foot[int(cx)] - slab
+    anchor = [round(cx - x0), round(edge - 0.3 * HC + HC / 2)]
+    cut = im.crop((x0, 0, x1, h))
+    cut_below(cut, anchor, 1, 1)
+    bbox = cut.getbbox()
+    cut = cut.crop((0, bbox[1], cut.width, bbox[3]))
+    return cut, [anchor[0], anchor[1] - bbox[1]]
 
 
 def main():
@@ -263,6 +351,10 @@ def main():
         cut, anchor, foot, slope = seg_cut(os.path.join(KIT, src + '.png'), 1, src in ALONG_Y)
         save(cut, os.path.join(out_kit, pid + '.png'))
         kit_rec[pid] = {'anchor': anchor, 'foot': foot, 'kind': 'seg', 'bake': 1, 'from': src, 'slope': slope}
+    for pid, src in POSTS.items():
+        cut, anchor = post_cut(os.path.join(KIT, src + '.png'), src in ALONG_Y)
+        save(cut, os.path.join(out_kit, pid + '.png'))
+        kit_rec[pid] = {'anchor': anchor, 'foot': [1, 1], 'kind': 'post', 'bake': 1, 'from': src}
     for pid, (src, cells) in GATES.items():
         cut, anchor, foot, slope = seg_cut(os.path.join(KIT, src + '.png'), cells, src in ALONG_Y)
         save(cut, os.path.join(out_kit, pid + '.png'))

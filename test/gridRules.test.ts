@@ -4,6 +4,7 @@ import { existsSync, readFileSync } from 'node:fs';
 import { readPng } from '../tools/png';
 import { BUILDING_BY_ID, BUILDINGS } from '../src/shared/data/buildings';
 import { depthOf, isUnlocked } from '../src/shared/sim/buildings';
+import { CROPS } from '../src/shared/data/crops';
 import { AWAITING_ART, fenceSeg, fitIn, gatePlan, gridPlan, isFencedPen, looseRec, penEdges, snapSpots, wallArms, wallSeg, yardCells, type GridRec } from '../src/renderer/iso/gridRules';
 import { ISO_ART, kitOf, roleOf, SHARED_PIECES } from '../src/renderer/iso/isoKits';
 import { propsFor, sceneryFor, stockHeaps } from '../src/renderer/iso/isoTown';
@@ -107,8 +108,9 @@ test('every settlers building is drawn on the grid: by a picture that fits, or a
   assert.deepEqual([...shrunk].sort(), [...AWAITING_ART].sort(), 'AWAITING_ART lists exactly the buildings drawn smaller (add a new one to the list, or give it a picture that fits)');
 });
 
-test('the herds pens are fenced, not ploughed', () => {
+test('the herds pens are fenced, not ploughed, and the crop fields are ploughed, not fenced', () => {
   for (const id of ['goat_pen', 'pig_sty', 'chicken_coop', 'sheep_fold', 'cattle_pasture']) if (BUILDING_BY_ID[id]) assert.ok(isFencedPen(id), id);
+  for (const id of Object.keys(CROPS)) assert.ok(!isFencedPen(id), id);
 });
 
 test("the land's trees, rocks and bushes and the buildings' props and heaps are all cut to one cell", () => {

@@ -97,8 +97,8 @@
  },
  "fence_seg": {
   "anchor": [
-   20,
-   71
+   19,
+   66
   ],
   "foot": [
    1,
@@ -196,7 +196,7 @@
  "palisade_gate_seg": {
   "anchor": [
    64,
-   139
+   111
   ],
   "foot": [
    2,
@@ -210,7 +210,7 @@
  "palisade_seg": {
   "anchor": [
    20,
-   129
+   101
   ],
   "foot": [
    1,
@@ -286,6 +286,19 @@
   "bake": 1,
   "from": "stone_gate",
   "slope": 0.089
+ },
+ "stone_wall_post": {
+  "anchor": [
+   20,
+   186
+  ],
+  "foot": [
+   1,
+   1
+  ],
+  "kind": "post",
+  "bake": 1,
+  "from": "stone_gate"
  },
  "stone_wall_seg": {
   "anchor": [

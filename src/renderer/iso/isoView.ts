@@ -32,7 +32,7 @@ import { EMBERS, emberAt, flameBox, hearthGlow, tongueAt } from './fireLook';
 import { reducedMotion } from '../ui/motion';
 import { LIGHT_KIND } from '../../shared/data/lighting';
 import { footDiamond, measureBase, pictureScale, type ArtBase } from './gridAudit';
-import { fenceSeg, gatePlan, gridPlan, gridUrl, isFencedPen, looseRec, penEdges, snapSpots, SHARED_KIT, wallArms, wallSeg, yardCells, type GridRec } from './gridRules';
+import { fenceSeg, wallPost, gatePlan, gridPlan, gridUrl, isFencedPen, looseRec, penEdges, snapSpots, SHARED_KIT, wallArms, wallSeg, yardCells, type GridRec } from './gridRules';
 import { HERDS } from '../../shared/data/livestock';
 
 /** The grid audit's overlay (docs/notes/grid-audit.md), for developers only: on with `?grid` in the page's address,
@@ -798,6 +798,9 @@ export class IsoView {
         'whole' in a
           ? [{ url, rec: seg.rec, flip: a.whole.alongY, at, z }]
           : a.arms.map((arm) => ({ url, rec: seg.rec, flip: arm === 'n' || arm === 's', half: arm === 'w' || arm === 'n' ? ('a' as const) : ('b' as const), at, z: z + (arm === 'w' || arm === 'n' ? -0.002 : 0) }));
+      // (where arms meet, the wall's corner piece over them, if it has one: the stone wall's pier)
+      const post = 'arms' in a ? wallPost(kit, seg.piece) : null;
+      if (post) parts.push({ url: gridUrl(kit, post.piece, false), rec: post.rec, flip: false, at, z: z + 0.002 });
       return { kind: 'wall', main: parts[0], extras: parts.slice(1), pic: foot, yard: [], piece: seg.piece, shared: false, k };
     }
     if ('role' in role && role.role === 'gate') {

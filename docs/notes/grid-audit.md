@@ -23,13 +23,20 @@ upright (`-upright`, 393x852).
   other yard cell. A tavern's 3x3 picture on its 5x3 footprint, every shop's stall, the factories on their 6x4.
 - **A building with no picture that fits** (a smithy, 3x2, borrows the 3x3 workshop; a turret, 1x1, the 2x2
   watchtower) is drawn with the borrowed picture made smaller by one factor until it fits, on the footprint's middle,
-  still on the ground and cut at the front: 68 buildings (`AWAITING_ART`, the list for PixelLab below).
+  still on the ground and cut at the front: 68 buildings (`AWAITING_ART`, the list for PixelLab below). So the
+  workshops look smaller than before, as meant: a smithy was the 3x3 workshop at the kit's full size spilling over its
+  3x2 footprint (66% scale, 1.2 times the footprint's width); it is now that picture at two thirds of it (44%), inside
+  its footprint.
 - **Walls are their real size and join up.** The kit's long runs are cut into one-cell pieces (stone, palisade, fence)
   and the gates into their middles two cells long (and a quarter cell of eaves each side). A wall cell is a whole piece
   along its run, or, at a corner, a tee or a cross, the half pieces reaching to each wall beside it; a gate stands in
   the line. The kits' runs are drawn at a shallower slope than the grid's 2:1 (a quarter, not a half), so each cut is
   sheared upright to 2:1 (columns moved up or down, never tilted): laid end to end they make one unbroken wall.
-  A palisade at full size is tall (a stake about one and a half times a person), and hides what's behind it.
+  The palisade (and its gate) is lowered: its stakes stood half again a person's height and hid the town behind, so
+  28 px of the kit's art are taken out of the middle of each column (the tips and the foot kept): it now stands about
+  shoulder to head high (the owner's call: lower stakes, never see-through buildings). A stone wall's corner, tee or
+  cross has a pier over the meeting arms (`stone_wall_post`, the torch pier cut from the stone gate). A fence's cell is
+  cut centred on one of its posts, so every cell has one post and the rails meet between them.
 - **Pens are fenced, not ploughed.** The herds' pens (goats, pigs, chickens, sheep, cattle), the God creature's pen, the
   stable, the kennels and the beast ranch are a fence round their footprint's edges with a way in on the front-left,
   bare ground inside and a heap of hay in the middle. The stockade is the palisade round its edges with its gate on the
@@ -48,7 +55,9 @@ upright (`-upright`, 393x852).
   (`art/iso/kits/settlers/grid/`, `art/iso/buildings/grid/`), with a record each in that folder's `grid.json`:
   `anchor` (px in the copy: the footprint's front corner, at the top of the grass), `foot` (whole cells along x and y;
   mirrored it is the other way round), `kind` (`building`, `loose` for a tree, rock or prop, `seg` for one cell of a
-  wall or fence, `gate`), `bake` (how much the copy was scaled from the original). A plinth's cells are rounded down
+  wall or fence, `gate`, `post` for a wall's corner piece), `bake` (how much the copy was scaled from the original).
+  `LOWER`/`lowered` (the palisade's band taken out), `ON_POST`/`post_near` (the fence cut on a post), `POSTS`/`post_cut`
+  (the stone corner's pier). A plinth's cells are rounded down
   unless past the half by a little (`cells`: 2.5 is 2, 2.55 is 3); the campfire is given 2x2 (`FOOT`). The shared
   pieces are baked so their plinth is their building's footprint at the settlers' scale (the archery range, laid off
   the grid's angle by `groundFit`, is left to it). Trees are baked to 0.73, bushes 0.7, rocks 0.58, props 0.6 (`LOOSE`).
@@ -60,7 +69,7 @@ upright (`-upright`, 393x852).
   way round, on its middle; the way leaving less yard), `yardCells`; `gridPlan` (a building's piece, record, cells, mirror
   and `shrink`); `AWAITING_ART`; `isFencedPen`, `penEdges` (a seg to each edge cell, the back edges first, a way or a
   gate on the front-left edge's middle), `wallArms` (whole, or the arms to each neighbour), `snapSpots`, `gatePlan`,
-  `wallSeg`, `fenceSeg`, `looseRec`. Only the settlers' kit is cut (`GRID`); the other peoples, not playable, keep the
+  `wallSeg`, `wallPost`, `fenceSeg`, `looseRec`. Only the settlers' kit is cut (`GRID`); the other peoples, not playable, keep the
   old drawing until theirs are cut.
 - **`iso/isoView.ts`**: `gridLook` (how a building is drawn: a building with its yard, a wall cell's arms, a gate, the
   stockade or a pen with its fence), `syncGrid` (the picture placed, its fence or other arms, door, lights, props),
@@ -98,9 +107,8 @@ settlers piece has to be cut (`tools/grid-recut.py`) and keep the rules, or `npm
     rowhouse, hospital, prison, library, power station, textile mill, airship mast; refinery, electronics plant,
     garage, appliance plant, apartments, trauma centre, cinema, university, pharmacy; alloy foundry, chip fab, robot
     workshop, habitat dome, fusion reactor.
-  - *Walls*: a stone corner and post (the corner is two half runs meeting now), and shorter palisade stakes if the
-    owner finds the full-size palisade hides too much (or let walls fade for someone behind them, as trees do).
-  - *Pens*: a purpose-made fence piece a cell long with a post at each end (the cut fence shows a post and a half).
+  - *Walls*: a purpose-made stone corner tower (the pier cut from the gate stands in), and corner pieces for the
+    palisade and the fence (two half runs meet there now).
 - **The other peoples' kits** go through `tools/grid-recut.py` the same way when they are playable again.
 - The street tiles' step at each cell's edge (below) is untouched.
 
