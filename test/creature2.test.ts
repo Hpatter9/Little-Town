@@ -3,7 +3,7 @@
 
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { BACK_HP, CREATURE_NAMES, CREATURE_SAGA, CREATURE_PEN, CREATURE_TOPIC, NUDGE, RESPAWN_HOURS } from '../src/shared/data/creature';
+import { BACK_HP, CREATURE_NAMES, CREATURE_SAGA, CREATURE_PEN, NUDGE, RESPAWN_HOURS } from '../src/shared/data/creature';
 import { BUILDING_BY_ID } from '../src/shared/data/buildings';
 import { NATURE_SPELLS, SPELLS_MOST } from '../src/shared/data/creatureSpells';
 import { RAID_KIND_BY_ID } from '../src/shared/data/raids';
@@ -69,22 +69,18 @@ test('the town names it: three names that fit its kind or one typed, and every l
   assert.equal(c.name, 'Old Barnaby');
 });
 
-test('the pen is opened by the research, ordered by the player only, and the saga waits for it; the beast sleeps there', () => {
+test('the pen is open from the start, ordered by the player only, and the saga no longer waits for it; the beast sleeps there', () => {
   const d = BUILDING_BY_ID[CREATURE_PEN];
-  assert.ok(d && d.research === CREATURE_TOPIC, 'the research opens the pen');
+  assert.ok(d && !d.research, 'no research opens the pen: it is open from the start');
   const s = town('c2-pen');
   s.autopilot = true;
-  s.research.done.push(CREATURE_TOPIC);
   hour(s);
   creatureArrives(s);
-  assert.ok(!(s.sagas ?? []).length, 'no saga without a pen');
+  assert.ok((s.sagas ?? []).some((r) => r.id === 'great_beast'), 'the saga begins with no pen');
   const sim = new Sim(s);
   for (let i = 0; i < 6; i++) sim.step();
   assert.ok(!s.buildings.some((b) => b.def === CREATURE_PEN), 'the town never lays out a pen itself');
   const p = pen(s);
-  hour(s);
-  creatureArrives(s);
-  assert.ok((s.sagas ?? []).some((r) => r.id === 'great_beast'), 'the saga begins once the pen stands');
   // (it lives at the pen, and lies down there)
   const c = adoptCreature(s, 'golem');
   assert.equal(penOf(s), p);
