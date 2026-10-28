@@ -237,7 +237,7 @@ export class MapView {
   readonly workFx: WorkFx;
   /** Told when a tree or a rock it drew goes from a cell just felled or broken up (map/mapFelling.ts falls it). */
   onFelled?: (tex: Texture, fx: number, fy: number, kind: 'tree' | 'rock', cell: number) => void;
-  /** Buildings whose own picture is hidden, something else drawn in its place (the stockpile's heaps: mapStockpile.ts). */
+  /** Buildings whose own picture is hidden, something else drawn in its place (none now: the iso view draws a stockpile's heaps). */
   readonly artHidden = new Set<number>();
   /** A soft darkening at the view's edges (the owner's ask: the eye drawn in), over the land, under the HUD. */
   private readonly vignette = new Sprite(vignetteTexture());

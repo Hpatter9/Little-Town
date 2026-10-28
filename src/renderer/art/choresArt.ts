@@ -1,4 +1,4 @@
-// The pack sprites behind the work you can see (map/mapFelling.ts, mapStockpile.ts, mapGains.ts, mapChores.ts): the
+// The pack sprites behind the work you can see (map/mapFelling.ts, mapGains.ts, mapChores.ts): the
 // Fields tileset's stump, logs, crates, stones and flag, the Village tileset's barrel, crate, log bundle, stump with its
 // axe and bucket, the Glassblower's Workshop's sacks, and two haystacks from the Medieval Field Work set
 // shrunk to the map's pixel (see CREDITS.md). Loaded once; `choresTex` is empty until they come.
