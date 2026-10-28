@@ -155,9 +155,16 @@ export const CREATURE_DEEDS: Readonly<Record<CreatureDeed, CreatureDeedDef>> = {
   miracle: { did: 'worked a miracle', align: 0, notable: true, base: 0.45 },
 };
 
-/** The research that brings it (the second age, every people's): data/research.ts. It opens the pen; the saga begins
- *  once a pen is built. */
+/** The research on it (the second age, every people's): data/research.ts. It no longer brings it (a quest does, from
+ *  the second day: `QUEST_DAY`); studied, the creature grows `TOPIC_GROW` times as fast and takes a lesson
+ *  `TOPIC_LEARN` times as well. */
 export const CREATURE_TOPIC = 'great_beasts';
+export const TOPIC_GROW = 1.5;
+export const TOPIC_LEARN = 1.25;
+/** The quest for it is put to the town on this day of the calendar (0 is the first) from `QUEST_HOUR` in the morning:
+ *  eight in the morning of the second day, about 25 game hours (minutes of play) into a new town. */
+export const QUEST_DAY = 1;
+export const QUEST_HOUR = 8;
 /** The pen (`CREATURE_PEN_BUILDING`, merged into BUILDINGS): where it sleeps, and where it comes back when it dies. */
 export const CREATURE_PEN = 'creature_pen';
 export const CREATURE_PEN_BUILDING: BuildingDef = {
@@ -166,10 +173,11 @@ export const CREATURE_PEN_BUILDING: BuildingDef = {
   layer: 'mid',
   width: 4,
   depth: 3,
-  cost: { wood: 30, stone: 12, hide: 4 },
-  buildSeconds: 200,
-  research: CREATURE_TOPIC,
-  purpose: 'A great pen and a bed of straw for a God creature. Once it is built, one comes to the town; it sleeps here, and if it dies it comes back here.',
+  // (open from the start, cheap enough for a new town: the creature comes on the second day; the build menu shows it once
+  // the creature is the town's: panel/buildPanel.ts)
+  cost: { wood: 24, stone: 8 },
+  buildSeconds: 160,
+  purpose: 'A great pen and a bed of straw for the God creature. It sleeps here, and if it dies it comes back here.',
 };
 /** The saga it comes in (data/creatureSaga.ts). */
 export const CREATURE_SAGA = 'great_beast';

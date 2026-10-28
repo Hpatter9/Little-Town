@@ -8,7 +8,7 @@ import type { Portal } from './portals';
 import type { RealmId } from '../data/portals';
 import type { SceneRun } from './cutscenes';
 import type { DragonState } from './dragon';
-import type { CreatureState } from './creature';
+import type { CreatureQuest, CreatureState } from './creature';
 // The complete simulation state. Plain JSON data only: it is what gets saved, and replaying the same
 // commands from the same state must always produce the same result.
 
@@ -1217,8 +1217,10 @@ export interface GameState {
   /** The dragon in the hills (sim/dragon.ts), and whether dragons come at all (the tests turn them off). */
   dragon?: DragonState;
   dragons?: boolean;
-  /** The town's great creature (sim/creature.ts): it comes in a saga after Great Beasts is studied. */
+  /** The town's God creature (sim/creature.ts): it comes in its saga, a quest the founder leads from the second day. */
   creature?: CreatureState;
+  /** The quest for it (sim/creature.ts `creatureArrives`): the land its nest lies in. */
+  creatureQuest?: CreatureQuest;
   /** The kinds of foe the town has met, in raids or on the road (the Bestiary: `meet`). */
   met?: string[];
   lastHunt?: number;

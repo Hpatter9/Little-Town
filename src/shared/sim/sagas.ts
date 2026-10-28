@@ -27,6 +27,8 @@ import { minorWound } from './injuries';
 import { addItems } from './crafting';
 import { describeFoes } from './places';
 import { adoptCreature, learn } from './creature';
+import { leadTo } from './founderQuests';
+import { REGION_BY_ID } from '../data/regions';
 
 const hours = (h: number) => Math.round(h * TICKS_PER_HOUR);
 const streamOf = (s: GameState, run: SagaRun, salt: number) => Rng.from(hashSeed(s.seed), run.run, s.tick, salt);
@@ -51,6 +53,7 @@ export function sagaText(s: GameState, r: SagaRun, text: string): string {
     .replace(/\{a\}/g, person(s, r.a)?.name ?? 'one of them')
     .replace(/\{b\}/g, person(s, r.b)?.name ?? 'the other')
     .replace(/\{beast\}/g, s.creature?.name ?? 'the beast')
+    .replace(/\{wild\}/g, (s.creatureQuest?.region && REGION_BY_ID[s.creatureQuest.region]?.name.replace(/^The /, 'the ')) || 'the wild')
     .replace(/\{town\}/g, 'the town');
   return out.replace(/(^|[.!?]["”]?\s+)the town/g, '$1The town');
 }
@@ -164,7 +167,10 @@ function enter(s: GameState, r: SagaRun, id: string): void {
       break;
     }
     case 'trip':
-      say(s, r, `${sagaText(s, r, c.text)} A party is wanted at ${c.place.replace(/^The /, 'the ')} within ${c.days} days. It is on the trips board.`);
+      if (c.lead) {
+        say(s, r, `${sagaText(s, r, c.text)} ${person(s, s.mainId)?.name ?? 'The founder'} leads a party to ${c.place.replace(/^The /, 'the ')}.`);
+        leadSagaTrip(s, r);
+      } else say(s, r, `${sagaText(s, r, c.text)} A party is wanted at ${c.place.replace(/^The /, 'the ')} within ${c.days} days. It is on the trips board.`);
       break;
     case 'task':
       if (c.check(s)) goTo(s, r, c.done);
@@ -200,6 +206,7 @@ function drive(s: GameState, r: SagaRun): void {
       if (!s.prompts.some((p) => p.kind === 'saga' && p.saga === r.run)) enter(s, r, r.ch);
       break;
     case 'trip': {
+      if (c.lead) leadSagaTrip(s, r); // (the founder couldn't go at once: they go as soon as they can)
       const out = s.expeditions.some((e) => e.dest === `${SAGA_DEST}${r.run}`);
       if (!out && since >= c.days * TICKS_PER_DAY) {
         say(s, r, `Nobody went to ${c.place.replace(/^The /, 'the ')} in time.`);
@@ -221,6 +228,16 @@ function drive(s: GameState, r: SagaRun): void {
       finish(s, r, c);
       break;
   }
+}
+
+/** A trip the founder leads (`lead`): a party raised with them at its head, if none is out for it yet and the founder can
+ *  go (home, on their feet, no party being raised). Else it waits on the board for the next hour. */
+function leadSagaTrip(s: GameState, r: SagaRun): void {
+  const dest = `${SAGA_DEST}${r.run}`;
+  if (s.muster || s.gameOver || s.expeditions.some((e) => e.dest === dest)) return;
+  const f = person(s, s.mainId);
+  if (!f || f.away !== null || f.downed || isChild(f)) return;
+  leadTo(s, dest);
 }
 
 /** The raid of a raid chapter, if the gate is free (else it waits for the one under way). */

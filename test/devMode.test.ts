@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import '../src/shared/data/events'; // (first: the event kit's own import order)
 import { EVENTS } from '../src/shared/data/events';
-import { CREATURE_SAGA, CREATURE_TOPIC } from '../src/shared/data/creature';
+import { CREATURE_SAGA } from '../src/shared/data/creature';
 import { RAID_KIND_BY_ID } from '../src/shared/data/raids';
 import { Rng } from '../src/shared/rng';
 import { parseCommand } from '../src/shared/sim/commands';
@@ -216,10 +216,10 @@ test('level up: the founder by default, by as many levels as asked', () => {
   assert.equal(levelOf(f), from + 3);
 });
 
-test('the God creature saga begins on demand, its study learned', () => {
+test('the God creature saga begins on demand, with no study needed', () => {
   const { s, order } = devTown('dev-creature');
   order({ op: 'creatureSaga' });
-  assert.ok(s.research.done.includes(CREATURE_TOPIC));
+  assert.ok(s.creatureQuest, 'its quest has a land');
   assert.ok((s.sagas ?? []).some((r) => r.id === CREATURE_SAGA) || s.notices.some((n) => n.text.includes('cast')));
 });
 
