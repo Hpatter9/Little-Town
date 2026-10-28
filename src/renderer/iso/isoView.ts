@@ -19,7 +19,7 @@ import { LAMP_LOOK } from '../map/lampRules';
 import type { Era } from '../../shared/data/eras';
 import { loadImage } from '../art/loadImage';
 import { BUILDING_BY_ID } from '../../shared/data/buildings';
-import { cellHash, gateFlip, penSides, propFor, sceneryFor, stockHeaps, wallMaskAt, wallPieceFor, wallShape } from './isoTown';
+import { cellHash, propsFor, gateFlip, penSides, propFor, sceneryFor, stockHeaps, wallMaskAt, wallPieceFor, wallShape } from './isoTown';
 import { fitted, groundTile, kitOf, kitUrl, liesAlongY, pieceFor, roleOf, sharedPiece, ISO_ART, type Kit } from './isoKits';
 import { IsoCastleView, type CastleIn } from './isoCastleView';
 import { anyoneNear, doorSpot, gateSpan, hasWindows, lightBox, swing, windowSpots, worldMatrix } from './isoLight';
@@ -31,10 +31,20 @@ import { flicker, flickerSize, phaseOf } from '../map/flicker';
 import { EMBERS, emberAt, flameBox, hearthGlow, tongueAt } from './fireLook';
 import { reducedMotion } from '../ui/motion';
 import { LIGHT_KIND } from '../../shared/data/lighting';
+import { footDiamond, measureBase, pictureScale, type ArtBase } from './gridAudit';
+import { fenceSeg, wallPost, gatePlan, gridPlan, gridUrl, isFencedPen, looseRec, penEdges, snapSpots, SHARED_KIT, wallArms, wallSeg, yardCells, type GridRec } from './gridRules';
+import { HERDS } from '../../shared/data/livestock';
 
-/** A building's picture may stand this much wider than its footprint before it is shrunk to fit (a big piece on a
- *  small building: a cottage piece on a one-cell trap). */
-const OVERHANG = 1.25;
+/** The grid audit's overlay (docs/notes/grid-audit.md), for developers only: on with `?grid` in the page's address,
+ *  `littletown.grid` set to 1, or `__iso.setGridDebug(true)` from the console. */
+const GRID_KEY = 'littletown.grid';
+const gridAsked = (): boolean => {
+  try {
+    return /[?&]grid\b/.test(location.search) || localStorage.getItem(GRID_KEY) === '1';
+  } catch {
+    return false;
+  }
+};
 /** The kit pieces a starting valley's landmarks are drawn with (sim/startValleys.ts), one picked by the cell, and how
  *  big beside the land's trees. */
 const LANDMARK_PIECES: Readonly<Record<LandmarkKind, string[]>> = {
@@ -129,10 +139,40 @@ function paneTexture(round: boolean): Texture {
   return round ? panes.round : panes.square;
 }
 
+/** A piece cut to the grid (iso/gridRules.ts), placed: its picture, which half of it (a wall's arm toward a neighbour:
+ *  'a' the half left of its anchor, 'b' the right), mirrored or not, the land point (cells) its anchor goes on, and its
+ *  draw order. */
+interface Placed {
+  url: string;
+  rec: GridRec;
+  flip: boolean;
+  half?: 'a' | 'b';
+  at: { x: number; y: number };
+  z: number;
+  /** Set for a picture made smaller to fit (iso/gridRules.ts `shrink`): `at` is the footprint's middle, and the
+   *  picture's own footprint's middle goes on it (px of the picture to half a cell). */
+  centreHc?: number;
+}
+
+/** How a building is drawn on the grid: its picture, the pieces drawn with it (a wall's other arms, a pen's fence), the
+ *  cells its picture stands on and its yard, and what it is. */
+interface GridLook {
+  kind: 'building' | 'wall' | 'gate' | 'pen';
+  main: Placed;
+  extras: Placed[];
+  pic: Rect;
+  yard: { x: number; y: number }[];
+  piece: string;
+  shared: boolean;
+  k: number;
+}
+
 interface DrawnBuilding {
   sprite: Sprite;
   key: string;
   foot: Rect;
+  /** The cells its picture stands on (its footprint less its yard: iso/gridRules.ts `fitIn`): its door and windows. */
+  pic?: Rect;
   /** The props beside it (a barrel, a crate: iso/isoTown.ts `propFor`). */
   props: Sprite[];
   /** Its door or gate, drawn open while someone walks through (0 shut to 1 open; `held` seconds until it closes). */
@@ -223,9 +263,17 @@ export class IsoView {
   private wallCells = new Set<number>();
   private groundKey = '';
   private readonly fieldCells = new Set<number>();
+  /** The cells of buildings' yards and pens (bare ground under them: iso/gridRules.ts `yardCells`). */
+  private readonly yardCells = new Set<number>();
+  /** Half pictures (a wall's arms), made once. */
+  private readonly halves = new Map<string, Texture>();
   private readonly buildings = new Map<number, DrawnBuilding>();
   private builtFrom: Building[] = [];
   private builtGen = -1;
+  /** The grid audit's overlay (`setGridDebug`): the cells, each footprint, each picture's box and its own ground. */
+  private readonly gridG = new Graphics();
+  private gridOn = false;
+  private readonly bases = new Map<number, ArtBase | null>();
   /** A Blood Court castle or a dwarves' hold, from the castle pieces (iso/isoCastle.ts). */
   private readonly castle = new IsoCastleView(this.things, this.own, (url) => this.texUrl(url));
   private castleIn: CastleIn | null = null;
@@ -240,8 +288,99 @@ export class IsoView {
     this.flat.eventMode = 'none';
     this.overFlat.eventMode = 'none';
     this.screenFx.eventMode = 'none';
-    this.world.addChild(this.ground, this.overlay, this.flat, this.things, this.overFlat, this.screenFx, this.lightLayer, this.glow, this.marks);
+    this.gridG.eventMode = 'none';
+    this.world.addChild(this.ground, this.overlay, this.flat, this.things, this.overFlat, this.screenFx, this.lightLayer, this.glow, this.marks, this.gridG);
     this.root.addChild(this.world, this.air);
+    this.gridOn = gridAsked();
+  }
+
+  /** The grid audit's overlay on or off (dev only: docs/notes/grid-audit.md). */
+  setGridDebug(on: boolean): void {
+    this.gridOn = on;
+    if (!on) this.gridG.clear();
+  }
+
+  /** A loaded picture's own ground (iso/gridAudit.ts `measureBase`), measured once from its pixels. */
+  private baseOf(tex: Texture): ArtBase | null {
+    const id = tex.uid;
+    if (this.bases.has(id)) return this.bases.get(id)!;
+    let base: ArtBase | null = null;
+    try {
+      const src = tex.source.resource as CanvasImageSource;
+      const w = Math.round(tex.frame.width), h = Math.round(tex.frame.height);
+      const c = document.createElement('canvas');
+      c.width = w;
+      c.height = h;
+      const g = c.getContext('2d', { willReadFrequently: true })!;
+      g.drawImage(src, tex.frame.x, tex.frame.y, w, h, 0, 0, w, h);
+      const px = g.getImageData(0, 0, w, h).data;
+      base = measureBase((x, y) => px[(y * w + x) * 4 + 3], w, h);
+    } catch {}
+    this.bases.set(id, base);
+    return base;
+  }
+
+  /** The overlay, each frame while on: the cells in view (faint), each building's footprint (green) with its picture's
+   *  box (red), its anchor (yellow) and its picture's own ground (magenta: the plinth's corners and the top face's
+   *  front); each tree, rock and prop's anchor and cell (cyan); each walker's feet and cell (orange). */
+  private drawGrid(): void {
+    const g = this.gridG.clear();
+    const land = this.land;
+    if (!land) return;
+    const o = this.ox;
+    const r = cellsInView(this.view, o, land.w, land.h, 1);
+    for (let y = r.y0; y <= r.y1 + 1; y++) {
+      const a = tileToIso(r.x0, y, o), b = tileToIso(r.x1 + 1, y, o);
+      g.moveTo(a.x, a.y).lineTo(b.x, b.y);
+    }
+    for (let x = r.x0; x <= r.x1 + 1; x++) {
+      const a = tileToIso(x, r.y0, o), b = tileToIso(x, r.y1 + 1, o);
+      g.moveTo(a.x, a.y).lineTo(b.x, b.y);
+    }
+    g.stroke({ color: 0xffffff, width: 1, alpha: 0.4 });
+    const cell = (x: number, y: number, color: number) => {
+      const cx = Math.floor(x), cy = Math.floor(y);
+      const p = [tileToIso(cx, cy, o), tileToIso(cx + 1, cy, o), tileToIso(cx + 1, cy + 1, o), tileToIso(cx, cy + 1, o)];
+      g.poly(p.flatMap((q) => [q.x, q.y])).stroke({ color, width: 1.5, alpha: 0.9 });
+    };
+    const ground = (s: Sprite) => {
+      const base = this.baseOf(s.texture);
+      if (!base) return;
+      const fw = s.texture.frame.width, fh = s.texture.frame.height;
+      const at = (x: number, y: number) => ({ x: s.x + (x + 0.5 - s.anchor.x * fw) * s.scale.x, y: s.y + (y + 1 - s.anchor.y * fh) * s.scale.y });
+      const l = at(base.left.x, base.left.y), f = at(base.front.x, base.front.y), rt = at(base.right.x, base.right.y);
+      g.moveTo(l.x, l.y).lineTo(f.x, f.y).lineTo(rt.x, rt.y).stroke({ color: 0xff40ff, width: 2, alpha: 0.95 });
+      const top = at(base.front.x, base.front.y - base.slab);
+      g.circle(top.x, top.y, 2.5).fill({ color: 0xff40ff });
+    };
+    for (const d of this.buildings.values()) {
+      const s = d.sprite;
+      const at = footBase(d.foot, o);
+      const dia = footDiamond(d.foot).flatMap((q) => [at.x + q.x, at.y + q.y]);
+      g.poly(dia).fill({ color: 0x40ff60, alpha: 0.12 }).stroke({ color: 0x40ff60, width: 2, alpha: 0.95 });
+      if (!s.visible || s.texture.width <= 1) continue;
+      const b = boxOf(s);
+      g.rect(b.x0, b.y0, b.x1 - b.x0, b.y1 - b.y0).stroke({ color: 0xff4040, width: 1, alpha: 0.8 });
+      ground(s);
+      g.circle(s.x, s.y, 3).fill({ color: 0xffe040 });
+      for (const p of d.props) {
+        g.circle(p.x, p.y, 2.5).fill({ color: 0x40e0ff });
+        const w = isoToWorld(p.x, p.y, o);
+        cell(w.x / CELL, w.y / CELL, 0x40e0ff);
+      }
+    }
+    for (const t of this.scenery) {
+      if (!t.visible) continue;
+      g.circle(t.x, t.y, 2.5).fill({ color: 0x40e0ff });
+      const w = isoToWorld(t.x, t.y, o);
+      cell(w.x / CELL, w.y / CELL, 0x40e0ff);
+    }
+    for (const c of this.things.children) {
+      if (this.own.has(c) || !c.visible) continue;
+      g.circle(c.x, c.y, 2.5).fill({ color: 0xffa020 });
+      const w = isoToWorld(c.x, c.y, o);
+      cell(w.x / CELL, w.y / CELL, 0xffa020);
+    }
   }
 
   /** The kit the town is drawn with (iso/isoKits.ts `kitNameFor`). */
@@ -504,6 +643,7 @@ export class IsoView {
     const land = this.land;
     const seen = new Set<number>();
     const fields = new Set<number>();
+    const yards = new Set<number>();
     const walls = new Set<number>();
     if (land)
       for (const b of list) {
@@ -519,11 +659,18 @@ export class IsoView {
       // (a castle's rooms are drawn by the castle: iso/isoCastleView.ts)
       if (b.room && b.status === 'done' && this.castle.people) continue;
       const foot = footprint(b);
-      if ('field' in roleOf(b.def)) {
+      if ('field' in roleOf(b.def) && !(HERDS[b.def] && fenceSeg(this.kit.name))) {
         if (land) for (let y = foot.y; y < foot.y + foot.h; y++) for (let x = foot.x; x < foot.x + foot.w; x++) fields.add(y * land.w + x);
         continue;
       }
       seen.add(b.id);
+      // (cut to the grid: drawn at its kit's scale, its anchor on its cells, the rest its yard: iso/gridRules.ts)
+      const look = land ? this.gridLook(b, foot, isWall) : null;
+      if (look && land) {
+        for (const c of look.yard) yards.add(c.y * land.w + c.x);
+        this.syncGrid(b, foot, look);
+        continue;
+      }
       let piece = pieceFor(this.kit, b.def);
       let flip = false;
       const role = roleOf(b.def);
@@ -573,7 +720,7 @@ export class IsoView {
       if (!tex) continue;
       s.texture = tex;
       const span = footWidth(drawFoot);
-      const k = pen ? this.penScale(b.def, tex) : fitted(b.def) || shared ? span / tex.width : Math.min(this.kit.scale * ISO_ART, (span * OVERHANG) / tex.width);
+      const k = pen ? this.penScale(b.def, tex) : pictureScale(fitted(b.def) || !!shared, this.kit.scale * ISO_ART, span, tex.width);
       if (shared?.ground) {
         // (a picture drawn off the grid's angle: its plinth laid over the footprint's diamond, isoMath.ts groundFit)
         const m = groundFit(shared.ground, tex.width, drawFoot, flip);
@@ -617,11 +764,215 @@ export class IsoView {
       }
       this.buildings.delete(id);
     }
+    if (yards.size !== this.yardCells.size || [...yards].some((c) => !this.yardCells.has(c))) {
+      this.yardCells.clear();
+      for (const c of yards) this.yardCells.add(c);
+      this.groundKey = '';
+    }
     if (fields.size !== this.fieldCells.size || [...fields].some((c) => !this.fieldCells.has(c))) {
       this.fieldCells.clear();
       for (const c of fields) this.fieldCells.add(c);
       this.groundKey = '';
     }
+  }
+
+  /** How a building is drawn on the grid (iso/gridRules.ts), or null when its kit isn't cut yet or it has no picture
+   *  that fits its footprint (drawn the old way meanwhile). */
+  private gridLook(b: Building, foot: Rect, isWall: (x: number, y: number) => boolean): GridLook | null {
+    const kit = this.kit.name;
+    const role = roleOf(b.def);
+    const k = this.kit.scale * ISO_ART;
+    const front = (f: Rect) => ({ x: f.x + f.w, y: f.y + f.h });
+    // (a one-cell piece whose middle is a point: its anchor, the front corner of the cell round that middle)
+    const at1 = (x: number, y: number) => ({ x: x + 0.5, y: y + 0.5 });
+    if ('role' in role && role.role === 'wall_run') {
+      const seg = wallSeg(kit, b.def);
+      if (!seg) return null;
+      const url = gridUrl(kit, seg.piece, false);
+      const at = front(foot);
+      const z = footDepth(foot);
+      const a = wallArms(wallMaskAt(isWall, foot.x, foot.y));
+      // (a run, an end or a lone cell: the whole seg, mirrored to lie along y; a corner, a tee or a cross: its arms, the
+      // half left of the anchor reaching -x (or +y mirrored), the right half +x (or -y mirrored))
+      const parts: Placed[] =
+        'whole' in a
+          ? [{ url, rec: seg.rec, flip: a.whole.alongY, at, z }]
+          : a.arms.map((arm) => ({ url, rec: seg.rec, flip: arm === 'n' || arm === 's', half: arm === 'w' || arm === 'n' ? ('a' as const) : ('b' as const), at, z: z + (arm === 'w' || arm === 'n' ? -0.002 : 0) }));
+      // (where arms meet, the wall's corner piece over them, if it has one: the stone wall's pier)
+      const post = 'arms' in a ? wallPost(kit, seg.piece) : null;
+      if (post) parts.push({ url: gridUrl(kit, post.piece, false), rec: post.rec, flip: false, at, z: z + 0.002 });
+      return { kind: 'wall', main: parts[0], extras: parts.slice(1), pic: foot, yard: [], piece: seg.piece, shared: false, k };
+    }
+    if ('role' in role && role.role === 'gate') {
+      const g = gatePlan(kit, b.def, foot);
+      if (!g) return null;
+      return { kind: 'gate', main: { url: gridUrl(kit, g.piece, false), rec: g.rec, flip: g.flip, at: front(foot), z: footDepth(foot) }, extras: [], pic: foot, yard: [], piece: g.piece, shared: false, k };
+    }
+    if ('role' in role && role.role === 'stockade') {
+      // (the prisoners' pen: the palisade round its edges, its gate on the front-left edge's middle)
+      const seg = wallSeg(kit, b.def);
+      const g = gatePlan(kit, b.def, { x: 0, y: 0, w: 2, h: 1 });
+      if (!seg || !g) return null;
+      const e = penEdges(foot, g.rec.foot[0]);
+      const url = gridUrl(kit, seg.piece, false);
+      const extras = e.segs.map((q) => ({ url, rec: seg.rec, flip: q.alongY, at: at1(q.x, q.y), z: q.x + q.y + 1 }));
+      const way = e.way!;
+      const main: Placed = { url: gridUrl(kit, g.piece, false), rec: g.rec, flip: false, at: { x: way.x + way.cells / 2, y: way.y + 0.5 }, z: way.x + way.y + 1 };
+      return { kind: 'pen', main, extras, pic: foot, yard: yardCells(foot, { ...foot, w: 0, h: 0 }), piece: g.piece, shared: false, k };
+    }
+    if (isFencedPen(b.def)) {
+      // (a pen: a fence round its edges with a way in on the front-left, bare ground inside, hay in the middle)
+      const fence = fenceSeg(kit);
+      if (!fence) return null;
+      const url = gridUrl(kit, fence.piece, false);
+      const e = penEdges(foot, 1);
+      const extras = e.segs.map((q) => ({ url, rec: fence.rec, flip: q.alongY, at: at1(q.x, q.y), z: q.x + q.y + 1 }));
+      const hay = looseRec(kit, 'hay_bales');
+      const mx = foot.x + Math.floor(foot.w / 2);
+      const my = foot.y + Math.floor(foot.h / 2);
+      const main = hay ? { url: gridUrl(kit, 'hay_bales', false), rec: hay, flip: cellHash(b.id, 1, 29) < 0.5, at: { x: mx + 1, y: my + 1 }, z: mx + my + 1 } : extras.shift()!;
+      return { kind: 'pen', main, extras, pic: foot, yard: yardCells(foot, { ...foot, w: 0, h: 0 }), piece: hay ? 'hay_bales' : fence.piece, shared: false, k };
+    }
+    const plan = gridPlan(kit, b.def, foot);
+    if (!plan) return null;
+    const pk = plan.shared ? kitOf(SHARED_KIT).scale * ISO_ART : k;
+    // (a borrowed picture too big for its footprint, made smaller while it waits for its own: on the footprint's middle)
+    const small = plan.shrink < 1;
+    const main: Placed = small
+      ? { url: gridUrl(kit, plan.piece, plan.shared), rec: plan.rec, flip: plan.flip, at: { x: foot.x + foot.w / 2, y: foot.y + foot.h / 2 }, z: footDepth(foot), centreHc: ISO_TW / 2 / pk }
+      : { url: gridUrl(kit, plan.piece, plan.shared), rec: plan.rec, flip: plan.flip, at: front(plan.sub), z: footDepth(foot) };
+    return {
+      kind: 'building',
+      main,
+      extras: [],
+      pic: plan.sub,
+      yard: yardCells(foot, plan.sub),
+      piece: plan.piece,
+      shared: plan.shared,
+      k: pk * plan.shrink,
+    };
+  }
+
+  /** A placed piece's picture (its half, for a wall's arm), null while it loads. */
+  private placedTex(p: Placed): Texture | null {
+    const tex = this.texUrl(p.url);
+    if (!tex || !p.half) return tex;
+    const key = `${p.url}:${p.half}`;
+    let t = this.halves.get(key);
+    if (!t || t.source !== tex.source) {
+      const ax = p.rec.anchor[0];
+      const f = tex.frame;
+      t = new Texture({ source: tex.source, frame: new Rectangle(p.half === 'a' ? f.x : f.x + ax, f.y, p.half === 'a' ? ax : f.width - ax, f.height) });
+      this.halves.set(key, t);
+    }
+    return t;
+  }
+
+  /** A sprite set to a placed piece: its anchor (the picture's own, from its record) on its land point, at scale `k`.
+   *  The sprite keeps the bottom-middle anchor everything else here assumes (lights, flames, the hearth). */
+  private placeSprite(s: Sprite, p: Placed, tex: Texture, k: number): void {
+    s.texture = tex;
+    s.anchor.set(0.5, 1);
+    s.skew.set(0, 0);
+    s.rotation = 0;
+    const sx = p.flip ? -1 : 1;
+    s.scale.set(sx * k, k);
+    let ax = p.half === 'b' ? 0 : p.rec.anchor[0];
+    let ay = p.rec.anchor[1];
+    if (p.centreHc) {
+      // (its own footprint's middle, from its anchor: a footprint's middle is (h - w) / 2 half-cells across and (w + h) / 4
+      // up from its front corner)
+      const [w, h] = p.rec.foot;
+      ax += ((h - w) * p.centreHc) / 2;
+      ay -= ((w + h) * p.centreHc) / 4;
+    }
+    const at = tileToIso(p.at.x, p.at.y, this.ox);
+    s.position.set(Math.round(at.x - (ax - tex.width / 2) * k * sx), Math.round(at.y + (tex.height - ay) * k));
+    s.zIndex = p.z;
+  }
+
+  /** A building drawn on the grid: its picture placed, the pieces with it, its door, lights and props. */
+  private syncGrid(b: Building, foot: Rect, look: GridLook): void {
+    const role = roleOf(b.def);
+    const heaps = this.heapsOf(b, role, foot);
+    const texs = [look.main, ...look.extras].map((p) => this.placedTex(p));
+    const placedKey = [look.main, ...look.extras].map((p) => `${p.url}${p.flip ? 'f' : ''}${p.half ?? ''}@${p.at.x},${p.at.y}`).join(';');
+    const key = `grid:${placedKey}:${b.status}:${b.fire !== undefined ? 1 : 0}:${this.artHidden.has(b.id) ? 'h' : ''}:${foot.x},${foot.y},${foot.w},${foot.h}:${texs.map((t) => (t ? 1 : 0)).join('')}:${this.texGen}:${heaps.map((h) => h.piece).join(',')}`;
+    let d = this.buildings.get(b.id);
+    if (!d) {
+      const sprite = new Sprite();
+      sprite.anchor.set(0.5, 1);
+      this.things.addChild(sprite);
+      this.own.add(sprite);
+      d = { sprite, key: '', foot, props: [], lights: [], venue: false };
+      this.buildings.set(b.id, d);
+    }
+    d.foot = foot;
+    d.pic = look.pic;
+    if (d.key === key) return;
+    d.key = key;
+    const s = d.sprite;
+    const tex = texs[0];
+    s.visible = !!tex && !this.artHidden.has(b.id);
+    this.clearProps(d);
+    if (!tex) return;
+    this.placeSprite(s, look.main, tex, look.k);
+    // (a blueprint or a building going up: a ghost of what it will be)
+    s.alpha = b.status === 'done' ? 1 : 0.45;
+    this.baseAlpha.set(s, s.alpha);
+    s.tint = b.fire !== undefined ? 0xff9060 : 0xffffff;
+    d.venue = 'role' in role && (role.role === 'tavern' || role.role === 'market');
+    // (the pieces drawn with it: a wall's other arms, a pen's fence, the stockade's stakes)
+    look.extras.forEach((p, i) => {
+      const t = texs[i + 1];
+      if (!t) return;
+      const e = new Sprite();
+      this.placeSprite(e, p, t, look.k);
+      e.alpha = s.alpha;
+      this.baseAlpha.set(e, e.alpha);
+      e.tint = s.tint;
+      this.things.addChild(e);
+      this.own.add(e);
+      d.props.push(e);
+    });
+    if (look.kind === 'gate' || (look.kind === 'building' && !look.shared)) this.setDoor(d, b, role, foot);
+    else this.clearDoor(d);
+    if (look.kind === 'building') this.setLights(d, b, role, look.piece, look.shared, look.main.flip, look.k, tex, look.main.rec.bake);
+    else this.clearLights(d);
+    if (look.kind === 'building' && !look.shared) this.setGridProps(d, b, role, heaps, look);
+  }
+
+  /** A grid building's props and a store's heaps, each on the middle of a cell: its yard first, then the free cells along
+   *  its front faces (not a street, a wall or another building). */
+  private setGridProps(d: DrawnBuilding, b: Building, role: ReturnType<typeof roleOf>, heaps: ReturnType<typeof stockHeaps>, look: GridLook): void {
+    if (!('role' in role) || b.status !== 'done' || !this.land) return;
+    const land = this.land;
+    const free = (x: number, y: number) => inMap(land, x, y) && land.roads[y * land.w + x] !== '#' && !this.wallCells.has(y * land.w + x) && !wetCell(groundAt(land, x, y)) && !this.builtOn(x, y);
+    const ids = [...this.kit.pieces.keys()];
+    let pieces: string[];
+    if (heaps.length) pieces = heaps.map((h) => h.piece);
+    else {
+      // (a prop beside it now and then, as before; one to every other cell of its yard)
+      const one = propFor(ids, role.role, b.id, d.foot);
+      const kinds = propsFor(ids, role.role);
+      const yardOnes = kinds.length ? look.yard.filter((_, i) => cellHash(b.id, i, 31) < 0.5).map((_, i) => kinds[(i + b.id) % kinds.length]) : [];
+      pieces = [...yardOnes, ...(one ? [one.piece] : [])];
+    }
+    const spots = snapSpots(pieces.length, d.foot, heaps.length ? look.yard : look.yard.filter((_, i) => cellHash(b.id, i, 31) < 0.5), free);
+    spots.forEach((at, i) => {
+      const piece = pieces[i];
+      const rec = looseRec(this.kit.name, piece);
+      const tex = rec ? this.texUrl(gridUrl(this.kit.name, piece, false)) : null;
+      if (!rec || !tex) return;
+      const p = new Sprite();
+      this.placeSprite(p, { url: '', rec, flip: cellHash(b.id, i, 23) < 0.4, at: { x: at.x + 0.5, y: at.y + 0.5 }, z: at.x + at.y + 0.02 }, tex, this.kit.scale * ISO_ART);
+      this.things.addChild(p);
+      this.own.add(p);
+      d.props.push(p);
+      // (a lamp or a brazier beside it burns after dark)
+      if (LIGHT_PROP.test(piece)) this.addLight(d, p.x, p.y - p.height * 0.82, 4, 5, 'flame', 0.9);
+    });
+    this.lightsKey = '';
   }
 
   /** A burning building (`b.fire`, 0..1 burned) gets flames along its front: a few glows that flicker in `animate`, more
@@ -643,7 +994,8 @@ export class IsoView {
         f.tint = i % 2 ? 0xff7020 : 0xffc040;
         f.blendMode = 'add';
         const u = (i + 0.5) / n;
-        const at = tileToIso(d.foot.x + u * d.foot.w, d.foot.y + d.foot.h * (0.3 + 0.5 * cellHash(b.id, i, 7)), this.ox);
+        const pf = d.pic ?? d.foot;
+        const at = tileToIso(pf.x + u * pf.w, pf.y + pf.h * (0.3 + 0.5 * cellHash(b.id, i, 7)), this.ox);
         f.position.set(Math.round(at.x), Math.round(at.y - 8));
         f.zIndex = footDepth(d.foot) + 0.002;
         this.things.addChild(f);
@@ -741,19 +1093,20 @@ export class IsoView {
   /** A finished building's lights after dark (iso/windowLights.ts): those placed by hand on its kit's piece; a
    *  fire's own flame on a hearth; else, on a windowed building of a kit not yet placed, the old guess along its front
    *  (`windowSpots`). Whether each is lit is `setInside`'s. */
-  private setLights(d: DrawnBuilding, b: Building, role: ReturnType<typeof roleOf>, piece: string, shared: boolean, flip: boolean, k: number, tex: Texture): void {
+  private setLights(d: DrawnBuilding, b: Building, role: ReturnType<typeof roleOf>, piece: string, shared: boolean, flip: boolean, k: number, tex: Texture, bake = 1): void {
     this.clearLights(d);
     if (b.status !== 'done' || this.artHidden.has(b.id)) return;
     const s = d.sprite;
     if (placed(this.kit.name, piece, shared)) {
       for (const l of lightsIn(this.kit.name, piece, shared)) {
-        const at = lightAt(l, tex.width, tex.height, k, flip, s.x, s.y);
+        // (placed on the original picture: a copy baked smaller for the grid is measured back to it)
+        const at = lightAt(l, tex.width / bake, tex.height / bake, k * bake, flip, s.x, s.y);
         this.addLight(d, at.x, at.y, at.w, at.h, l.kind);
       }
     } else if ('role' in role && role.role === 'hearth') {
       this.addLight(d, s.x, s.y - tex.height * k * 0.35, 12, 9, 'flame');
     } else if (!shared && 'role' in role && hasWindows(role.role)) {
-      for (const at of windowSpots(d.foot)) {
+      for (const at of windowSpots(d.pic ?? d.foot)) {
         const p = tileToIso(at.x, at.y, this.ox);
         this.addLight(d, p.x, p.y - 15, 0, 0, 'window', 0.8);
       }
@@ -800,7 +1153,7 @@ export class IsoView {
     this.near.clear();
     for (const [id, d] of this.buildings) {
       if (!d.door) continue;
-      const at = d.door.gate ? gateSpan(d.foot).mid : doorSpot(d.foot);
+      const at = d.door.gate ? gateSpan(d.pic ?? d.foot).mid : doorSpot(d.pic ?? d.foot);
       if (anyoneNear(who, at, d.door.gate ? 1.8 : 1.1)) this.near.add(id);
     }
   }
@@ -850,7 +1203,7 @@ export class IsoView {
       const was = door.open;
       const n = swing(door.open, door.held, this.near.has(id), dt);
       if (was === 0 && n.open > 0 && !door.gate && this.onDoor) {
-        const at = doorSpot(d.foot);
+        const at = doorSpot(d.pic ?? d.foot);
         this.onDoor(at.x * CELL, at.y * CELL);
       }
       door.open = n.open;
@@ -885,7 +1238,7 @@ export class IsoView {
     const g = door.g.clear();
     g.visible = door.open > 0.01;
     if (!g.visible) return;
-    const f = d.foot;
+    const f = d.pic ?? d.foot;
     const o = this.ox;
     if (door.gate) {
       // (the gate's leaves swung: a dark opening across the middle of the run, on its front plane)
@@ -1061,6 +1414,10 @@ export class IsoView {
       let alpha = 1;
       if (this.fieldCells.has(i)) tile = 3;
       else if (land.roads[i] === '#') tile = 2;
+      else if (this.yardCells.has(i)) {
+        tile = 1;
+        alpha = 0.85;
+      }
       else {
         const w = land.wear ? land.wear.charCodeAt(i) - 48 : 0;
         if (w >= WEAR_SHOW) {
@@ -1094,7 +1451,9 @@ export class IsoView {
       const mark = this.landmarks.get(i);
       const marked = !!mark && g === mark.ground && !this.builtOn(x, y) && !land.cleared?.includes(i);
       const piece = marked ? mark.piece : sceneryFor(ids, g, this.biome, cellHash(x, y, 1), cellHash(x, y, 2));
-      const tex = !piece ? null : marked ? this.texUrl(kitUrl(piece.split('/')[0], piece.split('/')[1])) : this.texOf(piece);
+      // (a tree, a rock or a bush cut to the grid: its foot on the cell's middle, at the kit's own scale, no jitter)
+      const rec = !marked && piece ? looseRec(this.kit.name, piece) : null;
+      const tex = !piece ? null : marked ? this.texUrl(kitUrl(piece.split('/')[0], piece.split('/')[1])) : rec ? this.texUrl(gridUrl(this.kit.name, piece, false)) : this.texOf(piece);
       if (!piece || !tex) continue;
       let t = this.scenery[trees];
       if (!t) {
@@ -1104,8 +1463,14 @@ export class IsoView {
         this.own.add(t);
       }
       trees++;
-      t.texture = tex;
       t.visible = true;
+      if (rec) {
+        this.placeSprite(t, { url: '', rec, flip: cellHash(x, y, 3) < 0.5, at: { x: x + 1, y: y + 1 }, z: x + y + 1 }, tex, this.kit.scale * ISO_ART);
+        if (!t.parent) this.things.addChild(t);
+        continue;
+      }
+      t.texture = tex;
+      t.anchor.set(0.5, 0.9);
       t.scale.set(this.kit.scale * ISO_ART * (marked ? LANDMARK_SCALE : /bush/.test(piece) ? 0.7 : 0.85));
       if (marked && mark.flip) t.scale.x *= -1;
       const jx = marked ? x + 0.5 : x + 0.3 + cellHash(x, y, 3) * 0.4;
@@ -1225,6 +1590,7 @@ export class IsoView {
       c.zIndex = z;
       this.placed.set(c, { x: c.x, y: c.y, z, off });
     }
+    if (this.gridOn) this.drawGrid();
   }
 
   /** Screen to world px (the ground point under it), and back. */
