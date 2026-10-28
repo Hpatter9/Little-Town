@@ -23,7 +23,7 @@ import { cellHash, gateFlip, propFor, sceneryFor, wallMaskAt, wallPieceFor, wall
 import { fitted, groundTile, kitOf, kitUrl, liesAlongY, pieceFor, roleOf, sharedPiece, ISO_ART, type Kit } from './isoKits';
 import { IsoCastleView, type CastleIn } from './isoCastleView';
 import { anyoneNear, doorSpot, gateSpan, hasWindows, lightBox, swing, windowSpots, worldMatrix } from './isoLight';
-import { cellsInView, footBase, footDepth, footWidth, isoBounds, isoOrigin, isoToWorld, ISO_TH, ISO_TW, standingDepth, tileToIso, worldToIso, type Rect } from './isoMath';
+import { cellsInView, footBase, footDepth, footWidth, groundFit, isoBounds, isoOrigin, isoToWorld, ISO_TH, ISO_TW, standingDepth, tileToIso, worldToIso, type Rect } from './isoMath';
 import { flickerKind, isLit, lightAt, lightsIn, lightTint, placed, type LightKind } from './windowLights';
 import { BoxGrid, behind, coverBox, fadeAlpha, fadeStep, isWalker, type Box } from './seeThrough';
 import { flicker, flickerSize, phaseOf } from '../map/flicker';
@@ -557,9 +557,20 @@ export class IsoView {
       s.texture = tex;
       const span = footWidth(foot);
       const k = fitted(b.def) || shared ? span / tex.width : Math.min(this.kit.scale * ISO_ART, (span * OVERHANG) / tex.width);
-      s.scale.set(flip ? -k : k, k);
-      const at = footBase(foot, this.ox);
-      s.position.set(Math.round(at.x), Math.round(at.y));
+      if (shared?.ground) {
+        // (a picture drawn off the grid's angle: its plinth laid over the footprint's diamond, isoMath.ts groundFit)
+        const m = groundFit(shared.ground, tex.width, foot, flip);
+        const front = tileToIso(foot.x + foot.w, foot.y + foot.h, this.ox);
+        s.anchor.set(0, 0);
+        s.setFromMatrix(new Matrix(m.a, m.b, m.c, m.d, Math.round(front.x + m.tx), Math.round(front.y + m.ty)));
+      } else {
+        s.anchor.set(0.5, 1);
+        s.skew.set(0, 0);
+        s.rotation = 0;
+        s.scale.set(flip ? -k : k, k);
+        const at = footBase(foot, this.ox);
+        s.position.set(Math.round(at.x), Math.round(at.y));
+      }
       s.zIndex = footDepth(foot);
       // (a blueprint or a building going up: a ghost of what it will be)
       s.alpha = b.status === 'done' ? 1 : 0.45;
@@ -936,9 +947,10 @@ export class IsoView {
       if (this.wallCells.has(i)) continue;
       const g = groundAt(land, x, y);
       if (land.regrow?.[i] || land.rubble?.[i] !== undefined) continue;
-      // (a landmark of the starting valley, while its cell lies as the valley left it and nothing is built there)
+      // (a landmark of the starting valley, while its cell lies as the valley left it, nothing is built there and it
+      // hasn't been cleared away: sim/landClutter.ts)
       const mark = this.landmarks.get(i);
-      const marked = !!mark && g === mark.ground && !this.builtOn(x, y);
+      const marked = !!mark && g === mark.ground && !this.builtOn(x, y) && !land.cleared?.includes(i);
       const piece = marked ? mark.piece : sceneryFor(ids, g, this.biome, cellHash(x, y, 1), cellHash(x, y, 2));
       const tex = !piece ? null : marked ? this.texUrl(kitUrl(piece.split('/')[0], piece.split('/')[1])) : this.texOf(piece);
       if (!piece || !tex) continue;

@@ -414,6 +414,16 @@ bridge.onSnapshot((snap) => {
   document.body.style.background = `linear-gradient(${css(mix(top, 0x05070f, 0.35))}, ${key})`;
 });
 
+// (a research offer stands unpicked, with a study slot free: the Studies tab gets a dot until the player chooses, since
+// research waits for them: sim/researchOffer.ts)
+const studiesTab = tabButtons.find((t) => t.id === 'research')?.b;
+bridge.onSnapshot((snap) => {
+  const waiting = snap.research.offer.length > 0 && snap.research.queue.length < snap.research.slots;
+  if (studiesTab && studiesTab.classList.contains('waiting') !== waiting) {
+    studiesTab.classList.toggle('waiting', waiting);
+    studiesTab.title = waiting ? 'A choice of study waits for you' : '';
+  }
+});
 bridge.onSnapshot((snap) => {
   for (const [id, f] of fills) {
     const now = id === 'research' ? researchFill(snap.research) : expeditionFill(snap.expeditions);

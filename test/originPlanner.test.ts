@@ -11,6 +11,7 @@ for (const origin of ORIGINS) {
     const sim = new Sim(newGame(`planner-${origin}`, { origin }));
     const s = sim.state;
     s.autopilot = true;
+    s.townResearches = true; // (the old hands-off town's research: a player's town waits for the player's pick)
     const start = s.research.done.length;
     for (let t = 0; t < 8 * TICKS_PER_DAY && !s.gameOver; t++) sim.step();
     const dbg = `${origin}: research ${start}->${s.research.done.length}, blueprints ${s.buildings.filter((b) => b.status === 'blueprint').map((b) => b.def)}, people ${s.people.length}`;

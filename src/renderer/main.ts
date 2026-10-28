@@ -183,6 +183,8 @@ import { hashSeed } from '../shared/rng';
 import { MARK_CLEAR_CAP } from '../shared/sim/commands';
 import type { DevOrder } from '../shared/sim/devOrders';
 import { CELL, cellAt, groundAt, idx, isMarked, isPlannedRoad, isRoad, wet, WILD } from '../shared/sim/land';
+import { CLUTTER_WORK, clutterAt, landmarksOf } from '../shared/sim/landClutter';
+import spadeIcon from './ui/art/shovel.png';
 import { PATH_CAP, pathRoute, refusalOn, type PathGround } from '../shared/sim/pathPlans';
 import { BRIDGE_WOOD } from '../shared/sim/streets';
 import { thinRock } from '../shared/sim/tunnels';
@@ -719,7 +721,11 @@ async function start(): Promise<void> {
   clearButton.setAttribute('data-hit', '');
   clearButton.title = 'Clear land';
   clearButton.setAttribute('aria-label', 'Clear land');
-  clearButton.textContent = '⛏';
+  // (a spade from the mining icons, so it isn't the Underground button's pickaxe: mobile/undergroundSwitch.ts)
+  const spade = document.createElement('img');
+  spade.src = spadeIcon;
+  spade.alt = '';
+  clearButton.append(spade);
   clearButton.addEventListener('click', (e) => {
     e.stopPropagation();
     if (drawing) endDraw(true);
@@ -727,7 +733,7 @@ async function start(): Promise<void> {
     sweep = null;
     clearButton.classList.toggle('on', clearing);
     if (!clearing) return banner.hide();
-    banner.show('Clearing land', 'Drag over trees and rock · tap a mark to lift it');
+    banner.show('Clearing land', 'Drag over trees, rock, stumps and ruins · tap a mark to lift it');
     try {
       if (!localStorage.getItem(CLEAR_TIP_KEY)) {
         localStorage.setItem(CLEAR_TIP_KEY, '1');
@@ -936,6 +942,10 @@ async function start(): Promise<void> {
     const c = cellAt(snap.land, i);
     return WILD.includes(groundAt(snap.land, c.x, c.y));
   };
+  /** A stump or a ruin on a cell (sim/landClutter.ts): the Clear tool takes it away too. */
+  const clutterCell = (i: number) => clutterAt(snap.land, landmarksOf(snap.valley, snap.land), i);
+  /** Whether the Clear tool can mark a cell: wild land, a stump or a ruin. */
+  const clearableCell = (i: number) => wildCell(i) || clutterCell(i) !== null;
   /** The screen y a tooltip hangs at, over someone's head (or over the pointer, if they can't be found). */
   const overheadY = (at: { x: number; y: number } | null, up: number) => (at ? map.screenOf(at.x, at.y).y - up : (mouse?.y ?? 0) - up);
 
@@ -1229,6 +1239,8 @@ async function start(): Promise<void> {
         const g = groundAt(snap.land, c.x, c.y);
         const def = TERRAIN[g as keyof typeof TERRAIN];
         const where = inRegion(regionOfCell(snap.land, c.x, c.y));
+        const clutter = clutterCell(h.cell);
+        if (!def && clutter) return { title: CLUTTER_WORK[clutter].name + (where ? ` ${where.trim()}` : ''), lines: [isMarked(snap.land, h.cell) ? `${listStock(snap.land.pools[h.cell] ?? {})} left` : clutter === 'stump' ? 'A felled tree\'s stump: the wood grows back here unless it is grubbed out.' : 'What is left of a town that stood here before.'], hint: isMarked(snap.land, h.cell) ? 'The town is clearing it' : 'Clear land (⛏) takes it away', y };
         if (!def) return { title: GROUND_NAMES[g] ?? 'Open land', lines: [(g === 'water' ? 'The water' : 'The town builds here when it needs to') + (where ? ` (${where.trim()})` : '')], y };
         return { title: def.name + (where ? ` ${where.trim()}` : ''), lines: [listStock(snap.land.pools[h.cell] ?? {}) + ' left'], hint: isMarked(snap.land, h.cell) ? 'The town is clearing it' : 'The town will gather here when it needs to', y };
       }
@@ -1419,6 +1431,7 @@ async function start(): Promise<void> {
     switch (h.kind) {
       case 'cell': {
         // (the town decides what to build and where to gather now: the card says what it's up to here)
+        if (clutterCell(h.cell)) return { title: d.title, lines: d.lines, actions: [act('clear', isMarked(snap.land, h.cell) ? 'Leave it' : 'Clear it', () => bridge.command({ type: 'markClear', cells: [h.cell], on: !isMarked(snap.land, h.cell) }))] };
         if (!wildCell(h.cell)) return { title: d.title, lines: ['Open ground: the town builds here when it needs to.'], actions: [act('plan', 'Town plan…', () => bridge.openPanel('build'))] };
         return {
           title: d.title,
@@ -1826,7 +1839,7 @@ async function start(): Promise<void> {
   const sweepOver = (sx: number, sy: number) => {
     if (!sweep) return;
     const on = sweep.on;
-    const want = (c: number) => (on ? wildCell(c) && !isMarked(snap.land, c) : isMarked(snap.land, c));
+    const want = (c: number) => (on ? clearableCell(c) && !isMarked(snap.land, c) : isMarked(snap.land, c));
     const steps = Math.max(1, Math.ceil(Math.hypot(sx - sweep.last.x, sy - sweep.last.y) / (CELL / 2)));
     for (let k = 1; k <= steps; k++) {
       if (sweep.cells.size >= MARK_CLEAR_CAP) break;
@@ -1835,7 +1848,7 @@ async function start(): Promise<void> {
     }
     sweep.last = { x: sx, y: sy };
     const w = map.worldOf(sx, sy);
-    setHighlight(clearCellAt(sx, sy, (c) => wildCell(c) || isMarked(snap.land, c)) ?? map.cellAt(w.x, w.y));
+    setHighlight(clearCellAt(sx, sy, (c) => clearableCell(c) || isMarked(snap.land, c)) ?? map.cellAt(w.x, w.y));
   };
   // (a tactics battle has the screen: a tap is its, a drag looks about the board)
   let boardPress: { x: number; y: number; lx: number; ly: number; moved: boolean; id: number } | null = null;
@@ -1878,7 +1891,7 @@ async function start(): Promise<void> {
       return;
     }
     if (clearing && !placing && e.button === 0 && !sweep) {
-      const cell = clearCellAt(e.clientX, e.clientY, (c) => wildCell(c) || isMarked(snap.land, c));
+      const cell = clearCellAt(e.clientX, e.clientY, (c) => clearableCell(c) || isMarked(snap.land, c));
       sweep = { id: e.pointerId, on: cell === null || !isMarked(snap.land, cell), cells: new Set(), last: { x: e.clientX, y: e.clientY } };
       sweepOver(e.clientX, e.clientY);
       canvas.setPointerCapture(e.pointerId);

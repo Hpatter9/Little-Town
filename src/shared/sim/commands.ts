@@ -64,7 +64,7 @@ export type Command =
    *  while it has anything else to study. */
   | { type: 'cancelResearch'; topic: string }
   /** Pin (on) or unpin a building from the Building book: the town builds it next (sim/pins.ts). */
-  | { type: 'pinBuilding'; def: string; on: boolean }
+  | { type: 'pinBuilding'; def: string; on: boolean; id?: number }
   /** Order the ring wall raised, widened or upgraded (the town picks the line and works it until it stands). */
   | { type: 'orderRing' }
   /** Order the streets laid where folk walk and to the gates (done at the next hour). */
@@ -266,7 +266,8 @@ export function parseCommand(raw: unknown): Command | null {
     case 'orderRing':
       return { type: c.type };
     case 'pinBuilding':
-      return typeof c.def === 'string' && BUILDING_BY_ID[c.def] && typeof c.on === 'boolean' ? { type: 'pinBuilding', def: c.def, on: c.on } : null;
+      if (c.id !== undefined && !Number.isInteger(c.id)) return null;
+      return typeof c.def === 'string' && BUILDING_BY_ID[c.def] && typeof c.on === 'boolean' ? { type: 'pinBuilding', def: c.def, on: c.on, ...(c.id !== undefined ? { id: c.id as number } : {}) } : null;
     case 'moveResearch':
       return typeof c.topic === 'string' && TOPIC_BY_ID[c.topic] && (c.dir === -1 || c.dir === 1) ? { type: 'moveResearch', topic: c.topic, dir: c.dir } : null;
     case 'sendDelve':

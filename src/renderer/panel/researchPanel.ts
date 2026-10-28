@@ -5,7 +5,6 @@ import { ERA_NAMES, nextEra } from '../../shared/data/eras';
 import { ITEMS } from '../../shared/data/items';
 import { TOPICS, TOPIC_BY_ID, type Topic } from '../../shared/data/research';
 import type { Bridge } from '../../shared/ipc';
-import { TICKS_PER_HOUR } from '../../shared/sim/time';
 import { prereqsMet, seatNeeded } from '../../shared/sim/research';
 import type { Snapshot } from '../../shared/sim/snapshot';
 import { button, duration, el } from './dom';
@@ -16,7 +15,7 @@ import { forgone, laneName, studyPace, topicName } from '../../shared/data/origi
 export const researchKey = (s: Snapshot) => {
   const r = s.research;
   const pct = Object.fromEntries(Object.entries(r.progress).map(([k, v]) => [k, Math.floor(v * 100)]));
-  return JSON.stringify([selected, s.era, s.unlockAll, r.done, r.revealed, r.queue, r.offer, Math.ceil(r.offerLeft / TICKS_PER_HOUR), r.seat, pct, r.slots, r.station, r.stations, r.speed, s.plan?.research]);
+  return JSON.stringify([selected, s.era, s.unlockAll, r.done, r.revealed, r.queue, r.offer, r.seat, pct, r.slots, r.station, r.stations, r.speed, s.plan?.research]);
 };
 
 /** Buildings and craftable items each topic unlocks, from their data. */
@@ -76,8 +75,7 @@ export function renderResearch(s: Snapshot, bridge: Bridge | undefined, rerender
   // Choose: three topics on offer, one to be studied
   if (r.offer.length) {
     out.push(el('h2', '', 'Choose a topic'));
-    const hours = Math.max(1, Math.ceil(r.offerLeft / TICKS_PER_HOUR));
-    out.push(el('div', 'hint', r.offerLeft > 0 ? `Tap Study on one. If you don't, the town chooses in about ${hours === 1 ? 'an hour' : `${hours} hours`}.` : 'The town is about to choose.'));
+    out.push(el('div', 'hint', 'Tap Study on one. Nothing is studied until you choose.'));
     for (const id of r.offer) {
       const t = TOPIC_BY_ID[id];
       const box = el('div', 'rs-offer');

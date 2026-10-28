@@ -24,6 +24,7 @@ test('the commands are checked: a topic must exist, and a move goes one way', ()
 test('picked by hand: first in the queue ahead of the town\'s own, reordered, removed and left alone', () => {
   const s = newGame('picks');
   s.autopilot = true;
+  s.townResearches = true; // (the old hands-off town, which chooses for itself: a player's town waits)
   const sim = new Sim(s);
   for (let i = 0; i < OFFER_WAIT_TICKS + TICKS_PER_HOUR; i++) sim.step(); // (the town chooses from its offer)
   const r = s.research;
