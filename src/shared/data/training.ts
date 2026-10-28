@@ -11,7 +11,7 @@ export const WAR_PEOPLE = 6;
 
 export const TRAINING_BUILDINGS: readonly BuildingDef[] = [
   { id: 'drill_yard', name: 'Drill Yard', layer: 'mid', width: 3, depth: 2, cost: { wood: 14, hide: 2 }, buildSeconds: 90, purpose: 'Recruits drill here with club, spear and shield: militia, spearmen, skirmishers and the line.' },
-  { id: 'archery_range', name: 'Archery Range', layer: 'mid', width: 3, depth: 1, cost: { wood: 12, fiber: 4 }, buildSeconds: 80, purpose: 'Butts and a mark to shoot at: slingers, archers, crossbowmen and every gun after them train here.' },
+  { id: 'archery_range', name: 'Archery Range', layer: 'mid', width: 3, depth: 2, cost: { wood: 12, fiber: 4 }, buildSeconds: 80, purpose: 'Butts and a mark to shoot at: slingers, archers, crossbowmen and every gun after them train here.' },
   { id: 'kennels', name: 'Kennels', layer: 'mid', width: 3, depth: 2, cost: { wood: 12, hide: 4 }, buildSeconds: 90, purpose: 'Where war hounds and the pack\'s wolves are bred and trained to the fight.', research: 'domestication' },
   { id: 'arcane_academy', name: 'Arcane Academy', layer: 'mid', width: 3, depth: 3, cost: { stone: 24, lumber: 12, herbs: 6 }, buildSeconds: 220, purpose: 'Battlemages and the alchemists\' bombardiers learn their fire here.', research: 'arcane_arts' },
   { id: 'siege_workshop', name: 'Siege Workshop', layer: 'mid', width: 4, depth: 2, cost: { lumber: 20, iron: 4 }, buildSeconds: 200, purpose: 'Rams and mantlets are built, and their crews trained, here.', research: 'siege_engines' },

@@ -18,6 +18,7 @@ import orcs from '../art/iso/kits/orcs/index.json';
 import merfolk from '../art/iso/kits/merfolk/index.json';
 import nomads from '../art/iso/kits/nomads/index.json';
 import shared from '../art/iso/buildings/index.json';
+import type { GroundCorners } from './isoMath';
 import { BUILDING_BY_ID } from '../../shared/data/buildings';
 import { CROPS } from '../../shared/data/crops';
 import { HERDS } from '../../shared/data/livestock';
@@ -114,6 +115,9 @@ export const liesAlongY = (kit: string, piece: string): boolean => ALONG_Y.has(`
 export interface SharedPiece extends KitPiece {
   soil?: number;
   along_y?: boolean;
+  /** Its plinth's left, front and right corners (px), for a picture drawn off the grid's angle: laid exactly over the
+   *  footprint (isoMath.ts `groundFit`) instead of fitted to its width. */
+  ground?: GroundCorners;
 }
 export const SHARED_PIECES: ReadonlyMap<string, SharedPiece> = new Map((shared as SharedPiece[]).map((p) => [p.id, p]));
 /** The shared piece a kit draws for this piece's name, if it has none of its own (a kit not among the peoples', the

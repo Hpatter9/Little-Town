@@ -31,7 +31,7 @@ const TRAINING_IDS = new Set(TRAINING_BUILDINGS.map((d) => d.id));
 import { rectExplored } from './fog';
 import { fogRemains } from './explore';
 import { isGrate, isRingPiece, planRing, ringAdvice, ringSite, ringWants, RING_PEOPLE } from './ringWall';
-import { pinRefusal } from './pins';
+import { pinRefusal, SLOT_WAIT } from './pins';
 import { inSea, seaBuild, seaTown } from './sea';
 import { castleCells, castleOn, coreRect, hallCells, HALLWAY, holdOf, isHallway, joinsCastle, nearCastle, roomKind, sharedEdges, solidCells } from './castle';
 import { BUILDINGS, BUILDING_BY_ID, UPGRADES, type BuildingDef } from '../data/buildings';
@@ -60,7 +60,7 @@ import { craftNeeded, craftSlots, itemUnlocked, queueCraft, reduceCraft, station
 import { chainCost, chainMakeable, nextStep, partStationWishes, partsMakeable } from './chains';
 import { PART_IDS } from '../data/chains';
 import { researchMods, tidyPicks } from './research';
-import { chooseOffer, offerableTopics, offerOverdue } from './researchOffer';
+import { chooseOffer, offerableTopics, offerOverdue, townPicksResearch } from './researchOffer';
 import { acceptVisitor, housingCapacity } from './townsfolk';
 import { tireless, eatersOf, foodDaysFor, addStock, campCell, poolSize, type Building, type GameState } from './state';
 import { TICKS_PER_HOUR, calendarOf } from './time';
@@ -369,9 +369,10 @@ function planResearch(s: GameState, n: Needs, plan: TownPlan): void {
     if (at >= 0) offer[at] = id;
   }
   s.research.suggested = suggested;
-  // (research is offered, three topics at a time: the player taps one, and if they haven't by the time the offer is
-  // overdue the town takes the one it likes best of the three: sim/researchOffer.ts)
-  if (offerOverdue(s)) {
+  // (research is offered, three topics at a time, and the player taps one: it waits for them. Only the old hands-off
+  // town, switched back on in tests, takes the one it likes best of the three once the offer is overdue:
+  // sim/researchOffer.ts)
+  if (townPicksResearch(s) && offerOverdue(s)) {
     let best: string | null = null;
     let bestScore = -Infinity;
     for (const id of s.research.offer ?? []) {
@@ -1095,8 +1096,8 @@ function planSeat(s: GameState, n: Needs, plan: TownPlan): boolean {
   return true;
 }
 
-/** The player's building wishes (sim/pins.ts): each built next, in the order pinned, as soon as a slot is free, its
- *  makings can be had and there's a spot for it. What holds one back is kept on the pin for the menu. */
+/** The player's building orders (sim/pins.ts): each built next, in the order given, as soon as a slot is free, its
+ *  makings can be had and there's a spot for it (one held back lets the next in line go ahead). What holds one back is kept on the pin for the menu. */
 function planPins(s: GameState, n: Needs, plan: TownPlan): boolean {
   tendPins(s);
   for (const p of s.pins ?? []) {
@@ -1107,7 +1108,8 @@ function planPins(s: GameState, n: Needs, plan: TownPlan): boolean {
       continue;
     }
     if (blueprintCount(s) >= buildSlots(s)) {
-      p.why = 'waiting for a free building slot';
+      p.why = SLOT_WAIT;
+      p.at = s.tick; // (its turn in the queue: not stuck, so it isn't given up, sim/pins.ts)
       continue;
     }
     if (!affordable(s, def, n.stock)) {
@@ -1620,7 +1622,7 @@ export function recommendBuilding(s: GameState): Recommendation | null {
   const n = needs(s);
   const orderable = (id: string) => {
     const d = BUILDING_BY_ID[id];
-    return !!d && !isRingPiece(id) && !isWall(d) && pinRefusal(s, d) === null && !s.buildings.some((b) => b.def === id && b.status === 'blueprint');
+    return !!d && !isRingPiece(id) && !isWall(d) && pinRefusal(s, d) === null && !s.buildings.some((b) => b.def === id && b.status === 'blueprint') && !(s.pins ?? []).some((p) => p.def === id);
   };
   const homes = n.freeBeds < 1 ? BUILDINGS.filter((d) => d.housing && !d.never && unlocked(s, d.id) && orderable(d.id)).sort((a, b) => b.housing! - a.housing!)[0] : undefined;
   if (homes) return { kind: 'building', def: homes.id, name: homes.name, why: n.roughSleepers > 0 ? `${n.roughSleepers} sleep out of doors` : `${n.people} people and ${n.people + n.freeBeds} beds` };

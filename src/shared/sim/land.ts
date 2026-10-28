@@ -76,6 +76,8 @@ export interface LandMap {
   rich?: Record<number, 1>;
   /** Rock broken up for stone (sim/regrow.ts): the cell and the tick its rubble is cleared away (the map scatters it). */
   rubble?: Record<number, number>;
+  /** A starting valley's ruins cleared away by hand (sim/landClutter.ts): the map no longer draws them. */
+  cleared?: number[];
   /** The land's named regions (landRegions.ts): the home vale first. Absent on an older, smaller land. */
   regions?: LandRegion[];
   /** The seed's hash (the regions' borders are warped by it). */
