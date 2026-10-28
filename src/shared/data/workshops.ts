@@ -42,7 +42,7 @@ export const WORKSHOP_BUILDINGS: readonly BuildingDef[] = [
   shop('tailor', "Tailor's", 2, { lumber: 10, cloth: 4 }, 100, 'Cuts fine tunics and gowns from cloth, for the shop.', 'weaving'),
   shop('jeweller', "Jeweller's", 2, { stone: 12, lumber: 8, iron: 4 }, 140, 'Sets gold, gems and pearls into rings and pendants: the dearest wares a shop can hold.', 'jewellery'),
   shop('cooper', 'Cooperage', 2, { lumber: 10, iron: 2 }, 100, 'Makes casks and barrels: furnishings for the venues, and wine to sell.', 'carpentry'),
-  shop('apothecary', 'Apothecary', 2, { lumber: 10, stone: 6, cloth: 2 }, 120, 'Tinctures and draughts from herbs, for the shop.', 'physick'),
+  shop('apothecary', 'Stillroom', 2, { lumber: 10, stone: 6, cloth: 2 }, 120, 'The apothecary steeps tinctures and draughts from herbs here, for the shop.', 'physick'),
   shop('chandlery', 'Chandlery', 2, { lumber: 8, stone: 4 }, 90, 'Dips candles from tallow: light for the venues, and scented ones to sell.', 'animal_husbandry'),
   shop('dyeworks', 'Dyeworks', 2, { stone: 10, lumber: 8, clay: 4 }, 110, 'Dyes bolts of cloth in berry red and herb blue, and paints banners.', 'weaving'),
   // Industrial

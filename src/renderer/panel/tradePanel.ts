@@ -64,7 +64,7 @@ export function renderTrade(s: Snapshot, bridge: Bridge | undefined): HTMLElemen
     }
     out.push(grid);
   } else if (!s.marketBuilt) {
-    out.push(el('div', 'hint', 'Build a Market Stall (Trade research, Medieval era) and caravans will visit every couple of days.'));
+    out.push(el('div', 'hint', 'Build a Marketplace (Trade research, Medieval era) and caravans will visit every couple of days.'));
   } else if (s.nextCaravanHours !== null) {
     out.push(el('div', 'hint', `The next caravan is due in about ${Math.ceil(s.nextCaravanHours)} game hours.`));
   }

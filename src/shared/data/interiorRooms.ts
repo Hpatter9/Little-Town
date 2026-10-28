@@ -10,7 +10,7 @@ export const INTERIOR_ROOMS: readonly HandMap[] = [
     h: 7,
     fields: {
       name: 'The Common Room',
-      about: 'A common room with a bar: the bar along the left with its kegs behind, the hearth and its rug, a long table and a round one by the door. The brewery’s tap room; the inns (the Fireside Inn, the Tavern) are seen in their own window.',
+      about: 'A common room with a bar: the bar along the left with its kegs behind, the hearth and its rug, a long table and a round one by the door. The brewery’s tap room; the alehouse and the tavern are seen in their own window.',
       kinds: [],
       defs: ['brewery', 'fireside_inn', 'tavern'],
     },
