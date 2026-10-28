@@ -1,13 +1,14 @@
 // One townsperson on the isometric map: a Pixi sprite that shows the right frame for what the snapshot says they're
-// doing, anchored at the feet. Call `update` once a frame with their PersonView, the map position's screen spot and
+// doing, anchored at the feet (folkRules `feetAnchor`). Call `update` once a frame with their PersonView, the map position's screen spot and
 // the time; it does the facing, the animation, the look (armed or bare, loaded when first needed) and the frame.
 // The sprite never touches the game state.
 
 import { Container, Sprite, type Texture } from 'pixi.js';
 import { ITEM_BY_ID } from '../../shared/data/items';
+import { emoteFrame, EMOTE_SIZE } from '../art/effects';
 import { loadFolkSet, type FolkSet } from './folkLoader';
 import {
-  CHILD_FEET_LIFT, CHILD_SCALE, armedSuffix, facingFromVector, otherTool, frameAt, isFighting, lookPath, play, wantedAnim, type FolkAnim, type FolkDir, type FolkPlay, type FolkState,
+  CHILD_SCALE, feetAnchor, armedSuffix, breathAt, sleepDir, sleepsOut, facingFromVector, otherTool, frameAt, isFighting, lookPath, play, wantedAnim, type FolkAnim, type FolkDir, type FolkPlay, type FolkState,
 } from './folkRules';
 import { tintKey, type FolkTint } from './folkTint';
 import { folkWho } from './folkWho';
@@ -20,6 +21,8 @@ const SEEN_FOR = 0.25;
 
 export class FolkSprite extends Container {
   private sprite = new Sprite();
+  /** The "z"s over someone asleep out of doors (5000 Pixel Effects' zzz, the emote the map shows over a sleeper). */
+  private zzz: Sprite | null = null;
   private dir: FolkDir = 'south';
   private lastX = NaN;
   private lastY = NaN;
@@ -91,8 +94,15 @@ export class FolkSprite extends Container {
       this.sprite.visible = false;
       return;
     }
-    // (feet on the spot: a child's art stands higher in its frame than the grown looks')
-    this.sprite.anchor.set(0.5, who.child && !turned ? 1 - CHILD_FEET_LIFT / (set.index.frame[1] || 148) : 1);
+    // (anchored at the feet, which stand some way up the padded frame, so they're on the spot and on their shadow;
+    // a child's art stands higher in its frame than the grown looks')
+    this.sprite.anchor.set(0.5, feetAnchor(set.index.frame[1], who.child && !turned));
+    // asleep on the ground: their look's fall held at its end, lying still and breathing, the z's rising over them
+    if (sleepsOut(st, this.speed) && !board && set.has('death')) {
+      this.sleep(set, st.id, now);
+      return;
+    }
+    if (this.zzz) this.zzz.visible = false;
     const p: FolkPlay & { rate: number } = play(want, (a) => set.has(a));
     // (a look with no death drawn yet lies its standing figure down rather than standing over its own fall)
     this.sprite.rotation = want === 'death' && p.anim !== 'death' && p.anim !== 'hurt' ? -Math.PI / 2 : 0;
@@ -105,6 +115,30 @@ export class FolkSprite extends Container {
     const tex: Texture | null = set.texture(p.anim, this.dir, n) ?? set.texture('stand', this.dir, 0);
     this.sprite.visible = !!tex;
     if (tex) this.sprite.texture = tex;
+  }
+
+  /** Lying asleep: the death sheet's last frame (it ends lying flat) in one of the calm facings, breathing. */
+  private sleep(set: FolkSet, id: number, now: number): void {
+    const tex = set.texture('death', sleepDir(id), set.count('death') - 1);
+    this.sprite.visible = !!tex;
+    if (tex) this.sprite.texture = tex;
+    this.sprite.rotation = 0;
+    this.anim = '';
+    const k = Math.abs(this.sprite.scale.x);
+    this.sprite.scale.y = k * breathAt(now, id).sy;
+    const f = emoteFrame('zzz', now * 7 + id);
+    if (f && !this.zzz) this.zzz = this.addChild(new Sprite());
+    if (this.zzz) {
+      this.zzz.visible = !!f;
+      if (f) {
+        this.zzz.texture = f;
+        this.zzz.anchor.set(0.5, 1);
+        this.zzz.scale.set(1.2);
+        this.zzz.alpha = 0.85;
+        // (over the sleeper's head, which lies about a figure's width up from their feet, and bobbing a little)
+        this.zzz.position.set(14 + EMOTE_SIZE * 0.2, -46 * k + Math.sin(now * 1.6 + id) * 2);
+      }
+    }
   }
 
   /** Start loading a look (bare and armed) the first time it's asked for, and take it up when it arrives. */

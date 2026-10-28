@@ -4,6 +4,7 @@
 import type { Snapshot } from '../../shared/sim/snapshot';
 import type { Command } from '../../shared/sim/commands';
 import { NO_WAY_DOWN, surfaceCommands, undergroundNow, undergroundWays } from '../../shared/sim/underground';
+import pickaxeIcon from '../ui/art/pickaxe.png';
 
 const KEY = 'littletown.undergroundLast';
 
@@ -35,6 +36,11 @@ export function startUndergroundSwitch(bridge: { command?: (c: Command) => void;
 
   let snap: Snapshot | null = null;
   let last = remembered();
+  // (a pickaxe from the mining icons for the way down, a sun for the way up; Clear land has a spade: main.ts)
+  const pickaxe = document.createElement('img');
+  pickaxe.src = pickaxeIcon;
+  pickaxe.alt = '';
+  let shown: 'up' | 'down' | null = null;
 
   const go = (key: string, command: Command) => {
     last = key;
@@ -84,7 +90,11 @@ export function startUndergroundSwitch(bridge: { command?: (c: Command) => void;
     const now = undergroundNow(s);
     const ways = undergroundWays(s);
     const none = !now && !ways.length;
-    btn.textContent = now ? '☀' : '⛏';
+    if (shown !== (now ? 'up' : 'down')) {
+      shown = now ? 'up' : 'down';
+      if (now) btn.textContent = '☀';
+      else btn.replaceChildren(pickaxe);
+    }
     btn.classList.toggle('none', none);
     btn.title = btn.ariaLabel = none ? NO_WAY_DOWN : now ? 'Surface: back to the town' : 'Underground: go below the town';
     if (now) chooser.hidden = true;

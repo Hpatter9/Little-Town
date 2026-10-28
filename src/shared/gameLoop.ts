@@ -75,10 +75,12 @@ export class GameLoop {
       return;
     }
     const now = performance.now();
-    // (a raid being skipped to its recap runs flat out, a slice a frame: sim/raidSkip.ts)
-    if (this.sim.state.raidSkip && this.sim.state.raid && !this.sim.state.paused && !holdOf(this.sim.state) && !this.cardsUp && this.speed > 0) {
+    // (a raid being skipped to its recap runs flat out, a slice a frame: sim/raidSkip.ts. Its battle plays alone, as a
+    // watched one does (`holdOf` says 'fight'), so a question up meanwhile waits for it rather than stopping it)
+    const skipHold = holdOf(this.sim.state) ?? (this.cardsUp ? 'popup' : null);
+    if (this.sim.state.raidSkip && this.sim.state.raid && !this.sim.state.paused && skipHold !== 'popup' && this.speed > 0) {
       const until = now + SKIP_SLICE_MS;
-      while (this.sim.state.raid && performance.now() < until) this.sim.step();
+      while (this.sim.state.raid && performance.now() < until) this.sim.step(holdOf(this.sim.state));
       this.last = performance.now();
       this.onTicks(this.snapshot());
       return;

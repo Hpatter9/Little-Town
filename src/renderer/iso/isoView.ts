@@ -19,14 +19,16 @@ import { LAMP_LOOK } from '../map/lampRules';
 import type { Era } from '../../shared/data/eras';
 import { loadImage } from '../art/loadImage';
 import { BUILDING_BY_ID } from '../../shared/data/buildings';
-import { cellHash, gateFlip, propFor, sceneryFor, wallMaskAt, wallPieceFor, wallShape } from './isoTown';
+import { cellHash, gateFlip, penSides, propFor, sceneryFor, stockHeaps, wallMaskAt, wallPieceFor, wallShape } from './isoTown';
 import { fitted, groundTile, kitOf, kitUrl, liesAlongY, pieceFor, roleOf, sharedPiece, ISO_ART, type Kit } from './isoKits';
 import { IsoCastleView, type CastleIn } from './isoCastleView';
 import { anyoneNear, doorSpot, gateSpan, hasWindows, lightBox, swing, windowSpots, worldMatrix } from './isoLight';
-import { cellsInView, footBase, footDepth, footWidth, isoBounds, isoOrigin, isoToWorld, ISO_TH, ISO_TW, standingDepth, tileToIso, worldToIso, type Rect } from './isoMath';
+import { cellsInView, footBase, footDepth, footWidth, groundFit, isoBounds, isoOrigin, isoToWorld, ISO_TH, ISO_TW, standingDepth, tileToIso, worldToIso, type Rect } from './isoMath';
 import { flickerKind, isLit, lightAt, lightsIn, lightTint, placed, type LightKind } from './windowLights';
+import { pickArt, TAP_SLOP, type ArtBox } from './artPick';
 import { BoxGrid, behind, coverBox, fadeAlpha, fadeStep, isWalker, type Box } from './seeThrough';
 import { flicker, flickerSize, phaseOf } from '../map/flicker';
+import { EMBERS, emberAt, flameBox, hearthGlow, tongueAt } from './fireLook';
 import { reducedMotion } from '../ui/motion';
 import { LIGHT_KIND } from '../../shared/data/lighting';
 
@@ -55,6 +57,9 @@ const LANDMARK_SCALE = 0.8;
 const OVERLAP = 1.06;
 /** How fast a window's light comes on or goes out (a share a second). */
 const LIGHT_RATE = 1.5;
+/** The stockade's stakes stand as tall as a wall's: each run drawn as wide as a one-cell wall's (a cell's diamond),
+ *  on its thin strip at the pen's edge (iso/isoTown.ts `penSides`). */
+const PEN_CELL = footWidth({ x: 0, y: 0, w: 1, h: 1 });
 /** Props that are lights of their own (a lamp post, a brazier beside a tavern): a flame at their head after dark. */
 const LIGHT_PROP = /torch|brazier|lamp|lantern/;
 
@@ -138,6 +143,9 @@ interface DrawnBuilding {
   venue: boolean;
   /** Flames while it burns (`b.fire`), flickering in `animate`. */
   flames?: Sprite[];
+  /** A hearth's own flame drawn again over its picture, alive (iso/fireLook.ts): the flame cut from the picture, a
+   *  glow about it and the embers off it, with the picture's scale and the flame's foot on the screen. */
+  hearth?: { tongue: Sprite; glow: Sprite; embers: Sprite[]; phase: number; k: number; flip: boolean; x: number; y: number };
 }
 
 export class IsoView {
@@ -173,7 +181,7 @@ export class IsoView {
   /** Effects that rise upright from a point on the land (smoke, sparks, steam, the gains floating up): drawn in iso px
    *  (not squashed with the ground), over the things. Callers put a point on the screen with `isoOf`. */
   readonly screenFx = new Container();
-  /** Buildings whose kit piece is not drawn because something else shows them (a stockpile's heaps). */
+  /** Buildings whose kit piece is not drawn because something else shows them. */
   readonly artHidden = new Set<number>();
   readonly lightLayer = new Container();
   /** After dark: the windows' and lamps' glow (added), the marked cells for clearing, the doors and gates. */
@@ -519,6 +527,13 @@ export class IsoView {
       let piece = pieceFor(this.kit, b.def);
       let flip = false;
       const role = roleOf(b.def);
+      // (the stockade's picture is its gate; the rest of its sides are drawn with its props: `setProps`)
+      const pen = 'role' in role && role.role === 'stockade' ? penSides(foot).find((p) => p.part === 'gate')! : null;
+      const drawFoot = pen ? pen.foot : foot;
+      if (pen) {
+        piece = wallPieceFor([...this.kit.pieces.keys()], 'gate', b.def) ?? piece;
+        flip = pen.alongY !== liesAlongY(this.kit.name, piece);
+      }
       if ('role' in role && (role.role === 'wall_run' || role.role === 'gate') && land) {
         const ids = [...this.kit.pieces.keys()];
         if (role.role === 'gate') {
@@ -538,7 +553,9 @@ export class IsoView {
       const shared = sharedPiece(this.kit.name, piece);
       if (shared?.along_y) flip = foot.w > foot.h;
       const tex = shared ? this.trimmedOf(piece, shared.soil ?? 0) : this.texOf(piece);
-      const key = `${this.kit.name}:${piece}:${flip ? 'f' : ''}:${b.status}:${b.fire !== undefined ? 1 : 0}:${this.artHidden.has(b.id) ? 'h' : ''}:${foot.x},${foot.y},${foot.w},${foot.h}:${tex ? 1 : 0}:${this.texGen}`;
+      // (a stockpile's heaps beside it, as full as its store: drawn again when they change)
+      const heaps = this.heapsOf(b, role, foot);
+      const key = `${this.kit.name}:${piece}:${flip ? 'f' : ''}:${b.status}:${b.fire !== undefined ? 1 : 0}:${this.artHidden.has(b.id) ? 'h' : ''}:${foot.x},${foot.y},${foot.w},${foot.h}:${tex ? 1 : 0}:${this.texGen}:${heaps.map((h) => h.piece).join(',')}`;
       let d = this.buildings.get(b.id);
       if (!d) {
         const sprite = new Sprite();
@@ -555,12 +572,23 @@ export class IsoView {
       s.visible = !!tex && !this.artHidden.has(b.id);
       if (!tex) continue;
       s.texture = tex;
-      const span = footWidth(foot);
-      const k = fitted(b.def) || shared ? span / tex.width : Math.min(this.kit.scale * ISO_ART, (span * OVERHANG) / tex.width);
-      s.scale.set(flip ? -k : k, k);
-      const at = footBase(foot, this.ox);
-      s.position.set(Math.round(at.x), Math.round(at.y));
-      s.zIndex = footDepth(foot);
+      const span = footWidth(drawFoot);
+      const k = pen ? this.penScale(b.def, tex) : fitted(b.def) || shared ? span / tex.width : Math.min(this.kit.scale * ISO_ART, (span * OVERHANG) / tex.width);
+      if (shared?.ground) {
+        // (a picture drawn off the grid's angle: its plinth laid over the footprint's diamond, isoMath.ts groundFit)
+        const m = groundFit(shared.ground, tex.width, drawFoot, flip);
+        const front = tileToIso(drawFoot.x + drawFoot.w, drawFoot.y + drawFoot.h, this.ox);
+        s.anchor.set(0, 0);
+        s.setFromMatrix(new Matrix(m.a, m.b, m.c, m.d, Math.round(front.x + m.tx), Math.round(front.y + m.ty)));
+      } else {
+        s.anchor.set(0.5, 1);
+        s.skew.set(0, 0);
+        s.rotation = 0;
+        s.scale.set(flip ? -k : k, k);
+        const at = footBase(drawFoot, this.ox);
+        s.position.set(Math.round(at.x), Math.round(at.y));
+      }
+      s.zIndex = footDepth(drawFoot);
       // (a blueprint or a building going up: a ghost of what it will be)
       s.alpha = b.status === 'done' ? 1 : 0.45;
       this.baseAlpha.set(s, s.alpha);
@@ -572,7 +600,7 @@ export class IsoView {
         this.clearDoor(d);
       } else this.setDoor(d, b, role, foot);
       this.setLights(d, b, role, piece, !!shared, flip, k, tex);
-      if (!shared) this.setProps(d, b, role);
+      if (!shared) this.setProps(d, b, role, heaps);
     }
     this.coversDirty = true;
     this.setFlames(list);
@@ -638,6 +666,47 @@ export class IsoView {
       l.core?.destroy();
     }
     d.lights = [];
+    if (d.hearth) {
+      for (const c of [d.hearth.tongue, d.hearth.glow, ...d.hearth.embers]) {
+        c.destroy();
+        this.own.delete(c);
+      }
+      d.hearth = undefined;
+    }
+  }
+
+  /** A hearth's flame, alive: cut from its picture and laid back over it, to sway, flare and throw embers in
+   *  `animate` (iso/fireLook.ts). */
+  private setHearth(d: DrawnBuilding, piece: string, flip: boolean, k: number, tex: Texture): void {
+    const [x0, y0, x1, y1] = flameBox(`${this.kit.name}/${piece}`, tex.width, tex.height);
+    const s = d.sprite;
+    const tongue = new Sprite(new Texture({ source: tex.source, frame: new Rectangle(tex.frame.x + x0, tex.frame.y + y0, x1 - x0, y1 - y0) }));
+    tongue.anchor.set(0.5, 1);
+    const x = s.x + ((x0 + x1) / 2 - tex.width / 2) * k * (flip ? -1 : 1);
+    const y = s.y + (y1 - tex.height) * k;
+    tongue.position.set(Math.round(x), Math.round(y));
+    const z = s.zIndex + 0.003;
+    tongue.zIndex = z;
+    const glow = new Sprite(glowTexture());
+    glow.anchor.set(0.5);
+    glow.tint = 0xff9a3a;
+    glow.blendMode = 'add';
+    glow.position.set(Math.round(x), Math.round(y - (y1 - y0) * k * 0.35));
+    glow.zIndex = z + 0.0005;
+    const embers: Sprite[] = [];
+    for (let i = 0; i < EMBERS; i++) {
+      const e = new Sprite(glowTexture());
+      e.anchor.set(0.5);
+      e.tint = i % 2 ? 0xffd070 : 0xff8a30;
+      e.blendMode = 'add';
+      e.zIndex = z + 0.001;
+      embers.push(e);
+    }
+    for (const c of [tongue, glow, ...embers]) {
+      this.things.addChild(c);
+      this.own.add(c);
+    }
+    d.hearth = { tongue, glow, embers, phase: phaseOf(x / ISO_TW, y / ISO_TW), k, flip, x, y: y - (y1 - y0) * k };
   }
 
   /** A light at a point on the screen (iso px) with its pane `w` by `h` px (none: a soft glow only), in the glow
@@ -689,6 +758,8 @@ export class IsoView {
         this.addLight(d, p.x, p.y - 15, 0, 0, 'window', 0.8);
       }
     }
+    // (a hearth's painted flame comes alive: iso/fireLook.ts)
+    if (!shared && 'role' in role && role.role === 'hearth') this.setHearth(d, piece, flip, k, tex);
     this.lightsKey = '';
   }
 
@@ -759,6 +830,7 @@ export class IsoView {
       // (its lights come on and go out slowly as people come and go, and flicker as a flame or a candle does; they
       // fade with the building when someone behind it shows through)
       const seen = this.fades.has(d.sprite) ? d.sprite.alpha / (this.baseAlpha.get(d.sprite) ?? 1) : 1;
+      if (d.hearth) this.animateHearth(d.hearth, t, gentle, night, d.sprite.alpha);
       for (const l of d.lights) {
         l.level = l.on ? Math.min(1, l.level + LIGHT_RATE * dt) : Math.max(0, l.level - LIGHT_RATE * dt);
         const show = night && l.level > 0.01 && !l.hidden;
@@ -786,6 +858,27 @@ export class IsoView {
       if (Math.abs(door.open - was) < 0.01 && !(door.open === 0 && was !== 0)) continue;
       this.drawDoor(d, door);
     }
+  }
+
+  /** A hearth's flame each frame: swayed, stretched and brightened on the flicker's noise, its glow wavering, its
+   *  embers rising (iso/fireLook.ts); faded with its picture when someone behind shows through. */
+  private animateHearth(h: NonNullable<DrawnBuilding['hearth']>, t: number, gentle: boolean, night: boolean, alpha: number): void {
+    const look = tongueAt(t, h.phase, gentle);
+    h.tongue.scale.set(h.k * look.sx * (h.flip ? -1 : 1), h.k * look.sy);
+    h.tongue.skew.x = look.skew;
+    const c = Math.round(200 + 55 * look.bright);
+    h.tongue.tint = (255 << 16) | (c << 8) | Math.round(150 + 105 * look.bright);
+    h.tongue.alpha = alpha;
+    const g = hearthGlow(t, h.phase, night, gentle);
+    h.glow.alpha = 0.5 * g * alpha;
+    h.glow.width = 70 * h.k * (0.9 + 0.2 * g);
+    h.glow.height = 48 * h.k * (0.9 + 0.2 * g);
+    h.embers.forEach((e, i) => {
+      const at = emberAt(i, gentle ? t * 0.5 : t, h.phase);
+      e.position.set(Math.round(h.x + at.dx * h.k), Math.round(h.y + at.dy * h.k));
+      e.alpha = at.alpha * alpha * 0.9;
+      e.width = e.height = Math.max(2, 4 * h.k);
+    });
   }
 
   private drawDoor(d: DrawnBuilding, door: NonNullable<DrawnBuilding['door']>): void {
@@ -820,10 +913,70 @@ export class IsoView {
     d.props = [];
   }
 
-  /** A finished working building's prop, beside it: picked from its id, sorted in depth with everything else. */
-  private setProps(d: DrawnBuilding, b: Building, role: ReturnType<typeof roleOf>): void {
+  /** The stockade's gate's scale: as tall as the runs beside it (each drawn as a wall's cell is, `PEN_CELL`), so it
+   *  stands a little wider than its cell, posts and all. */
+  private penScale(defId: string, gate: Texture): number {
+    const run = wallPieceFor([...this.kit.pieces.keys()], 'run', defId);
+    const r = run ? this.texOf(run) : null;
+    return r ? ((PEN_CELL / r.width) * r.height) / gate.height : PEN_CELL / gate.width;
+  }
+
+  /** A finished store's heaps (iso/isoTown.ts `stockHeaps`): the kit's crates, barrels, logs and bales beside it, as
+   *  many as it is full. None for anything else. */
+  private heapsOf(b: Building, role: ReturnType<typeof roleOf>, foot: Rect): ReturnType<typeof stockHeaps> {
+    const room = BUILDING_BY_ID[b.def]?.storage;
+    if (!('role' in role) || role.role !== 'stockpile' || b.status !== 'done' || !room) return [];
+    return stockHeaps([...this.kit.pieces.keys()], b.store ?? {}, room, foot);
+  }
+
+  /** A finished working building's prop, beside it: picked from its id, sorted in depth with everything else (a
+   *  store's: its heaps, as full as it is). */
+  private setProps(d: DrawnBuilding, b: Building, role: ReturnType<typeof roleOf>, heaps: ReturnType<typeof stockHeaps> = []): void {
     this.clearProps(d);
-    if (!('role' in role) || b.status !== 'done') return;
+    if (!('role' in role)) return;
+    if (role.role === 'stockade') {
+      // (its sides, a run of the kit's wall on each cell, fitted to a thin strip as a wall is; a ghost while it goes
+      // up, as the building is)
+      const ids = [...this.kit.pieces.keys()];
+      for (const side of penSides(d.foot)) {
+        if (side.part === 'gate') continue;
+        const piece = wallPieceFor(ids, side.part, b.def);
+        const tex = piece ? this.texOf(piece) : null;
+        if (!piece || !tex) continue;
+        const s = new Sprite(tex);
+        s.anchor.set(0.5, 1);
+        const k = PEN_CELL / tex.width;
+        s.scale.set(side.alongY !== liesAlongY(this.kit.name, piece) ? -k : k, k);
+        const at = footBase(side.foot, this.ox);
+        s.position.set(Math.round(at.x), Math.round(at.y));
+        s.zIndex = footDepth(side.foot);
+        s.alpha = d.sprite.alpha;
+        this.baseAlpha.set(s, s.alpha);
+        this.things.addChild(s);
+        this.own.add(s);
+        d.props.push(s);
+      }
+      return;
+    }
+    if (b.status !== 'done') return;
+    if (role.role === 'stockpile' && BUILDING_BY_ID[b.def]?.storage) {
+      heaps.forEach((h, i) => {
+        const tex = this.texOf(h.piece);
+        if (!tex) return;
+        const s = new Sprite(tex);
+        s.anchor.set(0.5, 1);
+        // (a little smaller and turned now and then, so a row of the same heap doesn't look stamped)
+        const k = this.kit.scale * ISO_ART * (0.5 + 0.06 * (i % 2));
+        s.scale.set(cellHash(b.id, i, 23) < 0.4 ? -k : k, k);
+        const at = tileToIso(h.x, h.y, this.ox);
+        s.position.set(Math.round(at.x), Math.round(at.y));
+        s.zIndex = h.x + h.y + 0.02;
+        this.things.addChild(s);
+        this.own.add(s);
+        d.props.push(s);
+      });
+      return;
+    }
     const pr = propFor([...this.kit.pieces.keys()], role.role, b.id, d.foot);
     const tex = pr && this.texOf(pr.piece);
     if (!pr || !tex) return;
@@ -936,9 +1089,10 @@ export class IsoView {
       if (this.wallCells.has(i)) continue;
       const g = groundAt(land, x, y);
       if (land.regrow?.[i] || land.rubble?.[i] !== undefined) continue;
-      // (a landmark of the starting valley, while its cell lies as the valley left it and nothing is built there)
+      // (a landmark of the starting valley, while its cell lies as the valley left it, nothing is built there and it
+      // hasn't been cleared away: sim/landClutter.ts)
       const mark = this.landmarks.get(i);
-      const marked = !!mark && g === mark.ground && !this.builtOn(x, y);
+      const marked = !!mark && g === mark.ground && !this.builtOn(x, y) && !land.cleared?.includes(i);
       const piece = marked ? mark.piece : sceneryFor(ids, g, this.biome, cellHash(x, y, 1), cellHash(x, y, 2));
       const tex = !piece ? null : marked ? this.texUrl(kitUrl(piece.split('/')[0], piece.split('/')[1])) : this.texOf(piece);
       if (!piece || !tex) continue;
@@ -1092,22 +1246,78 @@ export class IsoView {
     return s?.visible ? { x: s.x, y: s.y - s.height } : null;
   }
 
-  /** The building whose picture is under a screen point, the front-most first (a roof hides what's behind it). */
+  /** The building whose picture is under a screen point, the front-most first (a roof hides what's behind it): its art
+   *  tested, not its box, so a tap through an empty corner finds the building behind (iso/artPick.ts). */
   buildingAt(sx: number, sy: number): number | null {
     const x = sx - this.world.x - this.root.x;
     const y = sy - this.world.y - this.root.y;
-    let best: { id: number; z: number } | null = null;
-    const room = this.castle.roomAt(x, y);
-    if (room !== null) best = { id: room, z: -1 };
+    return pickArt(this.picsNear(x, y), x, y) ?? this.castle.roomAt(x, y);
+  }
+
+  /** The building whose art is solid right under a screen point and drawn in front of the ground there (world px), or
+   *  none: what stands on that ground (a sign, a grave, a pet) is hidden behind the building, so the finger is on the
+   *  building. (The ground under a tall roof lies behind the building: a tap on the roof once opened the signpost there.) */
+  buildingOver(sx: number, sy: number, wx: number, wy: number): number | null {
+    const x = sx - this.world.x - this.root.x;
+    const y = sy - this.world.y - this.root.y;
+    const tx = wx / CELL;
+    const ty = wy / CELL;
+    const front = this.picsNear(x, y).filter((p) => {
+      const foot = this.buildings.get(p.id)?.foot;
+      return !!foot && standingDepth(tx, ty, [foot]) < p.z;
+    });
+    return pickArt(front, x, y, 0);
+  }
+
+  /** The buildings' pictures near a point (view px), as the tap tests them (iso/artPick.ts). */
+  private picsNear(x: number, y: number): ArtBox[] {
+    const pics: ArtBox[] = [];
     for (const [id, d] of this.buildings) {
       const s = d.sprite;
       if (!s.visible && !(this.artHidden.has(id) && s.texture.width > 1)) continue;
-      const w = s.width;
-      const h = s.height;
-      if (x < s.x - w / 2 || x > s.x + w / 2 || y < s.y - h || y > s.y) continue;
-      if (!best || s.zIndex > best.z) best = { id, z: s.zIndex };
+      const b = boxOf(s);
+      // (only those near the finger are worth reading)
+      if (x < b.x0 - TAP_SLOP || x > b.x1 + TAP_SLOP || y < b.y0 - TAP_SLOP || y > b.y1 + TAP_SLOP) continue;
+      const tex = s.texture;
+      pics.push({ ...b, id, z: s.zIndex, flip: s.scale.x < 0, alphaAt: (u, v) => this.alphaOf(tex, u, v) });
     }
-    return best?.id ?? null;
+    return pics;
+  }
+
+  /** Each picture's opacity, read once from its image (null where it can't be read). */
+  private alphas = new WeakMap<object, { w: number; h: number; a: Uint8Array } | null>();
+  /** The art's opacity at a point of a texture's frame (u, v from 0 to 1), or null if its image can't be read. */
+  private alphaOf(tex: Texture, u: number, v: number): number | null {
+    const src = tex.source;
+    let m = this.alphas.get(src);
+    if (m === undefined) {
+      m = null;
+      try {
+        const im = src.resource as CanvasImageSource & { width: number; height: number };
+        const w = src.pixelWidth;
+        const h = src.pixelHeight;
+        const c = document.createElement('canvas');
+        c.width = w;
+        c.height = h;
+        const g = c.getContext('2d', { willReadFrequently: true });
+        if (g && w > 0 && h > 0) {
+          g.drawImage(im, 0, 0, w, h);
+          const px = g.getImageData(0, 0, w, h).data;
+          const a = new Uint8Array(w * h);
+          for (let i = 0; i < a.length; i++) a[i] = px[i * 4 + 3];
+          m = { w, h, a };
+        }
+      } catch {
+        /* (not an image a canvas can read: the box counts) */
+      }
+      this.alphas.set(src, m);
+    }
+    if (!m) return null;
+    const f = tex.frame;
+    const k = m.w / src.width;
+    const px = Math.min(m.w - 1, Math.floor((f.x + u * f.width) * k));
+    const py = Math.min(m.h - 1, Math.floor((f.y + v * f.height) * k));
+    return m.a[py * m.w + px];
   }
 
   /** The screen's four corners as ground points (world px), for the minimap's frame: a slanted patch on the land. */

@@ -102,7 +102,7 @@ function renderRareStall(s: Snapshot, bridge: Bridge | undefined): HTMLElement[]
   const r = s.rareStall;
   const out: HTMLElement[] = [el('h2', '', 'Rare goods')];
   if (!r.lines.length) {
-    out.push(el('div', 'hint', 'The traders have no silver, gems, heartwood, pelts or pearls this season. A market stall, a later age and trade with the powers of the realm bring more.'));
+    out.push(el('div', 'hint', 'The traders have no silver, gems, heartwood, pelts or pearls this season. A marketplace, a later age and trade with the powers of the realm bring more.'));
     return out;
   }
   out.push(el('div', 'hint', `What the traders hold this season, at a high price and in small amounts (${r.links} trade ${r.links === 1 ? 'link' : 'links'}). The town pays from the treasury (${r.townCoins} coins)${r.founderCoins === null ? '' : `; the founder pays from their purse (${r.founderCoins})`}.`));
@@ -123,7 +123,7 @@ export function renderMarkets(s: Snapshot, bridge: Bridge | undefined): HTMLElem
   const m = s.markets;
   const out: HTMLElement[] = [...renderRareStall(s, bridge), el('h2', '', 'Prices')];
   if (!m) {
-    out.push(el('div', 'hint', 'No market yet. Once the town opens a trading post or a market stall, its goods have prices that move with supply, distance and war, and its own trade house sends wagons to the powers of the realm.'));
+    out.push(el('div', 'hint', 'No market yet. Once the town opens a trading post or a marketplace, its goods have prices that move with supply, distance and war, and its own trade house sends wagons to the powers of the realm.'));
     return out;
   }
   out.push(el('div', 'hint', 'What a unit of each good fetches today, and how it moved since yesterday. Selling a lot of something brings its price down; buying raises it. War makes arms and food dear, winter makes food dearer, and booms and shortages come and go.'));

@@ -1,4 +1,4 @@
-// Trade caravans and horses (Milestone 2). With a Market Stall built, a caravan stops by every couple of
+// Trade caravans and horses (Milestone 2). With a Marketplace built, a caravan stops by every couple of
 // days with a handful of barter deals: goods (and now and then a horse) for your surplus, or your surplus
 // for goods. Horses live in the stable, heal there, and go on expeditions to carry more and walk faster.
 

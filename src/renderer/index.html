@@ -270,6 +270,13 @@
         cursor: pointer;
         zoom: var(--ui-zoom, 1);
       }
+      #clear-land img {
+        width: 24px;
+        height: 24px;
+        margin-top: 3px;
+        image-rendering: pixelated;
+        pointer-events: none;
+      }
       #clear-land.on {
         background: #8a6a20;
         border-color: #ffe080;
@@ -528,7 +535,8 @@
         border-radius: 6px;
         zoom: var(--ui-zoom, 1);
       }
-      #raid-skipping { position: fixed; left: 50%; top: 42%; transform: translate(-50%, -50%); z-index: 60; padding: 10px 18px; border-radius: 8px; background: rgba(20, 16, 12, 0.88); color: #f1e2c2; border: 1px solid #c9a060; font-size: 16px; pointer-events: none; }
+      /* (low on the screen, at the right, clear of the fighter's card at the left: the board above stays in view) */
+      #raid-skipping { position: fixed; right: 10px; bottom: calc(10px + env(safe-area-inset-bottom, 0px)); z-index: 60; padding: 6px 12px; border-radius: 8px; background: rgba(20, 16, 12, 0.82); color: #f1e2c2; border: 1px solid #c9a060; font-size: 14px; pointer-events: none; }
       #battle-top {
         top: 6px;
         display: flex;

@@ -16,7 +16,7 @@ import { CROPS } from '../../shared/data/crops';
 import { eraReached } from '../../shared/data/eras';
 import { MATERIAL_NAMES, type Material, type Stock } from '../../shared/data/materials';
 import { eraOfResearch, TOPIC_BY_ID } from '../../shared/data/research';
-import { PINS_MOST } from '../../shared/sim/pins';
+import { PINS_MOST, SLOT_WAIT } from '../../shared/sim/pins';
 import { isRingPiece, WALL_KINDS } from '../../shared/sim/ringWall';
 import { BUILD_TABS, tabOf, whyOf, type BuildTab } from './buildKinds';
 import { DRAW_PATH, type Bridge } from '../../shared/ipc';
@@ -267,6 +267,8 @@ interface Row {
   ordered: boolean;
   /** Orders already at their most: the row can't take another. */
   full?: boolean;
+  /** How many the town has of it, going up and queued ("2 built · 1 queued"), or nothing for none. */
+  count?: string;
   /** What the row's Build button orders (none for a row with `act`). */
   order?: Command;
   /** A row that starts something on the map in place of an order (Draw a path), with its button's word. */
@@ -311,7 +313,7 @@ function buildRows(s: Snapshot): (Row & { tab: BuildTab })[] {
   for (const b of BUILDINGS) {
     if (b.never || isRingPiece(b.id) || b.seat || (b.hp && b.width === 1 && !b.defense)) continue;
     if (!isUnlocked(have, b) || (!s.unlockAll && b.research && !(eraReached(s.era, TOPIC_BY_ID[b.research]?.era) && topicKnown(s, b.research)))) continue;
-    rows.push({ tab: tabOf(b), key: `bld:${b.id}`, icon: b.id, name: b.name, cost: b.cost, ordered: s.pins.some((p) => p.def === b.id), full: s.pins.length >= PINS_MOST, order: { type: 'pinBuilding', def: b.id, on: true }, more: () => [el('div', 'more-line', b.purpose), el('div', 'more-line', `Why: ${whyOf(b)}`), ...buildingDetails(b, s)] });
+    rows.push({ tab: tabOf(b), key: `bld:${b.id}`, icon: b.id, name: b.name, cost: b.cost, ordered: false, full: s.pins.length >= PINS_MOST, count: countOf(s, b.id), order: { type: 'pinBuilding', def: b.id, on: true }, more: () => [el('div', 'more-line', b.purpose), el('div', 'more-line', `Why: ${whyOf(b)}`), ...buildingDetails(b, s)] });
   }
   const wall = s.ringState === 'none' ? 'Raise the palisade' : s.ringState === 'building' ? 'Finish the ring wall' : 'Widen or upgrade the wall';
   rows.push(
@@ -319,6 +321,14 @@ function buildRows(s: Snapshot): (Row & { tab: BuildTab })[] {
     { tab: 'Town', key: 'bld:path', icon: null, name: 'Draw a path', cost: {}, ordered: false, act: { label: 'Draw', go: (b) => b?.startPlacement(DRAW_PATH) }, more: () => ['Press where it starts and drag to where it ends: its blueprint shows as you go, and it is laid when you lift your finger. Drag from a path to lift it. The builders pave it as they pave the streets, a bridge over a river taking wood. New buildings are put beside a path where they can be. The town lays no path of its own.'] },
   );
   return rows;
+}
+
+/** How many of a building the town has (the owner's ask): standing, going up, and ordered but not yet begun. */
+export function countOf(s: Pick<Snapshot, 'buildings' | 'pins'>, def: string): string {
+  const built = s.buildings.filter((b) => b.def === def && b.status === 'done').length;
+  const up = s.buildings.filter((b) => b.def === def && b.status !== 'done').length;
+  const queued = s.pins.filter((p) => p.def === def && !p.building).length;
+  return [built && `${built} built`, up && `${up} going up`, queued && `${queued} queued`].filter(Boolean).join(' · ');
 }
 
 /** What a cost needs, in words: nothing short gives the cost itself ("Wood 20 · Stone 5"). */
@@ -338,19 +348,27 @@ function buildRow(row: Row, s: Snapshot, bridge: Bridge | undefined): HTMLElemen
   main.append(row.icon ? thumb(row.icon, 28, s) : el('span', 'thumb-gap'));
   const text = el('div', 'brow-text');
   text.append(el('div', 'card-name', row.name), costLine(s, row.cost));
+  if (row.count) text.append(el('div', 'brow-count', row.count));
   main.append(text, row.act ? button(row.act.label, () => row.act!.go(bridge), { cls: 'place small' }) : button(row.ordered ? 'Ordered' : 'Build', () => row.order && bridge?.command(row.order), { cls: 'place small', disabled: row.ordered || !!row.full }));
   c.append(main);
   return expandable(c, row.key, row.more);
 }
 
-/** What's under way: one small strip for the orders and sites, each with its progress and a cancel. */
+/** What's under way: one small strip for the orders and sites, each with its progress and a cancel. The orders come in
+ *  the order they were given, numbered: the next free building slot goes to the first that can be built. */
 function underway(s: Snapshot, bridge: Bridge | undefined): HTMLElement[] {
   const sites = s.buildings.filter((b) => b.status === 'blueprint');
   const taken = new Set<number>();
   const out: HTMLElement[] = [];
-  const row = (def: string, status: string, progress: number, cancel: () => void) => {
+  if (s.pins.length) {
+    const waiting = s.pins.filter((p) => !p.building).length;
+    out.push(el('div', 'hint queue-head', `Your orders: ${s.pins.length} of ${PINS_MOST}${waiting ? `, ${waiting} waiting their turn` : ''}. Built in this order as building slots (${s.buildSlots}) free up.`));
+  }
+  const row = (def: string, status: string, progress: number | null, cancel: () => void, n?: number) => {
     const r = el('div', 'queue-row strip');
-    r.append(thumb(def, 22, s), el('span', 'queue-name', BUILDING_BY_ID[def]?.name ?? def), el('span', 'queue-time', status), button('Cancel', cancel, { cls: 'place small' }));
+    r.append(thumb(def, 22, s), el('span', 'queue-name', `${n ? `${n}. ` : ''}${BUILDING_BY_ID[def]?.name ?? def}`), el('span', 'queue-time', status), button('Cancel', cancel, { cls: 'place small' }));
+    // (an order still in line has no site yet: no bar, so a long queue stays short)
+    if (progress === null) return r;
     const bar = el('div', 'bar');
     const fill = el('div', 'bar-fill');
     fill.style.width = `${Math.floor(progress * 100)}%`;
@@ -358,14 +376,17 @@ function underway(s: Snapshot, bridge: Bridge | undefined): HTMLElement[] {
     r.append(bar);
     return r;
   };
-  for (const p of s.pins) {
-    const site = p.building ? sites.find((b) => b.def === p.def && !taken.has(b.id)) : undefined;
+  let first = true;
+  s.pins.forEach((p, k) => {
+    const site = p.building ? (sites.find((b) => b.id === p.site) ?? sites.find((b) => b.def === p.def && !taken.has(b.id))) : undefined;
     if (site) taken.add(site.id);
-    out.push(row(p.def, site ? siteStatus(site) : p.why ? `waiting: ${p.why}` : 'next up', site?.progress ?? 0, () => {
-      bridge?.command({ type: 'pinBuilding', def: p.def, on: false });
+    const status = site ? siteStatus(site) : p.why && p.why !== SLOT_WAIT ? `waiting: ${p.why}` : first ? 'next up' : 'in line';
+    if (!site) first = false;
+    out.push(row(p.def, status, site ? site.progress : null, () => {
+      bridge?.command({ type: 'pinBuilding', def: p.def, on: false, ...(p.id !== null ? { id: p.id } : {}) });
       if (site) bridge?.command({ type: 'demolish', building: site.id });
-    }));
-  }
+    }, k + 1));
+  });
   for (const b of sites) if (!taken.has(b.id)) out.push(row(b.def, siteStatus(b), b.progress, () => bridge?.command({ type: 'demolish', building: b.id })));
   return out;
 }

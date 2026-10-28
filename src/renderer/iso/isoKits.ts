@@ -18,6 +18,7 @@ import orcs from '../art/iso/kits/orcs/index.json';
 import merfolk from '../art/iso/kits/merfolk/index.json';
 import nomads from '../art/iso/kits/nomads/index.json';
 import shared from '../art/iso/buildings/index.json';
+import type { GroundCorners } from './isoMath';
 import { BUILDING_BY_ID } from '../../shared/data/buildings';
 import { CROPS } from '../../shared/data/crops';
 import { HERDS } from '../../shared/data/livestock';
@@ -114,6 +115,9 @@ export const liesAlongY = (kit: string, piece: string): boolean => ALONG_Y.has(`
 export interface SharedPiece extends KitPiece {
   soil?: number;
   along_y?: boolean;
+  /** Its plinth's left, front and right corners (px), for a picture drawn off the grid's angle: laid exactly over the
+   *  footprint (isoMath.ts `groundFit`) instead of fitted to its width. */
+  ground?: GroundCorners;
 }
 export const SHARED_PIECES: ReadonlyMap<string, SharedPiece> = new Map((shared as SharedPiece[]).map((p) => [p.id, p]));
 /** The shared piece a kit draws for this piece's name, if it has none of its own (a kit not among the peoples', the
@@ -125,14 +129,14 @@ export const sharedPiece = (kit: string, piece: string): SharedPiece | undefined
 export const kitUrl = (kit: string, piece: string): string => (sharedPiece(kit, piece) ? `iso/buildings/${piece}.png` : `iso/kits/${kit}/${piece}.png`);
 
 /** The parts a building can be drawn as. */
-export type Role = 'cottage' | 'longhouse' | 'stockpile' | 'workshop' | 'tavern' | 'well' | 'chapel' | 'granary' | 'watchtower' | 'trap' | 'hearth' | 'pen' | 'wall_run' | 'wall_corner' | 'gate' | 'market';
+export type Role = 'cottage' | 'longhouse' | 'stockpile' | 'workshop' | 'tavern' | 'well' | 'chapel' | 'granary' | 'watchtower' | 'trap' | 'hearth' | 'pen' | 'wall_run' | 'wall_corner' | 'gate' | 'market' | 'stockade';
 /** A building drawn as ground, not a picture: a crop's field (the kit's field tile over its footprint). */
 export type Drawn = { role: Role } | { field: true };
 
 /** The game's buildings by name: anything not here is worked out by `roleOf`'s rules, and falls back to a cottage. */
 const ROLES: Record<string, Role> = {
   stockpile: 'stockpile',
-  campfire: 'stockpile',
+  campfire: 'hearth',
   longhouse: 'longhouse',
   elder_lodge: 'longhouse',
   town_hall: 'longhouse',
@@ -156,7 +160,9 @@ export function roleOf(defId: string): Drawn {
   if (named) return { role: named };
   const def = BUILDING_BY_ID[defId];
   if (/_gate$/.test(defId)) return { role: 'gate' };
-  if (/_(wall|grate)$/.test(defId) || defId === 'wagon_circle' || defId === 'stockade') return { role: 'wall_run' };
+  // (the prisoners' stockade: a square of the kit's wall round its footprint, its gate in front: iso/isoTown.ts `penSides`)
+  if (defId === 'stockade') return { role: 'stockade' };
+  if (/_(wall|grate)$/.test(defId) || defId === 'wagon_circle') return { role: 'wall_run' };
   if (/tower|lookout|perch|spire|mast/.test(defId)) return { role: 'watchtower' };
   // (the defences: a trap is a patch of rough ground, a turret or engine a small tower, not a cottage)
   if (/trap|snare|caltrops|boiling_oil|glamour_ring/.test(defId)) return { role: 'trap' };
@@ -192,6 +198,7 @@ const ROLE_PIECES: Record<Role, (ids: string[]) => string | undefined> = {
   pen: (ids) => ids.find((i) => /(^|_)(pen|corral|stable)$/.test(i)),
   trap: (ids) => ids.find((i) => /spike|stake|thorn|bramble/.test(i) && !/_(run|corner|gate|tile)$|fence/.test(i)) ?? ids.find((i) => /rocks/.test(i)) ?? ids.find((i) => /rubble|boulder|scrap_heap/.test(i)),
   wall_run: (ids) => ids.find((i) => i.endsWith('_run')),
+  stockade: (ids) => ids.find((i) => i.endsWith('_gate')) ?? ids.find((i) => i.endsWith('_run')),
   wall_corner: (ids) => ids.find((i) => i.endsWith('_corner')),
   gate: (ids) => ids.find((i) => i.endsWith('_gate') || i === 'gatehouse'),
   market: (ids) => ids.find((i) => i === 'market_stall' || i.endsWith('_stall')) ?? ids.find((i) => i === 'workshop'),
@@ -212,7 +219,7 @@ export function pieceFor(kit: Kit, defId: string): string {
 /** Walls and gates are fitted to their footprint (a run of the kit's is drawn for a wider stretch than one cell). */
 export const fitted = (defId: string): boolean => {
   const d = roleOf(defId);
-  return 'role' in d && (d.role === 'wall_run' || d.role === 'wall_corner' || d.role === 'gate');
+  return 'role' in d && (d.role === 'wall_run' || d.role === 'wall_corner' || d.role === 'gate' || d.role === 'stockade');
 };
 
 /** Which of a kit's ground tiles a cell is drawn with (0 open, 1 bare, 2 path, 3 field), and a tint for the grounds

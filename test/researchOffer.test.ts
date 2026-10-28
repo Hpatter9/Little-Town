@@ -49,6 +49,7 @@ test('a topic not on offer cannot be chosen', () => {
 
 test('an unchosen offer is chosen by a hands-off town after the wait, and not before', () => {
   const { s, sim } = fresh('offer-d', true);
+  s.townResearches = true; // (the old hands-off town: a player's town waits, below)
   for (let i = 0; i < 200; i++) sim.step();
   assert.deepEqual(s.research.queue, [], 'still waiting for the player');
   // (the town may swap its own suggestion into the offer while it stands: the pick is from the offer standing then)
@@ -65,4 +66,24 @@ test('a town with the autopilot off never chooses for itself', () => {
   const { s, sim } = fresh('offer-e');
   for (let i = 0; i < OFFER_WAIT_TICKS + 100; i++) sim.step();
   assert.deepEqual(s.research.queue, []);
+});
+
+test("a player's town never chooses for itself: research waits for the pick, and the player is told", () => {
+  const { s, sim } = fresh('offer-f', true);
+  // (the first offer was drawn on the first step: a notice says a choice waits)
+  assert.ok(s.notices.some((n) => /Choose what to study next/.test(n.text)), 'told a choice waits');
+  for (let i = 0; i < OFFER_WAIT_TICKS * 3; i++) sim.step();
+  assert.deepEqual(s.research.queue, [], 'nothing chosen without the player');
+  assert.equal(s.research.offer!.length, OFFER_SIZE, 'the offer still stands');
+  const told = s.notices.filter((n) => /Choose what to study next/.test(n.text)).length;
+  assert.equal(told, 1, 'told once, not every tick');
+  // (picked and learned: the next offer is announced too)
+  const [pick] = s.research.offer!;
+  sim.command({ type: 'studyOffer', topic: pick });
+  sim.step();
+  assert.deepEqual(s.research.queue, [pick]);
+  s.research.done.push(pick);
+  s.research.queue = [];
+  sim.step();
+  assert.equal(s.notices.filter((n) => /Choose what to study next/.test(n.text)).length, 2);
 });

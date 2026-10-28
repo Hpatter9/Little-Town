@@ -35,7 +35,8 @@
   "w": 256,
   "h": 218,
   "soil": 6,
-  "along_y": true
+  "along_y": true,
+  "ground": [[0, 160], [97, 201], [255, 60]]
  },
  {
   "id": "pleasure_garden",

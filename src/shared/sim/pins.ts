@@ -9,10 +9,14 @@ import { isUnlocked, unlockInfo } from './buildings';
 import { notify, type GameState, type Pin } from './state';
 import { TICKS_PER_HOUR } from './time';
 
-/** At most this many wishes at once. */
-export const PINS_MOST = 5;
-/** A wish not started in this long is given up. */
+/** At most this many orders waiting or under way at once (the owner's ask: a good number lined up; it was 5). The same
+ *  building may be ordered more than once (three houses). */
+export const PINS_MOST = 20;
+/** An order not started in this long is given up. Waiting its turn in the queue (every building slot busy) doesn't
+ *  count: only time stuck on something else (no room, nothing to build it with). */
 export const PIN_WAIT_HOURS = 72;
+/** What an order waiting its turn says (every building slot busy). */
+export const SLOT_WAIT = 'waiting for a free building slot';
 
 /** Why a building can't be pinned at all (null: it can). */
 export function pinRefusal(s: GameState, def: BuildingDef | undefined): string | null {
@@ -20,21 +24,21 @@ export function pinRefusal(s: GameState, def: BuildingDef | undefined): string |
   if (def.never || isSeat(def.id)) return 'The town raises that itself';
   if (isRingPiece(def.id) || (def.hp && def.width === 1 && !def.defense)) return 'Walls and gates are built as the ring wall';
   if (!isUnlocked(unlockInfo(s), def)) return 'Not learned yet';
-  if ((s.pins ?? []).some((p) => p.def === def.id)) return 'Already wished for';
-  if ((s.pins ?? []).length >= PINS_MOST) return `At most ${PINS_MOST} wishes at once`;
+  if ((s.pins ?? []).length >= PINS_MOST) return `At most ${PINS_MOST} orders at once`;
   return null;
 }
 
-/** Pin (on) or unpin a building. Unpinned, a blueprint already laid for it stays, as the town's own. */
-export function setPin(s: GameState, defId: string, on: boolean): string | null {
+/** Pin (on) or unpin a building: put at the end of the queue. Unpinned, one order (`id`; without it, every order of
+ *  that building, as older callers did) is taken out; a blueprint already laid for it stays, as the town's own. */
+export function setPin(s: GameState, defId: string, on: boolean, id?: number): string | null {
   if (!on) {
-    s.pins = (s.pins ?? []).filter((p) => p.def !== defId);
+    s.pins = (s.pins ?? []).filter((p) => p.def !== defId || (id !== undefined && p.id !== id));
     return null;
   }
   const def = BUILDING_BY_ID[defId];
   const no = pinRefusal(s, def);
   if (no) return no;
-  (s.pins ??= []).push({ def: defId, at: s.tick });
+  (s.pins ??= []).push({ def: defId, at: s.tick, id: s.nextId++ });
   return null;
 }
 
@@ -54,7 +58,7 @@ export function tendPins(s: GameState): void {
         notify(s, `The ${def.name} you wished for couldn't be finished: its site was given up.`, true);
         continue;
       }
-    } else if (s.tick - p.at > PIN_WAIT_HOURS * TICKS_PER_HOUR) {
+    } else if (p.why !== SLOT_WAIT && s.tick - p.at > PIN_WAIT_HOURS * TICKS_PER_HOUR) {
       notify(s, `The ${def.name} you wished for can't be built for now${p.why ? ` (${p.why})` : ''}. The wish is set aside.`, true);
       continue;
     }
