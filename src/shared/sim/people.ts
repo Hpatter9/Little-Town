@@ -11,6 +11,7 @@ import { finishRelax, relaxSpot, relaxTicks, wantsRelax } from './leisure';
 import { LEISURE } from '../data/recreation';
 import { onBoard } from './tactics';
 import { noteCleared } from './regrow';
+import { clearClutter, clutterWork } from './landClutter';
 import { attending, festive, gatheringPlace, guestActivity, processing } from './ceremonies';
 import { injuryPace } from './injuries';
 import { RESEARCH_PACE } from '../data/pace';
@@ -947,7 +948,8 @@ function nearSource(s: GameState, station: Building): number {
 }
 
 function workGather(s: GameState, p: Person, task: Extract<Task, { type: 'gather' }>, rng: Rng): void {
-  const def = TERRAIN[groundAt(s.land, cellAt(s.land, task.tile).x, cellAt(s.land, task.tile).y) as keyof typeof TERRAIN];
+  // (a stump or a ruin marked for clearing is worked like a wild cell: sim/landClutter.ts)
+  const def = TERRAIN[groundAt(s.land, cellAt(s.land, task.tile).x, cellAt(s.land, task.tile).y) as keyof typeof TERRAIN] ?? clutterWork(s, task.tile);
   if (!def) {
     p.task = null;
     return;
@@ -1005,6 +1007,7 @@ export function clearCell(s: GameState, i: number): void {
     setGround(s.land, c.x, c.y, 'hall');
     return;
   }
+  clearClutter(s, i); // (a stump grubbed out or a ruin cleared away, for good: sim/landClutter.ts)
   noteCleared(s, i, groundAt(s.land, c.x, c.y)); // (a wood or a thicket grows back, in time: sim/regrow.ts)
   setGround(s.land, c.x, c.y, openGround(s.biome));
   cellCleared(s, c.x, c.y); // (a blueprint laid over it may be clear to build now)

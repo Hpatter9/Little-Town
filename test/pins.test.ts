@@ -2,8 +2,8 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { BUILDINGS } from '../src/shared/data/buildings';
 import { parseCommand } from '../src/shared/sim/commands';
-import { isUnlocked, unlockInfo } from '../src/shared/sim/buildings';
-import { PIN_WAIT_HOURS, pinRefusal, setPin } from '../src/shared/sim/pins';
+import { buildSlots, isUnlocked, unlockInfo } from '../src/shared/sim/buildings';
+import { PIN_WAIT_HOURS, PINS_MOST, pinRefusal, setPin, SLOT_WAIT } from '../src/shared/sim/pins';
 import { Sim } from '../src/shared/sim/sim';
 import { addStock, newGame } from '../src/shared/sim/state';
 import { TICKS_PER_HOUR } from '../src/shared/sim/time';
@@ -49,7 +49,12 @@ test('refused when it can\'t be had; given up when it waits too long; unpinned o
   // (a wish that can't be started is set aside after PIN_WAIT_HOURS)
   const def = BUILDINGS.find((d) => pinRefusal(s, d) === null)!;
   assert.equal(setPin(s, def.id, true), null);
-  assert.equal(setPin(s, def.id, true), 'Already wished for');
+  // (the same building may be ordered again; one order of several is cancelled by its id)
+  assert.equal(setPin(s, def.id, true), null);
+  assert.equal(s.pins!.length, 2);
+  assert.notEqual(s.pins![0].id, s.pins![1].id);
+  setPin(s, def.id, false, s.pins![1].id);
+  assert.equal(s.pins!.length, 1);
   s.pins![0].at = -(PIN_WAIT_HOURS + 1) * TICKS_PER_HOUR;
   s.pins![0].why = 'no room for it';
   s.autopilot = true;
@@ -61,4 +66,27 @@ test('refused when it can\'t be had; given up when it waits too long; unpinned o
   setPin(s, def.id, true);
   setPin(s, def.id, false);
   assert.equal(s.pins!.length, 0);
+});
+
+test('the queue holds PINS_MOST orders, repeats allowed; one waiting its turn for a building slot is never given up', () => {
+  const s = newGame('pins-queue');
+  const def = BUILDINGS.find((d) => pinRefusal(s, d) === null && !d.housing)!;
+  for (let i = 0; i < PINS_MOST; i++) assert.equal(setPin(s, def.id, true), null, `order ${i + 1}`);
+  assert.match(setPin(s, def.id, true)!, /at most/i);
+  assert.equal(parseCommand({ type: 'pinBuilding', def: def.id, on: false, id: 1.5 }), null);
+  assert.deepEqual(parseCommand({ type: 'pinBuilding', def: def.id, on: false, id: 7 }), { type: 'pinBuilding', def: def.id, on: false, id: 7 });
+  // (every slot busy: the orders wait their turn, long past PIN_WAIT_HOURS, and none is given up)
+  s.autopilot = true;
+  for (const p of s.pins!) {
+    p.at = -(PIN_WAIT_HOURS + 1) * TICKS_PER_HOUR;
+    p.why = SLOT_WAIT;
+  }
+  const sim = new Sim(s);
+  const slots = buildSlots(s);
+  // (sites taking every slot, that nobody works on)
+  for (const p of s.people) p.priorities = { ...p.priorities, construct: 0, haul: 0 };
+  for (let i = 0; i < slots; i++) s.buildings.push({ ...structuredClone(s.buildings[0]), id: s.nextId++, def: def.id, status: 'blueprint', progress: 0, delivered: {}, store: {} });
+  for (let i = 0; i < 2 * TICKS_PER_HOUR; i++) sim.step();
+  assert.equal(s.pins!.filter((p) => p.building === undefined).length, PINS_MOST, 'all still queued');
+  assert.ok(s.pins!.every((p) => p.why === SLOT_WAIT));
 });

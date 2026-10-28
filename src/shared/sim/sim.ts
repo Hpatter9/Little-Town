@@ -53,6 +53,7 @@ import { demolish, discardStock, placeBlueprint, townRadius, upgrade } from './b
 import { fogTick } from './fog';
 import { cellAt, groundAt, isMarked, setGround, setMarked, type Pt, decayWear } from './land';
 import { MARK_CLEAR_CAP, type Command } from './commands';
+import { markClutter, unmarkClutter } from './landClutter';
 import { restockKits } from './kit';
 import { equip, hourlyItems, queueCraft, reduceCraft } from './crafting';
 import { growCrops, tendFields } from './farming';
@@ -470,8 +471,8 @@ export class Sim {
         s.ringOrder = true;
         break;
       case 'pinBuilding': {
-        const no = setPin(s, c.def, c.on);
-        if (no) notify(s, `Can't wish for that: ${no.toLowerCase()}.`);
+        const no = setPin(s, c.def, c.on, c.id);
+        if (no) notify(s, `Can't order that: ${no.toLowerCase()}.`);
         break;
       }
       case 'moveResearch':
@@ -789,10 +790,11 @@ export class Sim {
         drawPath(s, c.cells, c.on);
         break;
       case 'markClear': {
-        // (a drag's worth: only wild cells with something to gather can be marked; any can be unmarked)
+        // (a drag's worth: only wild cells with something to gather, stumps and ruins can be marked; any can be unmarked)
         for (const i of c.cells.slice(0, MARK_CLEAR_CAP)) {
           if (i < 0 || i >= s.land.w * s.land.h || isMarked(s.land, i) === c.on) continue;
-          if (!c.on || s.land.pools[i]) setMarked(s.land, i, c.on);
+          if (!c.on) unmarkClutter(s, i); // (a stump's or a ruin's pool was only the mark's: sim/landClutter.ts)
+          if (!c.on || s.land.pools[i] || markClutter(s, i)) setMarked(s.land, i, c.on);
         }
         break;
       }

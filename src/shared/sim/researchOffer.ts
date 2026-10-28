@@ -1,16 +1,21 @@
-// Research is offered, not queued: the town is shown three topics it can study now, drawn at random, and one is
-// chosen (by the player, or by the town once OFFER_WAIT_TICKS have passed). When that topic is finished, three new ones
+// Research is offered, not queued: the town is shown three topics it can study now, drawn at random, and the player
+// chooses one (research waits until they do; only the old hands-off town of the tests chooses itself, once
+// OFFER_WAIT_TICKS have passed). When that topic is finished, three new ones
 // are drawn. The draw uses its own side stream, so it never moves the town's main one.
 
 import { forgone } from '../data/originResearch';
 import { TOPICS } from '../data/research';
 import { hashSeed, Rng } from '../rng';
 import { modifiers, prereqsMet, seatStageNow } from './research';
-import type { GameState } from './state';
+import { notify, type GameState } from './state';
 import { TICKS_PER_HOUR } from './time';
 
 /** How many topics are offered at a time. */
 export const OFFER_SIZE = 3;
+/** Whether the town chooses from the offer itself: only the old hands-off town (`townResearches`, or `townBuilds`, set
+ *  in tests). A player's town waits for the player. */
+export const townPicksResearch = (s: GameState): boolean => !!(s.townResearches || s.townBuilds);
+
 /** How long the offer stands before a hands-off town chooses one itself: three game hours, three minutes of play.
  *  (Much longer starves a young town's first days of shelter and food: a town left alone grows less.) */
 export const OFFER_WAIT_TICKS = TICKS_PER_HOUR * 3;
@@ -62,7 +67,12 @@ export function keepOffer(s: GameState): void {
   r.offer = drawOffer(s);
   r.offerAt = s.tick;
   r.offerEmpty = r.offer.length === 0;
-  if (r.offer.length) r.offers = (r.offers ?? 0) + 1;
+  if (r.offer.length) {
+    r.offers = (r.offers ?? 0) + 1;
+    // (a fresh offer, not one redrawn under a standing one: the player is told a choice waits, so study never stalls
+    // unseen; the Studies tab is marked too, mobile.ts)
+    if (!offer.length && s.autopilot !== false && !townPicksResearch(s)) notify(s, 'Choose what to study next: three topics wait in the Studies menu.', true);
+  }
 }
 
 /** Study one of the offered topics. Does nothing for any other, so a second tap on the same one is harmless. */

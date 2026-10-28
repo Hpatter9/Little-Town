@@ -1,4 +1,4 @@
-// What the field buildings grow (DESIGN §15: Garden Plot grows wild grain, Herb Garden grows herbs).
+// What the field buildings grow (DESIGN §15: the Grain Plot (garden_plot) grows wild grain, Herb Garden grows herbs).
 // A field is sown, grows on its own (not in winter), and is harvested; then it's sown again.
 
 import type { Material } from './materials';

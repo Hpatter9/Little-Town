@@ -45,7 +45,6 @@ import { sunAt } from './art/sun';
 import { MapMarket } from './map/mapMarket';
 import { SeasonDecor } from './map/seasonDecor';
 import { MapFelling } from './map/mapFelling';
-import { MapStockpile } from './map/mapStockpile';
 import { MapGains } from './map/mapGains';
 import { MapChores } from './map/mapChores';
 import { IsoView } from './iso/isoView';
@@ -183,6 +182,8 @@ import { hashSeed } from '../shared/rng';
 import { MARK_CLEAR_CAP } from '../shared/sim/commands';
 import type { DevOrder } from '../shared/sim/devOrders';
 import { CELL, cellAt, groundAt, idx, isMarked, isPlannedRoad, isRoad, wet, WILD } from '../shared/sim/land';
+import { CLUTTER_WORK, clutterAt, landmarksOf } from '../shared/sim/landClutter';
+import spadeIcon from './ui/art/shovel.png';
 import { PATH_CAP, pathRoute, refusalOn, type PathGround } from '../shared/sim/pathPlans';
 import { BRIDGE_WOOD } from '../shared/sim/streets';
 import { thinRock } from '../shared/sim/tunnels';
@@ -214,7 +215,7 @@ import { fightSounds, globalSounds, soundsBetween, tacticsSounds, workSounds } f
 import { createAmbience } from './ambience';
 import { readLevel } from './volume';
 import { ambientMix, type AmbientMix } from './ambienceMix';
-import { burnLevel, doorSound } from './isoSounds';
+import { HEARTH, burnLevel, doorSound, hearthLevel } from './isoSounds';
 import { quietZones, zoneMix, zoneSources, type ZoneMix } from './soundZones';
 import { BUZZ, buzzesBetween, collapsesBetween, type Buzz } from './vibration';
 import { createActionBar, createBanner, createBeastAsk, createExpeditionHeader, createGameOver, createPersonCard, createPromptCard, createToasts, type Action } from './overlayUi';
@@ -531,8 +532,8 @@ async function start(): Promise<void> {
   (window as unknown as { __memory?: unknown }).__memory = { ruins, homeSigns }; // (previews)
   const lamps = new StreetLamps(map.things, map.lights); // (lamps along the streets, lit at dusk)
   const skiffs = new MapSkiffs(map.things); // (boats along the rivers)
-  // work you can see: trees falling and their stumps, the stockpile's heaps, gains floating up, the harvest left in the
-  // field, the well and the washing (map/workSeen.ts)
+  // work you can see: trees falling and their stumps, gains floating up, the harvest left in the field, the well and
+  // the washing (map/workSeen.ts; the stockpile's heaps are the iso view's own: iso/isoTown.ts `stockHeaps`)
   const felling = new MapFelling(lay);
   /** The least time between two falls heard (ms). */
   const FELL_HEARD_MS = 1500;
@@ -547,7 +548,6 @@ async function start(): Promise<void> {
     lastFelled = now;
     if (view.music && !view.hidden && x >= mv.x && x <= mv.x + mv.w && y >= mv.y && y <= mv.y + mv.h) ambience.cue(kind === 'tree' ? 'timber' : 'crumble', ((x - mv.x) / Math.max(1, mv.w)) * 1.6 - 0.8);
   };
-  const stockpile = new MapStockpile(lay, iso.artHidden);
   const gainsView = new MapGains(map.over);
   const chores = new MapChores(lay);
   {
@@ -571,7 +571,7 @@ async function start(): Promise<void> {
       ambience.cue('creak', d.pan);
     };
   }
-  (window as unknown as { __workSeen?: unknown }).__workSeen = { felling, stockpile, gains: gainsView, chores, people }; // (previews)
+  (window as unknown as { __workSeen?: unknown }).__workSeen = { felling, gains: gainsView, chores, people }; // (previews)
   const traffic = new RoadTraffic(map.things); // (carts along the roads)
   (window as unknown as { __traffic?: unknown }).__traffic = { skiffs, traffic, ground: map.groundWeather }; // (previews)
   // the dragon in the sky (map/mapDragon.ts)
@@ -719,7 +719,11 @@ async function start(): Promise<void> {
   clearButton.setAttribute('data-hit', '');
   clearButton.title = 'Clear land';
   clearButton.setAttribute('aria-label', 'Clear land');
-  clearButton.textContent = '⛏';
+  // (a spade from the mining icons, so it isn't the Underground button's pickaxe: mobile/undergroundSwitch.ts)
+  const spade = document.createElement('img');
+  spade.src = spadeIcon;
+  spade.alt = '';
+  clearButton.append(spade);
   clearButton.addEventListener('click', (e) => {
     e.stopPropagation();
     if (drawing) endDraw(true);
@@ -727,7 +731,7 @@ async function start(): Promise<void> {
     sweep = null;
     clearButton.classList.toggle('on', clearing);
     if (!clearing) return banner.hide();
-    banner.show('Clearing land', 'Drag over trees and rock · tap a mark to lift it');
+    banner.show('Clearing land', 'Drag over trees, rock, stumps and ruins · tap a mark to lift it');
     try {
       if (!localStorage.getItem(CLEAR_TIP_KEY)) {
         localStorage.setItem(CLEAR_TIP_KEY, '1');
@@ -936,6 +940,10 @@ async function start(): Promise<void> {
     const c = cellAt(snap.land, i);
     return WILD.includes(groundAt(snap.land, c.x, c.y));
   };
+  /** A stump or a ruin on a cell (sim/landClutter.ts): the Clear tool takes it away too. */
+  const clutterCell = (i: number) => clutterAt(snap.land, landmarksOf(snap.valley, snap.land), i);
+  /** Whether the Clear tool can mark a cell: wild land, a stump or a ruin. */
+  const clearableCell = (i: number) => wildCell(i) || clutterCell(i) !== null;
   /** The screen y a tooltip hangs at, over someone's head (or over the pointer, if they can't be found). */
   const overheadY = (at: { x: number; y: number } | null, up: number) => (at ? map.screenOf(at.x, at.y).y - up : (mouse?.y ?? 0) - up);
 
@@ -973,6 +981,10 @@ async function start(): Promise<void> {
     return null;
   };
 
+  /** A building's card, or a daughter village's for its houses and fields (drawn as buildings with ids below zero:
+   *  sim/villages.ts). */
+  const buildingHit = (id: number): Hover => (id < 0 ? { kind: 'village', id: Math.floor((-id - 1) / 100) } : { kind: 'building', id });
+
   /** What in the town (or the expedition pane) is under a screen point. */
   const hitTest = (x: number, y: number): Hover => {
     if (x >= paneX) return x < paneX + paneW && y >= app.screen.height - STRIP_HEIGHT + PANE_HIT_TOP ? { kind: 'pane' } : null;
@@ -991,6 +1003,9 @@ async function start(): Promise<void> {
     const vil = person && snap.villages.find((v) => v.folk.some((f) => f.id === person.id));
     if (vil) return { kind: 'village', id: vil.id };
     if (person) return { kind: 'person', person };
+    // (a building's art right under the finger, in front of the ground there, hides what stands on that ground)
+    const over = iso.buildingOver(x, y, w.x, w.y);
+    if (over !== null) return buildingHit(over);
     const pet = pets.petAt(w.x, w.y);
     if (pet) return { kind: 'pet', key: pet };
     const grave = graves.graveAt(w.x, w.y);
@@ -998,8 +1013,7 @@ async function start(): Promise<void> {
     const sign = signs.signAt(w.x, w.y);
     if (sign) return { kind: 'sign', sign };
     const building = iso.buildingAt(x, y);
-    // (a daughter village's houses and fields are drawn as buildings with ids below zero: sim/villages.ts)
-    if (building !== null) return building < 0 ? { kind: 'village', id: Math.floor((-building - 1) / 100) } : { kind: 'building', id: building };
+    if (building !== null) return buildingHit(building);
     const ruin = ruins.ruinAt(w.x, w.y);
     if (ruin) return { kind: 'ruin', id: ruin.id };
     const place = map.placeAt(w.x, w.y);
@@ -1229,6 +1243,8 @@ async function start(): Promise<void> {
         const g = groundAt(snap.land, c.x, c.y);
         const def = TERRAIN[g as keyof typeof TERRAIN];
         const where = inRegion(regionOfCell(snap.land, c.x, c.y));
+        const clutter = clutterCell(h.cell);
+        if (!def && clutter) return { title: CLUTTER_WORK[clutter].name + (where ? ` ${where.trim()}` : ''), lines: [isMarked(snap.land, h.cell) ? `${listStock(snap.land.pools[h.cell] ?? {})} left` : clutter === 'stump' ? 'A felled tree\'s stump: the wood grows back here unless it is grubbed out.' : 'What is left of a town that stood here before.'], hint: isMarked(snap.land, h.cell) ? 'The town is clearing it' : 'Clear land (⛏) takes it away', y };
         if (!def) return { title: GROUND_NAMES[g] ?? 'Open land', lines: [(g === 'water' ? 'The water' : 'The town builds here when it needs to') + (where ? ` (${where.trim()})` : '')], y };
         return { title: def.name + (where ? ` ${where.trim()}` : ''), lines: [listStock(snap.land.pools[h.cell] ?? {}) + ' left'], hint: isMarked(snap.land, h.cell) ? 'The town is clearing it' : 'The town will gather here when it needs to', y };
       }
@@ -1419,6 +1435,7 @@ async function start(): Promise<void> {
     switch (h.kind) {
       case 'cell': {
         // (the town decides what to build and where to gather now: the card says what it's up to here)
+        if (clutterCell(h.cell)) return { title: d.title, lines: d.lines, actions: [act('clear', isMarked(snap.land, h.cell) ? 'Leave it' : 'Clear it', () => bridge.command({ type: 'markClear', cells: [h.cell], on: !isMarked(snap.land, h.cell) }))] };
         if (!wildCell(h.cell)) return { title: d.title, lines: ['Open ground: the town builds here when it needs to.'], actions: [act('plan', 'Town plan…', () => bridge.openPanel('build'))] };
         return {
           title: d.title,
@@ -1826,7 +1843,7 @@ async function start(): Promise<void> {
   const sweepOver = (sx: number, sy: number) => {
     if (!sweep) return;
     const on = sweep.on;
-    const want = (c: number) => (on ? wildCell(c) && !isMarked(snap.land, c) : isMarked(snap.land, c));
+    const want = (c: number) => (on ? clearableCell(c) && !isMarked(snap.land, c) : isMarked(snap.land, c));
     const steps = Math.max(1, Math.ceil(Math.hypot(sx - sweep.last.x, sy - sweep.last.y) / (CELL / 2)));
     for (let k = 1; k <= steps; k++) {
       if (sweep.cells.size >= MARK_CLEAR_CAP) break;
@@ -1835,7 +1852,7 @@ async function start(): Promise<void> {
     }
     sweep.last = { x: sx, y: sy };
     const w = map.worldOf(sx, sy);
-    setHighlight(clearCellAt(sx, sy, (c) => wildCell(c) || isMarked(snap.land, c)) ?? map.cellAt(w.x, w.y));
+    setHighlight(clearCellAt(sx, sy, (c) => clearableCell(c) || isMarked(snap.land, c)) ?? map.cellAt(w.x, w.y));
   };
   // (a tactics battle has the screen: a tap is its, a drag looks about the board)
   let boardPress: { x: number; y: number; lx: number; ly: number; moved: boolean; id: number } | null = null;
@@ -1878,7 +1895,7 @@ async function start(): Promise<void> {
       return;
     }
     if (clearing && !placing && e.button === 0 && !sweep) {
-      const cell = clearCellAt(e.clientX, e.clientY, (c) => wildCell(c) || isMarked(snap.land, c));
+      const cell = clearCellAt(e.clientX, e.clientY, (c) => clearableCell(c) || isMarked(snap.land, c));
       sweep = { id: e.pointerId, on: cell === null || !isMarked(snap.land, cell), cells: new Set(), last: { x: e.clientX, y: e.clientY } };
       sweepOver(e.clientX, e.clientY);
       canvas.setPointerCapture(e.pointerId);
@@ -2247,6 +2264,9 @@ async function start(): Promise<void> {
       ambMix.wind = Math.max(ambMix.wind, sky.mix.sand, sky.mix.blizzard);
       // (a burning building crackles and roars: louder the nearer the middle of the view and the more it has burned)
       ambMix.fire = Math.max(ambMix.fire, burnLevel(next.buildings.filter((b) => b.fire !== undefined).map((b) => ({ ...buildingCentre(b), fire: b.fire! })), v));
+      // (and the town's hearths crackle where they stand, louder after dark: isoSounds.ts `hearthLevel`)
+      const hearths = next.buildings.filter((b) => b.status === 'done' && HEARTH.test(b.def)).map((b) => ({ def: b.def, status: b.status, ...buildingCentre(b) }));
+      if (hearths.length) ambMix.fire = Math.max(ambMix.fire, hearthLevel(hearths, v) * (0.4 + 0.4 * (1 - next.calendar.daylight)));
       const raidNow = next.raid?.phase === 'active';
       if (raidNow && !wasRaid) ambience.cue('horn', 0, 0.2);
       wasRaid = raidNow;
@@ -2328,7 +2348,6 @@ async function start(): Promise<void> {
       map.setBuildingStyle(buildingTint(next.theme), style);
     }
     map.syncLand(next.land, next.calendar.season, next.biome, next.era); // (paints again only what changed)
-    stockpile.sync(next.buildings); // (before the buildings, so a stockpile's own picture is hidden at once)
     {
       iso.syncLand(next.land);
       iso.setKit(kitNameFor(next.origin.id, next.theme));

@@ -1,5 +1,5 @@
 // The town's specialty shops (the owner's ask): beside the general store (Trading Post → General Store → Emporium),
-// a Furniture Maker, a Weapons Store, an Armour Store and an Apothecary Shop. Each is a venue of the `shop` kind with
+// a Furniture Shop, a Weapon Shop, an Armour Shop and an Apothecary. Each is a venue of the `shop` kind with
 // a `line`: its own customers come for that line only (furniture, weapons, armour, medicine), its keeper sets out its
 // shelves and racks like any shopkeeper, its stock is on show inside, and a banner out front says what it sells.
 // Once a specialty shop is open, the general store stops taking the customers it serves (sim/shop.ts).
@@ -36,10 +36,10 @@ export const LINES: Readonly<Record<ShopLine, LineDef>> = {
 /** The specialty shops' buildings (merged into BUILDINGS). Each opens with a Medieval craft and is built once the
  *  town has its general store. */
 export const STORE_BUILDINGS: readonly BuildingDef[] = [
-  { id: 'furniture_store', name: 'Furniture Maker', layer: 'mid', width: 3, cost: { lumber: 14, stone: 6 }, buildSeconds: 120, research: 'carpentry', purpose: 'A shop of chairs, tables, chests and beds: travellers come for furniture, and buy what the town has made. Its own banner out front.', floor: { venue: 'shop', line: 'furniture', cols: 8, rows: 5, appeal: 0 } },
-  { id: 'weapon_store', name: 'Weapons Store', layer: 'mid', width: 3, cost: { lumber: 12, stone: 10, iron: 4 }, buildSeconds: 140, research: 'iron_working', purpose: 'Blades, bows and spears on the racks: travellers come for a weapon, and the town sells what it has spare. Its own banner out front.', floor: { venue: 'shop', line: 'weapons', cols: 8, rows: 5, appeal: 0 } },
-  { id: 'armour_store', name: 'Armour Store', layer: 'mid', width: 3, cost: { lumber: 12, stone: 10, leather: 4 }, buildSeconds: 140, research: 'armoring', purpose: 'Mail, helms and shields on stands: travellers come for armour, and the town sells what it has spare. Its own banner out front.', floor: { venue: 'shop', line: 'armour', cols: 8, rows: 5, appeal: 0 } },
-  { id: 'apothecary_shop', name: 'Apothecary Shop', layer: 'mid', width: 3, cost: { lumber: 10, stone: 8, herbs: 6 }, buildSeconds: 120, research: 'physick', purpose: 'Jars of salve and bundles of herbs on the shelves: travellers come for medicine, and buy what the town has made. Its own banner out front.', floor: { venue: 'shop', line: 'medicine', cols: 8, rows: 5, appeal: 0 } },
+  { id: 'furniture_store', name: 'Furniture Shop', layer: 'mid', width: 3, cost: { lumber: 14, stone: 6 }, buildSeconds: 120, research: 'carpentry', purpose: 'A shop of chairs, tables, chests and beds: travellers come for furniture, and buy what the town has made. Its own banner out front.', floor: { venue: 'shop', line: 'furniture', cols: 8, rows: 5, appeal: 0 } },
+  { id: 'weapon_store', name: 'Weapon Shop', layer: 'mid', width: 3, cost: { lumber: 12, stone: 10, iron: 4 }, buildSeconds: 140, research: 'iron_working', purpose: 'Blades, bows and spears on the racks: travellers come for a weapon, and the town sells what it has spare. Its own banner out front.', floor: { venue: 'shop', line: 'weapons', cols: 8, rows: 5, appeal: 0 } },
+  { id: 'armour_store', name: 'Armour Shop', layer: 'mid', width: 3, cost: { lumber: 12, stone: 10, leather: 4 }, buildSeconds: 140, research: 'armoring', purpose: 'Mail, helms and shields on stands: travellers come for armour, and the town sells what it has spare. Its own banner out front.', floor: { venue: 'shop', line: 'armour', cols: 8, rows: 5, appeal: 0 } },
+  { id: 'apothecary_shop', name: 'Apothecary', layer: 'mid', width: 3, cost: { lumber: 10, stone: 8, herbs: 6 }, buildSeconds: 120, research: 'physick', purpose: 'Jars of salve and bundles of herbs on the shelves: travellers come for medicine, and buy what the town has made. Its own banner out front.', floor: { venue: 'shop', line: 'medicine', cols: 8, rows: 5, appeal: 0 } },
 ];
 
 /** Grown-ups a town needs before it opens a specialty shop (it has enough to do before then). */

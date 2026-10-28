@@ -95,3 +95,30 @@ export function cellsInView(view: { x: number; y: number; w: number; h: number }
 /** How many cells across one of a kit's ground tiles covers: its `scale_tile` drawn at the kit's scale (and the
  *  view's art size), in cells, at least one. */
 export const kitTileCells = (scaleTileW: number, kitScale: number, art: number): number => Math.max(1, Math.round((scaleTileW * kitScale * art) / ISO_TW));
+
+/** A picture's ground (its plinth's top face) by three of its corners in the picture's px: the left, the front (bottom)
+ *  and the right one, as drawn (unmirrored). */
+export type GroundCorners = readonly [readonly [number, number], readonly [number, number], readonly [number, number]];
+
+/** The transform that lays a picture's plinth exactly over a footprint's diamond, for a picture drawn a little off the
+ *  grid's angle (the archery range: its long side drawn steeper than the diamonds'). Upright things stay upright: only
+ *  the across scale, a squash of the heights and a slant of the ground are used (x' = a x, y' = b x + d y), so the
+ *  pixel art's posts and targets don't lean. From the picture's px to the screen, relative to the footprint's front
+ *  corner; `flip` mirrors the picture first (a piece lying along y on a footprint longer along x). */
+export function groundFit(g: GroundCorners, texW: number, foot: { w: number; h: number }, flip: boolean): { a: number; b: number; c: number; d: number; tx: number; ty: number } {
+  const [l, f, r] = flip ? [[texW - g[2][0], g[2][1]], [texW - g[1][0], g[1][1]], [texW - g[0][0], g[0][1]]] : g;
+  // (left to front runs along x, `w` cells; front to right up along y, `h` cells)
+  const u1 = [f[0] - l[0], f[1] - l[1]];
+  const u2 = [r[0] - f[0], r[1] - f[1]];
+  const ys = [(foot.w * ISO_TH) / 2, (-foot.h * ISO_TH) / 2];
+  const a = ((foot.w + foot.h) * ISO_TW) / 2 / (r[0] - l[0]);
+  const det = u1[0] * u2[1] - u1[1] * u2[0];
+  const b = (ys[0] * u2[1] - u1[1] * ys[1]) / det;
+  const d = (u1[0] * ys[1] - u2[0] * ys[0]) / det;
+  // (the front corner on the footprint's front corner)
+  const x = flip ? -a : a;
+  const bx = flip ? -b : b;
+  const tx = flip ? a * (texW - f[0]) : -a * f[0];
+  const ty = flip ? b * (texW - f[0]) - d * f[1] : -b * f[0] - d * f[1];
+  return { a: x, b: bx, c: 0, d, tx, ty };
+}

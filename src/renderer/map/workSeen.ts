@@ -1,6 +1,6 @@
 // Work you can see (the owner's ask): the rules behind the map's felled trees and broken rock, the stockpile's heaps,
 // the floating gains, the harvest left in the field, the laundry lines and a building's finishing. Pure (no Pixi), so
-// the rules are tested; the drawing is in mapFelling.ts, mapStockpile.ts, mapGains.ts and mapChores.ts.
+// the rules are tested; the drawing is in mapFelling.ts, mapGains.ts and mapChores.ts (a stockpile's heaps: iso/isoTown.ts `stockHeaps`).
 
 import { footprint } from '../../shared/sim/buildings';
 import { BUILDING_BY_ID } from '../../shared/data/buildings';

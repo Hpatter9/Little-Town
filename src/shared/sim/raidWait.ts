@@ -5,10 +5,15 @@
 import type { GameState } from './state';
 
 /** A raid's battle or a watched fight is on the screen (the owner's ask: the game pauses in the background then,
- *  and nothing else may pop up over it). */
+ *  and nothing else may pop up over it). A raid being skipped still counts: its battle plays alone, flat out, and a
+ *  question waiting under it can't stop it (it once did: Skip left the fight standing still behind a hidden question). */
 export function fightOnScreen(s: GameState): boolean {
   const r = s.raid;
-  if (r && r.phase === 'active' && (r.battle || r.tactics) && !s.raidSkip) return true;
+  if (r && r.phase === 'active' && (r.battle || r.tactics)) return true;
+  // (the board kept up a moment after the raid, for the word across it: sim/tactics.ts `tacticsOver`. Its clock is the
+  //  tick, so the fight's clock must keep running: held for a question raised as the raid ended, the board never went,
+  //  and the question and the recap, both waiting for the board to go, never showed)
+  if (s.tacticsEnded && s.tick < s.tacticsEnded.until) return true;
   if (s.watching === undefined) return false;
   const e = s.expeditions.find((x) => x.id === s.watching) ?? s.skirmishes?.find((k) => k.e.id === s.watching)?.e ?? (s.arena?.bout?.id === s.watching ? s.arena.bout.e : undefined);
   return !!e?.battle;

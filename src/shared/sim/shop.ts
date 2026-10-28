@@ -502,7 +502,7 @@ function shopWant(s: GameState, rng: Rng, tier: number, forSale: Stock): Want {
     case 'tool':
     case 'weapon':
     case 'armor': {
-      // (with a Weapons Store or an Armour Store open, those customers go there: the general store sells tools)
+      // (with a Weapon Shop or an Armour Shop open, those customers go there: the general store sells tools)
       const elsewhere = (kind === 'weapon' && storeOpen(s, 'weapons')) || (kind === 'armor' && storeOpen(s, 'armour'));
       if (elsewhere) return { kind: 'gear', slots: ['tool'], label: 'a tool', minQ };
       return { kind: 'gear', slots: [...WANT_SLOTS[kind]], label: kind === 'armor' ? 'armour' : `a ${kind}`, minQ };

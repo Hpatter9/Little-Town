@@ -163,6 +163,7 @@ import { heirOf } from './health';
 import { RESEARCH_STATIONS, TOPIC_BY_ID } from '../data/research';
 import { SKILLS, skillSpeed, xpToNext, type Skill } from '../data/skills';
 import { TERRAIN } from '../data/terrain';
+import { clutterWork } from './landClutter';
 import { buildingCentre, buildingCentreX, buildSlots, defOf, enclosure, footprint, totalCapacity, totalStock, withStockScope } from './buildings';
 import { destinationHidden, destinationOf, destinationUnlocked, foodNeeded, partyCarry, planParty } from './expeditions';
 import { OFFER_WAIT_TICKS } from './researchOffer';
@@ -1302,7 +1303,7 @@ export interface Snapshot {
   devSave: boolean;
   research: ResearchView;
   /** The player's building wishes (sim/pins.ts): what, whether it's going up and how far, or what it waits on. */
-  pins: { def: string; name: string; building: boolean; progress: number; why: string | null }[];
+  pins: { def: string; name: string; building: boolean; progress: number; why: string | null; id: number | null; site: number | null }[];
   /** What the town would build next if asked (planner.ts recommendBuilding), the founder's order for the wall, and what
    *  the wall stands at. Refreshed about every game hour. */
   recommend: Recommendation | null;
@@ -1395,7 +1396,7 @@ export interface ResearchView {
   /** Topics the player picked by hand (first in the queue), and those they took out. */
   picked: string[];
   shelved: string[];
-  /** The three topics on offer, and the ticks left before the town chooses one itself. */
+  /** The three topics on offer, and the ticks left before a hands-off town (tests) would choose one itself; a player's town waits. */
   offer: string[];
   offerLeft: number;
   /** The seat's stage (1..5) the research gate reads (null: no gate), its name, and the next stage's name and era. */
@@ -1784,7 +1785,7 @@ function snapshotOf(s: GameState): Snapshot {
     ringState: !s.ring ? 'none' : s.ring.done ? 'standing' : 'building',
     pins: (s.pins ?? []).map((p) => {
       const b = p.building !== undefined ? s.buildings.find((q) => q.id === p.building) : undefined;
-      return { def: p.def, name: BUILDING_BY_ID[p.def]?.name ?? p.def, building: !!b, progress: b?.progress ?? 0, why: p.why ?? null };
+      return { def: p.def, name: BUILDING_BY_ID[p.def]?.name ?? p.def, building: !!b, progress: b?.progress ?? 0, why: p.why ?? null, id: p.id ?? null, site: b?.id ?? null };
     }),
     notices: [...s.notices],
     items: { ...s.items },
@@ -2699,7 +2700,7 @@ export function describe(s: GameState, p: Person): string {
     case 'gather': {
       if (task.scrounge) return 'Hungry: picking wild berries (nothing in storage)';
       const c = cellAt(s.land, task.tile);
-      const t = TERRAIN[groundAt(s.land, c.x, c.y) as keyof typeof TERRAIN];
+      const t = TERRAIN[groundAt(s.land, c.x, c.y) as keyof typeof TERRAIN] ?? clutterWork(s, task.tile);
       return t ? `${t.verb} (${t.name.toLowerCase()})` : 'Idle';
     }
     case 'store':

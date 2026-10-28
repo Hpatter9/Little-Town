@@ -80,6 +80,14 @@
         color: var(--text);
         font-size: 14px;
       }
+      #ug-btn img {
+        width: 22px;
+        height: 22px;
+        display: block;
+        margin: auto;
+        image-rendering: pixelated;
+        pointer-events: none;
+      }
       #ug-btn.none {
         opacity: 0.45;
       }
@@ -343,6 +351,29 @@
       }
       .tab-fill.trip {
         background: linear-gradient(#7fb05a, #4f7a34);
+      }
+      /* a choice waits in that menu (the Studies tab while a research offer stands unpicked): a gold dot that pulses */
+      #tabs button.waiting::before {
+        content: '';
+        position: absolute;
+        top: 3px;
+        right: 4px;
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        background: #f0c040;
+        box-shadow: 0 0 6px #f0c040;
+        animation: tab-wait 1.2s ease-in-out infinite alternate;
+        pointer-events: none;
+        z-index: 1;
+      }
+      @keyframes tab-wait {
+        from {
+          opacity: 0.45;
+        }
+        to {
+          opacity: 1;
+        }
       }
 
       /* the menus: above the tabs (on its side: over the right half of the town, see the end) */

@@ -1326,6 +1326,10 @@ export interface GameState {
   /** Old behaviour switched back on (tests): the town lays its own blueprints. Missing or false: the founder orders every
    *  building, wall, field, pen and street from the build menu, and the town only picks the spot (CLAUDE.md, Priorities). */
   townBuilds?: boolean;
+  /** Old behaviour switched back on (tests): the town picks one of the three research offers itself once it has stood
+   *  OFFER_WAIT_TICKS (sim/researchOffer.ts). Missing or false: research waits for the player's pick (CLAUDE.md,
+   *  Priorities). A town with `townBuilds` on picks too (the old hands-off town). */
+  townResearches?: boolean;
   /** The founder has ordered the ring wall raised, widened or upgraded: the planner works it until it stands. */
   ringOrder?: boolean;
   /** The player's veto on destinations, the treasury's bounties on them (coins set aside), and when the last party
@@ -1733,6 +1737,8 @@ export function setOutcome(s: GameState, title: string, choice: string | null, t
 /** A building the player wished for: waiting for its turn (with why), or under way as `building`. */
 export interface Pin {
   def: string;
+  /** Its own id, so one of several orders of the same building can be cancelled (older saves' orders have none). */
+  id?: number;
   /** The tick it was pinned (the wish gives up after PIN_WAIT_HOURS with no start). */
   at: number;
   /** The blueprint laid for it. */

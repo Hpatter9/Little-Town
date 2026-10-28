@@ -317,7 +317,7 @@ Horses are from **whtdragon**'s RPG Maker MV animal sprites (see Creatures above
 - Revive sparkles and the conjuring swirl are from the **Super Pixel Effects Gigapack** (see Effects).
 - More tiny-rpg-town battle sprites: the Ogre and Hedge Wizard (warbands), the Mummy (outbreaks), the Bog Slime
   (an early raid) and the Metal Slug crawler bot (drone swarms).
-- **Free Mining Pixel Icons** (CraftPix): material icons on cost chips (`src/renderer/art/materials/`), the minerals' (copper, tin, silver, sulphur and their ores) among them.
+- **Free Mining Pixel Icons** (CraftPix): material icons on cost chips (`src/renderer/art/materials/`), the minerals' (copper, tin, silver, sulphur and their ores) among them; the pickaxe on the Underground button and the spade on Clear land (`src/renderer/ui/art/pickaxe.png`, `shovel.png`).
 - **DungeonItemsLite**: gravestones where townsfolk fell, the Stone Gate's archway, and the Steel Cuirass icon.
 - whtdragon's *ghosts* drift through an undead haven at night.
 - The War Machine is drawn in code.
@@ -379,6 +379,9 @@ the game.
   crocodiles, the Behemoth, possessed tomes, vampire bats, the desert caravan's camels and the druid's walking
   mushrooms (`creatures/lions.png`, `wilddogs.png`, `crocodiles.png`, `behemoth.png`, `tomes.png`, `bats.png`,
   `camel.png`, `shrooms.png`).
+  The black bat's flying rows are cut from `bats.png` into `art/fx_bat.png`, the bats over the event cards'
+  night scenes (`panel/scenePlayer.ts`); the cards' birds are `art/birds.png` and their smoke the pvfx smoke
+  (`art/effects/smoke.png`), both credited below.
 - **mobs** (mimic): the Mimic (`creatures/mimic.png`, its walk, attack, idle and disguise frames stacked into one
   sheet; see the licence note under Rival armies).
 

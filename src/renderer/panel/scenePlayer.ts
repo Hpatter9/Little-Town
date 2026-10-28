@@ -13,6 +13,9 @@ import { loadImage } from '../art/loadImage';
 import manifest from '../art/backdrops.json';
 import { LOOP, VIEW_H, VIEW_W, type Actor, type Anim, type Crowd, type Fx, type Prop, type SceneScript } from './sceneScripts';
 import { EVENT_PROPS, propFile, setFile } from './eventProps';
+import birdsUrl from '../art/birds.png';
+import batsUrl from '../art/fx_bat.png';
+import smokeUrl from '../art/effects/smoke.png';
 
 const ACTOR_SCALE = 1.3;
 const FPS = 24;
@@ -278,6 +281,23 @@ function actor(g: CanvasRenderingContext2D, a: Actor, dolls: string[][], folk: F
 
 /* ------------------------------------------------------------ particles: each a function of the time */
 
+/** The packs' pictures for the particles that are things (the owner: "update event cards with proper assets"): the
+ *  birds' atlas (five kinds, two wing frames of 16 px), DawnLike's black bat (`art/fx_bat.png`, cut from its sheet: 48 px
+ *  cells, three wing frames a row, facing left then right) and pvfx's smoke (14 puffs of 96 px, five to a row). Until each is
+ *  in, its particle is drawn as the old dots. */
+const FX_ART: { birds: HTMLImageElement | null; bats: HTMLImageElement | null; smoke: HTMLImageElement | null } = { birds: null, bats: null, smoke: null };
+let fxAsked = false;
+function fxArt(): typeof FX_ART {
+  if (!fxAsked) {
+    fxAsked = true;
+    void image(birdsUrl).then((im) => (FX_ART.birds = im));
+    void image(batsUrl).then((im) => (FX_ART.bats = im));
+    void image(smokeUrl).then((im) => (FX_ART.smoke = im));
+  }
+  return FX_ART;
+}
+const SMOKE_FRAMES = 14;
+
 function fx(g: CanvasRenderingContext2D, f: Fx, t: number, j: number): void {
   const W = VIEW_W;
   const H = VIEW_H;
@@ -378,6 +398,15 @@ function fx(g: CanvasRenderingContext2D, f: Fx, t: number, j: number): void {
         const steam = f.kind === 'steam';
         const u = frac(t / (steam ? 2 : 3.2) + r2);
         const s = Math.round(3 + u * (steam ? 6 : 9));
+        const puff = fxArt().smoke;
+        if (puff) {
+          // (a pvfx puff, swelling as it rises and fading; steam paler and quicker)
+          const n = Math.min(SMOKE_FRAMES - 1, Math.floor(u * SMOKE_FRAMES));
+          const d = Math.round(10 + u * (steam ? 14 : 20));
+          g.globalAlpha = (steam ? 0.5 : 0.75) * (1 - u * 0.8);
+          g.drawImage(puff, (n % 5) * 96, Math.floor(n / 5) * 96, 96, 96, Math.round((at ? ax : r1 * W) + Math.sin(u * 6 + k) * 5 + u * 14 - d / 2), Math.round((at ? ay : H * 0.6) - u * (steam ? 40 : 55) - d / 2), d, d);
+          break;
+        }
         dot((at ? ax : r1 * W) + Math.sin(u * 6 + k) * 5 + u * 14 - s / 2, (at ? ay : H * 0.6) - u * (steam ? 40 : 55), s, col ?? '#cfcfcf', (steam ? 0.45 : 0.55) * (1 - u));
         break;
       }
@@ -390,6 +419,23 @@ function fx(g: CanvasRenderingContext2D, f: Fx, t: number, j: number): void {
         const y = H * ((bat ? 0.1 : 0.08) + 0.3 * r3) + Math.sin(t * (bat ? 6 : 2) + k * 2) * (bat ? 8 : 3);
         const up = Math.floor(t * (bat ? 10 : 4) + k) % 2;
         g.globalAlpha = 1;
+        const art = fxArt();
+        if (bat && art.bats) {
+          // (DawnLike's black bat, its wings beating: the row facing the way it flies)
+          const fr = Math.floor(t * 10 + k) % 3;
+          g.drawImage(art.bats, fr * 48, (dir > 0 ? 1 : 0) * 48, 48, 48, Math.round(x) - 6, Math.round(y) - 6, 12, 12);
+          break;
+        }
+        if (!bat && art.birds) {
+          // (one of the birds' atlas's five, flapping; the atlas's birds face left, so one flying right is turned)
+          const kind = i % 5;
+          g.save();
+          g.translate(Math.round(x), Math.round(y));
+          if (dir > 0) g.scale(-1, 1);
+          g.drawImage(art.birds, kind * 16, up * 16, 16, 16, -4, -4, 8, 8);
+          g.restore();
+          break;
+        }
         g.fillStyle = bat ? '#1a1018' : '#2a2a30';
         g.fillRect(Math.round(x), Math.round(y), 2, 1);
         g.fillRect(Math.round(x) - 2, Math.round(y) + (up ? -1 : 1), 2, 1);
