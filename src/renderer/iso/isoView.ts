@@ -149,6 +149,9 @@ interface Placed {
   half?: 'a' | 'b';
   at: { x: number; y: number };
   z: number;
+  /** Set for a picture made smaller to fit (iso/gridRules.ts `shrink`): `at` is the footprint's middle, and the
+   *  picture's own footprint's middle goes on it (px of the picture to half a cell). */
+  centreHc?: number;
 }
 
 /** How a building is drawn on the grid: its picture, the pieces drawn with it (a wall's other arms, a pen's fence), the
@@ -830,15 +833,20 @@ export class IsoView {
     const plan = gridPlan(kit, b.def, foot);
     if (!plan) return null;
     const pk = plan.shared ? kitOf(SHARED_KIT).scale * ISO_ART : k;
+    // (a borrowed picture too big for its footprint, made smaller while it waits for its own: on the footprint's middle)
+    const small = plan.shrink < 1;
+    const main: Placed = small
+      ? { url: gridUrl(kit, plan.piece, plan.shared), rec: plan.rec, flip: plan.flip, at: { x: foot.x + foot.w / 2, y: foot.y + foot.h / 2 }, z: footDepth(foot), centreHc: ISO_TW / 2 / pk }
+      : { url: gridUrl(kit, plan.piece, plan.shared), rec: plan.rec, flip: plan.flip, at: front(plan.sub), z: footDepth(foot) };
     return {
       kind: 'building',
-      main: { url: gridUrl(kit, plan.piece, plan.shared), rec: plan.rec, flip: plan.flip, at: front(plan.sub), z: footDepth(foot) },
+      main,
       extras: [],
       pic: plan.sub,
       yard: yardCells(foot, plan.sub),
       piece: plan.piece,
       shared: plan.shared,
-      k: pk,
+      k: pk * plan.shrink,
     };
   }
 
@@ -866,8 +874,15 @@ export class IsoView {
     s.rotation = 0;
     const sx = p.flip ? -1 : 1;
     s.scale.set(sx * k, k);
-    const ax = p.half === 'b' ? 0 : p.rec.anchor[0];
-    const ay = p.rec.anchor[1];
+    let ax = p.half === 'b' ? 0 : p.rec.anchor[0];
+    let ay = p.rec.anchor[1];
+    if (p.centreHc) {
+      // (its own footprint's middle, from its anchor: a footprint's middle is (h - w) / 2 half-cells across and (w + h) / 4
+      // up from its front corner)
+      const [w, h] = p.rec.foot;
+      ax += ((h - w) * p.centreHc) / 2;
+      ay -= ((w + h) * p.centreHc) / 4;
+    }
     const at = tileToIso(p.at.x, p.at.y, this.ox);
     s.position.set(Math.round(at.x - (ax - tex.width / 2) * k * sx), Math.round(at.y + (tex.height - ay) * k));
     s.zIndex = p.z;

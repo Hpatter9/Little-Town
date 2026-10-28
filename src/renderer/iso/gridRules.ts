@@ -77,26 +77,53 @@ export function yardCells(f: Rect, sub: Rect): { x: number; y: number }[] {
   return out;
 }
 
-/** How a building is drawn on the grid: its piece, its record, and where it stands; null when it has no picture that
- *  fits its footprint yet (it is drawn the old way, and waits for its own: `AWAITING_ART`). Walls, gates, the stockade,
- *  pens and fields are drawn by their own rules, not here. */
+/** How a building is drawn on the grid: its piece, its record, where it stands, and `shrink`: 1 when its picture fits
+ *  its footprint; less while it waits for a picture of its own (`AWAITING_ART`): the picture it borrows, too big for
+ *  its footprint, is drawn smaller by this much, its plinth's middle on the footprint's middle, still on the ground and
+ *  cut at the footprint's front edges. Null when its kit isn't cut to the grid. Walls, gates, the stockade, pens and
+ *  fields are drawn by their own rules, not here. */
 export interface GridPlan {
   piece: string;
   rec: GridRec;
   shared: boolean;
   sub: Rect;
   flip: boolean;
+  shrink: number;
 }
 export function gridPlan(kit: string, defId: string, foot: Rect): GridPlan | null {
   const role = roleOf(defId);
   if (!('role' in role) || role.role === 'wall_run' || role.role === 'wall_corner' || role.role === 'gate' || role.role === 'stockade' || role.role === 'pen') return null;
   const piece = pieceFor(kitOf(kit), defId);
   const got = gridRec(kit, piece);
-  if (!got || got.rec.kind !== 'building') return null;
+  if (!got || (got.rec.kind !== 'building' && got.rec.kind !== 'loose')) return null;
   const along = got.shared && SHARED_PIECES.get(piece)?.along_y;
   const fit = fitIn(got.rec.foot, foot, !!along && foot.w > foot.h);
-  return fit ? { piece, rec: got.rec, shared: got.shared, ...fit } : null;
+  if (fit) return { piece, rec: got.rec, shared: got.shared, ...fit, shrink: 1 };
+  // (too big: the way round that needs the least shrinking)
+  const [pw, ph] = got.rec.foot;
+  const a = Math.min(foot.w / pw, foot.h / ph);
+  const b = Math.min(foot.w / ph, foot.h / pw);
+  return { piece, rec: got.rec, shared: got.shared, sub: foot, flip: b > a, shrink: Math.max(a, b) };
 }
+
+/** The settlers' buildings with no picture that fits their footprint yet, drawn with a borrowed one made smaller
+ *  (`gridPlan`'s `shrink`), the most built first: the list for PixelLab (docs/notes/grid-audit.md). By the age they
+ *  open in, earliest first, homes and work before the rest. The test checks it is exactly the ones that shrink. */
+export const AWAITING_ART: readonly string[] = [
+  // (from the start and the first age)
+  'lean_to', 'healers_hut', 'workbench', 'tanning_rack', 'drying_rack', 'smokehouse', 'kiln', 'basketry', 'bone_carver',
+  'fireside_inn', 'trading_post', 'graveyard', 'wayside_shrine', 'quarry', 'monster_guild', 'militia_post',
+  // (the Medieval age)
+  'smithy', 'sawmill', 'bakery', 'windmill', 'mine', 'tannery', 'brewery', 'bloomery', 'cooper', 'loom', 'tailor', 'dyeworks', 'chandlery', 'jeweller', 'apothecary',
+  'market', 'weapon_store', 'armour_store', 'furniture_store', 'apothecary_shop', 'deep_shaft', 'arcane_library', 'arcane_academy', 'resurrection_shrine',
+  'phylactery', 'guard_tower', 'ballista', 'catapult', 'siege_workshop',
+  // (the Industrial age)
+  'coal_mine', 'glassworks', 'gunsmith', 'cannery', 'print_shop', 'bathhouse', 'clockmaker', 'cannon', 'gun_nest', 'land_mine',
+  // (the Modern age)
+  'cement_works', 'oil_derrick', 'radio_tower', 'gun_turret', 'flame_turret', 'mortar_pit',
+  // (the Space age)
+  'bio_lab', 'deep_mine', 'nanoforge', 'battery_plant', 'laser_turret', 'tesla_coil', 'launch_site',
+];
 
 /** Pens drawn as a fence round bare ground: the herds' pens, and the buildings for beasts with no picture of their own
  *  (the God creature's pen, the stable, the kennels, the beast ranch). */

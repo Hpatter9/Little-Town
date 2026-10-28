@@ -149,8 +149,12 @@ def plinth_cells(b):
 
 
 def cells(n):
-    """A plinth's cells rounded down unless it is well past the half: 2.5 is 2 (its edge cut a quarter cell), 2.6 is 3."""
-    return max(1, int(n + 0.4))
+    """A plinth's cells rounded down unless it is past the half by a little: 2.5 is 2 (its edge cut a quarter cell), 2.55 is 3."""
+    return max(1, int(n + 0.45))
+
+
+# pieces whose plinth is between sizes, given the larger: the campfire's ring of stones is a cell and a half across
+FOOT = {'campfire': (2, 2)}
 
 
 def building_record(im, foot=None):
@@ -184,7 +188,9 @@ def loose_record(im):
     # (its base: the widest of its lowest rows; a diamond that wide has its middle a quarter of the width up)
     lo = min(r[1] for r in rows)
     hi = max(r[2] for r in rows)
-    cx = (rows[0][1] + rows[0][2]) / 2
+    # (across, the middle of all it draws: a cart's handle or a tree's lean doesn't pull it off the cell's middle)
+    box = im.getbbox()
+    cx = (box[0] + box[2]) / 2
     spread = hi - lo + 1
     cy = y1 + 1 - min(spread / 4, HC / 2)
     return {'anchor': [round(cx), round(cy + HC / 2)], 'foot': [1, 1]}
@@ -243,7 +249,7 @@ def main():
 
     for pid in BUILDINGS:
         im = Image.open(os.path.join(KIT, pid + '.png')).convert('RGBA')
-        rec = kit_rec.get(pid) or {**building_record(im), 'kind': 'building', 'bake': 1}
+        rec = kit_rec.get(pid) or {**building_record(im, FOOT.get(pid)), 'kind': 'building', 'bake': 1}
         cut_below(im, rec['anchor'], *rec['foot'])
         save(im, os.path.join(out_kit, pid + '.png'))
         kit_rec[pid] = rec
