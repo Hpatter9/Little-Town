@@ -46,10 +46,11 @@ check whtdragon's posted terms of use before any public release.
 The foes and bosses in `src/shared/data/bestiary.ts` are drawn from free **Craftpix.net** packs (craftpix.net,
 free licence: use in games allowed, no redistributing the raw files). `tools/compose-sheets.cjs` builds one small
 sheet per creature (`src/renderer/art/creatures/packs/`) from the packs kept in the private assets repository:
-Free Werewolf, Gorgon, Minotaur and Satyr Sprite Sheets; Free Forest Bosses; Free Samurai, Ninja, Wizard, Robot,
+Free Werewolf, Gorgon, Minotaur and Satyr Sprite Sheets; Free Samurai, Ninja, Wizard, Robot,
 Knight and Skeleton Sprite Sheets; Free Yokai Character Sprites; Free Tiny Hero Sprites; Free Enemy Pixel Pack for
-Top-Down Defense; Free Fantasy RPG Top-Down Boss Creatures (Boar King, Devil Leader, Shaman King) and Pirate Boss
-Characters (Pirate Leader, Pirate Zombie, Squidman).
+Top-Down Defense; and Pirate Boss Characters (Pirate Leader, Pirate Zombie, Squidman). (The forest bosses, the Boar
+King, the Devil Leader and the Shaman King were Craftpix's too; their sheets are now the Legends of the Fall remakes:
+see "Foes and bosses from Legends of the Fall".)
 
 ## Craftpix magic effects (spells and skills in fights)
 
@@ -399,12 +400,23 @@ map lays its bridges from (`src/renderer/art/roads/bridge_parts.png`: the wooden
 **Craftpix.net**'s free Bridges Top-Down Pixel Art Asset Pack, used under Craftpix's free licence (use in the game;
 the raw files are not redistributed).
 
+## Foes and bosses from Legends of the Fall
+
+The orc warband (`hk_orc_grunt`, `hk_orc_archer`, `hk_orc_brute`, `hk_orc_warlord`), the imp (`hk_imp`), the demon and
+demon lord (`hk_demon`, `hk_demon_lord`), the ogres (`hk_ogre`, `hk_ogre_horned`), the Boar King, the Devil Leader, the
+Shaman King, the three forest bosses (`forest_boss_1..3`) and the Lich King (`lich_king`), in
+`src/renderer/art/creatures/packs/`, were generated with PixelLab (pixellab.ai) for the owner's sister game **Legends of
+the Fall** (`hpatter9/legends-of-the-fall`, its `src/art/units/`): a base figure from a text description with Craftpix
+fighters as style references, animated with PixelLab's text animation, cropped and padded only (native pixels, hard
+alpha), the last death frame the figure laid flat. Copied here as they are, with their layouts from that game's
+`sheets.json`; they replace the Himeko Sutori orcs, ogres, demons and imp (the same file names) and the Craftpix forest
+bosses and top-down boss creatures. No generations were spent for this game. See `docs/notes/legends-assets.md`.
+
 ## Himeko Sutori sprite share (townsfolk and monsters)
 
 The townsfolk and founders (the bodies, outfits, hair, beards, helms, shields, weapons and tools in
-`src/renderer/art/himeko/`, copied and cut to their drawn rows by `tools/import-himeko.cjs`) and the ogres, demons,
-juggernaut, tyrant, slimes, mummy, ghost, zombies, imp and the orc warband (grunt, archer, brute and warlord: the Orc body
-in the barbarians' outfits) (`src/renderer/art/creatures/packs/hk_*.png`, their layers
+`src/renderer/art/himeko/`, copied and cut to their drawn rows by `tools/import-himeko.cjs`) and the juggernaut,
+tyrant, slimes, mummy, ghost and zombies (`src/renderer/art/creatures/packs/hk_*.png`, their layers
 composed and their right-facing frames cut by `tools/compose-sheets.cjs`) are from the Himeko Sutori sprite share, free
 to use with attribution. The spear (`spear01*.png`) is the pack's naginata with its blade redrawn as a spearhead by
 `tools/make-spear.cjs`. The scarecrow on the fields (`src/renderer/art/scarecrow.png`, by `tools/compose-critters.cjs`)

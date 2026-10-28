@@ -180,7 +180,7 @@ export const CALAMITY_ENEMIES: Record<string, EnemyDef> = {
     boss: true,
     loot: { iron: 12, cloth: 6 },
     tint: 0xff9080,
-    sprite: { sheet: 'dark_knight', block: 0, scale: 2 },
+    sprite: pack('hk_tyrant', 92),
     look: { hue: -20, bright: 0.8 },
     nature: 'undead',
     armor: 0.25,
