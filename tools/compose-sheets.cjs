@@ -27,7 +27,6 @@ const WOLF = A + 'craftpix-net-248468-free-werewolf-sprite-sheets-pixel-art/';
 const GORGON = A + 'craftpix-net-280097-free-gorgon-pixel-art-character-sprite-sheets/';
 const MINO = A + 'craftpix-net-170637-free-minotaur-sprite-sheet-pixel-art-pack/';
 const SATYR = A + 'craftpix-net-131479-free-satyr-sprite-sheet-pixel-art-pack/';
-const FOREST = A + 'craftpix-net-413641-free-forest-bosses-pixel-art-sprite-sheet-pack/';
 const SAMURAI = A + 'craftpix-net-123681-free-samurai-pixel-art-sprite-sheets/';
 const NINJA = A + 'craftpix-net-407836-free-ninja-sprite-sheets-pixel-art/';
 const WIZARD = A + 'craftpix-net-529677-free-wizard-sprite-sheets-pixel-art/';
@@ -37,7 +36,6 @@ const TINY = A + 'craftpix-net-622999-free-pixel-art-tiny-hero-sprites/';
 const TD = A + 'craftpix-net-221601-free-enemy-pixel-pack-for-top-down-defense/';
 const KNIGHT = 'craftpix-net-803217-free-knight-character-sprites-pixel-art/';
 const SKELETON = 'craftpix-net-957123-free-skeleton-pixel-art-sprite-sheets/';
-const BOSSES = A + 'craftpix-net-643385-free-fantasy-rpg-top-down-boss-creatures-pack/';
 const PIRATES = A + 'craftpix-net-856364-free-fantasy-rpg-pirate-boss-character-pack/';
 // a Himeko Sutori creature: its layers (files from the sheet share at the assets repo's top level, laid one on another),
 // on that pack's grid of 128px cells, 8 poses across and four ways down (front, left, right, back): the right-facing row,
@@ -69,9 +67,6 @@ const SPECS = [
   std('satyr_1', SATYR + 'Satyr_1', 'Attack'),
   std('satyr_2', SATYR + 'Satyr_2', 'Attack'),
   std('satyr_3', SATYR + 'Satyr_3', 'Attack'),
-  { ...std('forest_boss_1', FOREST + '1', 'Attack1', 'Walk', 'Death'), facesLeft: true },
-  { ...std('forest_boss_2', FOREST + '2', 'Attack1', 'Walk', 'Death'), facesLeft: true },
-  { ...std('forest_boss_3', FOREST + '3', 'Attack1', 'Walk', 'Death'), facesLeft: true },
   hero('samurai', SAMURAI + 'Samurai', 'Attack_1', 'Attack_2', 'Protection'),
   hero('samurai_archer', SAMURAI + 'Samurai_Archer', 'Shot', 'Attack_1'),
   hero('samurai_commander', SAMURAI + 'Samurai_Commander', 'Attack_1', 'Attack_2', 'Protect'),
@@ -99,17 +94,10 @@ const SPECS = [
   td('horde_1', '1'),
   td('horde_2', '2'),
   td('horde_3', '3', 'S_Fly'),
-  seq('boar_king', BOSSES + 'Boar King'),
-  seq('devil_leader', BOSSES + 'Devil Leader'),
-  seq('shaman_king', BOSSES + 'Shaman King'),
   seq('pirate_leader', PIRATES + 'Pirate Leader'),
   seq('pirate_zombie', PIRATES + 'Pirate Zombie'),
   seq('squidman', PIRATES + 'Squidman'),
   // the Himeko Sutori sprite share (see CREDITS.md)
-  himeko('hk_ogre', ['Large Humanoid/ogre_blue.png', 'Large Humanoid/ogre_armor1.png', 'Large Humanoid/OgreClub.png']),
-  himeko('hk_ogre_horned', ['Large Humanoid/ogre_blue.png', 'Large Humanoid/ogre_horn2_sprite_blue.png', 'Large Humanoid/OgreMace.png']),
-  himeko('hk_demon', ['Large Humanoid/LargeDemon.png', 'Large Humanoid/LargeDemon_Loincloth.png', 'Large Humanoid/OgreMace_Demon_Fire.png']),
-  himeko('hk_demon_lord', ['Large Humanoid/LargeDemon.png', 'Large Humanoid/LargeDemon_Armor01.png', 'Large Humanoid/OgreStaff_Demon.png']),
   himeko('hk_juggernaut', ['Large Humanoid/Juggernaut.png']),
   himeko('hk_tyrant', ['Tyrant/TyrantBase.png', 'Tyrant/Tyrant_Armor.png', 'Tyrant/Tyrant_Helm.png', 'Tyrant/Tyrant_Staff.png']),
   himeko('hk_slime_green', ['Slime/Slime_Green.png']),
@@ -122,13 +110,12 @@ const SPECS = [
   himeko('hk_zombie', ['Undead/Template_Zombie_green_shirt.png', 'Undead/Zombie Hair/Zombie_hair_caesar_black.png']),
   himeko('hk_zombie_bare', ['Undead/Template_Zombie_green.png', 'Undead/Zombie Hair/Zombie_hair_caesar_brown.png']),
   himeko('hk_zombie_brute', ['Undead/Template_Zombie_shirt.png', 'Undead/Zombie Hair/Zombie_hair_caesar_blond.png', 'Undead/Skeleton Weapons/Hammer_01_Mace_Undead.png']),
-  himeko('hk_imp', ['Other Monsters/Imp.png']),
-  // the orc warband (the Orc body in the barbarians' gear)
-  himeko('hk_orc_grunt', ['Orc.png', 'Barbarian_03_Raider_Male.png', 'Barbarian_03_Raider_Male_Top.png', 'Shield/Shield_Round_Male.png', 'Axe_01_Handaxe_Male.png']),
-  himeko('hk_orc_archer', ['Orc.png', 'Barbarian_01_Nomad_Male.png', 'Bow_01_Short_Male.png']),
-  himeko('hk_orc_brute', ['Orc.png', 'Barbarian_05_Mountain_Male.png', 'Barbarian_05_Mountain_Male_Top.png', 'Greathammer_01_Sledge_Male.png']),
-  himeko('hk_orc_warlord', ['Orc.png', 'Barbarian_06_Raging_Male.png', 'Barbarian_06_Raging_Male_Top.png', 'Helm/Helm_Horned_Male.png', 'Greataxe_06_Executioner_Male.png']),
 ];
+
+// Not built here (their packs.json entries are kept as they are): the orc warband, the imp, the demons and the ogres
+// (hk_orc_*, hk_imp, hk_demon, hk_demon_lord, hk_ogre, hk_ogre_horned), the Boar King, the Devil Leader, the Shaman
+// King, the three forest bosses and the Lich King (lich_king): sheets generated with PixelLab for Legends of the Fall,
+// copied as they are (see CREDITS.md and docs/notes/legends-assets.md).
 
 // (the heroes' extra rows come after the five every sheet has)
 const ROWS = ['walk', 'attack', 'idle', 'hurt', 'dead', 'attack2', 'defend'];

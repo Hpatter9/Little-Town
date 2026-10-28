@@ -252,9 +252,9 @@
   "facesRight": true
  },
  "forest_boss_1": {
-  "w": 118,
-  "h": 45,
-  "perRow": 6,
+  "w": 128,
+  "h": 125,
+  "perRow": 8,
   "rows": [
    "walk",
    "attack",
@@ -263,19 +263,19 @@
    "dead"
   ],
   "counts": {
-   "walk": 6,
-   "attack": 6,
+   "walk": 8,
+   "attack": 5,
    "idle": 4,
-   "hurt": 4,
-   "dead": 6
+   "hurt": 3,
+   "dead": 5
   },
-  "figure": 44,
-  "facesRight": false
+  "figure": 121,
+  "facesRight": true
  },
  "forest_boss_2": {
-  "w": 66,
-  "h": 47,
-  "perRow": 6,
+  "w": 142,
+  "h": 127,
+  "perRow": 8,
   "rows": [
    "walk",
    "attack",
@@ -284,19 +284,19 @@
    "dead"
   ],
   "counts": {
-   "walk": 6,
-   "attack": 6,
+   "walk": 8,
+   "attack": 5,
    "idle": 4,
-   "hurt": 4,
-   "dead": 6
+   "hurt": 3,
+   "dead": 5
   },
-  "figure": 44,
-  "facesRight": false
+  "figure": 115,
+  "facesRight": true
  },
  "forest_boss_3": {
-  "w": 56,
-  "h": 39,
-  "perRow": 6,
+  "w": 140,
+  "h": 127,
+  "perRow": 8,
   "rows": [
    "walk",
    "attack",
@@ -305,14 +305,14 @@
    "dead"
   ],
   "counts": {
-   "walk": 6,
-   "attack": 6,
+   "walk": 8,
+   "attack": 5,
    "idle": 4,
-   "hurt": 4,
-   "dead": 4
+   "hurt": 3,
+   "dead": 5
   },
-  "figure": 36,
-  "facesRight": false
+  "figure": 121,
+  "facesRight": true
  },
  "samurai": {
   "w": 192,
@@ -902,9 +902,9 @@
   "facesRight": false
  },
  "boar_king": {
-  "w": 138,
-  "h": 108,
-  "perRow": 10,
+  "w": 134,
+  "h": 124,
+  "perRow": 8,
   "rows": [
    "walk",
    "attack",
@@ -913,19 +913,19 @@
    "dead"
   ],
   "counts": {
-   "walk": 10,
-   "attack": 10,
-   "idle": 8,
-   "hurt": 5,
-   "dead": 10
+   "walk": 8,
+   "attack": 5,
+   "idle": 4,
+   "hurt": 3,
+   "dead": 5
   },
-  "figure": 85,
-  "facesRight": false
+  "figure": 118,
+  "facesRight": true
  },
  "devil_leader": {
-  "w": 142,
-  "h": 106,
-  "perRow": 10,
+  "w": 138,
+  "h": 118,
+  "perRow": 8,
   "rows": [
    "walk",
    "attack",
@@ -934,19 +934,19 @@
    "dead"
   ],
   "counts": {
-   "walk": 10,
-   "attack": 10,
-   "idle": 8,
-   "hurt": 5,
-   "dead": 10
+   "walk": 8,
+   "attack": 5,
+   "idle": 4,
+   "hurt": 3,
+   "dead": 5
   },
-  "figure": 94,
-  "facesRight": false
+  "figure": 111,
+  "facesRight": true
  },
  "shaman_king": {
-  "w": 144,
-  "h": 108,
-  "perRow": 10,
+  "w": 134,
+  "h": 122,
+  "perRow": 8,
   "rows": [
    "walk",
    "attack",
@@ -955,14 +955,14 @@
    "dead"
   ],
   "counts": {
-   "walk": 10,
-   "attack": 10,
-   "idle": 8,
-   "hurt": 5,
-   "dead": 10
+   "walk": 8,
+   "attack": 5,
+   "idle": 4,
+   "hurt": 3,
+   "dead": 5
   },
-  "figure": 92,
-  "facesRight": false
+  "figure": 121,
+  "facesRight": true
  },
  "pirate_leader": {
   "w": 138,
@@ -1028,87 +1028,79 @@
   "facesRight": false
  },
  "hk_ogre": {
-  "w": 134,
-  "h": 127,
-  "perRow": 4,
+  "w": 136,
+  "h": 121,
+  "perRow": 8,
   "rows": [
    "walk",
    "attack",
    "idle",
-   "hurt",
    "dead"
   ],
   "counts": {
-   "walk": 4,
-   "attack": 2,
+   "walk": 8,
+   "attack": 5,
    "idle": 1,
-   "hurt": 1,
-   "dead": 1
+   "dead": 5
   },
-  "figure": 107,
+  "figure": 118,
   "facesRight": true
  },
  "hk_ogre_horned": {
-  "w": 136,
-  "h": 128,
-  "perRow": 4,
+  "w": 124,
+  "h": 123,
+  "perRow": 5,
   "rows": [
    "walk",
    "attack",
    "idle",
-   "hurt",
    "dead"
   ],
   "counts": {
-   "walk": 4,
-   "attack": 2,
+   "walk": 5,
+   "attack": 5,
    "idle": 1,
-   "hurt": 1,
-   "dead": 1
+   "dead": 5
   },
-  "figure": 109,
+  "figure": 120,
   "facesRight": true
  },
  "hk_demon": {
-  "w": 134,
-  "h": 129,
-  "perRow": 4,
+  "w": 124,
+  "h": 123,
+  "perRow": 5,
   "rows": [
    "walk",
    "attack",
    "idle",
-   "hurt",
    "dead"
   ],
   "counts": {
-   "walk": 4,
-   "attack": 2,
+   "walk": 5,
+   "attack": 5,
    "idle": 1,
-   "hurt": 1,
-   "dead": 1
+   "dead": 5
   },
-  "figure": 119,
+  "figure": 118,
   "facesRight": true
  },
  "hk_demon_lord": {
-  "w": 132,
-  "h": 124,
-  "perRow": 4,
+  "w": 128,
+  "h": 125,
+  "perRow": 5,
   "rows": [
    "walk",
    "attack",
    "idle",
-   "hurt",
    "dead"
   ],
   "counts": {
-   "walk": 4,
-   "attack": 2,
+   "walk": 5,
+   "attack": 5,
    "idle": 1,
-   "hurt": 1,
-   "dead": 1
+   "dead": 5
   },
-  "figure": 119,
+  "figure": 123,
   "facesRight": true
  },
  "hk_juggernaut": {
@@ -1364,108 +1356,121 @@
   "facesRight": true
  },
  "hk_imp": {
-  "w": 42,
-  "h": 72,
-  "perRow": 4,
+  "w": 74,
+  "h": 63,
+  "perRow": 5,
   "rows": [
    "walk",
    "attack",
    "idle",
-   "hurt",
    "dead"
   ],
   "counts": {
-   "walk": 4,
-   "attack": 2,
+   "walk": 5,
+   "attack": 5,
    "idle": 1,
-   "hurt": 1,
-   "dead": 1
+   "dead": 5
   },
-  "figure": 46,
+  "figure": 61,
   "facesRight": true
  },
  "hk_orc_grunt": {
-  "w": 94,
-  "h": 98,
-  "perRow": 4,
+  "w": 72,
+  "h": 68,
+  "perRow": 5,
   "rows": [
    "walk",
    "attack",
    "idle",
-   "hurt",
    "dead"
   ],
   "counts": {
-   "walk": 4,
-   "attack": 2,
+   "walk": 5,
+   "attack": 5,
    "idle": 1,
-   "hurt": 1,
-   "dead": 1
+   "dead": 5
   },
-  "figure": 76,
+  "figure": 64,
   "facesRight": true
  },
  "hk_orc_archer": {
-  "w": 84,
-  "h": 79,
-  "perRow": 4,
+  "w": 74,
+  "h": 68,
+  "perRow": 5,
   "rows": [
    "walk",
    "attack",
    "idle",
-   "hurt",
    "dead"
   ],
   "counts": {
-   "walk": 4,
-   "attack": 2,
+   "walk": 5,
+   "attack": 5,
    "idle": 1,
-   "hurt": 1,
-   "dead": 1
+   "dead": 5
   },
-  "figure": 76,
+  "figure": 67,
   "facesRight": true
  },
  "hk_orc_brute": {
-  "w": 92,
-  "h": 106,
-  "perRow": 4,
+  "w": 98,
+  "h": 93,
+  "perRow": 5,
   "rows": [
    "walk",
    "attack",
    "idle",
-   "hurt",
    "dead"
   ],
   "counts": {
-   "walk": 4,
-   "attack": 2,
+   "walk": 5,
+   "attack": 5,
    "idle": 1,
-   "hurt": 1,
-   "dead": 1
+   "dead": 5
   },
-  "figure": 75,
+  "figure": 91,
   "facesRight": true
  },
  "hk_orc_warlord": {
-  "w": 116,
-  "h": 122,
-  "perRow": 4,
+  "w": 146,
+  "h": 118,
+  "perRow": 5,
+  "rows": [
+   "walk",
+   "attack",
+   "idle",
+   "dead"
+  ],
+  "counts": {
+   "walk": 5,
+   "attack": 5,
+   "idle": 1,
+   "dead": 5
+  },
+  "figure": 101,
+  "facesRight": true
+ },
+ "lich_king": {
+  "w": 134,
+  "h": 128,
+  "perRow": 5,
   "rows": [
    "walk",
    "attack",
    "idle",
    "hurt",
-   "dead"
+   "dead",
+   "attack2"
   ],
   "counts": {
-   "walk": 4,
-   "attack": 2,
-   "idle": 1,
-   "hurt": 1,
-   "dead": 1
+   "walk": 5,
+   "attack": 5,
+   "idle": 4,
+   "dead": 5,
+   "attack2": 5,
+   "hurt": 4
   },
-  "figure": 85,
+  "figure": 126,
   "facesRight": true
  }
 }
