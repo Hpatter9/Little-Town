@@ -973,6 +973,10 @@ async function start(): Promise<void> {
     return null;
   };
 
+  /** A building's card, or a daughter village's for its houses and fields (drawn as buildings with ids below zero:
+   *  sim/villages.ts). */
+  const buildingHit = (id: number): Hover => (id < 0 ? { kind: 'village', id: Math.floor((-id - 1) / 100) } : { kind: 'building', id });
+
   /** What in the town (or the expedition pane) is under a screen point. */
   const hitTest = (x: number, y: number): Hover => {
     if (x >= paneX) return x < paneX + paneW && y >= app.screen.height - STRIP_HEIGHT + PANE_HIT_TOP ? { kind: 'pane' } : null;
@@ -991,6 +995,9 @@ async function start(): Promise<void> {
     const vil = person && snap.villages.find((v) => v.folk.some((f) => f.id === person.id));
     if (vil) return { kind: 'village', id: vil.id };
     if (person) return { kind: 'person', person };
+    // (a building's art right under the finger, in front of the ground there, hides what stands on that ground)
+    const over = iso.buildingOver(x, y, w.x, w.y);
+    if (over !== null) return buildingHit(over);
     const pet = pets.petAt(w.x, w.y);
     if (pet) return { kind: 'pet', key: pet };
     const grave = graves.graveAt(w.x, w.y);
@@ -998,8 +1005,7 @@ async function start(): Promise<void> {
     const sign = signs.signAt(w.x, w.y);
     if (sign) return { kind: 'sign', sign };
     const building = iso.buildingAt(x, y);
-    // (a daughter village's houses and fields are drawn as buildings with ids below zero: sim/villages.ts)
-    if (building !== null) return building < 0 ? { kind: 'village', id: Math.floor((-building - 1) / 100) } : { kind: 'building', id: building };
+    if (building !== null) return buildingHit(building);
     const ruin = ruins.ruinAt(w.x, w.y);
     if (ruin) return { kind: 'ruin', id: ruin.id };
     const place = map.placeAt(w.x, w.y);

@@ -25,6 +25,7 @@ import { IsoCastleView, type CastleIn } from './isoCastleView';
 import { anyoneNear, doorSpot, gateSpan, hasWindows, lightBox, swing, windowSpots, worldMatrix } from './isoLight';
 import { cellsInView, footBase, footDepth, footWidth, isoBounds, isoOrigin, isoToWorld, ISO_TH, ISO_TW, standingDepth, tileToIso, worldToIso, type Rect } from './isoMath';
 import { flickerKind, isLit, lightAt, lightsIn, lightTint, placed, type LightKind } from './windowLights';
+import { pickArt, TAP_SLOP, type ArtBox } from './artPick';
 import { BoxGrid, behind, coverBox, fadeAlpha, fadeStep, isWalker, type Box } from './seeThrough';
 import { flicker, flickerSize, phaseOf } from '../map/flicker';
 import { reducedMotion } from '../ui/motion';
@@ -1092,22 +1093,78 @@ export class IsoView {
     return s?.visible ? { x: s.x, y: s.y - s.height } : null;
   }
 
-  /** The building whose picture is under a screen point, the front-most first (a roof hides what's behind it). */
+  /** The building whose picture is under a screen point, the front-most first (a roof hides what's behind it): its art
+   *  tested, not its box, so a tap through an empty corner finds the building behind (iso/artPick.ts). */
   buildingAt(sx: number, sy: number): number | null {
     const x = sx - this.world.x - this.root.x;
     const y = sy - this.world.y - this.root.y;
-    let best: { id: number; z: number } | null = null;
-    const room = this.castle.roomAt(x, y);
-    if (room !== null) best = { id: room, z: -1 };
+    return pickArt(this.picsNear(x, y), x, y) ?? this.castle.roomAt(x, y);
+  }
+
+  /** The building whose art is solid right under a screen point and drawn in front of the ground there (world px), or
+   *  none: what stands on that ground (a sign, a grave, a pet) is hidden behind the building, so the finger is on the
+   *  building. (The ground under a tall roof lies behind the building: a tap on the roof once opened the signpost there.) */
+  buildingOver(sx: number, sy: number, wx: number, wy: number): number | null {
+    const x = sx - this.world.x - this.root.x;
+    const y = sy - this.world.y - this.root.y;
+    const tx = wx / CELL;
+    const ty = wy / CELL;
+    const front = this.picsNear(x, y).filter((p) => {
+      const foot = this.buildings.get(p.id)?.foot;
+      return !!foot && standingDepth(tx, ty, [foot]) < p.z;
+    });
+    return pickArt(front, x, y, 0);
+  }
+
+  /** The buildings' pictures near a point (view px), as the tap tests them (iso/artPick.ts). */
+  private picsNear(x: number, y: number): ArtBox[] {
+    const pics: ArtBox[] = [];
     for (const [id, d] of this.buildings) {
       const s = d.sprite;
       if (!s.visible && !(this.artHidden.has(id) && s.texture.width > 1)) continue;
-      const w = s.width;
-      const h = s.height;
-      if (x < s.x - w / 2 || x > s.x + w / 2 || y < s.y - h || y > s.y) continue;
-      if (!best || s.zIndex > best.z) best = { id, z: s.zIndex };
+      const b = boxOf(s);
+      // (only those near the finger are worth reading)
+      if (x < b.x0 - TAP_SLOP || x > b.x1 + TAP_SLOP || y < b.y0 - TAP_SLOP || y > b.y1 + TAP_SLOP) continue;
+      const tex = s.texture;
+      pics.push({ ...b, id, z: s.zIndex, flip: s.scale.x < 0, alphaAt: (u, v) => this.alphaOf(tex, u, v) });
     }
-    return best?.id ?? null;
+    return pics;
+  }
+
+  /** Each picture's opacity, read once from its image (null where it can't be read). */
+  private alphas = new WeakMap<object, { w: number; h: number; a: Uint8Array } | null>();
+  /** The art's opacity at a point of a texture's frame (u, v from 0 to 1), or null if its image can't be read. */
+  private alphaOf(tex: Texture, u: number, v: number): number | null {
+    const src = tex.source;
+    let m = this.alphas.get(src);
+    if (m === undefined) {
+      m = null;
+      try {
+        const im = src.resource as CanvasImageSource & { width: number; height: number };
+        const w = src.pixelWidth;
+        const h = src.pixelHeight;
+        const c = document.createElement('canvas');
+        c.width = w;
+        c.height = h;
+        const g = c.getContext('2d', { willReadFrequently: true });
+        if (g && w > 0 && h > 0) {
+          g.drawImage(im, 0, 0, w, h);
+          const px = g.getImageData(0, 0, w, h).data;
+          const a = new Uint8Array(w * h);
+          for (let i = 0; i < a.length; i++) a[i] = px[i * 4 + 3];
+          m = { w, h, a };
+        }
+      } catch {
+        /* (not an image a canvas can read: the box counts) */
+      }
+      this.alphas.set(src, m);
+    }
+    if (!m) return null;
+    const f = tex.frame;
+    const k = m.w / src.width;
+    const px = Math.min(m.w - 1, Math.floor((f.x + u * f.width) * k));
+    const py = Math.min(m.h - 1, Math.floor((f.y + v * f.height) * k));
+    return m.a[py * m.w + px];
   }
 
   /** The screen's four corners as ground points (world px), for the minimap's frame: a slanted patch on the land. */
