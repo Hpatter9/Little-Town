@@ -80,6 +80,9 @@ const ARRIVAL_REPUTATION_MAX = 0.1;
 
 /** Hunger while asleep, as a share of awake. */
 export const ASLEEP_HUNGER = 0.5;
+/** A supper before bed (people.ts `chooseTask`, docs/notes/smarter-town.md): anyone below this eats first, while the
+ *  stores hold food, as a night's sleep (eight hours, at `ASLEEP_HUNGER`) would leave them waking hungry. */
+export const SUPPER = HUNGRY + 8 * FOOD_PER_HOUR * ASLEEP_HUNGER;
 
 export function drainNeeds(p: Person, asleep: boolean): void {
   if (tireless(p)) return; // (the dead, and machines, neither hunger nor tire)
