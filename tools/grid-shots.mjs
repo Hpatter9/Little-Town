@@ -58,7 +58,9 @@ async function pastMenu() {
   }
   await page.waitForTimeout(6000);
 }
-const out = 'docs/notes/grid-audit';
+// (`--out <dir>`: elsewhere than the audit's folder)
+const outAt = process.argv.indexOf('--out');
+const out = outAt > 0 ? process.argv[outAt + 1] : 'docs/notes/grid-audit';
 mkdirSync(out, { recursive: true });
 /** Put the camera over a cell, zoomed in, and shoot. */
 async function shoot(name, cx, cy) {

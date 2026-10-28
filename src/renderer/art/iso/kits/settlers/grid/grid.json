@@ -1,0 +1,380 @@
+{
+ "barrels": {
+  "anchor": [
+   12,
+   57
+  ],
+  "foot": [
+   1,
+   1
+  ],
+  "kind": "loose",
+  "bake": 0.6
+ },
+ "bush": {
+  "anchor": [
+   30,
+   63
+  ],
+  "foot": [
+   1,
+   1
+  ],
+  "kind": "loose",
+  "bake": 0.7
+ },
+ "campfire": {
+  "anchor": [
+   54,
+   83
+  ],
+  "foot": [
+   1,
+   1
+  ],
+  "plinth": [
+   1.52,
+   1.46
+  ],
+  "kind": "building",
+  "bake": 1
+ },
+ "cart": {
+  "anchor": [
+   18,
+   62
+  ],
+  "foot": [
+   1,
+   1
+  ],
+  "kind": "loose",
+  "bake": 0.6
+ },
+ "chapel": {
+  "anchor": [
+   103,
+   262
+  ],
+  "foot": [
+   3,
+   4
+  ],
+  "plinth": [
+   2.9,
+   3.78
+  ],
+  "kind": "building",
+  "bake": 1
+ },
+ "cottage": {
+  "anchor": [
+   90,
+   155
+  ],
+  "foot": [
+   2,
+   2
+  ],
+  "plinth": [
+   2.6,
+   2.38
+  ],
+  "kind": "building",
+  "bake": 1
+ },
+ "crates": {
+  "anchor": [
+   32,
+   62
+  ],
+  "foot": [
+   1,
+   1
+  ],
+  "kind": "loose",
+  "bake": 0.6
+ },
+ "fence_seg": {
+  "anchor": [
+   20,
+   71
+  ],
+  "foot": [
+   1,
+   1
+  ],
+  "kind": "seg",
+  "bake": 1,
+  "from": "fence",
+  "slope": 0.468
+ },
+ "granary": {
+  "anchor": [
+   76,
+   183
+  ],
+  "foot": [
+   2,
+   3
+  ],
+  "plinth": [
+   2.42,
+   2.78
+  ],
+  "kind": "building",
+  "bake": 1
+ },
+ "hay_bales": {
+  "anchor": [
+   37,
+   57
+  ],
+  "foot": [
+   1,
+   1
+  ],
+  "kind": "loose",
+  "bake": 0.6
+ },
+ "lamp_post": {
+  "anchor": [
+   16,
+   100
+  ],
+  "foot": [
+   1,
+   1
+  ],
+  "kind": "loose",
+  "bake": 0.6
+ },
+ "longhouse": {
+  "anchor": [
+   147,
+   226
+  ],
+  "foot": [
+   4,
+   3
+  ],
+  "plinth": [
+   4.14,
+   2.98
+  ],
+  "kind": "building",
+  "bake": 1
+ },
+ "market_stall": {
+  "anchor": [
+   154,
+   157
+  ],
+  "foot": [
+   4,
+   1
+  ],
+  "plinth": [
+   4.31,
+   1.19
+  ],
+  "kind": "building",
+  "bake": 1
+ },
+ "oak_tree": {
+  "anchor": [
+   56,
+   134
+  ],
+  "foot": [
+   1,
+   1
+  ],
+  "kind": "loose",
+  "bake": 0.73
+ },
+ "palisade_gate_seg": {
+  "anchor": [
+   64,
+   139
+  ],
+  "foot": [
+   2,
+   1
+  ],
+  "kind": "gate",
+  "bake": 1,
+  "from": "palisade_gate",
+  "slope": 0.258
+ },
+ "palisade_seg": {
+  "anchor": [
+   20,
+   129
+  ],
+  "foot": [
+   1,
+   1
+  ],
+  "kind": "seg",
+  "bake": 1,
+  "from": "palisade_run",
+  "slope": 0.463
+ },
+ "pine_tree": {
+  "anchor": [
+   36,
+   121
+  ],
+  "foot": [
+   1,
+   1
+  ],
+  "kind": "loose",
+  "bake": 0.73
+ },
+ "rocks": {
+  "anchor": [
+   24,
+   63
+  ],
+  "foot": [
+   1,
+   1
+  ],
+  "kind": "loose",
+  "bake": 0.58
+ },
+ "signpost": {
+  "anchor": [
+   18,
+   86
+  ],
+  "foot": [
+   1,
+   1
+  ],
+  "kind": "loose",
+  "bake": 0.6
+ },
+ "stockpile": {
+  "anchor": [
+   82,
+   140
+  ],
+  "foot": [
+   2,
+   2
+  ],
+  "plinth": [
+   2.18,
+   2.32
+  ],
+  "kind": "building",
+  "bake": 1
+ },
+ "stone_gate_seg": {
+  "anchor": [
+   64,
+   201
+  ],
+  "foot": [
+   2,
+   1
+  ],
+  "kind": "gate",
+  "bake": 1,
+  "from": "stone_gate",
+  "slope": 0.089
+ },
+ "stone_wall_seg": {
+  "anchor": [
+   20,
+   119
+  ],
+  "foot": [
+   1,
+   1
+  ],
+  "kind": "seg",
+  "bake": 1,
+  "from": "stone_wall_run",
+  "slope": 0.237
+ },
+ "tavern": {
+  "anchor": [
+   104,
+   217
+  ],
+  "foot": [
+   3,
+   3
+  ],
+  "plinth": [
+   2.61,
+   3.14
+  ],
+  "kind": "building",
+  "bake": 1
+ },
+ "watchtower": {
+  "anchor": [
+   88,
+   217
+  ],
+  "foot": [
+   2,
+   2
+  ],
+  "plinth": [
+   2.33,
+   2.5
+  ],
+  "kind": "building",
+  "bake": 1
+ },
+ "well": {
+  "anchor": [
+   53,
+   112
+  ],
+  "foot": [
+   1,
+   1
+  ],
+  "plinth": [
+   1.48,
+   1.45
+  ],
+  "kind": "building",
+  "bake": 1
+ },
+ "woodpile": {
+  "anchor": [
+   36,
+   51
+  ],
+  "foot": [
+   1,
+   1
+  ],
+  "kind": "loose",
+  "bake": 0.6
+ },
+ "workshop": {
+  "anchor": [
+   108,
+   221
+  ],
+  "foot": [
+   3,
+   3
+  ],
+  "plinth": [
+   2.96,
+   3.01
+  ],
+  "kind": "building",
+  "bake": 1
+ }
+}

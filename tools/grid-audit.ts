@@ -174,6 +174,9 @@ out.push('| look | feet above the spot (px) | tall (cell heights) |', '|---|---|
 for (const f of folk) out.push(`| ${f.look} | ${r0(f.feet)} | ${r1(f.tall)} |`);
 out.push('');
 mkdirSync('docs/notes/grid-audit', { recursive: true });
+// (every building's footprint, for tools/grid-recut.py: it bakes the shared pieces to the size their footprint asks)
+mkdirSync('out', { recursive: true });
+writeFileSync('out/grid-defs.json', JSON.stringify(Object.fromEntries(BUILDINGS.map((d) => [d.id, [d.width, depthOf(d)]]))));
 writeFileSync('docs/notes/grid-audit/measurements.md', out.join('\n'));
 if (process.argv.includes('--check')) {
   const bad = rows.map((r) => ({ r, why: breaks(r.fit) })).filter((x) => x.why.length);
