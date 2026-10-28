@@ -551,5 +551,39 @@
    ],
    "group": "dcd0318a-6c90-4194-a764-8b71e9696ebe"
   }
+ },
+ "founder_hero+hammer": {
+  "edited": true,
+  "character_id": "e1b956da-751b-4223-9fd7-bbaea1e17752",
+  "hammer": {
+   "done": [
+    "south",
+    "south-east",
+    "east",
+    "north-east",
+    "north",
+    "north-west",
+    "west",
+    "south-west"
+   ],
+   "group": "f8457c02-c4bb-439e-b82f-39868aa4b05e"
+  }
+ },
+ "founder_heroine+hammer": {
+  "edited": true,
+  "character_id": "f3196a9e-e002-49d9-899a-a18f80661db0",
+  "hammer": {
+   "done": [
+    "south",
+    "south-east",
+    "east",
+    "north-east",
+    "north",
+    "north-west",
+    "west",
+    "south-west"
+   ],
+   "group": "e8583b30-6600-47f8-a8d2-65ee409a60fe"
+  }
  }
 }

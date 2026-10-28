@@ -1,0 +1,23 @@
+{
+ "look": "founder_heroine+hammer",
+ "people": "settlers",
+ "frame": [
+  148,
+  148
+ ],
+ "directions": [
+  "south",
+  "south-east",
+  "east",
+  "north-east",
+  "north",
+  "north-west",
+  "west",
+  "south-west"
+ ],
+ "animations": {
+  "hammer": {
+   "frames": 9
+  }
+ }
+}

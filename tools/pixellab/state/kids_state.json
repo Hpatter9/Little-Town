@@ -40,6 +40,19 @@
     "south-west"
    ],
    "group": "bda02d91-63e6-419a-b930-3ed5705991af"
+  },
+  "run": {
+   "done": [
+    "south",
+    "south-east",
+    "east",
+    "north-east",
+    "north",
+    "north-west",
+    "west",
+    "south-west"
+   ],
+   "group": "2654c335-eaac-4f2d-818c-87f23ab27ffd"
   }
  },
  "settlers_girl": {
@@ -83,6 +96,19 @@
     "south-west"
    ],
    "group": "ce67f951-1882-415e-b30b-e90548bad653"
+  },
+  "run": {
+   "done": [
+    "south",
+    "south-east",
+    "east",
+    "north-east",
+    "north",
+    "north-west",
+    "west",
+    "south-west"
+   ],
+   "group": "5cb761a1-132a-4d31-9c07-0cfa08be8b36"
   }
  },
  "orcs_boy": {
