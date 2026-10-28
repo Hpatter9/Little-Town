@@ -114,7 +114,7 @@ export function renderShop(s: Snapshot, id: VenueId = 'shop', redraw: () => void
         'p',
         'empty',
         tavern
-          ? 'The town has no tavern yet. Once it learns Hospitality (after Barter) it builds a Fireside Inn, and travellers stop for a meal and a drink.'
+          ? 'The town has no tavern yet. Once it learns Hospitality (after Barter) it can build an Alehouse, and travellers stop for a meal and a drink.'
           : id === 'shop'
             ? 'The town has no shop yet. Once it learns Barter it builds a Trading Post, and travellers start stopping by.'
             : 'The town has not built this shop yet.',
@@ -811,7 +811,7 @@ function draw(c: HTMLCanvasElement, v: ShopView, t: number, dt: number): void {
 
   /** The stock on show: a fixture along the back wall, dressed for what the shop sells (data/stores.ts), with each
    *  piece in stock on it (its icon): a pegboard of weapons, armour on stands, the apothecary's shelves of jars and
-   *  bundled herbs, the furniture maker's long table, the general store's crates of goods and shelf of wares. */
+   *  bundled herbs, the furniture shop's long table, the general store's crates of goods and shelf of wares. */
   function display(): void {
     if (v.venue !== 'shop') return;
     const x = cellX(0) + 2;

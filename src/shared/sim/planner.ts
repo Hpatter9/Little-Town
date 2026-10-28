@@ -980,7 +980,7 @@ function wishes(s: GameState, n: Needs): { def: string; why: string }[] {
   // a shop, first thing, when the land can't give what the town needs (a desert's fiber, once it's gathered out)
   const shopPlanned = s.buildings.some((b) => isShop(b.def));
   const firstShop = BUILDING_BY_ID.trading_post;
-  // (a tavern starts as a Fireside Inn, or straight away as a Tavern for a town that learned brewing first)
+  // (a tavern starts as an Alehouse, or straight away as a Tavern for a town that learned brewing first)
   const tavernPlanned = s.buildings.some((b) => isTavern(b.def));
   const firstTavern = VENUE_CHAIN.tavern.map((id) => BUILDING_BY_ID[id]).find((d) => can(d));
   if (!shopPlanned && can(firstShop) && n.unsourced.length) add(firstShop.id, `to buy the ${names(n.unsourced)} it can't gather`);

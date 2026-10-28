@@ -275,7 +275,7 @@ export const SAGAS_3: readonly SagaDef[] = [
       cure: {
         kind: 'task',
         text: 'The cure needs a proper workshop to brew in.',
-        need: "an apothecary, a healer's hut or an infirmary",
+        need: "a stillroom, a healer's hut or an infirmary",
         check: (s) => has(s, 'apothecary', 'healers_hut', 'infirmary', 'hospital', 'pharmacy'),
         hours: 72,
         done: 'end_cured_apprentice',

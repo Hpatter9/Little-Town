@@ -1218,14 +1218,14 @@
 				{
 					"__identifier": "about",
 					"__type": "String",
-					"__value": "A common room with a bar: the bar along the left with its kegs behind, the hearth and its rug, a long table and a round one by the door. The brewery’s tap room; the inns (the Fireside Inn, the Tavern) are seen in their own window.",
+					"__value": "A common room with a bar: the bar along the left with its kegs behind, the hearth and its rug, a long table and a round one by the door. The brewery’s tap room; the alehouse and the tavern are seen in their own window.",
 					"__tile": null,
 					"defUid": 7,
 					"realEditorValues": [
 						{
 							"id": "V_String",
 							"params": [
-								"A common room with a bar: the bar along the left with its kegs behind, the hearth and its rug, a long table and a round one by the door. The brewery’s tap room; the inns (the Fireside Inn, the Tavern) are seen in their own window."
+								"A common room with a bar: the bar along the left with its kegs behind, the hearth and its rug, a long table and a round one by the door. The brewery’s tap room; the alehouse and the tavern are seen in their own window."
 							]
 						}
 					]
