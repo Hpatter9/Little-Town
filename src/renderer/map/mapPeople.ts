@@ -53,7 +53,8 @@ import fluteUrl from '../art/life/flute.png';
 import { markWalker } from '../iso/seeThrough';
 import { boardFacing, boardFolkAnim, type BoardMoment } from '../iso/boardRules';
 import { ITEM_BY_ID } from '../../shared/data/items';
-import { CROWN_SCALE, RING_W, markLift, wearsMark } from '../iso/founderMark';
+import { CROWN_SCALE, RING_W, markLying, markOverFeet, wearsMark } from '../iso/founderMark';
+import { sleepsOut } from '../iso/folkRules';
 import { iconSheet } from '../art/icons';
 import { CROWN } from '../../shared/data/emblems';
 
@@ -81,8 +82,6 @@ const HORSE_LEG_CUT = 0.5;
 const BLEED_MINUTES = 120;
 /** A PixelLab look's 160px frame to the map's people (the figure fills about two thirds of the frame). */
 const FOLK_SCALE = 0.55;
-/** A grown look's feet stand this far up from the foot of its 156px frame (measured: 126 of 156). */
-const BOARD_FEET = 30;
 const CHILD_SCALE = 0.7;
 /** A Himeko figure drawn as tall as the side-on townsfolk were (about 48px). */
 const HK_K = 48 / HK_FIGURE;
@@ -871,9 +870,9 @@ export class MapPeople {
           f.visible = true;
           // (not the side-on sprite's child shrink: a child's iso look is drawn child-sized, scaled by folkRules' own)
           f.scale.set(FOLK_SCALE * grown);
-          // (on the board their feet go on the tile's middle, as the raiders' and the God creature's do: a look's feet
-          // stand `BOARD_FEET` px up from its frame's foot)
-          f.position.set(s.x, s.y + (this.board ? BOARD_FEET * FOLK_SCALE * grown : 0));
+          // (the sprite is anchored at the figure's feet, not its frame's padded foot: iso/folkRules.ts `feetAnchor`, so
+          // they stand on their shadow on the map and on the tile's middle on the board)
+          f.position.set(s.x, s.y);
           f.zIndex = z;
           // (the board's spots are already iso: turned back to grid steps, a diamond's half-width being twice its height)
           const [fx, fy] = this.board ? [d.x / 2 + d.y, d.y - d.x / 2] : [d.x, d.y];
@@ -899,7 +898,8 @@ export class MapPeople {
       if (d.crown && d.crownRing) {
         d.crown.visible = d.crownRing.visible = crowned;
         if (crowned && d.folk) {
-          const lift = markLift(FOLK_SCALE * grown, now / 1000 + v.id);
+          // (lying asleep on the ground: the crown just over where they lie)
+          const lift = (sleepsOut(v, 0) && !moving ? markLying : markOverFeet)(FOLK_SCALE * grown, now / 1000 + v.id);
           d.crown.scale.set(CROWN_SCALE);
           d.crown.position.set(d.folk.x, d.folk.y);
           d.crown.children[0].y = Math.round(lift.crownDy / CROWN_SCALE);
@@ -1086,7 +1086,9 @@ export class MapPeople {
         }
       }
       this.speak(d, now, x, y, z, hidden, moment?.line);
-      const emote = hidden || d.visitor || d.view.bleedMinutes !== null ? null : (moment?.emote ?? this.emoteFor(d, now));
+      // (an iso townsperson asleep out of doors carries their own z's, over where they lie: iso/folkSprite.ts)
+      const ownZ = !!d.folk?.visible && d.view.activity === 'sleep' && !d.view.indoors;
+      const emote = hidden || d.visitor || d.view.bleedMinutes !== null || ownZ ? null : (moment?.emote ?? this.emoteFor(d, now));
       if (emote && !d.emote) d.emote = this.layer.addChild(new Sprite());
       if (d.emote) {
         d.emote.visible = !!emote;

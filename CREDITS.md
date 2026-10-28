@@ -379,6 +379,9 @@ the game.
   crocodiles, the Behemoth, possessed tomes, vampire bats, the desert caravan's camels and the druid's walking
   mushrooms (`creatures/lions.png`, `wilddogs.png`, `crocodiles.png`, `behemoth.png`, `tomes.png`, `bats.png`,
   `camel.png`, `shrooms.png`).
+  The black bat's flying rows are cut from `bats.png` into `art/fx_bat.png`, the bats over the event cards'
+  night scenes (`panel/scenePlayer.ts`); the cards' birds are `art/birds.png` and their smoke the pvfx smoke
+  (`art/effects/smoke.png`), both credited below.
 - **mobs** (mimic): the Mimic (`creatures/mimic.png`, its walk, attack, idle and disguise frames stacked into one
   sheet; see the licence note under Rival armies).
 

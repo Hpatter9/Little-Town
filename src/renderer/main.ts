@@ -45,7 +45,6 @@ import { sunAt } from './art/sun';
 import { MapMarket } from './map/mapMarket';
 import { SeasonDecor } from './map/seasonDecor';
 import { MapFelling } from './map/mapFelling';
-import { MapStockpile } from './map/mapStockpile';
 import { MapGains } from './map/mapGains';
 import { MapChores } from './map/mapChores';
 import { IsoView } from './iso/isoView';
@@ -214,7 +213,7 @@ import { fightSounds, globalSounds, soundsBetween, tacticsSounds, workSounds } f
 import { createAmbience } from './ambience';
 import { readLevel } from './volume';
 import { ambientMix, type AmbientMix } from './ambienceMix';
-import { burnLevel, doorSound } from './isoSounds';
+import { HEARTH, burnLevel, doorSound, hearthLevel } from './isoSounds';
 import { quietZones, zoneMix, zoneSources, type ZoneMix } from './soundZones';
 import { BUZZ, buzzesBetween, collapsesBetween, type Buzz } from './vibration';
 import { createActionBar, createBanner, createBeastAsk, createExpeditionHeader, createGameOver, createPersonCard, createPromptCard, createToasts, type Action } from './overlayUi';
@@ -531,8 +530,8 @@ async function start(): Promise<void> {
   (window as unknown as { __memory?: unknown }).__memory = { ruins, homeSigns }; // (previews)
   const lamps = new StreetLamps(map.things, map.lights); // (lamps along the streets, lit at dusk)
   const skiffs = new MapSkiffs(map.things); // (boats along the rivers)
-  // work you can see: trees falling and their stumps, the stockpile's heaps, gains floating up, the harvest left in the
-  // field, the well and the washing (map/workSeen.ts)
+  // work you can see: trees falling and their stumps, gains floating up, the harvest left in the field, the well and
+  // the washing (map/workSeen.ts; the stockpile's heaps are the iso view's own: iso/isoTown.ts `stockHeaps`)
   const felling = new MapFelling(lay);
   /** The least time between two falls heard (ms). */
   const FELL_HEARD_MS = 1500;
@@ -547,7 +546,6 @@ async function start(): Promise<void> {
     lastFelled = now;
     if (view.music && !view.hidden && x >= mv.x && x <= mv.x + mv.w && y >= mv.y && y <= mv.y + mv.h) ambience.cue(kind === 'tree' ? 'timber' : 'crumble', ((x - mv.x) / Math.max(1, mv.w)) * 1.6 - 0.8);
   };
-  const stockpile = new MapStockpile(lay, iso.artHidden);
   const gainsView = new MapGains(map.over);
   const chores = new MapChores(lay);
   {
@@ -571,7 +569,7 @@ async function start(): Promise<void> {
       ambience.cue('creak', d.pan);
     };
   }
-  (window as unknown as { __workSeen?: unknown }).__workSeen = { felling, stockpile, gains: gainsView, chores, people }; // (previews)
+  (window as unknown as { __workSeen?: unknown }).__workSeen = { felling, gains: gainsView, chores, people }; // (previews)
   const traffic = new RoadTraffic(map.things); // (carts along the roads)
   (window as unknown as { __traffic?: unknown }).__traffic = { skiffs, traffic, ground: map.groundWeather }; // (previews)
   // the dragon in the sky (map/mapDragon.ts)
@@ -2247,6 +2245,9 @@ async function start(): Promise<void> {
       ambMix.wind = Math.max(ambMix.wind, sky.mix.sand, sky.mix.blizzard);
       // (a burning building crackles and roars: louder the nearer the middle of the view and the more it has burned)
       ambMix.fire = Math.max(ambMix.fire, burnLevel(next.buildings.filter((b) => b.fire !== undefined).map((b) => ({ ...buildingCentre(b), fire: b.fire! })), v));
+      // (and the town's hearths crackle where they stand, louder after dark: isoSounds.ts `hearthLevel`)
+      const hearths = next.buildings.filter((b) => b.status === 'done' && HEARTH.test(b.def)).map((b) => ({ def: b.def, status: b.status, ...buildingCentre(b) }));
+      if (hearths.length) ambMix.fire = Math.max(ambMix.fire, hearthLevel(hearths, v) * (0.4 + 0.4 * (1 - next.calendar.daylight)));
       const raidNow = next.raid?.phase === 'active';
       if (raidNow && !wasRaid) ambience.cue('horn', 0, 0.2);
       wasRaid = raidNow;
@@ -2328,7 +2329,6 @@ async function start(): Promise<void> {
       map.setBuildingStyle(buildingTint(next.theme), style);
     }
     map.syncLand(next.land, next.calendar.season, next.biome, next.era); // (paints again only what changed)
-    stockpile.sync(next.buildings); // (before the buildings, so a stockpile's own picture is hidden at once)
     {
       iso.syncLand(next.land);
       iso.setKit(kitNameFor(next.origin.id, next.theme));

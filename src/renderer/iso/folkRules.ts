@@ -39,6 +39,8 @@ export type FolkState = Pick<PersonView, 'id' | 'activity' | 'sinceHit' | 'since
   rally?: PersonView['rally'];
   /** The founder (the snapshot's `mainId`): wears the founder's own look (FOUNDER_LOOKS), where it is drawn. */
   founder?: boolean;
+  /** Indoors (asleep in a bed, at work in a mine): not drawn lying out on the ground. */
+  indoors?: boolean;
 };
 
 /** The speed (map pixels a second) from which a walker is running. */
@@ -126,6 +128,21 @@ export function wantedAnim(st: FolkState, speed: number, family: string | undefi
   return 'idle';
 }
 
+/** Asleep out of doors (no bed: sim/roughSleep.ts lays them by the fire), on their feet and still: they lie down on
+ *  the ground (the owner: "sleeping on the ground animation"). Until a lying-asleep sheet is drawn, each look's
+ *  death sheet's last frame stands in: it ends lying flat, and is held still, breathing (`breathAt`). */
+export const sleepsOut = (st: FolkState, speed: number): boolean => st.activity === 'sleep' && !st.indoors && !st.downed && st.hp > 0 && speed <= 1;
+/** The facings whose fall ends lying calmly on the back or side (others end with a leg in the air), one by the id. */
+export const SLEEP_DIRS: readonly FolkDir[] = ['south', 'south-east'];
+export const sleepDir = (id: number): FolkDir => SLEEP_DIRS[Math.abs(id) % SLEEP_DIRS.length];
+/** A sleeper's breath: about one every `BREATH_S` seconds, the chest rising (the figure stretched up a little from the
+ *  ground, `sy`), each on their own beat. */
+export const BREATH_S = 4;
+export function breathAt(t: number, id: number): { sy: number } {
+  const u = (t / BREATH_S + (Math.abs(id) % 97) / 97) % 1;
+  return { sy: 1 + 0.035 * (0.5 - 0.5 * Math.cos(u * Math.PI * 2)) };
+}
+
 /** The animation to play: the wanted one, or the first the look has. A look with no `run` walks faster instead
  *  (`rate` above 1). `has(anim)` says whether the look has it (`stand` always is). */
 export function play(wanted: FolkAnim, has: (a: FolkAnim) => boolean): FolkPlay & { rate: number } {
@@ -172,9 +189,17 @@ export const isFolkChild = (st: Pick<FolkState, 'lifeStage' | 'growsUpIn'>): boo
  *  little more: at 0.85 a child stands about 70% of a grown-up's height. */
 export const CHILD_SCALE = 0.85;
 
-/** The children's art stands this many pixels higher in its frame than the grown looks' (their feet are about 40px
- *  above the frame's foot, a grown look's about 29), so a child is dropped by this much to stand on the same spot. */
-export const CHILD_FEET_LIFT = 11;
+/** A look's feet stand this many pixels up from the foot of its frame (the sheets are padded round the figure:
+ *  tools/pixellab/assemble_folk.py `PAD`; measured across the settlers' grown looks and the founder's, 156 and 148px
+ *  frames alike: 29). The sprite is anchored there, so the feet stand on the spot and on their shadow. */
+export const FOLK_FEET = 29;
+
+/** The children's art stands this many pixels higher in its frame than the grown looks' (their feet are about 36px
+ *  above the frame's foot, a grown look's 29), so a child is anchored this much higher to stand on the same spot. */
+export const CHILD_FEET_LIFT = 7;
+
+/** Where a look's sprite is anchored (a share of its frame's height, from the top): at the figure's feet. */
+export const feetAnchor = (frameH: number, child: boolean): number => 1 - (FOLK_FEET + (child ? CHILD_FEET_LIFT : 0)) / (frameH || 148);
 
 /** How tall a child's full figure stands against a grown-up's (the menus' full portraits crop each figure to itself,
  *  so they scale a child by this rather than CHILD_SCALE): the art's 80 against 95, then CHILD_SCALE. */

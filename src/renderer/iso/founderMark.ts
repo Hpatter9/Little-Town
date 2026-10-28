@@ -30,6 +30,20 @@ export function markLift(scale: number, t: number): { crownDy: number; ringDy: n
   return { crownDy: -HEAD_UP * scale - CROWN_GAP + bob, ringDy: -FEET_UP * scale };
 }
 
+/** The same lifts for a figure anchored at its feet (iso/folkSprite.ts): from the feet rather than the frame's foot,
+ *  so the ring sits on the spot itself. */
+export function markOverFeet(scale: number, t: number): { crownDy: number; ringDy: number } {
+  const l = markLift(scale, t);
+  return { crownDy: l.crownDy + FEET_UP * scale, ringDy: l.ringDy + FEET_UP * scale };
+}
+
+/** Lying asleep on the ground (iso/folkRules.ts `sleepsOut`), the figure's top stands this far up from its feet. */
+export const LYING_UP = 30;
+/** The lifts over someone lying down: the crown just over them, the ring on the spot. */
+export function markLying(scale: number, t: number): { crownDy: number; ringDy: number } {
+  return { crownDy: -LYING_UP * scale - CROWN_GAP + Math.sin(t * 2.4) * CROWN_BOB, ringDy: 0 };
+}
+
 /** Where the crown's foot and the ring's middle go (screen y), for a figure whose frame foot is at `frameFootY`. */
 export function markAt(frameFootY: number, scale: number, t: number): { crownY: number; ringY: number } {
   const l = markLift(scale, t);
