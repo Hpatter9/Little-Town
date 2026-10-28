@@ -16,6 +16,9 @@
   "south-west"
  ],
  "animations": {
+  "run": {
+   "frames": 6
+  },
   "walk": {
    "frames": 6
   },

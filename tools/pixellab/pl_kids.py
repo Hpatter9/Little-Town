@@ -12,6 +12,8 @@ import pl
 DIRS = ['south', 'south-east', 'east', 'north-east', 'north', 'north-west', 'west', 'south-west']
 STATE = 'pl/kids_state.json'
 MOVES = {'walk': 'walking', 'idle': 'breathing-idle', 'death': 'falling-back-death'}
+MOVES = {**MOVES, 'run': 'running-6-frames'}
+if os.environ.get('MOVES_ONLY'): MOVES = {m: MOVES[m] for m in os.environ['MOVES_ONLY'].split(',')}
 KID = ('a young child about seven years old: a big round head about a third of the whole height, short arms and legs, '
        'a small chubby body, a round young face with big eyes, no beard, simple hair. The child stands on the same ground '
        'line, centred, much shorter than the adult. Same pixel-art style, palette and outline; empty hands.')
