@@ -77,19 +77,31 @@ Baked in node over the whole of `test/fixtures/late-town.json.gz`'s 192x192 land
 median, 7.9 ms at the 90th centile, 14.6 ms at worst; 0.8 ms for a chunk all of one kind. A pixel of a cell beside an
 unlike one first sums how much of its unlike neighbours reaches it (`WEIGHTS`, made once): when too little does for
 anything to change (`SAFE_UNLIKE`, `SAFE_SHORE`, `SAFE_FOAM`, exact bounds) it is the cell's own pixel, unweighed
-(the same picture to the bit as weighing every pixel; that took 10 ms at the median). Panning normally, the chunks
-just off the screen are baked a few milliseconds a frame before they come on, so only a fling or a zoom out bakes at
-once.
+(the same picture to the bit as weighing every pixel; that took 10 ms at the median). Each surface's tinted tile is
+made once (`READY`), and the chunks' pixel buffers are reused (`spareImages`).
 
-`node tools/ground-perf.mjs` (393x852, the camera swept round the big town for 15 s at zoom 0.5 and 0.25, the CDP
-profiler on). This container has no GPU, so the frames are software rasterising (about one a second, before and after
-alike: median 900 / 817 ms at 0.5, 800 / 717 ms at 0.25) and only the JS can be compared. The ground's own JS: before
-108 ms (0.5) and 80 ms (0.25) of the 15 s (the block sprites and overlay cells, `paintGround`, `paintCells`); after 649
-and 493 ms (`bakeChunk` 416 / 294, `putImageData` 124 / 140, the rest small). The sweep is harsh: at a frame a second
-each frame jumps the camera about two chunks, so nearly every frame bakes a fresh screenful; on a phone at 60 frames a
-second the same pan bakes a chunk every few frames. All JS named in the profile, against which: 6,399 / 3,089 ms
-before, 4,457 / 3,593 after (it varies run to run by more than the ground's share). Memory: a chunk is a 768x384
-canvas and texture; the ones on screen and `CHUNKS_SPARE` (12) more are kept.
+No bake has to finish in one frame: the blend is baked a row of cells at a time (2 ms a frame, and up to 8 ms slices
+of idle time), and a chunk with nothing to show gets the quick unblended picture meanwhile.
+
+`node tools/ground-perf.mjs --throttle 4` (393x852 at pixel ratio 1, the CPU slowed four times through CDP to stand in
+for a phone, the town paused, the camera dragged round the big town 24 world px a frame for 60 frames, and flung 96
+px a frame for 40, at zoom 0.5 and 0.25). The view's work in a frame is timed in the page (`setCamera`: the ground,
+and the land's trees laid in view, `paintCells`, which every build does); throttled ms:
+
+| | drag 0.5 | drag 0.25 | fling 0.5 | fling 0.25 |
+|---|---|---|---|---|
+| main (before), worst frame | 100 | 361 | 324 | 181 |
+| main, 95th centile | 67 | 84 | 65 | 78 |
+| first blend (whole chunks, 4 ms a frame), worst | 102 | 100 | 126 | 194 |
+| first blend, 95th centile | 75 | 65 | 126 | 164 |
+| now (slices, unblended first), worst | 90 | 85 | 88 | 108 |
+| now, 95th centile | 54 | 59 | 85 | 94 |
+
+The ground's own JS over a whole run (the profile): main 708 / 1,141 / 697 / 739 ms; now 1,034 / 599 / 1,021 / 600.
+This container has no GPU: the frames are software rasterising (about 0.6 s each), the page is never idle, so none of
+the idle baking ran here and the blend fell behind the drag at 0.25 (chunks stayed unblended longer than they will on
+a phone, which has idle time between frames). Uploading a baked chunk's 768x384 texture to the GPU happens in the
+draw, outside these numbers (main uploads no new textures as it pans).
 
 ### The check
 
@@ -100,5 +112,4 @@ counts the ring round it; a tile's rim is filled.
 
 ### Checked
 
-`npm run typecheck`, `npm test` (1,876 pass; after the last speed change, which leaves the picture as it was, the
-ground, iso view and grid tests again), `npm run web`; the shots above at both sizes, by day and at night.
+`npm run typecheck`, `npm test` (all pass), `npm run web`; the shots above at both sizes, by day and at night.
