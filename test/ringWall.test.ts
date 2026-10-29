@@ -316,3 +316,31 @@ test('a star fort is raised all round like any ring', () => {
   assert.ok(s.ring?.done, 'the ring stands');
   assert.ok(lineOf(s.ring!).length > ringCells(s.ring!.rect).length, 'the bastions reach past the box');
 });
+
+import { JOBS, type Job, type Priority } from '../src/shared/data/people';
+import { firewoodWanted } from '../src/shared/sim/hardship';
+import { newTickContext, updatePerson } from '../src/shared/sim/people';
+import { Rng } from '../src/shared/rng';
+import { TICKS_PER_DAY } from '../src/shared/sim/time';
+
+test("from autumn the wall leaves the winter's firewood on the pile (docs/notes/winter-plague-delves.md)", () => {
+  const carries = (day: number) => {
+    const s = walledTown(`ring-firewood-${day}`);
+    s.autopilot = true;
+    s.tick += PLAN_TICKS;
+    runPlanner(s);
+    // (only the wall in work)
+    s.buildings = s.buildings.filter((b) => b.status === 'done' || b.ring !== undefined);
+    s.tick = day * TICKS_PER_DAY + (s.tick % TICKS_PER_DAY);
+    s.buildings[0].store = { wood: Math.floor(firewoodWanted({ ...s, tick: 22 * TICKS_PER_DAY } as GameState) / 2), stone: 500, fiber: 300, berries: 400 };
+    const p = s.people[1];
+    p.priorities = Object.fromEntries(JOBS.map((j) => [j, j === 'haul' ? 1 : 0])) as Record<Job, Priority>;
+    p.task = null;
+    p.needs = { food: 1, rest: 1 };
+    updatePerson(s, p, new Rng(3), newTickContext());
+    const task = p.task as { type: string; amounts?: Record<string, number> } | null; // (set by updatePerson)
+    return task?.type === 'fetch' ? (task.amounts?.wood ?? 0) : 0;
+  };
+  assert.ok(carries(12) > 0, 'in summer the wood goes to the wall');
+  assert.equal(carries(22), 0, 'in autumn the firewood stays on the pile');
+});

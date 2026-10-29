@@ -384,6 +384,9 @@ export class Sim {
     for (const u of s.raid?.battle?.units ?? []) if (u.person !== undefined) defenders.add(u.person);
     for (const p of s.people) if (defenders.has(p.id) && p.away === null) updatePerson(s, p, this.rng, ctx);
     if (s.raid) updateRaid(s, this.rng);
+    // (a raid's own question runs out on its clock while its board is up (raidWait.ts `holdForFight`), and is answered
+    // with its default here: else a "They break!" left unanswered on a finished board held the raid, and the town, for good)
+    for (const p of [...s.prompts]) if (p.kind === 'raid' && !p.waits && s.tick >= p.expiresTick) answerPrompt(s, p.id, p.defaultOption, this.rng);
     if (s.watching !== undefined) {
       updateExpeditions(s, this.rng);
       roamersTick(s);

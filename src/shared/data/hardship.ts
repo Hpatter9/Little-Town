@@ -15,7 +15,7 @@ export const FEVER_DAILY = 0.4;
 export const FEVER_TOWN = 10;
 export const FEVER_BEDLESS = 2;
 export const FEVER_NO_WELL = 0.6;
-export const FEVER_WINTER = 0.6;
+export const FEVER_WINTER = 1.2;
 /** The sick pass it on: the chance an hour for each person within `FEVER_NEAR` cells (by the same squalor). */
 export const FEVER_SPREAD = 0.015;
 export const FEVER_NEAR = 2;
@@ -42,3 +42,26 @@ export const FESTER_CLEARS = { sickbed: 0.25, bed: 0.06, about: 0.035 } as const
 export const WINTER_APPETITE = 0.25;
 export const COLD_HP_PER_HOUR = 2.5;
 export const WINTER_SNOW = 1.5;
+
+/** Winter's hearths (docs/notes/winter-plague-delves.md): every hearth at home burns this much firewood a head a day
+ *  through the winter (wood, else coal; a heater the Deep Freeze knows warms the town for nothing). With none to burn,
+ *  the town's hearths go cold: someone asleep in a bed then feels the cold too, at `COLD_IN_BED` of the ground's
+ *  rate. The town gathers this much a head for each winter day to come from autumn on (sim/planner.ts). */
+export const FIREWOOD_PER_HEAD = 0.6;
+export const COLD_IN_BED = 0.5;
+/** With the hearths cold, those awake at home are chilled too: they don't mend, and lose this share of the ground's
+ *  rate an hour. */
+export const COLD_AWAKE = 0.1;
+/** Winter's lean land: foraging (berries off the bush, a forager's wild food) at this pace. */
+export const WINTER_FORAGE = 0.35;
+/** And lean: the herds give this share of their milk, eggs and wool, and the hunters bring home this share of the
+ *  game (the slaughter is as it was). */
+export const WINTER_YIELD = 0.4;
+/** Food left out spoils: the share of a pile lost a day in an open store (a campfire's cache, a stockpile), and in a
+ *  granary (`SPOIL_GRANARY` of that). Fresh food goes fastest; grain slowly; what's dried, baked or packed keeps.
+ *  The winter's cold slows it (`SPOIL_WINTER`). */
+export const SPOIL_DAILY: Partial<Record<string, number>> = { berries: 0.08, fish: 0.08, meat: 0.06, milk: 0.1, eggs: 0.05, fruit: 0.05, vegetables: 0.04, kelp: 0.06, grain: 0.015 };
+export const SPOIL_GRANARY = 0.2;
+export const SPOIL_WINTER = 0.5;
+/** Winter's sickness: those cold or going hungry catch a fever this many times as readily. */
+export const FEVER_WEAK = 2;

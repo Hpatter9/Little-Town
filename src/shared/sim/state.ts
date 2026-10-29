@@ -675,7 +675,8 @@ export interface Person {
    *  the hours beside each townsperson at the same thing. */
   diary?: { day: number; hours: Record<string, number>; with: Record<number, number> };
   /** Sick with the plague until a tick (or a fever, from a crowded, dirty town: sim/hardship.ts). */
-  sick?: { until: number; treated?: boolean; fever?: boolean } | null;
+  sick?: { until: number; treated?: boolean; fever?: boolean; wasting?: boolean; herbs?: boolean } | null;
+  // (`wasting`: the plague's sickness, which stops the body mending; `herbs`: a draught taken for it: sim/doom.ts)
   /** Over a fever: spared another till this tick (sim/hardship.ts). */
   feverSpared?: number;
   /** Asleep on the ground in winter: losing health to the cold, and not mending (sim/hardship.ts). */
@@ -1142,6 +1143,12 @@ export interface GameState {
   tick: number;
   /** Ticks the day's clock has stood still while the town was held for a fight on screen (time.ts `clockTick`); left out in older saves: none. */
   fightTicks?: number;
+  /** Winter's hearths (sim/hardship.ts `hearths`): the part of a log owed to the next hour, and whether they've gone
+   *  cold for want of firewood. Left out in older saves: nothing owed, lit. */
+  hearthOwed?: number;
+  hearthsCold?: boolean;
+  /** The winter's firewood put by from autumn on, the hearths' alone (sim/hardship.ts `stackWoodpile`). Left out: none. */
+  woodpile?: number;
   /** State of the simulation RNG. All sim randomness draws from this, never Math.random(). */
   rngState: number;
   paused: boolean;
