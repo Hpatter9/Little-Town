@@ -106,7 +106,8 @@ test('the game buildings map to kit pieces, falling back to the cottage', () => 
   assert.equal(pieceFor(settlers, 'granary'), 'granary');
   assert.equal(pieceFor(settlers, 'stockpile'), 'stockpile');
   assert.equal(pieceFor(settlers, 'longhouse'), 'longhouse');
-  assert.equal(pieceFor(settlers, 'smithy'), 'workshop');
+  // (its part's piece, the workshop, until a picture of its own is in: docs/notes/pixellab-plan.md)
+  assert.equal(pieceFor(settlers, 'smithy'), SHARED_PIECES.has('smithy') ? 'smithy' : 'workshop');
   assert.equal(pieceFor(settlers, 'temple'), 'chapel');
   assert.equal(pieceFor(settlers, 'watchtower'), 'watchtower');
   assert.equal(pieceFor(settlers, 'palisade_wall'), 'palisade_run');

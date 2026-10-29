@@ -92,7 +92,9 @@ export interface GridPlan {
 }
 export function gridPlan(kit: string, defId: string, foot: Rect): GridPlan | null {
   const role = roleOf(defId);
-  if (!('role' in role) || role.role === 'wall_run' || role.role === 'wall_corner' || role.role === 'gate' || role.role === 'stockade' || role.role === 'pen') return null;
+  if (!('role' in role) || role.role === 'wall_run' || role.role === 'wall_corner' || role.role === 'gate' || role.role === 'pen') return null;
+  // (the stockade is built of the kit's palisade round its edges until a picture of its own fits it)
+  if (role.role === 'stockade') return ownPlan(kit, defId, foot);
   const piece = pieceFor(kitOf(kit), defId);
   const got = gridRec(kit, piece);
   if (!got || (got.rec.kind !== 'building' && got.rec.kind !== 'loose')) return null;
@@ -106,10 +108,21 @@ export function gridPlan(kit: string, defId: string, foot: Rect): GridPlan | nul
   return { piece, rec: got.rec, shared: got.shared, sub: foot, flip: b > a, shrink: Math.max(a, b) };
 }
 
+/** A building's own picture (a shared piece of its name, cut to the grid) where it fits its footprint as drawn, else
+ *  null: the stockade, which is otherwise built of palisade (iso/isoView.ts). */
+export function ownPlan(kit: string, defId: string, foot: Rect): GridPlan | null {
+  const got = SHARED_PIECES.has(defId) ? gridRec(kit, defId) : null;
+  if (!got || got.rec.kind !== 'building') return null;
+  const fit = fitIn(got.rec.foot, foot);
+  return fit ? { piece: defId, rec: got.rec, shared: got.shared, ...fit, shrink: 1 } : null;
+}
+
 /** The settlers' buildings with no picture that fits their footprint yet, drawn with a borrowed one made smaller
- *  (`gridPlan`'s `shrink`), the most built first: the list for PixelLab (docs/notes/grid-audit.md). By the age they
- *  open in, earliest first, homes and work before the rest. The test checks it is exactly the ones that shrink. */
-export const AWAITING_ART: readonly string[] = [
+ *  (`gridPlan`'s `shrink`), the most built first: the list for PixelLab (docs/notes/grid-audit.md,
+ *  docs/notes/pixellab-plan.md). By the age they open in, earliest first, homes and work before the rest. A building
+ *  leaves the list by itself once a picture of its own is in (`AWAITING_ART`: a shared piece of its name, cut to the
+ *  grid, tools/pixellab/assemble_nov.py); the test checks the list is exactly the ones that shrink. */
+const WAITING: readonly string[] = [
   // (from the start and the first age)
   'lean_to', 'healers_hut', 'workbench', 'tanning_rack', 'drying_rack', 'smokehouse', 'kiln', 'basketry', 'bone_carver',
   'fireside_inn', 'trading_post', 'graveyard', 'wayside_shrine', 'quarry', 'monster_guild', 'militia_post',
@@ -124,6 +137,20 @@ export const AWAITING_ART: readonly string[] = [
   // (the Space age)
   'bio_lab', 'deep_mine', 'nanoforge', 'battery_plant', 'laser_turret', 'tesla_coil', 'launch_site',
 ];
+/** Whether a building has a picture drawn for it (a shared piece of its own name, cut to the grid). The launch site's
+ *  first piece lies the wrong way on its footprint, so it waits for one whose record says its own footprint. */
+export function hasOwnPicture(defId: string, foot: readonly [number, number]): boolean {
+  const rec = SHARED_GRID[defId];
+  if (!rec || rec.kind !== 'building') return false;
+  const [w, h] = rec.foot;
+  return (w === foot[0] && h === foot[1]) || (w === foot[1] && h === foot[0]);
+}
+/** Of the waiting list, the ones still waiting: those whose own picture isn't in yet. */
+export const stillWaiting = (ids: readonly string[], own: (id: string) => boolean): string[] => ids.filter((id) => !own(id));
+export const AWAITING_ART: readonly string[] = stillWaiting(WAITING, (id) => {
+  const d = BUILDING_BY_ID[id];
+  return !!d && hasOwnPicture(id, [d.width, depthOf(d)]);
+});
 
 /** Pens drawn as a fence round bare ground: the herds' pens, and the buildings for beasts with no picture of their own
  *  (the God creature's pen, the stable, the kennels, the beast ranch). */
@@ -210,6 +237,15 @@ export function wallPost(kit: string, seg: string): { piece: string; rec: GridRe
   const rec = GRID[kit]?.[piece];
   return rec && rec.kind === 'post' ? { piece, rec } : null;
 }
+
+/** The corners of a footprint's edges (cells, as `penEdges`' segs' middles), the back one first: where a pen's or the
+ *  stockade's corner posts stand when the kit has them (`wallPost`). */
+export const penCorners = (f: Rect): { x: number; y: number }[] => [
+  { x: f.x, y: f.y },
+  { x: f.x + f.w, y: f.y },
+  { x: f.x, y: f.y + f.h },
+  { x: f.x + f.w, y: f.y + f.h },
+];
 
 /** A kit's one-cell fence seg (for pens), if cut. */
 export const fenceSeg = (kit: string): { piece: string; rec: GridRec } | null => {

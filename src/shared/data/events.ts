@@ -371,7 +371,7 @@ const BASE_EVENTS: readonly EventDef[] = [
     options: [opt('Hunt the pack', chance(0.7, [gain({ hide: 4, meat: 4 })], [{ wound: 'random', hp: 25 }])), dflt('Build a better fence', { take: 'stores', share: 0.03 })],
   },
   {
-    id: 'bear', scene: 'beast', title: 'A bear', text: 'A bear is sleeping under the stockpile.',
+    id: 'bear', scene: 'bear', title: 'A bear', text: 'A bear is sleeping under the stockpile.',
     options: [opt('Drive it off', chance(0.6, [gain({ hide: 4, meat: 8 })], [{ wound: 'random', hp: 40 }])), dflt('Let it sleep', mod('work', 0.9, 24, 'A bear under the stockpile'))],
   },
   {

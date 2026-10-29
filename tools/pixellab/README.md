@@ -44,3 +44,11 @@ Oct 23: `pl_armed.py` gave the peoples' casts one tool each (axe or hammer, a v3
 
 Still to make: the other tool for each cast look, if wanted (see
 `pl_batch.py`'s `armed()` shows how).
+
+Oct 29: the November batch, ready for the reset (docs/notes/pixellab-plan.md). `batch_nov.py` makes the settlers'
+buildings with no picture that fits, lying asleep, the wheelbarrow and the push, the stockade, heaps, flame and corner
+pieces, the God creatures' weak spots and the side-on card beasts: `DRY=1` prints every request and its cost,
+`TEST_ONLY=1` makes one of each kind and stops, `BUDGET=` caps the run (read from the balance), `REDO=` makes an item
+again. State: `pl/nov_state.json`; pictures in `pl/nov/<phase>/`. `assemble_nov.py <repo> [kinds]` drops what's finished
+into the game and checks it (a building that doesn't fit its footprint is left out); `assemble_nov.py <repo> test` lays
+the tests side by side in `pl/nov/test/contact.png`.

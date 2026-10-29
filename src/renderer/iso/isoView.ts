@@ -28,11 +28,11 @@ import { flickerKind, isLit, lightAt, lightsIn, lightTint, placed, type LightKin
 import { pickArt, TAP_SLOP, type ArtBox } from './artPick';
 import { BoxGrid, behind, coverBox, fadeAlpha, fadeStep, isWalker, type Box } from './seeThrough';
 import { flicker, flickerSize, phaseOf } from '../map/flicker';
-import { EMBERS, emberAt, flameBox, hearthGlow, tongueAt } from './fireLook';
+import { EMBERS, emberAt, flameBox, flameFrame, FLAME_URL, hearthGlow, stripFrames, tongueAt } from './fireLook';
 import { reducedMotion } from '../ui/motion';
 import { LIGHT_KIND } from '../../shared/data/lighting';
 import { footDiamond, measureBase, pictureScale, type ArtBase } from './gridAudit';
-import { fenceSeg, wallPost, gatePlan, gridPlan, gridUrl, isFencedPen, looseRec, penEdges, snapSpots, SHARED_KIT, wallArms, wallSeg, yardCells, type GridRec } from './gridRules';
+import { fenceSeg, wallPost, gatePlan, gridPlan, gridUrl, isFencedPen, looseRec, penCorners, penEdges, snapSpots, SHARED_KIT, wallArms, wallSeg, yardCells, type GridRec } from './gridRules';
 import { HERDS } from '../../shared/data/livestock';
 
 /** The grid audit's overlay (docs/notes/grid-audit.md), for developers only: on with `?grid` in the page's address,
@@ -250,7 +250,9 @@ export class IsoView {
   /** What the see-through pass cost lately (ms a frame, smoothed), for measuring on a phone. */
   seeCost = 0;
   private lampEra: Era | null = null;
-  private lampHadTex = false;
+  private lampHadTex = '';
+  /** The torches' flames (PixelLab's strip, `FLAME_URL`), each with its frames and its own beat. */
+  private lampFlames: { s: Sprite; frames: Texture[]; phase: number }[] = [];
   private markedKey = '';
   /** The planned streets last drawn (the land's string: a new one when any cell changes). */
   private plannedSeen: string | undefined = undefined;
@@ -535,9 +537,12 @@ export class IsoView {
     const same = era === this.lampEra && lights.length === this.lamps.length && lights.every((l, i) => l.x === this.lamps[i].x && l.y === this.lamps[i].y && l.lit === this.lamps[i].lit);
     const post = LAMP_LOOK[era] ?? LAMP_LOOK.medieval;
     const tex = post.kind === 'post' ? this.texUrl(lampUrl) : null;
-    const have = post.kind === 'post' ? tex !== null : true;
+    const flame = (post.kind === 'torch' || !tex) && FLAME_URL ? this.texUrl(FLAME_URL) : null;
+    const have = `${post.kind === 'post' ? tex !== null : true}:${flame !== null}`;
     if (same && have === this.lampHadTex) return;
     this.lampHadTex = have;
+    this.lampFlames = [];
+    const frames = flame ? Array.from({ length: stripFrames(flame.width, flame.height) }, (_, i) => new Texture({ source: flame.source, frame: new Rectangle(flame.frame.x + i * flame.height, flame.frame.y, flame.height, flame.height) })) : [];
     this.lampEra = era;
     this.lamps = lights.map((l) => ({ x: l.x, y: l.y, lit: l.lit }));
     for (const s of this.lampSprites) {
@@ -556,8 +561,16 @@ export class IsoView {
         const g = new Graphics();
         g.rect(-1, -22, 2, 22).fill(0x5a3a20);
         g.rect(-2, -26, 4, 5).fill(0x3a2a18);
-        g.circle(0, -28, 2.5).fill(l.lit ? 0xffa030 : 0x5a4a38);
-        if (l.lit) g.circle(0, -29, 1.3).fill(0xfff0a0);
+        if (l.lit && frames.length) {
+          // (its flame from the strip, flickering on its own beat: `animate`)
+          const f = g.addChild(new Sprite(frames[0]));
+          f.anchor.set(0.5, 1);
+          f.position.set(0, -25);
+          this.lampFlames.push({ s: f, frames, phase: phaseOf(l.x + 0.5, l.y + 0.5) });
+        } else {
+          g.circle(0, -28, 2.5).fill(l.lit ? 0xffa030 : 0x5a4a38);
+          if (l.lit) g.circle(0, -29, 1.3).fill(0xfff0a0);
+        }
         stand = g;
       } else {
         const sp = new Sprite(tex);
@@ -808,14 +821,17 @@ export class IsoView {
       if (!g) return null;
       return { kind: 'gate', main: { url: gridUrl(kit, g.piece, false), rec: g.rec, flip: g.flip, at: front(foot), z: footDepth(foot) }, extras: [], pic: foot, yard: [], piece: g.piece, shared: false, k };
     }
-    if ('role' in role && role.role === 'stockade') {
+    // (the stockade's own picture, once it has one: tools/pixellab/assemble_nov.py)
+    const own = 'role' in role && role.role === 'stockade' ? gridPlan(kit, b.def, foot) : null;
+    if ('role' in role && role.role === 'stockade' && !own) {
       // (the prisoners' pen: the palisade round its edges, its gate on the front-left edge's middle)
       const seg = wallSeg(kit, b.def);
       const g = gatePlan(kit, b.def, { x: 0, y: 0, w: 2, h: 1 });
       if (!seg || !g) return null;
       const e = penEdges(foot, g.rec.foot[0]);
       const url = gridUrl(kit, seg.piece, false);
-      const extras = e.segs.map((q) => ({ url, rec: seg.rec, flip: q.alongY, at: at1(q.x, q.y), z: q.x + q.y + 1 }));
+      const extras: Placed[] = e.segs.map((q) => ({ url, rec: seg.rec, flip: q.alongY, at: at1(q.x, q.y), z: q.x + q.y + 1 }));
+      extras.push(...this.cornerPosts(kit, seg.piece, foot));
       const way = e.way!;
       const main: Placed = { url: gridUrl(kit, g.piece, false), rec: g.rec, flip: false, at: { x: way.x + way.cells / 2, y: way.y + 0.5 }, z: way.x + way.y + 1 };
       return { kind: 'pen', main, extras, pic: foot, yard: yardCells(foot, { ...foot, w: 0, h: 0 }), piece: g.piece, shared: false, k };
@@ -826,14 +842,15 @@ export class IsoView {
       if (!fence) return null;
       const url = gridUrl(kit, fence.piece, false);
       const e = penEdges(foot, 1);
-      const extras = e.segs.map((q) => ({ url, rec: fence.rec, flip: q.alongY, at: at1(q.x, q.y), z: q.x + q.y + 1 }));
+      const extras: Placed[] = e.segs.map((q) => ({ url, rec: fence.rec, flip: q.alongY, at: at1(q.x, q.y), z: q.x + q.y + 1 }));
+      extras.push(...this.cornerPosts(kit, fence.piece, foot));
       const hay = looseRec(kit, 'hay_bales');
       const mx = foot.x + Math.floor(foot.w / 2);
       const my = foot.y + Math.floor(foot.h / 2);
       const main = hay ? { url: gridUrl(kit, 'hay_bales', false), rec: hay, flip: cellHash(b.id, 1, 29) < 0.5, at: { x: mx + 1, y: my + 1 }, z: mx + my + 1 } : extras.shift()!;
       return { kind: 'pen', main, extras, pic: foot, yard: yardCells(foot, { ...foot, w: 0, h: 0 }), piece: hay ? 'hay_bales' : fence.piece, shared: false, k };
     }
-    const plan = gridPlan(kit, b.def, foot);
+    const plan = own ?? gridPlan(kit, b.def, foot);
     if (!plan) return null;
     const pk = plan.shared ? kitOf(SHARED_KIT).scale * ISO_ART : k;
     // (a borrowed picture too big for its footprint, made smaller while it waits for its own: on the footprint's middle)
@@ -851,6 +868,15 @@ export class IsoView {
       shared: plan.shared,
       k: pk * plan.shrink,
     };
+  }
+
+  /** A pen's or the stockade's corner posts, where the kit has a corner piece for its fence or wall (`wallPost`:
+   *  the fence's or the palisade's own, from PixelLab); none until then, the half runs meeting at the corners. */
+  private cornerPosts(kit: string, seg: string, foot: Rect): Placed[] {
+    const post = wallPost(kit, seg);
+    if (!post) return [];
+    const url = gridUrl(kit, post.piece, false);
+    return penCorners(foot).map((c) => ({ url, rec: post.rec, flip: false, at: { x: c.x + 0.5, y: c.y + 0.5 }, z: c.x + c.y + 1.002 }));
   }
 
   /** A placed piece's picture (its half, for a wall's arm), null while it loads. */
@@ -1164,6 +1190,7 @@ export class IsoView {
     const t = this.flicker;
     const gentle = reducedMotion();
     const night = this.glow.visible;
+    for (const f of this.lampFlames) f.s.texture = f.frames[flameFrame(t, f.phase, f.frames.length, gentle)];
     // (the street lamps' flames waver, each on its own beat; electric light holds steady)
     if (night)
       for (const g of this.lampGlows) {

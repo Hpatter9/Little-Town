@@ -8,7 +8,7 @@ export const EVENT_SCENE_IDS = [
   // at the gate and on the road
   'gate', 'refugees', 'envoy', 'caravan', 'shady', 'road',
   // danger
-  'raid_warning', 'battle', 'beast', 'dragon', 'fire', 'storm', 'quake', 'winter', 'drought', 'famine', 'plague', 'calamity',
+  'raid_warning', 'battle', 'beast', 'bear', 'dragon', 'fire', 'storm', 'quake', 'winter', 'drought', 'famine', 'plague', 'calamity',
   // the land and its work
   'harvest', 'farm', 'well', 'mine', 'sea', 'wilds',
   // life and death

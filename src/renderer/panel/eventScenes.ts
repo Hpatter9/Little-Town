@@ -9,6 +9,7 @@
 import { EVENT_BY_ID, EVENTS, type EventDef } from '../../shared/data/events';
 import type { EventSceneId } from '../../shared/data/eventSceneIds';
 import { SLOT } from './eventCast';
+import { PACK_LAYOUT } from '../art/creatures/packs';
 import { eventFamily, type Actor, type Anim, type Crowd, type EventFamily, type Prop, type SceneScript } from './sceneScripts';
 
 const { lead: L, founder: F, elder: E1, elder2: E2, elder3: E3, stranger: S, stranger2: S2, stranger3: S3, knight: K, priest: PR, merchant: M } = SLOT;
@@ -18,6 +19,9 @@ const P = (id: string, x: number, y = 0.93, o: Partial<Prop> = {}): Prop => ({ i
 /** The crowd: townsfolk from the cast's crowd places. */
 const C = (n: number, x: [number, number], y: [number, number], h: number, face: Crowd['face'], anim?: Anim, rows?: 1): Crowd => ({ n, x, y, h, face, from: SLOT.crowd, ...(anim ? { anim } : {}), ...(rows ? { rows } : {}) });
 /** An audience along the front of the picture, backs to us: heads and shoulders under what they're watching. */
+/** The side-on beasts drawn for the cards with PixelLab (`pl_wolf`, `pl_bear`, `pl_dragon`: art/creatures/packs.json,
+ *  tools/pixellab/assemble_nov.py), once their sheets are in; the packs' stand-ins until then. */
+export const made = (id: string, stand: string): string => (PACK_LAYOUT[id] ? id : stand);
 const AUDIENCE = (n: number, x: [number, number] = [0.05, 0.95]): Crowd => C(n, x, [1.04, 1.04], 34, 'b', undefined, 1);
 /** A row of the same prop: a fence, a field of crops. */
 const row = (id: string, from: number, to: number, step: number, y: number, o: Partial<Prop> = {}): Prop[] => {
@@ -203,7 +207,16 @@ export const EVENT_SCENES: Record<EventSceneId, SceneScript> = {
     back: 'forest_2',
     tint: ['#102418', 0.18],
     props: [P('tree', 0.92, 0.97, { k: 0.8 }), P('fence', 0.06, 0.95), P('fence', 0.16, 0.95), P('sheep', 0.1, 0.92, { flip: true })],
-    actors: [A(L, 'shoot', 0.32, 44, { y: 0.94, face: 'r' }), A(K, 'shoot', 0.2, 42, { y: 0.97, face: 'r' }), A('werewolf_black', 'walk', [1.05, 0.72], 50, { y: 0.94, face: 'l' })],
+    actors: [A(L, 'shoot', 0.32, 44, { y: 0.94, face: 'r' }), A(K, 'shoot', 0.2, 42, { y: 0.97, face: 'r' }), A(made('pl_wolf', 'werewolf_black'), 'walk', [1.05, 0.72], 50, { y: 0.94, face: 'l' })],
+    crowd: [C(2, [0.4, 0.48], [0.88, 0.9], 38, 'r')],
+    fx: [{ kind: 'leaves', n: 8 }, { kind: 'mist', n: 2, colour: '#6fa97a' }],
+  },
+  // a bear at the pens' edge, the hunters with bows drawn (the beast's scene, with its own bear once drawn)
+  bear: {
+    back: 'forest_2',
+    tint: ['#102418', 0.18],
+    props: [P('tree', 0.92, 0.97, { k: 0.8 }), P('fence', 0.06, 0.95), P('fence', 0.16, 0.95), P('sheep', 0.1, 0.92, { flip: true })],
+    actors: [A(L, 'shoot', 0.32, 44, { y: 0.94, face: 'r' }), A(K, 'shoot', 0.2, 42, { y: 0.97, face: 'r' }), A(made('pl_bear', 'werewolf_black'), 'walk', [1.05, 0.7], 56, { y: 0.95, face: 'l' })],
     crowd: [C(2, [0.4, 0.48], [0.88, 0.9], 38, 'r')],
     fx: [{ kind: 'leaves', n: 8 }, { kind: 'mist', n: 2, colour: '#6fa97a' }],
   },
@@ -212,7 +225,7 @@ export const EVENT_SCENES: Record<EventSceneId, SceneScript> = {
     back: 'peaks_2',
     tint: ['#401000', 0.2],
     props: [P('house', 0.12, 0.96, { k: 0.7 })],
-    actors: [A('hk_demon_lord', 'walk', [1.15, 0.55], 34, { y: 0.4, face: 'l', bob: 6 }), A(L, 'shoot', 0.36, 44, { y: 0.94, face: 'r' })],
+    actors: [A(made('pl_dragon', 'hk_demon_lord'), 'walk', [1.15, 0.55], 34, { y: 0.4, face: 'l', bob: 6 }), A(L, 'shoot', 0.36, 44, { y: 0.94, face: 'r' })],
     crowd: [C(6, [0.46, 0.96], [0.92, 0.98], 40, 'r')],
     fx: [{ kind: 'embers', n: 12, colour: '#ff7a2a' }, { kind: 'smoke', n: 5, at: [0.7, 0.5], colour: '#3a3a3a' }, { kind: 'flash', n: 1, colour: '#ffb060' }],
   },
