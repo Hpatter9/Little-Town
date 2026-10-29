@@ -384,8 +384,10 @@ export function hasBedroll(s: GameState, p: Person): boolean {
   return bedless.indexOf(p) < (s.items.bedroll ?? 0) && bedless.includes(p);
 }
 
-/** Hours of work a Common tool lasts before it breaks (a finer one lasts longer, by its quality's worth). */
-export const TOOL_HOURS = 60;
+/** Hours of work a Common tool lasts before it breaks (a finer one lasts longer, by its quality's worth): two to three
+ *  weeks for someone at that work every day (it wears only in the hours they are at it, about a third of an hour a day;
+ *  docs/notes/economy-balance.md). */
+export const TOOL_HOURS = 5;
 
 /** Tools wear with work: an hour for each hour someone works with a tool that helps them at it. Worn through, it
  *  breaks, and they take up the best spare (the town makes more: it keeps a tool for every worker). The wear is the

@@ -11,19 +11,24 @@
 // - **Adventuring**: every coin a party finds, and every bounty it earns, is split among the party. The richest road,
 //   and the deadliest.
 //
-// The treasury pays for work only from what it holds above TREASURY_KEEP (it must still buy what the town can't
-// gather); a poor treasury pays less, and the work still gets done (people's goodwill, for now: rent and tax come
-// next, PLAN.md step 2).
+// - **Meals**: the food in the stores is the town's, bought of its gatherers; a grown-up pays for what they eat
+//   (MEAL_SHARE of its worth), and eats on the town when they can't.
+//
+// The treasury pays for work only from what it holds above TREASURY_KEEP and a day's wage bill (it must still pay its
+// guards and buy what the town can't gather); a poor treasury pays less, and the work still gets done.
 
 /** What the stores pay for a unit brought in, as a share of its worth (data/trade.ts WORTH). */
-export const GATHER_SHARE = 0.5;
+export const GATHER_SHARE = 0.35;
 /** A builder's pay for an hour's work, and a scholar's stipend (both times the era's PURSE_SCALE). */
-export const BUILD_PER_HOUR = 2;
-export const STUDY_PER_HOUR = 1.5;
+export const BUILD_PER_HOUR = 1.4;
+export const STUDY_PER_HOUR = 1;
 /** A keeper's cut of each sale made in their shop or tavern. */
 export const KEEPER_CUT = 0.15;
-/** Coins the treasury keeps back before it pays for work. */
+/** Coins the treasury keeps back before it pays for work (and a day's wage bill: sim/economy.ts `treasuryKeep`). */
 export const TREASURY_KEEP = 20;
+/** What a grown-up pays the stores for a meal, as a share of its food's worth (a little over the GATHER_SHARE the
+ *  stores paid for it: the food the town buys of its gatherers is sold back to the ones who eat it). */
+export const MEAL_SHARE = 0.6;
 
 /* ------------------------------------------------------------ building, land and rent (PLAN.md step 2) */
 

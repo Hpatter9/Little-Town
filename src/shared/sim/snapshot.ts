@@ -1875,6 +1875,9 @@ function venueView(s: GameState, venue: 'shop' | 'tavern', line?: ShopLine): Sho
   venueCache.set(key, { state: s, tick: s.tick, view });
   return view;
 }
+/** The battle items the general store has on its shelves for the townsfolk, once the town uses coin (sim/wages.ts
+ *  `buyKit`; before coin the stores hand them out). */
+const SALE_KIT: readonly ItemDef[] = KIT_ITEMS.map((k) => ITEM_BY_ID[k.id]).filter((i): i is ItemDef => !!i);
 function venueViewNow(s: GameState, venue: 'shop' | 'tavern', line?: ShopLine): ShopView | null {
   const b = s.buildings.find((q) => venueOfDef(q.def) === venue && lineOfDef(q.def) === line);
   if (!b) return null;
@@ -1961,7 +1964,7 @@ function venueViewNow(s: GameState, venue: 'shop' | 'tavern', line?: ShopLine): 
         : [],
     gear:
       venue === 'shop'
-        ? SALE_GEAR.filter(sells).flatMap((i) => [...new Set(qualitiesOf(s, i.id))].map((q) => ({ name: i.name, q, n: qualitiesOf(s, i.id).filter((x) => x === q).length, price: itemPrice(i, q) })))
+        ? [...SALE_GEAR.filter(sells), ...(line || !moneyTown(s) ? [] : SALE_KIT)].flatMap((i) => [...new Set(qualitiesOf(s, i.id))].map((q) => ({ name: i.name, q, n: qualitiesOf(s, i.id).filter((x) => x === q).length, price: itemPrice(i, q) })))
         : [],
     forSale: venue === 'shop' && !line ? dealsCache.forSale : {},
     wants: venue === 'shop' && !line ? dealsCache.wants : [],

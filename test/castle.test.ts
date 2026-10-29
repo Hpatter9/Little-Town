@@ -205,7 +205,17 @@ test('a Deep Hold grows its halls into the mountain over the days', () => {
   assert.ok(built.length >= 5, `rooms: ${built.length}`);
   for (const b of built) {
     const f = footprint(b);
-    for (let y = f.y; y < f.y + f.h; y++) for (let x = f.x; x < f.x + f.w; x++) assert.equal(groundAt(s.land, x, y), 'hall', `${b.def} in the mountain`);
+    // (a room is cut out of the rock as it is built, `digRoom`: one still going up has its progress share dug, the rest
+    // still the mountain's; a finished one is all hall)
+    let dug = 0;
+    for (let y = f.y; y < f.y + f.h; y++)
+      for (let x = f.x; x < f.x + f.w; x++) {
+        const g = groundAt(s.land, x, y);
+        if (b.status === 'done') assert.equal(g, 'hall', `${b.def} in the mountain`);
+        else assert.ok(g === 'hall' || g === 'mountain', `${b.def} in the mountain (${g})`);
+        if (g === 'hall') dug++;
+      }
+    if (b.status !== 'done') assert.ok(dug >= Math.ceil(b.progress * f.w * f.h), `${b.def} dug as far as it is built (${dug} of ${f.w * f.h} at ${b.progress.toFixed(2)})`);
     assert.ok(joinsCastle(cellsWithout(s, b.id), s.land, f), `${b.def} built on to the hold`);
   }
   for (const b of s.buildings.filter((q) => !q.room)) {
