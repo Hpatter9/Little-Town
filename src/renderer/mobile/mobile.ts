@@ -318,6 +318,7 @@ function showDev(on: boolean): void {
   devTab.b.hidden = !on;
   devMark.hidden = !on;
   tabs.style.gridTemplateColumns = on ? `repeat(${tabButtons.filter((t) => !t.b.hidden).length}, 1fr)` : '';
+  tabs.classList.toggle('many', on); // (upright, a smaller name under each mark, so all eight fit: index.html)
 }
 showDev(devOn());
 /** When the town was last asked to match the device's switch (it may refuse: an ironman town). */
