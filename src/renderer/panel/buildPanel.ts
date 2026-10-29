@@ -211,6 +211,7 @@ export function renderBuild(s: Snapshot, bridge: Bridge | undefined, rerender: (
         ['shop', 'Travellers at the shop'],
         ['tavern', 'Travellers at the tavern'],
         ['townsfolk', 'The townsfolk (gear, evenings out)'],
+        ['meals', 'The townsfolk\'s meals from the stores'],
         ['wages', 'Pay for work (loads brought in, building, study, keeping shop)'],
         ['crafters', 'Crafters, for what they made'],
         ['venues', 'Rooms and improvements'],

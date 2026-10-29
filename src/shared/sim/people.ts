@@ -67,8 +67,8 @@ import { stabilize } from './health';
 import { mended, needsSickbed, sickbedFor } from './sickbeds';
 import { drainNeeds, gainSkill, GROUND_SLEEP, HUNGRY, SLEEP_PER_HOUR, SUPPER, SULK_MORALE, wantsSleep, wantsToWake, workFactor } from './townsfolk';
 import { buildSpeed, craftSpeed, forageSpeed, researchSpeed } from './origin';
-import { accruePay, accruePayFrom, loadPrice, moneyTown, payFromTreasury } from './economy';
-import { BUILD_PACE, BUILD_PER_HOUR, buildPower, HIRE_PER_HOUR, STUDY_PER_HOUR, TREASURY_KEEP } from '../data/economy';
+import { accruePay, accruePayFrom, loadPrice, moneyTown, payForMeal, payFromTreasury, spareForPay } from './economy';
+import { BUILD_PACE, BUILD_PER_HOUR, buildPower, HIRE_PER_HOUR, STUDY_PER_HOUR } from '../data/economy';
 import { canWork, skillPace } from './property';
 import { isChild } from './social';
 import { childTask, lessonSpot } from './lineage';
@@ -220,7 +220,7 @@ export function updatePerson(s: GameState, p: Person, rng: Rng, ctx: TickContext
       // (what they bring in they sell to the town there and then: data/economy.ts)
       if (moneyTown(s) && !isChild(p)) {
         const price = loadPrice(s, sold);
-        if (price > 0) payFromTreasury(s, p, price, 'wages', `Sold ${Object.entries(sold).map(([m, n]) => `${n} ${MATERIAL_NAMES[m as Material].toLowerCase()}`).join(', ')} to the stores (${Math.min(price, Math.max(0, (s.coins ?? 0) - TREASURY_KEEP))} coins)`);
+        if (price > 0) payFromTreasury(s, p, price, 'wages', `Sold ${Object.entries(sold).map(([m, n]) => `${n} ${MATERIAL_NAMES[m as Material].toLowerCase()}`).join(', ')} to the stores (${Math.min(price, spareForPay(s))} coins)`);
       }
       p.task = null;
       break;
@@ -1074,6 +1074,7 @@ function doEat(s: GameState, p: Person, task: Extract<Task, { type: 'eat' }>): v
       return;
     }
     addStock(st.store, food, -1);
+    payForMeal(s, p, food); // (a grown-up pays the stores for it, in a town with coin: sim/economy.ts)
     p.needs.food = Math.min(1, p.needs.food + FOOD_VALUE[food]!);
     task.until = s.tick + EAT_TICKS;
   }

@@ -1,9 +1,10 @@
 // A townsperson's pouch of battle items (the owner's ask: "carry battle items in their own inventory too and use them
 // in battle: potions, or special items to help with the fight"). The items are in data/kitItems.ts and crafted like any
-// other. Here: how many a person can carry, how the town hands them out (hourly, with the autopilot: its fighters and
-// guards first, a caster's draughts to casters), what the planner orders for them, how a fighter uses one in a fight
-// (`useKitItem`, called from actions.ts `takeTurn`, so every fight, the party's, the raid map's and the tactics board,
-// uses them alike), and the potions a fallen raider leaves. Its randomness is a side stream of its own.
+// other. Here: how many a person can carry, how the town hands them out (hourly, with the autopilot, until the town uses
+// coin, when they are bought at the shop instead: its fighters and guards first, a caster's draughts to casters), what
+// the planner orders for them, how a fighter uses one in a fight (`useKitItem`, called from actions.ts `takeTurn`, so
+// every fight, the party's, the raid map's and the tactics board, uses them alike), and the potions a fallen raider
+// leaves. Its randomness is a side stream of its own.
 
 import { KIT_BY_ID } from '../data/kitItems';
 import { ITEM_BY_ID } from '../data/items';
@@ -13,6 +14,7 @@ import { natureOf } from '../data/enemies';
 import { hashSeed, Rng } from '../rng';
 import { HEAL_BELOW, RAIDER_POTION } from './kitFight';
 import { addItems } from './crafting';
+import { moneyTown } from './economy';
 import { isChild } from './social';
 import { notify, type GameState, type Person, type Raider } from './state';
 import { TICKS_PER_HOUR } from './time';
@@ -53,9 +55,11 @@ export function kitWant(s: GameState, p: Person, stocked: (id: string) => boolea
 export const carriesKit = armed;
 
 /** Once an hour, with the autopilot: the stores' battle items go into the pouches, those first in line served first, one
- *  round at a time (so the best-placed don't take everything). Hands out only what the stores hold. */
+ *  round at a time (so the best-placed don't take everything). Hands out only what the stores hold. Only before the
+ *  town uses coin: then the battle items in store are the shop's, and the townsfolk buy them (sim/wages.ts `buyKit`),
+ *  as they buy their gear. */
 export function restockKits(s: GameState): void {
-  if (s.autopilot === false || s.tick % TICKS_PER_HOUR !== 0) return;
+  if (s.autopilot === false || s.tick % TICKS_PER_HOUR !== 0 || moneyTown(s)) return;
   if (!Object.keys(s.items).some((id) => KIT_BY_ID[id])) return;
   const people = order(s);
   for (let round = 0; round < 3; round++) {
