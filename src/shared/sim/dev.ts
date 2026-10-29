@@ -13,7 +13,7 @@ import { CROPS, SOIL } from '../data/crops';
 import { EVENT_BY_ID } from '../data/events';
 import { LEVEL_SHARE_FIGHT, MAX_LEVEL, levelOf, xpToLevel } from '../data/levels';
 import { RAID_KIND_BY_ID } from '../data/raids';
-import { depositNear, overgrownCells, storages } from './buildings';
+import { depositNear, overgrownCells, storages, totalCapacity, totalStock } from './buildings';
 import { digRoom, holdOf } from './castle';
 import { gainLevelXp } from './classes';
 import { startDisaster } from './disasters';
@@ -30,7 +30,7 @@ import { chooseOffer, keepOffer } from './researchOffer';
 import { finishRing } from './ringWall';
 import { beginSaga } from './sagas';
 import { pave, plannedCells } from './streets';
-import { campXY, maxHp, notify, type Building, type GameState, type Person } from './state';
+import { campXY, maxHp, notify, poolSize, type Building, type GameState, type Person } from './state';
 import { paceDay, TICKS_PER_HOUR } from './time';
 import type { Material } from '../data/materials';
 import type { DevOrder } from './devOrders';
@@ -223,12 +223,21 @@ function store(s: GameState, stock: Partial<Record<Material, number>>, at = camp
   return true;
 }
 
+/** How full a fill leaves the stores at most: under the line where the planner clears bulk goods out (its
+ *  `makeRoom`, at 90%), so what the developer adds stays. */
+export const FILL_UP_TO = 0.85;
+
+/** Coins by the amount, and as much of food, wood and stone each as the stores have room for (up to the amount). */
 function fill(s: GameState, amount: number): void {
-  const ok = store(s, Object.fromEntries(FILL_MATERIALS.map((m) => [m, amount])));
   s.coins = (s.coins ?? 0) + amount;
   const f = founderOf(s);
   if (f) f.coins = (f.coins ?? 0) + amount;
-  notify(s, `Developer: +${amount} coins${ok ? `, and ${amount} each of food, wood and stone` : ' (no store to put goods in)'}.`);
+  const room = Math.floor(totalCapacity(s) * FILL_UP_TO) - poolSize(totalStock(s));
+  const each = Math.max(0, Math.min(amount, Math.floor(room / FILL_MATERIALS.length)));
+  if (!storages(s).length) return notify(s, `Developer: +${amount} coins (no store to put goods in).`);
+  if (each > 0) store(s, Object.fromEntries(FILL_MATERIALS.map((m) => [m, each])));
+  const goods = each <= 0 ? ' (the stores are full)' : `, and ${each} each of food, wood and stone${each < amount ? ' (all the stores have room for)' : ''}`;
+  notify(s, `Developer: +${amount} coins${goods}.`);
 }
 
 function killOne(s: GameState, id: number): void {

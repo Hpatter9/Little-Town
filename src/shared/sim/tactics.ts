@@ -41,7 +41,7 @@ import { fireAt } from './defenses';
 import { giveCoins } from './economy';
 import { killPerson } from './health';
 import { CELL, groundAt, isRoad, type Ground } from './land';
-import { before, credit, TOWERS } from './raidRecap';
+import { before, credit, creditAlly, TOWERS } from './raidRecap';
 import { attackPerson, defenderAttack } from './raids';
 import { GATE_OF, GRATE_OF, isGrate, WALL_KINDS } from './ringWall';
 import { buildingById, maxHp, notify, type GameState, type Person, type Raid, type Raider } from './state';
@@ -1577,6 +1577,10 @@ function cast(s: GameState, r: Raid, t: Tactics, me: TacUnit, id: string, at: Ti
   act.ready = use.ready;
   const caster = personOf(s, me.key);
   if (caster) credit(s, caster.id, was, false);
+  else {
+    const a = raiderOf(r, me.key);
+    if (a?.ally) creditAlly(s, a, was); // (the God creature's spells)
+  }
   // (why each one touched took it as they did: a crit, a shield, a spell sent back...)
   const whys = new Map<string, Proc>();
   for (const c of arena.all()) if (c.pop?.why && c.pop.tick === s.tick) whys.set(c.kind === 'person' ? `p${c.ref}` : `r${c.ref}`, c.pop.why);
@@ -1702,7 +1706,9 @@ function strike(s: GameState, r: Raid, t: Tactics, me: TacUnit, target: TacUnit,
     rd.lastAction = s.tick;
     if (rng.next() < def.accuracy - ENEMIES[trd.kind].dodge) {
       const dmg = Math.round(rng.int(def.damage[0], def.damage[1]) * (rd.might ?? 1) * mult);
+      const was = before(r.raiders);
       hurt(s, trd, dmg);
+      if (rd.ally) creditAlly(s, rd, was); // (the God creature's blows, for the recap)
       mark(`${dmg}`);
     } else mark('Miss');
   }

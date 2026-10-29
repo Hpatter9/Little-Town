@@ -1414,7 +1414,7 @@ async function start(): Promise<void> {
     } else if (h.kind === 'building') {
       const b = snap.buildings.find((q) => q.id === h.id);
       if (b?.status === 'blueprint') list.push(act('devFinish', 'Finish it now', dev({ op: 'finishBuilding', id: h.id }), { primary: true }));
-      list.push(act('devAll', 'Finish all building', dev({ op: 'finishBuilds' })), act('devHarvest', 'Harvest every field', dev({ op: 'harvest' })), act('devFill', 'Fill the stores +1000', dev({ op: 'fill', amount: 1000 })));
+      list.push(act('devAll', 'Finish all building', dev({ op: 'finishBuilds' })), act('devHarvest', 'Harvest every field', dev({ op: 'harvest' })), act('devFill', 'Fill the stores (+1000, what fits)', dev({ op: 'fill', amount: 1000 })));
     } else if (h.kind === 'raider') {
       list.push(
         act('devKill', 'Kill', dev({ op: 'kill', target: 'raider', id: h.id }, true), { danger: true }),

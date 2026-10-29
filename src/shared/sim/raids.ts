@@ -21,7 +21,7 @@ import { operatorSkill } from './operators';
 import { takePrisoners } from './prisoners';
 import { tallyRaid } from './annals';
 import { RUN_DOWN_PX, tryRunDown } from './raiderWounds';
-import { before, credit, noteRoll, raidRecap, took as tookHarm, TOWERS } from './raidRecap';
+import { before, credit, creditAlly, noteRoll, raidRecap, took as tookHarm, TOWERS } from './raidRecap';
 import { answerGuild, guildDefeated, guildOptions, runWithThePack } from './monsters';
 import { ITEM_BY_ID } from '../data/items';
 import { MATERIALS, type Material, type Stock } from '../data/materials';
@@ -785,8 +785,10 @@ function allyAct(s: GameState, r: Raid, rd: Raider, rng: Rng, step: number): voi
   if (--rd.cooldown > 0) return;
   rd.cooldown = Math.round(def.interval * TICK_HZ);
   if (rng.next() >= def.accuracy - ENEMIES[foe.kind].dodge) return;
+  const was = before([foe]);
   foe.hp = Math.max(0, foe.hp - Math.round(rng.int(def.damage[0], def.damage[1]) * wardOf(s)));
   if (foe.hp === 0) foe.down = true;
+  creditAlly(s, rd, was); // (the God creature's blows, for the recap)
 }
 
 /** Traps and turrets: each hits the nearest raider in its range when it's ready. */
