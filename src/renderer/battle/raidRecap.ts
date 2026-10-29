@@ -205,10 +205,14 @@ export function createRaidRecap(giveChase: () => void = () => {}): RaidRecapView
     box.append(el('div', 'rr-title', c.boss && c.outcome === 'victory' ? `${c.boss} falls!` : TITLES[c.outcome]));
     const sum = [`${c.name}`, c.waves > 1 ? `${c.waves} waves` : '', `${c.killed} of ${c.came} felled`, c.fled ? `${c.fled} fled` : '', c.through ? `${c.through} got through` : ''].filter(Boolean).join(' · ');
     box.append(el('div', 'rr-sum', sum));
-    box.append(strip(c, snap));
-    // the raid's one summary card (sim/summaries.ts): the outcome and the highlights above, then what was won and lost,
-    // the firsts it earned and the founder's chapter; the full tally a tap away
+    // the raid's one summary card (sim/summaries.ts): under the outcome, who fought best, what was lost and won, the
+    // firsts it earned and the founder's chapter; then the panels; the full tally a tap away
     const lines: [string, string][] = [];
+    // (who fought best: the God creature when it beat every townsperson)
+    const top = c.rows.find((r) => r.id === c.best);
+    const deeds = (kills: number, dealt: number) => (kills ? `felled ${kills}` : `dealt ${dealt}`);
+    if (c.beast && c.beastBest) lines.push(['Fought best', `${c.beast.name}, ${deeds(c.beast.kills, c.beast.dealt)}`]);
+    else if (top) lines.push(['Fought best', `${top.name}, ${deeds(top.kills, top.dealt)}`]);
     const dead = c.rows.filter((r) => r.died).map((r) => r.name);
     if (c.beast?.died) dead.push(c.beast.name);
     if (dead.length) lines.push(['Lost', dead.join(', ')]);
@@ -239,6 +243,8 @@ export function createRaidRecap(giveChase: () => void = () => {}): RaidRecapView
       box.append(b);
     }
     if (c.chapter) box.append(el('div', 'rr-chapter', `Written in ${c.chapter.replace(/: /, ': “')}”.`));
+    // (the four panels and the chips of who fell and who shone, under the facts so they lead on a short screen)
+    box.append(strip(c, snap));
     if (full) {
       // what happened, told
       if (c.story?.length) box.append(el('div', 'rr-story', c.story.join(' ')));

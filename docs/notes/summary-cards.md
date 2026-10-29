@@ -24,11 +24,12 @@ The box's first lines are now where and how long (the debrief's first line) and 
 cleared."), above who came home.
 
 **The raid's summary** is the recap (battle/raidRecap.ts). `storyRaid` writes its chapter quietly and returns the
-heading; `endRaid` (sim/raids.ts) puts it and the firsts the raid earned on `RaidRecap.chapter` and `.firsts`. The card
-now shows the outcome and the four panels with the highlight chips (who fought best, the God creature among them, who
-fell, who rose a level), then the toll and the loot (Lost, Wounded, Spoils, Prisoners, Taken from us; the God creature
-counted in Lost or Wounded), the firsts and the chapter line; the story told and the full tally (each defender's row,
+heading; `endRaid` (sim/raids.ts) puts it and the firsts the raid earned on `RaidRecap.chapter` and `.firsts`. Under
+the outcome, the card now leads with the facts: who fought best (the God creature when it beat every townsperson),
+Lost, Wounded (the creature counted in either), Spoils, Prisoners, Taken from us, then the firsts and the chapter line;
+then the four panels with the chips of who fell and who shone. The story told and the full tally (each defender's row,
 the creature's, the towers') are a tap away on **Full recap ›** (`full`, part of the redraw key; reset for a new raid).
+The facts come before the panels so they show without scrolling sideways (852x393).
 
 **Firsts folded** (sim/summaries.ts): `firstsSoFar` counts the town's firsts before the moment, `foldFirsts` takes the
 ones recorded since, marks them `folded` (optional on `GameState.milestones` and in the snapshot's
@@ -55,5 +56,14 @@ Files: `sim/summaries.ts` (new), `sim/story.ts`, `sim/muster.ts`, `sim/steward.t
 `mobile/milestoneCards.ts`, `battle/raidRecap.ts`, `renderer/index.html`. Tests: `test/summaryCards.test.ts` (a trip the
 founder led: one card with who died, the chapter, the first death folded, the news from home joined, the haul told
 once; a trip without the founder; a raid won: the chapter and the first raid on the recap, no story card; a raid with a
-death: the dead on the recap, the first death folded once; autopilot off: none of it). Screenshots before and after,
-upright and sideways: `docs/notes/summary-cards/`.
+death: the dead on the recap, the first death folded once; autopilot off: none of it).
+
+**Screenshots** (`docs/notes/summary-cards/`, 393x852 and 852x393, the phone build): a settlers town made headless and
+loaded as the phone's save, then played on in the page. `before-nest-01..06`: the creature's nest trip on main (the
+lineup, "A quest won", "Home from the Broken Nest", the naming, the first night, "The party is home");
+`after-nest-01..04`: the summary, then the lineup, the naming and the first night. `before-delve-01..03` (the
+founder's chapter, the debrief, "The delvers are home") and `after-delve`: one card. `before-raid-won-*` (the story's
+"A raid survived" card; sideways `-01` is the recap and `-02` the story card after it) and `after-raid-won(-full)`.
+`before-raid-death-*` and `after-raid-death(-full)`: a raid fought headless with one defender killed, saved just before
+its end. (On main the raid's story card came back each time it was closed in the headless browser while the board was
+going: the screenshots stop there. That card is gone now.)
