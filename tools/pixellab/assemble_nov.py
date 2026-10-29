@@ -4,7 +4,7 @@ said so), so the game keeps its stand-in. Run from the same work folder as batch
 
     python3 assemble_nov.py <repo>                 # everything finished so far
     python3 assemble_nov.py <repo> test            # the tests laid out for a look: pl/nov/test/contact.png
-    python3 assemble_nov.py <repo> buildings sleep # some kinds: buildings pieces flame barrow sleep push god cards
+    python3 assemble_nov.py <repo> buildings sleep # some kinds: buildings pieces flame barrow looks sleep push god cards
 
 Then `npm run typecheck` and `npm test` in the repo (test/gridRules.test.ts checks every piece and the waiting list),
 and `npm run web` to look. What goes where (docs/notes/pixellab-plan.md):
@@ -12,6 +12,8 @@ and `npm run web` to look. What goes where (docs/notes/pixellab-plan.md):
   pieces     the heaps into art/iso/kits/settlers/ + its index.json; the corner pieces beside them (cut as posts)
   flame      art/iso/kits/settlers/flame.png (a strip of frames), art/iso/made.json `flame`
   barrow     art/iso/kits/settlers/barrow_<view>_<load>.png, art/iso/made.json `barrow`
+  looks      art/iso/folk/settlers/<look>/ and <look>+<tool>/ (sheets, index.json, roles.json), art/iso/made.json `looks`;
+             a look goes in only with all its moves done (before sleep and push: laying a look lays its folder afresh)
   sleep      art/iso/folk/settlers/<look>/sleep.png + its index.json, its colours labelled (tools/folk-roles.py)
   push       art/iso/folk/settlers/<look>/push.png + its index.json, the same
   god        the remade moves laid over the old in art/iso/creature/<kind>/, direction by direction
@@ -30,7 +32,7 @@ import assemble_folk as af
 import batch_nov as bn
 
 REPO = os.path.abspath(sys.argv[1]) if len(sys.argv) > 1 else bn.REPO
-KINDS = sys.argv[2:] or ['buildings', 'pieces', 'flame', 'barrow', 'sleep', 'push', 'god', 'cards']
+KINDS = sys.argv[2:] or ['buildings', 'pieces', 'flame', 'barrow', 'looks', 'sleep', 'push', 'god', 'cards']
 ART = os.path.join(REPO, 'src', 'renderer', 'art')
 ISO = os.path.join(ART, 'iso')
 KIT = os.path.join(ISO, 'kits', 'settlers')
@@ -71,9 +73,9 @@ def upsert(index_path, pid, w, h):
 
 
 def made(field, value):
-    m = load_json(MADE, {'flame': False, 'barrow': []})
-    if field == 'barrow':
-        m['barrow'] = sorted(set(m['barrow']) | {value})
+    m = load_json(MADE, {'flame': False, 'barrow': [], 'looks': []})
+    if field in ('barrow', 'looks'):
+        m[field] = sorted(set(m.get(field, [])) | {value})
     else:
         m[field] = value
     write_json(MADE, m)
@@ -358,15 +360,54 @@ def held_death(look_dir):
     return still
 
 
+def new_looks():
+    """The new looks (batch_nov.py LOOKS) with all their moves done: look -> (its character, its tool, the tool's
+    character)."""
+    out = {}
+    for look, (_, _, _, tool) in bn.LOOKS.items():
+        k = f'look_{look}'
+        keys = [k] + [f'{k}_{m}' for m in bn.LOOK_MOVES] + [f'{k}_{tool}', f'{k}_{tool}_{bn.TOOLS[tool][1]}']
+        if all(done(x) for x in keys):
+            out[look] = (state[k]['character_id'], tool, state[f'{k}_{tool}']['character_id'])
+    return out
+
+
+def looks():
+    """The new looks into art/iso/folk/settlers/, as assemble_folk.py lays the settler looks: the bare look's rotations and
+    six moves, its tool look's one move; their colours labelled (tools/folk-roles.py); then made.json `looks`, which
+    puts them in the game (iso/folkRules.ts FITTED_LOOKS)."""
+    root = os.path.join(ISO, 'folk', 'settlers')
+    n = 0
+    for look, (cid, tool, tool_cid) in new_looks().items():
+        src, tsrc = f'pl/chars/nov_{cid[:8]}', f'pl/chars/nov_{tool_cid[:8]}'
+        if not (af.fetch(cid, src) and af.fetch(tool_cid, tsrc)):
+            print(f'  {look}: FETCH FAILED')
+            continue
+        fetched.update({cid, tool_cid})
+        anims = af.lay(src, os.path.join(root, look), 'settlers', look)
+        missing = [m for m in bn.LOOK_MOVES if m not in anims]
+        if missing:
+            print(f'  {look}: LEFT OUT, no {missing} in its zip')
+            continue
+        tanims = af.lay(tsrc, os.path.join(root, f'{look}+{tool}'), 'settlers', f'{look}+{tool}', af.MOVE[tool])
+        subprocess.run(['python3', 'tools/folk-roles.py', f'settlers/{look}'], cwd=REPO, check=True)
+        made('looks', look)
+        print(f'  {look}: {sorted(anims)}, {tool} {sorted(tanims)}')
+        n += 1
+    print(f'looks: {n} in' + ('' if n else ' (none finished)'))
+
+
 def folk_moves(prefix, game, keep_lying):
-    looks = bn.look_ids()
+    looks = {**bn.look_ids(), **{k: v[0] for k, v in new_looks().items()}}
     n = 0
     done_looks = []
-    for look in (bn.SLEEPERS if game == 'sleep' else bn.PUSHERS):
+    # (the new looks' too, once `looks` has laid them)
+    every = [*bn.SLEEPERS, *bn.SLEEPERS_NEW] if game == 'sleep' else [*bn.PUSHERS, *bn.PUSHERS_NEW]
+    for look in every:
         st = state.get(f'{prefix}_{look}', {})
-        if not st.get('done'):
-            continue
         look_dir = os.path.join(ISO, 'folk', 'settlers', look)
+        if not st.get('done') or look not in looks or not os.path.exists(f'{look_dir}/index.json'):
+            continue
         name, src = new_move(st, looks[look], None if game == 'sleep' else 'push')
         if not name:
             print(f'  {look}: its {game} not found in the zip')
@@ -512,6 +553,6 @@ def test():
 
 if __name__ == '__main__':
     for k in KINDS:
-        {'buildings': buildings, 'pieces': pieces, 'flame': flame, 'barrow': barrow, 'sleep': lambda: folk_moves('sleep', 'sleep', True),
+        {'buildings': buildings, 'pieces': pieces, 'flame': flame, 'barrow': barrow, 'looks': looks, 'sleep': lambda: folk_moves('sleep', 'sleep', True),
          'push': lambda: folk_moves('push', 'push', False), 'god': god, 'cards': cards, 'test': test}[k]()
     print('Now in the repo: npm run typecheck && npm test, then npm run web and look at both phone sizes.')

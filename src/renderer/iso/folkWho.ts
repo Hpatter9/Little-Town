@@ -27,8 +27,8 @@ export function setFolkFounder(id: number | null | undefined): void {
 }
 
 /** The look and colours for someone, from what a snapshot (or an obituary) says: id, people, sex, skin, hair and outfit,
- *  age, body armour; `founder` says outright whether they're the founder (else: their id is the last snapshot's). */
-export function folkWho(st: Pick<FolkState, 'id' | 'origin' | 'look' | 'lifeStage' | 'growsUpIn' | 'founder'> & { gear: Partial<Record<Slot, string>> }): FolkWho {
+ *  age, what they came to town as, body armour; `founder` says outright whether they're the founder (else: their id is the last snapshot's). */
+export function folkWho(st: Pick<FolkState, 'id' | 'origin' | 'look' | 'lifeStage' | 'growsUpIn' | 'founder' | 'typeName'> & { gear: Partial<Record<Slot, string>> }): FolkWho {
   const body = st.gear.body ? ITEM_BY_ID[st.gear.body] : undefined;
   const founder = st.founder ?? (founderId !== null && st.id === founderId);
   const pick = pickLook({ ...st, founder }, undefined, dressOf(body?.weight));

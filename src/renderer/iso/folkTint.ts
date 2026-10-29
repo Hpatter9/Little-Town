@@ -16,7 +16,7 @@
 
 import { CLOTH_COLORS, HAIR_CHOICES, HAIR_COLORS, SKINS, type Look } from '../../shared/data/people';
 import type { LifeStage } from '../../shared/sim/ageing';
-import { idHash } from './folkRules';
+import { idHash, ownFittedLook, type FolkState } from './folkRules';
 
 /** What a colour in the art paints. `brow` is the hair across the face (brows, moustache, beard): the hair's colour,
  *  toned a little towards the skin. */
@@ -52,6 +52,19 @@ export const DYES: Record<string, readonly string[]> = {
   alchemists: ['#5a3a6a', '#6a2a4a', '#2e6a6a', WOAD, GREEN, BROWN, BLACK, MADDER],
   knights: ['#9a2a26', '#2e4a8a', '#3a6a3a', WELD, BLACK, '#5a3a6a', '#d8d4c8'],
 };
+/** The dyes of someone whose fitted look is drawn (iso/folkRules.ts `ownFittedLook`), to suit it: the maiden's dress
+ *  bright, the hunter's cloak the woods' greens and browns, the farmer's smock and the smith's shirt plain work cloth,
+ *  the elders' dress sober. Theirs in armour too, so their colours never change with what they wear. Everyone else
+ *  takes their people's dyes. (The elders' grey hair is drawn, and not relabelled: tools/folk-roles.py.) */
+export const LOOK_DYES: Record<string, readonly string[]> = {
+  woman_maiden: [MADDER, WOAD, WELD, GREEN, '#b04a6a', '#c06a2a', '#3a7a8a'],
+  woman_hunter: [GREEN, '#5e6a3a', '#4a5a34', BROWN, RUSSET, '#5a4a2a'],
+  man_farmer: [UNDYED, WELD, BROWN, GREY, GREEN, RUSSET],
+  man_smith: [UNDYED, GREY, BROWN, DARK_WOAD, BLACK],
+  man_elder: [BROWN, GREY, DARK_WOAD, UNDYED, BLACK, GREEN],
+  woman_elder: [DARK_WOAD, BROWN, GREY, MADDER, BLACK, UNDYED],
+};
+
 /** The second cloth (breeches, a skirt): plainer stuff. */
 export const PLAIN_DYES: readonly string[] = ['#5a4a3a', '#6a5a48', '#4a4440', '#7a6a54', '#3a3430', '#8a7a60', '#5a5048', '#3e4a5a'];
 /** Hair in age: grey and white. */
@@ -92,9 +105,10 @@ export function hairFor(skinIndex: number, aged: boolean): readonly string[] | n
 }
 
 /** Someone's colours, from what the snapshot says about them: their sim look (skin, hair colour, a founder's chosen
- *  cloth), their age (grey hair for the elders: about half of them, and all the old) and their id (the dyes). Null for
- *  the peoples drawn in their own colours. Stable: the same person always gets the same tint. */
-export function tintOf(st: { id: number; look?: Partial<Pick<Look, 'skin' | 'hairColor' | 'outfit' | 'body'>>; lifeStage?: LifeStage }, people = 'settlers'): FolkTint | null {
+ *  cloth), their age (grey hair for the elders: about half of them, and all the old), their id (the dyes) and their
+ *  fitted look, once drawn (LOOK_DYES). Null for the peoples drawn in their own colours. Stable: the same person always
+ *  gets the same tint. */
+export function tintOf(st: { id: number; look?: Partial<Pick<Look, 'gender' | 'skin' | 'hairColor' | 'outfit' | 'body'>>; lifeStage?: LifeStage } & Partial<Pick<FolkState, 'origin' | 'typeName' | 'growsUpIn'>>, people = 'settlers'): FolkTint | null {
   if (FIXED_CASTS.has(people)) return null;
   const look = st.look ?? {};
   const t: FolkTint = {};
@@ -113,7 +127,8 @@ export function tintOf(st: { id: number; look?: Partial<Pick<Look, 'skin' | 'hai
     const allowed = hairFor(SKINS.indexOf(t.skin), grey);
     if (allowed && !allowed.includes(t.hair)) t.hair = nearest(t.hair, allowed);
   }
-  const dyes = DYES[people] ?? DYES.settlers;
+  const fit = people === 'settlers' && st.look?.gender ? ownFittedLook({ ...st, look: { gender: st.look.gender, outfit: st.look.outfit ?? '' } }) : null;
+  const dyes = (fit && LOOK_DYES[fit]) || DYES[people] || DYES.settlers;
   // (a founder dressed in a dyed cloth of the player's choosing wears it)
   t.cloth = look.outfit && CHOSEN_CLOTH.has(look.outfit.toLowerCase()) ? look.outfit.toLowerCase() : dyes[idHash(st.id, 11) % dyes.length];
   t.cloth2 = PLAIN_DYES[idHash(st.id, 13) % PLAIN_DYES.length];

@@ -97,6 +97,16 @@ LOOKS = {
     'knights/child_girl': {'cloth': [(195, 235, 0.25, 1, 0.1, 0.5)], 'place': {'hair': (0, 0.45), 'cloth': (0.25, 1)}},
     'knights/man_knight': {'skin': [], 'hair': []},
     'settlers/woman_plate': {'hair': [(350, 14, 0.5, 1, 0.08, 0.7)], 'cloth': [BLUE], 'place': {'hair': (0, 0.5)}},
+    # (the six new looks, tools/pixellab/batch_nov.py LOOKS: a first guess from their prompts, made before their art;
+    # check each with `--qa` once it is in and tune. The farmer's straw hat is the colour of fair hair, and the hunter's
+    # hood and the old woman's headscarf hide theirs, and the old man's is drawn grey (as the druid elder's white), so their
+    # hair stays as drawn)
+    'settlers/man_farmer': {'hair': [], 'cloth': [PLAIN], 'cloth2': [PLAIN], 'place': {'cloth': (0.25, 0.65), 'cloth2': (0.65, 0.9)}},
+    'settlers/man_smith': {'beard': True, 'cloth': [(0, 360, 0, 0.12, 0.3, 0.75)], 'place': {'hair': (0, 0.25), 'cloth': (0.15, 0.45)}},
+    'settlers/woman_hunter': {'hair': [], 'cloth': [(50, 160, 0.1, 1, 0.08, 0.7)], 'place': {'cloth': (0, 1)}},
+    'settlers/man_elder': {'hair': [], 'cloth': [(15, 45, 0.2, 0.75, 0.1, 0.5)], 'place': {'cloth': (0.25, 1)}},
+    'settlers/woman_elder': {'hair': [], 'cloth': [(0, 360, 0.05, 1, 0.05, 0.38)], 'place': {'cloth': (0.3, 1)}},
+    'settlers/woman_maiden': {'hair': [(0, 55, 0.2, 1, 0.3, 0.85)], 'cloth': [(340, 15, 0.4, 1, 0.15, 0.6)], 'place': {'hair': (0, 0.55), 'cloth': (0.25, 1)}},
 }
 
 

@@ -1,5 +1,5 @@
 """The November PixelLab batch (docs/notes/pixellab-plan.md): the settlers' buildings with no picture that fits, lying
-asleep, the wheelbarrow, the small kit pieces (stockade, heaps, flame, corner pieces), the God creatures' weak spots and
+asleep, the wheelbarrow, six new settler looks (LOOKS), the small kit pieces (stockade, heaps, flame, corner pieces), the God creatures' weak spots and
 the side-on beasts for the event cards. Resumable: what is done is kept in pl/nov_state.json, and every finished
 picture in pl/nov/<phase>/. `assemble_nov.py <repo>` drops the finished art into the game.
 
@@ -9,9 +9,10 @@ Run from a work folder set up as the README says (the scripts beside it, `pl/` h
     TEST_ONLY=1 python3 batch_nov.py         # the cheap test of each kind (phase `test`), then stops for a look
     python3 batch_nov.py                     # every phase in the plan's order (PHASES), skipping what is done
     python3 batch_nov.py sleep barrow        # some phases
+    python3 batch_nov.py looks               # the six new settler looks (then their sleep and push in those phases)
     ONLY=kiln,smithy python3 batch_nov.py bld_medieval   # some items
     REDO=kiln python3 batch_nov.py bld_first   # make an item again (its old picture kept as kiln.old.png)
-    BUDGET=1800 python3 batch_nov.py         # stop before the run's spend passes this (default 1800)
+    BUDGET=2750 python3 batch_nov.py         # stop before the run's spend passes this (default 2750)
     SLOTS=6 python3 batch_nov.py sleep       # jobs at once (Tier 3 allows 10; default 4)
 
 The spend is read from GET /balance before and after each job (pl/nov_spend.log, and `spent` per item in the state),
@@ -35,7 +36,8 @@ TEST_ONLY = bool(os.environ.get('TEST_ONLY'))
 ONLY = [x for x in os.environ.get('ONLY', '').split(',') if x]
 # items to make again (a picture that came out wrong): their state cleared, the old picture kept as <key>.old.png
 REDO = [x for x in os.environ.get('REDO', '').split(',') if x]
-BUDGET = int(os.environ.get('BUDGET', '1800'))
+# (the plan's 2,476 and about a tenth more for pictures made again: docs/notes/pixellab-plan.md)
+BUDGET = int(os.environ.get('BUDGET', '2750'))
 SLOTS = int(os.environ.get('SLOTS', '4'))
 HERE = os.path.dirname(os.path.abspath(__file__))
 # the repo: REPO, else the one these scripts sit in (tools/pixellab/), else the cloud's clone
@@ -274,6 +276,50 @@ def P(foot, desc, refs, size=None):
     return {'foot': foot, 'desc': desc, 'refs': refs, 'size': size}
 
 
+# Six new settler looks (docs/notes/nov-new-looks.md), so the townsfolk differ by more than their colours: each one an
+# edit of a settler look's south view (`base`), turned to 8 facings (create-character-v3), the six template moves the
+# settler looks have (LOOK_MOVES), then one tool: the tool edited into the turned look's south view, turned again, and
+# its v3 text move (WEAPONS, as pl_batch.py and pl_armed.py did). They sleep and push in those phases like the rest.
+# (look in the game: base look, the edit's prompt, the character's description, its tool). Hair, skin and the main
+# cloth are recoloured per person in the game (iso/folkTint.ts), so the prompts set the shape: build, hat, hood, apron.
+LOOKS = {
+    'man_farmer': ('man_base', 'Turn this man into a farmer: a wide-brimmed woven straw hat, sandy-brown hair under it, a long loose undyed linen smock to the knees belted with a rope, rolled-up breeches, leather ankle boots; a lean, weathered build.',
+                   'lean farmer in a wide-brimmed straw hat and a long undyed linen smock belted with rope, rolled breeches', 'axe'),
+    'man_smith': ('man_leather', 'Turn this man into a blacksmith: broad-shouldered and stocky with thick forearms, short black hair and stubble, a heavy brown leather apron from chest to knees over a grey work shirt with the sleeves rolled up to the elbows, leather gauntlets tucked in the belt, sturdy boots.',
+                  'stocky broad-shouldered blacksmith with short black hair, a heavy leather apron over a grey shirt with sleeves rolled up', 'hammer'),
+    'woman_hunter': ('woman_leather', 'Turn this woman into a hunter: a hooded cloak of mottled green and brown wool, the hood up over her head with a few auburn strands showing, a leather quiver strap across the chest, a fitted brown tunic, leggings and soft boots; a slim, wiry build.',
+                     'slim woman hunter in a hooded mottled green-brown cloak with the hood up, quiver strap, brown tunic and soft boots', 'axe'),
+    'man_elder': ('man_base', 'Turn this man into an old village elder: a long grey beard and thinning grey hair, a slightly stooped back, a long plain brown wool robe with a rope belt, and a knotted wooden walking stick held in his left hand, its foot on the ground.',
+                  'stooped old village elder with a long grey beard, thinning grey hair, a long brown wool robe and a knotted wooden walking stick', 'hammer'),
+    'woman_elder': ('woman_base', 'Turn this woman into an old village woman: a wrinkled face, grey hair under a knotted linen headscarf, a knitted shawl round the shoulders, a long dark wool dress with an apron; a small, slightly bent build.',
+                    'small old village woman with a linen headscarf over grey hair, a knitted shawl, long dark wool dress and apron', 'hammer'),
+    'woman_maiden': ('woman_base', 'Turn this young woman into a village maiden: long golden hair in two thick braids over her shoulders, a bright red laced bodice dress with a full skirt to the ankles over a white linen blouse with puffed sleeves, soft shoes; a slender build.',
+                     'slender young village woman with two long golden braids, a bright red laced bodice dress over a white blouse', 'axe'),
+}
+# The moves every look gets, as the settler looks have them (pl_batch.py BASE: the game's name, PixelLab's template).
+LOOK_MOVES = {'walk': 'walking', 'idle': 'breathing-idle', 'run': 'running-6-frames', 'hurt': 'taking-punch', 'death': 'falling-back-death', 'cast_1h': 'fireball'}
+# The tool edited into the hand, and its move from text (pl_batch.py WEAPONS): the game's move name, then the words.
+TOOLS = {
+    'axe': ("holds a woodcutter's axe in the right hand, the handle gripped low, the axe head hanging down by the side",
+            'chop', 'chopping wood: lifts the axe already in hand up over the shoulder with both hands and swings it down onto a log in front, then recovers.'),
+    'hammer': ("holds a smith's hammer in the right hand, hanging down by the side",
+               'hammer', 'hammering: raises the hammer already in hand and strikes down on a work piece at waist height in front, twice.'),
+}
+# (the new looks sleep and push too, once the `looks` phase has made them: their characters are in the state, `look_<look>`)
+SLEEPERS_NEW = PUSHERS_NEW = list(LOOKS)
+TOOL_FX = ' Keep the same character, clothes and tool throughout; no extra effects, no particles, no flying debris.'
+# (the settlers' sheets are each frame centred on a canvas this much wider each side than the figure's: assemble_folk.py PAD)
+FOLK_PAD = 24
+
+
+def base_south(look):
+    """A settler look's south view as PixelLab turned it: the first frame of its rotations sheet, the padding taken off."""
+    d = os.path.join(ART, 'folk', 'settlers', look)
+    w, h = json.load(open(os.path.join(d, 'index.json')))['frame']
+    im = Image.open(os.path.join(d, 'rotations.png')).convert('RGBA')
+    return im.crop((FOLK_PAD, FOLK_PAD, w - FOLK_PAD, h - FOLK_PAD))
+
+
 # Small kit pieces: kit-folder pieces (`kit`: loose heaps and corner posts, cut by tools/grid-recut.py) and the stockade
 # (a shared building piece, 3x2).
 PIECES = {
@@ -367,6 +413,7 @@ def jobs_for(phase):
             {**piece_jobs('test')[1], 'key': 'test_grain_sacks'},
             {**flame_jobs('test')[0], 'key': 'test_flame_0'},
             {**card_jobs('test')[0], 'key': 'test_card_wolf_ref'},
+            {**look_jobs('test')[0], 'key': 'test_look_edit'},
             {'phase': 'test', 'key': 'test_god_wolf_death', 'kind': 'anim', 'est': COST['template'], 'creature': 'wolf', 'name': 'death_test', 'dirs': ['north'], 'mode': 'template', 'template': 'falling-back-death'},
         ]
     if phase == 'bld_first':
@@ -377,10 +424,14 @@ def jobs_for(phase):
         return building_jobs(phase, BLD_LATE)
     if phase == 'bld_yard':
         return building_jobs(phase, BLD_YARD)
+    if phase == 'looks':
+        return look_jobs(phase)
     if phase == 'sleep':
-        return [{'phase': phase, 'key': f'sleep_{look}', 'kind': 'anim', 'est': COST['v3'] * 8, 'look': look, 'name': 'sleep', 'dirs': DIRS, 'mode': 'v3', 'action': SLEEP, 'frames': 8} for look in SLEEPERS]
+        return ([{'phase': phase, 'key': f'sleep_{look}', 'kind': 'anim', 'est': COST['v3'] * 8, 'look': look, 'name': 'sleep', 'dirs': DIRS, 'mode': 'v3', 'action': SLEEP, 'frames': 8} for look in SLEEPERS]
+                + [{'phase': phase, 'key': f'sleep_{look}', 'kind': 'anim', 'est': COST['v3'] * 8, 'newlook': f'look_{look}', 'after': f'look_{look}', 'name': 'sleep', 'dirs': DIRS, 'mode': 'v3', 'action': SLEEP, 'frames': 8} for look in SLEEPERS_NEW])
     if phase == 'barrow':
-        return barrow_jobs(phase) + [{'phase': phase, 'key': f'push_{look}', 'kind': 'anim', 'est': COST['template'] * 8, 'look': look, 'name': 'push', 'dirs': DIRS, 'mode': 'template', 'template': 'pushing'} for look in PUSHERS]
+        return (barrow_jobs(phase) + [{'phase': phase, 'key': f'push_{look}', 'kind': 'anim', 'est': COST['template'] * 8, 'look': look, 'name': 'push', 'dirs': DIRS, 'mode': 'template', 'template': 'pushing'} for look in PUSHERS]
+                + [{'phase': phase, 'key': f'push_{look}', 'kind': 'anim', 'est': COST['template'] * 8, 'newlook': f'look_{look}', 'after': f'look_{look}', 'name': 'push', 'dirs': DIRS, 'mode': 'template', 'template': 'pushing'} for look in PUSHERS_NEW])
     if phase == 'pieces':
         return piece_jobs(phase) + flame_jobs(phase)
     if phase == 'god':
@@ -388,6 +439,34 @@ def jobs_for(phase):
     if phase == 'cards':
         return card_jobs(phase)
     raise SystemExit(f'no phase {phase}')
+
+
+def look_jobs(phase):
+    """The new looks (LOOKS), each a chain: the edit of its base look's south view, the character turned from it, its six
+    moves; then its tool: edited into the character's own south view (`src_char`), turned, and its move. The first job
+    alone in the test phase."""
+    out = []
+    for look, (base, edit, desc, tool) in LOOKS.items():
+        hold, move, action = TOOLS[tool]
+        k = f'look_{look}'
+        # (the elder's stick is his: everyone else's hands are empty until the tool is edited in)
+        hands = '' if look == 'man_elder' else ' empty hands;'
+        out.append({'phase': phase, 'key': f'{k}_edit', 'kind': 'edit', 'est': COST['edit'], 'src_img': base,
+                    'desc': edit + f' Keep the same pose, size, proportions and pixel-art style;{hands} medieval village.'})
+        if phase == 'test':
+            return out
+        out.append({'phase': phase, 'key': k, 'kind': 'char', 'est': COST['create'], 'after': f'{k}_edit', 'src': f'{k}_edit',
+                    'desc': desc + (',' + hands.rstrip(';') if hands else '') + ', medieval fantasy village', 'view': 'low top-down', 'n_dirs': 8, 'char_name': f'settlers {look}'})
+        out += [{'phase': phase, 'key': f'{k}_{m}', 'kind': 'anim', 'est': COST['template'] * 8, 'after': k, 'newlook': k, 'name': m, 'dirs': DIRS,
+                 'mode': 'template', 'template': t} for m, t in LOOK_MOVES.items()]
+        stick = ', the walking stick still in the left hand' if look == 'man_elder' else ''
+        out.append({'phase': phase, 'key': f'{k}_{tool}_edit', 'kind': 'edit', 'est': COST['edit'], 'after': k, 'src_char': k,
+                    'desc': f'The character {hold}{stick}; keep the body, clothes, face and hair exactly the same.'})
+        out.append({'phase': phase, 'key': f'{k}_{tool}', 'kind': 'char', 'est': COST['create'], 'after': f'{k}_{tool}_edit', 'src': f'{k}_{tool}_edit',
+                    'desc': f'{desc}, {hold}{stick}', 'view': 'low top-down', 'n_dirs': 8, 'char_name': f'settlers {look}+{tool}'})
+        out.append({'phase': phase, 'key': f'{k}_{tool}_{move}', 'kind': 'anim', 'est': COST['v3'] * 8, 'after': f'{k}_{tool}', 'newlook': f'{k}_{tool}',
+                    'name': move, 'dirs': DIRS, 'mode': 'v3', 'action': action + TOOL_FX, 'frames': 8})
+    return out
 
 
 def barrow_jobs(phase):
@@ -438,7 +517,7 @@ def card_jobs(phase):
 
 
 # The run's order, the most visible first (docs/notes/pixellab-plan.md). bld_yard is the month's spare: run it by name.
-PHASES = ['test', 'bld_first', 'sleep', 'barrow', 'pieces', 'bld_medieval', 'god', 'cards', 'bld_late']
+PHASES = ['test', 'bld_first', 'looks', 'sleep', 'barrow', 'pieces', 'bld_medieval', 'god', 'cards', 'bld_late']
 OPTIONAL = ['bld_yard']
 
 # ------------------------------------------------------------------------------------------------ sending
@@ -526,13 +605,13 @@ def request(job, cid=None, src=None):
     if k == 'style':
         return 'POST', '/generate-with-style-v2', style_body(job)
     if k == 'edit':
-        im = Image.open(src).convert('RGBA') if src else Image.new('RGBA', (64, 64))
+        im = Image.open(src).convert('RGBA') if src else base_south(job['src_img']) if job.get('src_img') else Image.new('RGBA', (64, 64))
         return 'POST', '/edit-images-v2', {'method': 'edit_with_text', 'image_size': {'width': im.width, 'height': im.height}, 'no_background': True,
                                           'edit_images': [{'image': b64(im), 'width': im.width, 'height': im.height}], 'description': job['desc']}
     if k == 'char':
         im = Image.open(src).convert('RGBA') if src else Image.new('RGBA', (128, 128))
         return 'POST', '/create-character-v3', {'description': job['desc'], 'reference_image': b64(im), 'n_directions': job['n_dirs'], 'view': job['view'],
-                                               'template_id': 'mannequin', 'name': f"card {job['key']}", 'no_background': True}
+                                               'template_id': 'mannequin', 'name': job.get('char_name') or f"card {job['key']}", 'no_background': True}
     if k == 'anim':
         body = {'character_id': cid or '<character id>', 'animation_name': job['name'], 'directions': ['<one direction a job>']}
         if job['mode'] == 'template':
@@ -564,6 +643,24 @@ def character_of(job):
         return creature_ids().get(job['creature'])
     if job.get('card'):
         return state.get(f"card_{job['card']}", {}).get('character_id')
+    if job.get('newlook'):
+        return state.get(job['newlook'], {}).get('character_id')
+    return None
+
+
+def south_of(cid, dest):
+    """A character's own south view (from its zip), saved at `dest`: the picture a tool is edited into."""
+    import subprocess
+    import zipfile
+    for a in range(4):
+        d = subprocess.run(['curl', '-sS', f'https://api.pixellab.ai/v2/characters/{cid}/zip'], capture_output=True).stdout
+        if d[:2] == b'PK':
+            z = zipfile.ZipFile(io.BytesIO(d))
+            meta = json.loads(z.read('metadata.json'))
+            os.makedirs(os.path.dirname(dest), exist_ok=True)
+            Image.open(io.BytesIO(z.read(meta['states'][0]['frames']['rotations']['south']))).convert('RGBA').save(dest)
+            return dest
+        time.sleep(5 * (a + 1))
     return None
 
 
@@ -631,6 +728,12 @@ def work(job, st):
     k = job['kind']
     if k in ('style', 'edit', 'char'):
         src = done_png(job['src']) if job.get('src') else None
+        if job.get('src_char'):
+            cid = state.get(job['src_char'], {}).get('character_id')
+            src = cid and south_of(cid, f"{OUT}/{job['phase']}/{key}_src.png")
+            if not src:
+                log(key, 'no south view of', job['src_char'])
+                return
         method, path, body = request(job, src=src)
         r, res = send(path, body)
         if not r:
@@ -705,13 +808,18 @@ def main():
     for ph in phases:
         jobs = [j for j in jobs_for(ph) if not ONLY or j['key'] in ONLY]
         log('==', ph, len(jobs), 'jobs')
-        # (a job's input first: the ones that wait on another go after the rest)
-        first = [j for j in jobs if not j.get('after')]
-        then = [j for j in jobs if j.get('after')]
-        with ThreadPoolExecutor(SLOTS) as ex:
-            list(ex.map(run, first))
-        for j in then:
-            run(j)
+        # (in waves: the jobs whose input is done, at once; then the ones that waited on them, and so on. A job whose
+        # input failed is left, said so, for the next run)
+        pending = jobs
+        while pending:
+            ready = [j for j in pending if not j.get('after') or state.get(j['after'], {}).get('done')]
+            if not ready:
+                for j in pending:
+                    run(j)
+                break
+            with ThreadPoolExecutor(SLOTS) as ex:
+                list(ex.map(run, ready))
+            pending = [j for j in pending if j not in ready]
         if ph == 'test':
             log('TESTS DONE: look at pl/nov/test/ and the test moves (assemble_nov.py <repo> test lays them out) before the rest')
             break
