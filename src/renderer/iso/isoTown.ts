@@ -98,6 +98,46 @@ const PROP_SHARE: Partial<Record<Role, number>> = { cottage: 0.5, longhouse: 0.6
 export const propsFor = (ids: readonly string[], role: Role): string[] =>
   (PROPS[role] ?? []).map((re) => ids.find((i) => re.test(i) && !i.endsWith('_tile'))).filter((i): i is string => !!i);
 
+/** The props a building's yard holds (its cells round its picture: iso/gridRules.ts `yardCells`), by the building, in
+ *  the order they are laid: the settlers' own pieces and the one-cell props cut from the other peoples' kits
+ *  (`yard_...`, tools/grid-recut.py YARD). A smithy's anvil and quench barrel, a sawmill's logs, a mill's sacks and
+ *  cart, a barracks' weapon rack and standard. A building not listed keeps its kind's (`PROPS`). */
+const SMITH = ['yard_anvil', 'barrels', 'yard_coal', 'yard_iron'];
+const WOOD = ['yard_logs', 'woodpile', 'cart'];
+const GRAIN = ['yard_sacks', 'cart', 'hay_bales', 'barrels'];
+const HIDES = ['yard_meat_rack', 'barrels', 'yard_logs'];
+const GOODS = ['crates', 'yard_chests', 'cart', 'barrels'];
+const CARE = ['yard_pots', 'crates', 'lamp_post'];
+const HALL = ['yard_standard', 'lamp_post', 'bush'];
+const LEARNING = ['crates', 'lamp_post', 'bush'];
+const WORKS = ['yard_metal_crates', 'yard_oil_drums', 'yard_coils', 'crates'];
+const PIT = ['yard_ore_cart', 'yard_iron', 'yard_coal'];
+const ARMS = ['yard_weapon_rack', 'yard_standard', 'barrels'];
+export const YARD_PROPS: Record<string, readonly string[]> = {
+  smithy: SMITH, bloomery: SMITH, gunsmith: SMITH, steelworks: SMITH, alloy_foundry: SMITH, siege_workshop: ['yard_logs', 'yard_anvil', 'crates'],
+  sawmill: WOOD, cooper: ['yard_logs', 'barrels', 'woodpile'], furniture_store: WOOD, workbench: WOOD, basketry: ['yard_baskets', 'yard_logs'],
+  windmill: GRAIN, bakery: GRAIN, brewery: ['barrels', 'yard_sacks', 'cart'], cannery: ['yard_sacks', 'crates', 'barrels'], granary: GRAIN,
+  hunters_lodge: HIDES, hide_tent: HIDES, smokehouse: HIDES, tannery: HIDES, tanning_rack: HIDES, drying_rack: HIDES, bone_carver: HIDES,
+  general_store: GOODS, emporium: GOODS, market: GOODS, trading_post: GOODS, weapon_store: ['yard_weapon_rack', 'crates'], armour_store: GOODS,
+  apothecary_shop: CARE, apothecary: CARE, healers_hut: CARE, infirmary: CARE, hospital: CARE, trauma_center: CARE, pharmacy: CARE,
+  town_hall: HALL, elder_lodge: HALL, trophy_hall: HALL,
+  university: LEARNING, school: LEARNING, library: LEARNING, scriptorium: LEARNING, arcane_library: LEARNING, arcane_academy: LEARNING, print_shop: ['crates', 'yard_sacks'],
+  factory: WORKS, power_station: WORKS, refinery: WORKS, electronics_plant: WORKS, garage: WORKS, chip_fab: WORKS, robot_workshop: WORKS,
+  textile_mill: WORKS, appliance_plant: WORKS, fusion_reactor: WORKS, habitat_dome: WORKS, battery_plant: WORKS, nanoforge: WORKS, bio_lab: WORKS,
+  cement_works: WORKS, glassworks: ['crates', 'yard_coal', 'barrels'],
+  mine: PIT, coal_mine: PIT, quarry: ['yard_ore_cart', 'rocks'], deep_mine: PIT,
+  barracks: ARMS, arena: ARMS, militia_post: ARMS, guard_tower: ARMS,
+  tavern: ['barrels', 'lamp_post', 'crates'], fireside_inn: ['barrels', 'woodpile'],
+  storytellers_circle: ['woodpile', 'barrels'], well: ['barrels'], kiln: ['woodpile', 'yard_pots'], loom: ['yard_baskets', 'crates'], tailor: ['yard_baskets', 'crates'],
+  prison: ['lamp_post', 'barrels'], gaol: ['lamp_post', 'barrels'], airship_mast: ['crates', 'barrels'],
+};
+/** Props that stand taller than a barrel: laid only on a yard cell not in front of the building, so they never hide it. */
+export const TALL_PROPS = new Set(['yard_standard', 'yard_meat_rack', 'yard_metal_crates', 'yard_coils', 'lamp_post']);
+
+/** A building's yard props (`YARD_PROPS`, else its kind's), those its kit has cut (`has`). */
+export const yardPropsFor = (defId: string, role: Role, ids: readonly string[], has: (piece: string) => boolean): string[] =>
+  (YARD_PROPS[defId] ? [...YARD_PROPS[defId]] : propsFor(ids, role)).filter(has);
+
 /** A prop for a building, picked from its id so it is the same every run: the kit's piece, and the spot in cells
  *  beside the footprint (the front-right or the front-left face), or none. */
 export function propFor(ids: readonly string[], role: Role, id: number, f: { x: number; y: number; w: number; h: number }): { piece: string; x: number; y: number } | null {

@@ -67,6 +67,18 @@
   "kind": "building",
   "bake": 1
  },
+ "cobble_tile": {
+  "anchor": [
+   0,
+   0
+  ],
+  "foot": [
+   1,
+   1
+  ],
+  "kind": "tile",
+  "bake": 1
+ },
  "cottage": {
   "anchor": [
    108,
@@ -95,6 +107,31 @@
   "kind": "loose",
   "bake": 0.6
  },
+ "dirt_tile": {
+  "anchor": [
+   0,
+   0
+  ],
+  "foot": [
+   1,
+   1
+  ],
+  "kind": "tile",
+  "bake": 1
+ },
+ "fence_post": {
+  "anchor": [
+   9,
+   66
+  ],
+  "foot": [
+   1,
+   1
+  ],
+  "kind": "post",
+  "bake": 1,
+  "from": "fence"
+ },
  "fence_seg": {
   "anchor": [
    19,
@@ -108,6 +145,18 @@
   "bake": 1,
   "from": "fence",
   "slope": 0.468
+ },
+ "field_tile": {
+  "anchor": [
+   0,
+   0
+  ],
+  "foot": [
+   1,
+   1
+  ],
+  "kind": "tile",
+  "bake": 1
  },
  "granary": {
   "anchor": [
@@ -123,6 +172,18 @@
    2.78
   ],
   "kind": "building",
+  "bake": 1
+ },
+ "grass_tile": {
+  "anchor": [
+   0,
+   0
+  ],
+  "foot": [
+   1,
+   1
+  ],
+  "kind": "tile",
   "bake": 1
  },
  "hay_bales": {
@@ -206,6 +267,19 @@
   "bake": 1,
   "from": "palisade_gate",
   "slope": 0.258
+ },
+ "palisade_post": {
+  "anchor": [
+   12,
+   93
+  ],
+  "foot": [
+   1,
+   1
+  ],
+  "kind": "post",
+  "bake": 1,
+  "from": "palisade_corner"
  },
  "palisade_seg": {
   "anchor": [
@@ -389,5 +463,200 @@
   ],
   "kind": "building",
   "bake": 1
+ },
+ "yard_anvil": {
+  "anchor": [
+   34,
+   86
+  ],
+  "foot": [
+   1,
+   1
+  ],
+  "kind": "loose",
+  "bake": 0.4743,
+  "from": "dwarves/anvil_stall"
+ },
+ "yard_baskets": {
+  "anchor": [
+   24,
+   76
+  ],
+  "foot": [
+   1,
+   1
+  ],
+  "kind": "loose",
+  "bake": 0.5776,
+  "from": "druids/baskets"
+ },
+ "yard_chests": {
+  "anchor": [
+   34,
+   54
+  ],
+  "foot": [
+   1,
+   1
+  ],
+  "kind": "loose",
+  "bake": 0.4878,
+  "from": "nomads/chests"
+ },
+ "yard_coal": {
+  "anchor": [
+   20,
+   39
+  ],
+  "foot": [
+   1,
+   1
+  ],
+  "kind": "loose",
+  "bake": 0.4784,
+  "from": "dwarves/coal_heap"
+ },
+ "yard_coils": {
+  "anchor": [
+   19,
+   88
+  ],
+  "foot": [
+   1,
+   1
+  ],
+  "kind": "loose",
+  "bake": 0.6503,
+  "from": "machines/coil_stack"
+ },
+ "yard_iron": {
+  "anchor": [
+   21,
+   43
+  ],
+  "foot": [
+   1,
+   1
+  ],
+  "kind": "loose",
+  "bake": 0.4784,
+  "from": "dwarves/iron_ore"
+ },
+ "yard_logs": {
+  "anchor": [
+   29,
+   62
+  ],
+  "foot": [
+   1,
+   1
+  ],
+  "kind": "loose",
+  "bake": 0.4722,
+  "from": "moonpack/hide_bundles"
+ },
+ "yard_meat_rack": {
+  "anchor": [
+   32,
+   79
+  ],
+  "foot": [
+   1,
+   1
+  ],
+  "kind": "loose",
+  "bake": 0.4722,
+  "from": "moonpack/meat_racks"
+ },
+ "yard_metal_crates": {
+  "anchor": [
+   22,
+   95
+  ],
+  "foot": [
+   1,
+   1
+  ],
+  "kind": "loose",
+  "bake": 0.6503,
+  "from": "machines/metal_crates"
+ },
+ "yard_oil_drums": {
+  "anchor": [
+   12,
+   59
+  ],
+  "foot": [
+   1,
+   1
+  ],
+  "kind": "loose",
+  "bake": 0.6503,
+  "from": "machines/oil_drums"
+ },
+ "yard_ore_cart": {
+  "anchor": [
+   34,
+   62
+  ],
+  "foot": [
+   1,
+   1
+  ],
+  "kind": "loose",
+  "bake": 0.4743,
+  "from": "dwarves/ore_cart"
+ },
+ "yard_pots": {
+  "anchor": [
+   26,
+   66
+  ],
+  "foot": [
+   1,
+   1
+  ],
+  "kind": "loose",
+  "bake": 0.5776,
+  "from": "druids/clay_pots"
+ },
+ "yard_sacks": {
+  "anchor": [
+   34,
+   57
+  ],
+  "foot": [
+   1,
+   1
+  ],
+  "kind": "loose",
+  "bake": 0.5332,
+  "from": "nomads/water_skins"
+ },
+ "yard_standard": {
+  "anchor": [
+   28,
+   106
+  ],
+  "foot": [
+   1,
+   1
+  ],
+  "kind": "loose",
+  "bake": 0.4065,
+  "from": "nomads/standard"
+ },
+ "yard_weapon_rack": {
+  "anchor": [
+   34,
+   68
+  ],
+  "foot": [
+   1,
+   1
+  ],
+  "kind": "loose",
+  "bake": 0.3976,
+  "from": "orcs/weapon_stall"
  }
 }

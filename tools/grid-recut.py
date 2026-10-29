@@ -40,6 +40,28 @@ SOLID = 24
 BUILDINGS = ['cottage', 'longhouse', 'stockpile', 'workshop', 'tavern', 'well', 'chapel', 'granary', 'watchtower', 'market_stall', 'campfire']
 LOOSE = {'oak_tree': 0.73, 'pine_tree': 0.73, 'bush': 0.7, 'rocks': 0.58, 'barrels': 0.6, 'crates': 0.6, 'woodpile': 0.6, 'hay_bales': 0.6,
          'cart': 0.6, 'lamp_post': 0.6, 'signpost': 0.6}
+# a building's yard props borrowed from the other peoples' kits (the same PixelLab style as the settlers'), each a cell:
+# baked to the settlers' scale as the kit's own props are (0.6 of the size its own people draws it), and smaller where it
+# would be wider than a cell or taller than `YARD_TALL` (iso/isoTown.ts YARD_PROPS says which building keeps which)
+YARD = {
+    'yard_anvil': 'dwarves/anvil_stall',
+    'yard_coal': 'dwarves/coal_heap',
+    'yard_iron': 'dwarves/iron_ore',
+    'yard_ore_cart': 'dwarves/ore_cart',
+    'yard_logs': 'moonpack/hide_bundles',
+    'yard_meat_rack': 'moonpack/meat_racks',
+    'yard_weapon_rack': 'orcs/weapon_stall',
+    'yard_standard': 'nomads/standard',
+    'yard_sacks': 'nomads/water_skins',
+    'yard_chests': 'nomads/chests',
+    'yard_baskets': 'druids/baskets',
+    'yard_pots': 'druids/clay_pots',
+    'yard_oil_drums': 'machines/oil_drums',
+    'yard_metal_crates': 'machines/metal_crates',
+    'yard_coils': 'machines/coil_stack',
+}
+YARD_WIDE = 0.95
+YARD_TALL = 100
 # the stockpile's heaps drawn by PixelLab (tools/pixellab/assemble_nov.py), cut once their pictures are in the kit
 MADE_LOOSE = {'grain_sacks': 0.6, 'lumber_stack': 0.6, 'ore_pile': 0.6}
 # walls and fences: a cell cut from the middle of the kit's run (a fence's centred on a post, so each cell has one);
@@ -52,8 +74,13 @@ ON_POST = {'fence'}
 LOWER = {'palisade_run': 28, 'palisade_gate': 28}
 # how much of a column's foot is kept under the band taken out (its ground and the stones at the stakes' feet)
 LOWER_KEEP = 45
-# the stone wall's corner: one of the stone gate's towers, a cell across, on the corner cell's middle
-POSTS = {'stone_wall_post': 'stone_gate'}
+# the walls' and the fence's corner pieces, cut from what the kit has, standing where the runs meet (on the corner cell's
+# middle, or a pen's corner): the stone wall's, one of the stone gate's towers; the palisade's, the stake at the point
+# of the kit's corner piece with the stones under it (lowered as the runs are); the fence's, one of its posts
+POSTS = {'stone_wall_post': 'stone_gate', 'palisade_post': 'palisade_corner', 'fence_post': 'fence'}
+# how wide the palisade's corner stake is cut (px of the kit each side of the corner's point): its stake and half of each
+# beside it, enough to cover where the two runs' ends cross
+CORNER_HALF = 13
 # corner pieces drawn for the purpose by PixelLab, each a cell on its own plinth, cut in place of the above once its
 # picture is in the kit: the stone wall's corner tower, the palisade's and the fence's corner posts (iso/gridRules.ts
 # `wallPost` finds them by their seg's name)
@@ -62,6 +89,12 @@ MADE_POSTS = {'stone_wall_post': 'stone_corner_tower', 'palisade_post': 'palisad
 ALONG_Y = {'stone_wall_run', 'stone_gate', 'fence'}
 # a gate's middle is cut this much wider than its cells, a quarter cell each side (rule 4's eaves)
 GATE_EAVES = 0.25
+# the ground tiles: their top face only, as an exact 2:1 diamond (the view lays one to a cell, a little over size), the
+# ragged dark edge round it and the slab under it left out, so neighbouring cells of a street or a meadow meet with no
+# line or step between them
+TILES = ['grass_tile', 'dirt_tile', 'cobble_tile', 'field_tile']
+# how far in the face is sampled from at its edges (a share of its half-size): past the dark tufts along its back edges
+TILE_INSET = 0.12
 
 
 def alpha_of(im):
@@ -213,7 +246,7 @@ def loose_record(im):
     return {'anchor': [round(cx), round(cy + HC / 2)], 'foot': [1, 1]}
 
 
-def seg_cut(src, cells, mirror):
+def seg_cut(src, cells, mirror, half_px=None):
     """A run's middle `cells` long (and the eaves), lying along x: its anchor the front corner of a footprint `cells`
     by 1 whose middle is the run's middle. The kits' runs are drawn shallower than the grid's 2:1 (their ground slopes
     about a quarter, not a half), so the cut is sheared upright to 2:1 (columns moved up or down, never tilted: posts and
@@ -240,7 +273,7 @@ def seg_cut(src, cells, mirror):
         mid = post_near(im, foot, mid)
     if name in LOWER:
         im = lowered(im, foot, LOWER[name])
-    half = cells * HC / 2 + (GATE_EAVES * HC if cells > 1 else 1)
+    half = half_px if half_px else cells * HC / 2 + (GATE_EAVES * HC if cells > 1 else 1)
     x0, x1 = max(0, int(round(mid - half))), min(w, int(round(mid + half)))
     # (sheared to 2:1 about the middle column: the shift at its edges is how far the run falls short of a half)
     shear = 0.5 - slope
@@ -255,10 +288,28 @@ def seg_cut(src, cells, mirror):
     off = foot_centre_offset(cells, 1)
     centre_y = edge - 0.3 * HC
     anchor = (round(mid - off[0] - x0), round(centre_y - off[1]))
+    drop_slab(out, slab + 1)
     bbox = out.getbbox()
     top = bbox[1] if bbox else 0
     out = out.crop((0, top, out.width, bbox[3] if bbox else out.height))
     return out, [anchor[0], anchor[1] - top], [cells, 1], round(slope, 3)
+
+
+def drop_slab(im, n):
+    """Clears the lowest `n` drawn px of each column: the slab's dark edge under a run's strip of ground, which drew a line
+    along every wall and fence where the strip meets the ground."""
+    if n <= 0:
+        return im
+    alpha, w, h = alpha_of(im)
+    px = im.load()
+    for x in range(w):
+        y = h - 1
+        while y >= 0 and alpha(x, y) < SOLID:
+            y -= 1
+        for k in range(n):
+            if y - k >= 0:
+                px[x, y - k] = (0, 0, 0, 0)
+    return im
 
 
 def heights(im, foot):
@@ -335,6 +386,85 @@ def post_cut(src, mirror):
     return cut, [anchor[0], anchor[1] - bbox[1]]
 
 
+def tile_cut(src):
+    """A ground tile's top face as an exact diamond as wide as the tile and half as tall: its corners found from its
+    sides (the face's left and right corners are the top of its slab's sides), each pixel sampled a little in toward
+    the middle (`TILE_INSET`) so the dark edge round the face is left out, and everything outside the diamond cleared."""
+    im = Image.open(src).convert('RGBA')
+    alpha, w, h = alpha_of(im)
+    left = next(y for y in range(h) if alpha(0, y) >= 128)
+    right = next(y for y in range(h) if alpha(w - 1, y) >= 128)
+    cy = (left + right) / 2
+    cx = w / 2
+    ow, oh = w, w // 2
+    f = 1 - TILE_INSET
+    # (out px p to src: c + (p - c') * f, c' the out diamond's middle)
+    sx, sy = f, f
+    face = im.transform((ow, oh), Image.AFFINE, (sx, 0, cx - sx * ow / 2, 0, sy, cy - sy * oh / 2), resample=Image.NEAREST)
+    px = face.load()
+    for y in range(oh):
+        for x in range(ow):
+            if abs(x + 0.5 - ow / 2) / (ow / 2) + abs(y + 0.5 - oh / 2) / (oh / 2) > 1:
+                px[x, y] = (0, 0, 0, 0)
+            else:
+                r, g, b, _ = px[x, y]
+                px[x, y] = (r, g, b, 255)
+    return face
+
+
+def corner_post_cut(src):
+    """The stake at the point of a kit's corner piece, with the stones under it, as a one-cell corner piece: lowered as its
+    runs are, cut `CORNER_HALF` each side of the point, its foot on the middle of its cell as a run's seg's is (0.3 of a
+    cell behind its ground's front point)."""
+    im = Image.open(src).convert('RGBA')
+    alpha, w, h = alpha_of(im)
+    b = measure_base(im)
+    foot = {}
+    for x in range(w):
+        for y in range(h - 1, -1, -1):
+            if alpha(x, y) >= SOLID:
+                foot[x] = y
+                break
+    name = os.path.basename(src)[:-4]
+    run = name.replace('_corner', '_run')
+    if run in LOWER:
+        im = lowered(im, foot, LOWER[run])
+    cx = b['front'][0]
+    x0, x1 = int(round(cx - CORNER_HALF)), int(round(cx + CORNER_HALF)) + 1
+    edge = b['front'][1] - b['slab']
+    anchor = [round(cx - x0), round(edge - 0.3 * HC + HC / 2)]
+    cut = im.crop((x0, 0, x1, h))
+    cut_below(cut, anchor, 1, 1)
+    drop_slab(cut, b['slab'] + 1)
+    bbox = cut.getbbox()
+    cut = cut.crop((0, bbox[1], cut.width, bbox[3]))
+    return cut, [anchor[0], anchor[1] - bbox[1]]
+
+
+def fence_post_cut(src, mirror):
+    """One of a fence's posts as a one-cell corner piece: the post its seg is cut on (`post_near`), a pixel or two each
+    side, with its anchor where the seg's is."""
+    im = Image.open(src).convert('RGBA')
+    if mirror:
+        im = im.transpose(Image.FLIP_LEFT_RIGHT)
+    alpha, w, h = alpha_of(im)
+    foot = {}
+    for x in range(w):
+        for y in range(h - 1, -1, -1):
+            if alpha(x, y) >= SOLID:
+                foot[x] = y
+                break
+    mid = post_near(im, foot, (min(foot) + max(foot)) / 2)
+    hs = heights(im, foot)
+    tall = max(hs.values())
+    # (the post's half-width: its run of tall columns about its middle)
+    r = 0
+    while hs.get(int(mid + r + 1), 0) >= tall - 6 and hs.get(int(mid - r - 1), 0) >= tall - 6:
+        r += 1
+    cut, anchor, _, _ = seg_cut(src, 1, mirror, r + 2.5)
+    return cut, anchor
+
+
 def main():
     out_kit = os.path.join(KIT, 'grid')
     out_shared = os.path.join(SHARED, 'grid')
@@ -355,6 +485,20 @@ def main():
         cut_below(im, rec['anchor'], *rec['foot'])
         save(im, os.path.join(out_kit, pid + '.png'))
         kit_rec[pid] = rec
+    kits = json.load(open(os.path.join(ISO, 'kits', 'kits.json')))
+    for pid, src in YARD.items():
+        kit, piece = src.split('/')
+        im = Image.open(os.path.join(ISO, 'kits', kit, piece + '.png')).convert('RGBA')
+        box = im.getbbox()
+        im = im.crop(box)
+        f = 0.6 * kits[kit]['scale'] / SCALE
+        f = min(f, YARD_WIDE * 2 * HC / im.width, YARD_TALL / im.height)
+        im = bake(im, round(f, 4))
+        rec = kit_rec.get(pid) if kit_rec.get(pid, {}).get('from') == src else None
+        rec = rec or {**loose_record(im), 'kind': 'loose', 'bake': round(f, 4), 'from': src}
+        cut_below(im, rec['anchor'], *rec['foot'])
+        save(im, os.path.join(out_kit, pid + '.png'))
+        kit_rec[pid] = rec
     for pid, src in SEGS.items():
         cut, anchor, foot, slope = seg_cut(os.path.join(KIT, src + '.png'), 1, src in ALONG_Y)
         save(cut, os.path.join(out_kit, pid + '.png'))
@@ -362,7 +506,13 @@ def main():
     for pid, src in POSTS.items():
         if os.path.exists(os.path.join(KIT, MADE_POSTS[pid] + '.png')):
             continue
-        cut, anchor = post_cut(os.path.join(KIT, src + '.png'), src in ALONG_Y)
+        path = os.path.join(KIT, src + '.png')
+        if src.endswith('_corner'):
+            cut, anchor = corner_post_cut(path)
+        elif src in SEGS.values() and src in ON_POST:
+            cut, anchor = fence_post_cut(path, src in ALONG_Y)
+        else:
+            cut, anchor = post_cut(path, src in ALONG_Y)
         save(cut, os.path.join(out_kit, pid + '.png'))
         kit_rec[pid] = {'anchor': anchor, 'foot': [1, 1], 'kind': 'post', 'bake': 1, 'from': src}
     for pid, src in MADE_POSTS.items():
@@ -376,6 +526,9 @@ def main():
         cut_below(im, rec['anchor'], 1, 1)
         save(im, os.path.join(out_kit, pid + '.png'))
         kit_rec[pid] = rec
+    for pid in TILES:
+        save(tile_cut(os.path.join(KIT, pid + '.png')), os.path.join(out_kit, pid + '.png'))
+        kit_rec[pid] = {'anchor': [0, 0], 'foot': [1, 1], 'kind': 'tile', 'bake': 1}
     for pid, (src, cells) in GATES.items():
         cut, anchor, foot, slope = seg_cut(os.path.join(KIT, src + '.png'), cells, src in ALONG_Y)
         save(cut, os.path.join(out_kit, pid + '.png'))
