@@ -140,24 +140,27 @@ export const DROUGHT_FORAGE = 0.5;
 /** Plague: chance per game hour a sick person passes it to each person near them (halved with an
  *  infirmary), health lost per hour, how long it lasts (game hours), and its toll on work and morale. */
 export const PLAGUE_SPREAD = 0.06;
-export const PLAGUE_HP_PER_HOUR = 1.5;
+export const PLAGUE_HP_PER_HOUR = 1.3;
 export const PLAGUE_HOURS: [number, number] = [24, 48];
 export const PLAGUE_WORK = 0.6;
 export const PLAGUE_MORALE = -8;
 /** The plague made deadly (docs/notes/winter-plague-delves.md; with the autopilot on): the sick don't mend while it
- *  lasts (`sick.wasting`) and lie abed, a sickbed if one is free. What it takes an hour is `PLAGUE_HP_PER_HOUR` times
- *  each of these that holds: old (`PLAGUE_OLD`, an elder half that again over 1), hungry (`PLAGUE_HUNGRY`), a child
+ *  lasts (`sick.wasting`) and lie abed, a sickbed if one is free. What it takes an hour is `PLAGUE_SHARE` of their health
+ *  times each of these that holds: old (`PLAGUE_OLD`, an elder half that again over 1), hungry (`PLAGUE_HUNGRY`), a child
  *  (`PLAGUE_CHILD`); and eased by a sickbed (`PLAGUE_TENDED`, less again for each level of the healer keeping it,
  *  `PLAGUE_HEALER_PER_LEVEL`, to at most `PLAGUE_HEALER_MOST` off) and a draught of herbs from the stores
  *  (`PLAGUE_HERBS`, one bundle a sickness). Those abed pass it on at `PLAGUE_ABED` the chance. Who has had it is spared
  *  it for the rest of that plague, so it burns out. */
+/** With the autopilot on, what it takes an hour is this share of their health at its fullest (so it is as deadly to
+ *  a seasoned hero as to a new hand: some 90% over a plague's 36 hours, untended), times what follows. */
+export const PLAGUE_SHARE = 0.025;
 export const PLAGUE_OLD = 1.8;
 export const PLAGUE_HUNGRY = 1.6;
 export const PLAGUE_CHILD = 1.3;
-export const PLAGUE_TENDED = 0.5;
+export const PLAGUE_TENDED = 0.6;
 export const PLAGUE_HEALER_PER_LEVEL = 0.03;
 export const PLAGUE_HEALER_MOST = 0.5;
-export const PLAGUE_HERBS = 0.6;
+export const PLAGUE_HERBS = 0.75;
 export const PLAGUE_ABED = 0.4;
 /** With the autopilot on the plague passes to those near on the land, not along the whole strip: at this chance an
  *  hour for each within `NEAR_PX` (fewer are near, so each is likelier to catch it). */

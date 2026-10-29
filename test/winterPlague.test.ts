@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { COLD_AWAKE, COLD_HP_PER_HOUR, COLD_IN_BED, WINTER_SNOW, FIREWOOD_PER_HEAD, SPOIL_DAILY, WINTER_FORAGE } from '../src/shared/data/hardship';
-import { PLAGUE_HP_PER_HOUR } from '../src/shared/data/doom';
+import { PLAGUE_HP_PER_HOUR, PLAGUE_SHARE } from '../src/shared/data/doom';
 import { LIFESPANS } from '../src/shared/data/lifespans';
 import { firewoodWanted, hardshipHourly, noMending, winterForage } from '../src/shared/sim/hardship';
 import { plagueToll, updateDoom } from '../src/shared/sim/doom';
@@ -198,7 +198,7 @@ test('the plague takes the old, the hungry and children worst; a sickbed, a heal
   p.grownAt = s.tick - 2 * TICKS_PER_DAY;
   p.sick = { until: s.tick + 10 * TICKS_PER_HOUR, wasting: true };
   const plain = plagueToll(s, p);
-  assert.equal(plain, PLAGUE_HP_PER_HOUR);
+  assert.equal(plain, maxHp(p) * PLAGUE_SHARE, 'a share of their health');
   p.grownAt = s.tick - (LIFESPANS.settlers.oldDays + 1) * TICKS_PER_DAY;
   const old = plagueToll(s, p);
   assert.ok(old > plain * 1.5, `the old: ${old}`);
@@ -211,7 +211,7 @@ test('the plague takes the old, the hungry and children worst; a sickbed, a heal
   p.task = { type: 'sleep', building: hut.id, sick: true };
   p.activity = 'sleep';
   const tended = plagueToll(s, p);
-  assert.ok(tended < plain * 0.6, `in a sickbed: ${tended}`);
+  assert.ok(tended < plain * 0.61, `in a sickbed: ${tended}`);
   // herbs from the stores, one bundle a sickness
   campfire(s).store = { herbs: 2 };
   const eased = plagueToll(s, p);

@@ -15,6 +15,7 @@ import {
   PLAGUE_HP_PER_HOUR,
   PLAGUE_SPREAD,
   PLAGUE_SPREAD_NEAR,
+  PLAGUE_SHARE,
   PLAGUE_ABED,
   PLAGUE_CHILD,
   PLAGUE_HEALER_MOST,
@@ -60,7 +61,7 @@ import { raidBudget, shielded, startRaid } from './raids';
 import { isLich } from './turning';
 import { RAID_KIND_BY_ID } from '../data/raids';
 import { ENEMIES } from '../data/enemies';
-import { tireless, addStock, ERA_MULTIPLIER, notify, personFx, type GameState, type Person } from './state';
+import { maxHp, tireless, addStock, ERA_MULTIPLIER, notify, personFx, type GameState, type Person } from './state';
 import { TICKS_PER_DAY, TICKS_PER_HOUR } from './time';
 import { closeCall } from './closeCalls';
 import { lifeStage } from './ageing';
@@ -263,7 +264,7 @@ export function plagueToll(s: GameState, p: Person): number {
   if (isChild(p)) f *= PLAGUE_CHILD;
   if (sickbedHealing(s, p) !== null) f *= PLAGUE_TENDED * (1 - Math.min(PLAGUE_HEALER_MOST, operatorSkill(s, 'infirmary') * PLAGUE_HEALER_PER_LEVEL));
   if (p.sick.herbs) f *= PLAGUE_HERBS;
-  return PLAGUE_HP_PER_HOUR * f;
+  return maxHp(p) * PLAGUE_SHARE * f;
 }
 
 /** The plague runs its course: the sick lose health and pass it on; some recover, some don't. With the autopilot on,
