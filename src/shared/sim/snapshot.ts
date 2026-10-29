@@ -2831,7 +2831,7 @@ export interface AnnalsView {
   chronicles: Chronicle[];
   famous: FamousView[];
   /** The firsts the town has seen (sim/milestones.ts), newest first, and the day they began to be kept. */
-  milestones?: { id: string; title: string; line: string; icon: string; day: number }[];
+  milestones?: { id: string; title: string; line: string; icon: string; day: number; folded?: boolean }[];
   milestonesFrom?: number;
   /** The generation lines of the Chronicle (sim/tiers.ts). */
   generations?: string[];
@@ -2862,7 +2862,7 @@ function annalsView(s: GameState): AnnalsView {
     .map((p) => ({ id: p.id, name: p.name, calling: callingName(p, stageOf(p)), level: levelOf(p), felled: p.felled ?? 0, trips: p.trips ?? 0, titles: [...(p.titles ?? [])], founder: p.id === s.mainId }));
   const milestones = [...(s.milestones ?? [])].reverse().flatMap((m) => {
     const d = MILESTONE_BY_ID[m.id as MilestoneId];
-    return d ? [{ id: d.id, title: d.title, line: d.line, icon: d.icon, day: m.day }] : [];
+    return d ? [{ id: d.id, title: d.title, line: d.line, icon: d.icon, day: m.day, ...(m.folded ? { folded: true } : {}) }] : [];
   });
   return { fates: annalsCache.fates, fallen: annalsCache.fallen, chronicles: annalsCache.chronicles, famous, milestones, milestonesFrom: s.milestonesFrom, generations: generationLines(s) };
 }

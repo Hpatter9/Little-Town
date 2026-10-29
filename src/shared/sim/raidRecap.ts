@@ -12,7 +12,7 @@ import { levelOf, xpToLevel } from '../data/levels';
 import { legWound } from './raiderWounds';
 import { watchWon } from './nightWatch';
 import type { Stock } from '../data/materials';
-import type { GameState, Person, Raid, Raider } from './state';
+import type { FirstLine, GameState, Person, Raid, Raider } from './state';
 import { raidCloseCalls } from './closeCalls';
 
 /** The tally's key for the town's towers and traps. */
@@ -95,6 +95,10 @@ export interface RaidRecap {
   mercy?: 'turned' | 'spared' | 'hunted' | 'toll' | 'probe';
   /** What happened, told in a few lines (`tellRaid`). */
   story: string[];
+  /** The founder's story chapter the raid made ("Maren's story: A raid survived"), and the firsts it earned: told on
+   *  the recap, the raid's one summary card, not as cards of their own (sim/summaries.ts). */
+  chapter?: string;
+  firsts?: FirstLine[];
 }
 
 const tallyOf = (r: Raid, who: number): RaidTally => ((r.tally ??= {})[who] ??= { dealt: 0, kills: 0, taken: 0 });

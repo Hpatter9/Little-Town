@@ -1,8 +1,9 @@
 // The founder's story (step 4 of playing the founder). A chapter is written at each big moment: the founding, a trip the
 // founder led, a shop bought, a marriage, a child, a death in the family, a raid survived, a title earned and the
 // founder's death. Each is two to four short lines built from what happened (`writeChapter`), kept in `s.story`, and
-// told once in the event box too. When the founder dies the old story closes (its last chapter) and the heir's begins;
-// the Story tab keeps both. Written only with the autopilot on, so the tests' plainGame stays quiet.
+// told once in the event box too (a trip's and a raid's only named on their summary card: sim/summaries.ts). When the
+// founder dies the old story closes (its last chapter) and the heir's begins; the Story tab keeps both. Written only
+// with the autopilot on, so the tests' plainGame stays quiet.
 
 import { DEBRIEF_HOURS } from '../data/muster';
 import { isChild } from './social';
@@ -56,7 +57,7 @@ export function writeChapter(s: GameState, kind: ChapterKind, title: string, lin
   const story = (s.story ??= { chapters: [] });
   story.chapters.push({ who: f.id, name: f.name, kind, title, lines: lines.slice(0, 4), day: calendarOf(s).day, tick: s.tick });
   if (story.chapters.length > CHAPTERS_MOST) story.chapters.splice(0, story.chapters.length - CHAPTERS_MOST);
-  if (quiet) return; // (the game over card tells the last one)
+  if (quiet) return; // (the game over card tells the last one; a trip's or a raid's summary names its own)
   const prompt: Prompt = {
     id: s.nextId++,
     kind: 'debrief',
@@ -129,16 +130,20 @@ export function storyHourly(s: GameState): void {
   }
 }
 
-/** A trip the founder was on has come home (sim/muster.ts `debrief`): led, won or lost. */
-export function storyTrip(s: GameState, place: string, led: boolean, cleared: boolean, lost: string[], haul: string[]): void {
+/** A trip the founder was on has come home (sim/muster.ts `debrief`): led, won or lost. Written quietly: the trip's
+ *  summary card names it (sim/summaries.ts). Returns the chapter's heading ("Maren's story: A quest won"), or null. */
+export function storyTrip(s: GameState, place: string, led: boolean, cleared: boolean, lost: string[], haul: string[]): string | null {
   const f = founder(s);
-  if (!f) return;
+  if (!f || !storyOn(s)) return null;
   const lines = [`${f.name} ${led ? 'led' : 'joined'} the party to ${place}.`];
   if (cleared) lines.push(`${place} was cleared, and the party came home with the win.`);
   else lines.push(lost.length ? 'It went badly, and they came home without the win.' : 'They came home without finishing it.');
   if (lost.length) lines.push(`${joinNames(lost)} did not come back.`);
   else if (haul.length) lines.push(`They brought home ${joinNames(haul.slice(0, 3))}.`);
-  writeChapter(s, 'quest', cleared ? 'A quest won' : 'A quest lost', lines);
+  const title = cleared ? 'A quest won' : 'A quest lost';
+  writeChapter(s, 'quest', title, lines, undefined, true);
+  s.nextId++; // (the id its card took before it joined the summary, kept so a town plays out as it did)
+  return `${f.name}'s story: ${title}`;
 }
 
 /** The founder bought a shop. */
@@ -147,11 +152,14 @@ export function storyShop(s: GameState, shop: string, price: number): void {
   if (f) writeChapter(s, 'shop', 'A shop bought', [`${f.name} bought the ${shop} for ${price} coins.`, 'Now the takings, and the troubles, are theirs.']);
 }
 
-/** A raid is over and the founder lived through it. */
-export function storyRaid(s: GameState, name: string, outcome: string): void {
+/** A raid is over and the founder lived through it. Written quietly: the raid's recap names it (sim/summaries.ts).
+ *  Returns the chapter's heading, or null. */
+export function storyRaid(s: GameState, name: string, outcome: string): string | null {
   const f = founder(s);
-  if (!f || f.downed) return;
-  writeChapter(s, 'raid', 'A raid survived', [`The ${name} came for ${town(s)}, and ${f.name} was there.`, outcome, `${Town(s)} is still standing.`]);
+  if (!f || f.downed || !storyOn(s)) return null;
+  writeChapter(s, 'raid', 'A raid survived', [`The ${name} came for ${town(s)}, and ${f.name} was there.`, outcome, `${Town(s)} is still standing.`], undefined, true);
+  s.nextId++; // (the id its card took, as above)
+  return `${f.name}'s story: A raid survived`;
 }
 
 /** The founder has died (`heir` takes up the leadership; none: the game is over). The old story closes, the heir's begins. */
