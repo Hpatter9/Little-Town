@@ -22,8 +22,9 @@ export interface GridRec {
   /** Whole cells along x and along y, as drawn (mirrored it is [h, w]). */
   foot: [number, number];
   /** 'building'; 'loose' (a tree, a rock, a prop: one cell, its foot on the middle); 'seg' (one cell of a wall or fence,
-   *  lying along x); 'gate' (a gate's middle, lying along x); 'post' (a wall's corner piece, on its cell's middle). */
-  kind: 'building' | 'loose' | 'seg' | 'gate' | 'post';
+   *  lying along x); 'gate' (a gate's middle, lying along x); 'post' (a wall's corner piece, on its cell's middle);
+   *  'tile' (a ground tile's top face, an exact 2:1 diamond as wide as the copy, with no dark edge and no slab). */
+  kind: 'building' | 'loose' | 'seg' | 'gate' | 'post' | 'tile';
   /** How much the copy was scaled from the original. */
   bake: number;
   /** A seg's or a gate's: the kit's piece it was cut from. */
@@ -54,7 +55,8 @@ export const gridUrl = (kit: string, piece: string, shared: boolean): string => 
 export function segOf(kit: string, from: string): string | undefined {
   const g = GRID[kit];
   if (!g) return undefined;
-  return Object.keys(g).find((k) => g[k].from === from);
+  // (a corner post may be cut from the same piece: not it)
+  return Object.keys(g).find((k) => g[k].from === from && (g[k].kind === 'seg' || g[k].kind === 'gate'));
 }
 
 /** Where a picture with footprint `pf` stands on a building's footprint `f`: the cells it covers (`sub`) and whether it
@@ -105,7 +107,59 @@ export function gridPlan(kit: string, defId: string, foot: Rect): GridPlan | nul
   const [pw, ph] = got.rec.foot;
   const a = Math.min(foot.w / pw, foot.h / ph);
   const b = Math.min(foot.w / ph, foot.h / pw);
-  return { piece, rec: got.rec, shared: got.shared, sub: foot, flip: b > a, shrink: Math.max(a, b) };
+  const flip = b > a;
+  const shrink = Math.max(a, b);
+  return { piece, rec: got.rec, shared: got.shared, sub: shrunkSub(foot, flip ? [ph, pw] : [pw, ph], shrink), flip, shrink };
+}
+
+/** Where a picture made smaller stands on its footprint: where it then covers whole cells and fewer than its footprint
+ *  (a smithy's 3x3 workshop at two thirds is 2x2 on its 3x2), on those cells, against the footprint's back-left edge
+ *  (low x) and its front-left edge (high y), its door's face, so the cells left over are a yard along its front-right
+ *  face where its props can stand; else the whole footprint, the picture on its middle. */
+export function shrunkSub(foot: Rect, pf: readonly [number, number], shrink: number): Rect {
+  const w = pf[0] * shrink;
+  const h = pf[1] * shrink;
+  const whole = (n: number) => Math.abs(n - Math.round(n)) < 0.02 && Math.round(n) >= 1;
+  if (!whole(w) || !whole(h)) return foot;
+  const sw = Math.round(w);
+  const sh = Math.round(h);
+  if (sw > foot.w || sh > foot.h || (sw === foot.w && sh === foot.h)) return foot;
+  return { x: foot.x, y: foot.y + foot.h - sh, w: sw, h: sh };
+}
+
+/** The cells in front of the middle of a picture's door face, kept clear of props so the way in is open: the kits draw
+ *  their doors on the front-left face (iso/isoLight.ts `doorSpot`), on the front-right one when the picture is mirrored. */
+export function doorCells(pic: Rect, flip = false): { x: number; y: number }[] {
+  const mids = (from: number, n: number) => (n % 2 ? [from + (n - 1) / 2] : [from + n / 2 - 1, from + n / 2]);
+  return flip ? mids(pic.y, pic.h).map((y) => ({ x: pic.x + pic.w, y })) : mids(pic.x, pic.w).map((x) => ({ x, y: pic.y + pic.h }));
+}
+
+/** Whether a yard cell is in front of its picture (past its front-left or front-right face): a prop there is drawn over
+ *  the picture's foot, so only a low one stands there. */
+export const inFront = (pic: Rect, c: { x: number; y: number }): boolean => c.x >= pic.x + pic.w || c.y >= pic.y + pic.h;
+
+/** The props laid on a building's yard: each yard cell in turn (back ones first), skipping the cells before its doors,
+ *  takes the next of its props that may stand there (`tall` ones only on a cell not in front of it); three cells in
+ *  four take one, so the yard is worked ground with room to move, not a wall of clutter. The same building always lays
+ *  the same props. */
+export function yardLayout(pic: Rect, flip: boolean, yard: readonly { x: number; y: number }[], kinds: readonly string[], tall: (piece: string) => boolean, hash: (i: number) => number): { piece: string; x: number; y: number }[] {
+  if (!kinds.length) return [];
+  const doors = doorCells(pic, flip);
+  const cells = yard.filter((c) => !doors.some((d) => d.x === c.x && d.y === c.y)).sort((a, b) => a.x + a.y - (b.x + b.y));
+  const out: { piece: string; x: number; y: number }[] = [];
+  let next = 0;
+  cells.forEach((c, i) => {
+    if (out.length && hash(i) >= 0.75) return;
+    const front = inFront(pic, c);
+    for (let k = 0; k < kinds.length; k++) {
+      const piece = kinds[(next + k) % kinds.length];
+      if (front && tall(piece)) continue;
+      out.push({ piece, x: c.x, y: c.y });
+      next = (next + k + 1) % kinds.length;
+      return;
+    }
+  });
+  return out;
 }
 
 /** A building's own picture (a shared piece of its name, cut to the grid) where it fits its footprint as drawn, else
@@ -252,6 +306,13 @@ export const fenceSeg = (kit: string): { piece: string; rec: GridRec } | null =>
   const seg = segOf(kit, 'fence');
   return seg ? { piece: seg, rec: GRID[kit][seg] } : null;
 };
+
+/** A ground tile's clean face (`tile`: no dark edge round it, no slab under it), where its kit has been cut, so the
+ *  cells of a street or a meadow meet with no line or step between them; else null (the kit's own tile, its face
+ *  cropped by the view). */
+export function tileFace(kit: string, piece: string): string | null {
+  return GRID[kit]?.[piece]?.kind === 'tile' ? gridUrl(kit, piece, false) : null;
+}
 
 /** A loose piece's record (a tree, a rock, a prop), if cut. */
 export function looseRec(kit: string, piece: string): GridRec | null {

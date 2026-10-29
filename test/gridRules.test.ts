@@ -5,9 +5,9 @@ import { readPng } from '../tools/png';
 import { BUILDING_BY_ID, BUILDINGS } from '../src/shared/data/buildings';
 import { depthOf, isUnlocked } from '../src/shared/sim/buildings';
 import { CROPS } from '../src/shared/data/crops';
-import { AWAITING_ART, fenceSeg, fitIn, gatePlan, gridPlan, isFencedPen, looseRec, penEdges, snapSpots, wallArms, wallSeg, yardCells, type GridRec } from '../src/renderer/iso/gridRules';
+import { AWAITING_ART, doorCells, fenceSeg, fitIn, gatePlan, gridPlan, inFront, isFencedPen, looseRec, penEdges, segOf, shrunkSub, snapSpots, tileFace, wallArms, wallPost, wallSeg, yardCells, yardLayout, type GridRec } from '../src/renderer/iso/gridRules';
 import { ISO_ART, kitOf, roleOf, SHARED_PIECES } from '../src/renderer/iso/isoKits';
-import { propsFor, sceneryFor, stockHeaps } from '../src/renderer/iso/isoTown';
+import { propsFor, sceneryFor, stockHeaps, TALL_PROPS, YARD_PROPS, yardPropsFor } from '../src/renderer/iso/isoTown';
 import { ISO_TW } from '../src/renderer/iso/isoMath';
 import type { Biome } from '../src/shared/data/biomes';
 import type { Role } from '../src/renderer/iso/isoKits';
@@ -66,7 +66,7 @@ test('no building, tree, rock or prop is drawn onto the cells in front of it or 
   const bad: string[] = [];
   for (const [dir, recs] of [[KIT_GRID, records(KIT_GRID)], [SHARED_GRID, records(SHARED_GRID)]] as const)
     for (const [id, r] of Object.entries(recs)) {
-      if (r.kind === 'seg' || r.kind === 'gate') continue; // (a run's piece reaches its neighbours by design)
+      if (r.kind === 'seg' || r.kind === 'gate' || r.kind === 'tile') continue; // (a run's piece reaches its neighbours by design; a tile is checked below)
       const why = breaks(dir, id, r);
       if (why.length) bad.push(`${id}: ${why.join(', ')}`);
     }
@@ -149,4 +149,76 @@ test("a pen's fence runs round its edges with a way in on the front-left; a wall
   // (props: its yard first, then the free cells along its front)
   const spots = snapSpots(3, { x: 0, y: 0, w: 2, h: 2 }, [{ x: 0, y: 0 }], () => true);
   assert.deepEqual(spots, [{ x: 0.5, y: 0.5 }, { x: 2.5, y: 1.5 }, { x: 2.5, y: 0.5 }]);
+});
+
+// The grid polish (docs/notes/grid-polish.md): clean ground tiles, corner posts, and the yards' props.
+
+test("the ground tiles are cut to clean diamonds (their face only, no slab, no ragged edge), so neighbours meet smoothly", () => {
+  for (const id of kitOf('settlers').tiles) {
+    const url = tileFace('settlers', id);
+    assert.ok(url, `${id}: a clean face cut`);
+    const png = readPng(`${KIT_GRID}/${id}.png`);
+    assert.equal(png.h, Math.floor(png.w / 2), `${id}: a 2:1 diamond`);
+    const a = (x: number, y: number) => png.alpha[y * png.w + x];
+    // (its corners' boxes empty, its middle and its four points' insides solid)
+    assert.equal(a(0, 0) + a(png.w - 1, 0) + a(0, png.h - 1) + a(png.w - 1, png.h - 1), 0, `${id}: nothing outside the diamond`);
+    for (const [x, y] of [[png.w >> 1, png.h >> 1], [png.w >> 1, 2], [png.w >> 1, png.h - 3], [3, png.h >> 1], [png.w - 4, png.h >> 1]]) assert.equal(a(x, y), 255, `${id}: solid at ${x},${y}`);
+  }
+});
+
+test('the palisade and the fence have corner posts, cut from the kit, and their runs are never mistaken for them', () => {
+  for (const seg of ['stone_wall_seg', 'palisade_seg', 'fence_seg']) {
+    const post = wallPost('settlers', seg);
+    assert.ok(post, `${seg}: a corner post`);
+    assert.deepEqual(post.rec.foot, [1, 1]);
+    assert.equal(post.rec.kind, 'post');
+  }
+  // (a post cut from the same piece as a run: segOf finds the run)
+  assert.equal(segOf('settlers', 'fence'), 'fence_seg');
+  assert.equal(segOf('settlers', 'palisade_run'), 'palisade_seg');
+  assert.equal(segOf('settlers', 'stone_gate'), 'stone_gate_seg');
+  assert.equal(fenceSeg('settlers')?.piece, 'fence_seg');
+});
+
+test("every yard prop a building can lay is cut to one cell, and the yards' props keep off its doors and never hide it", () => {
+  const ids = [...kitOf('settlers').pieces.keys()];
+  const wanted = new Set(Object.values(YARD_PROPS).flat());
+  assert.deepEqual([...wanted].filter((p) => !looseRec('settlers', p)), [], 'yard props not cut (tools/grid-recut.py YARD)');
+  for (const id of Object.keys(YARD_PROPS)) assert.ok(BUILDING_BY_ID[id], `${id}: a building`);
+  // (every settlers building with a yard lays something on it)
+  for (const d of BUILDINGS) {
+    if (!settlers(d.id) || !('role' in roleOf(d.id))) continue;
+    const foot = { x: 0, y: 0, w: d.width, h: depthOf(d) };
+    const plan = gridPlan('settlers', d.id, foot);
+    if (!plan || plan.shared) continue;
+    const yard = yardCells(foot, plan.sub);
+    if (!yard.length || d.storage) continue;
+    const role = (roleOf(d.id) as { role: Role }).role;
+    const kinds = yardPropsFor(d.id, role, ids, (p) => !!looseRec('settlers', p));
+    const flip = plan.flip;
+    const doors = doorCells(plan.sub, flip);
+    for (let seed = 0; seed < 8; seed++) {
+      const laid = yardLayout(plan.sub, flip, yard, kinds, (p) => TALL_PROPS.has(p), (i) => ((i * 7 + seed * 3) % 10) / 10);
+      // (a yard that is all the way to its door stays clear)
+      if (yard.some((c) => !doors.some((y) => y.x === c.x && y.y === c.y))) assert.ok(laid.length, `${d.id}: its yard holds something`);
+      for (const c of laid) {
+        assert.ok(yard.some((y) => y.x === c.x && y.y === c.y), `${d.id}: ${c.piece} on its yard`);
+        assert.ok(!doors.some((y) => y.x === c.x && y.y === c.y), `${d.id}: ${c.piece} not before its door`);
+        assert.ok(!(inFront(plan.sub, c) && TALL_PROPS.has(c.piece)), `${d.id}: a tall ${c.piece} not in front of it`);
+      }
+      assert.equal(new Set(laid.map((c) => `${c.x},${c.y}`)).size, laid.length, `${d.id}: one prop to a cell`);
+    }
+  }
+});
+
+test('a picture made smaller stands on whole cells where it can, leaving a yard along its front-right face', () => {
+  // (a smithy: the 3x3 workshop at two thirds on 3x2)
+  assert.deepEqual(shrunkSub({ x: 4, y: 6, w: 3, h: 2 }, [3, 3], 2 / 3), { x: 4, y: 6, w: 2, h: 2 });
+  // (a market: the 4x1 stall at three quarters is 3 by 0.75: not whole, so on its footprint's middle)
+  assert.deepEqual(shrunkSub({ x: 0, y: 0, w: 3, h: 2 }, [4, 1], 0.75), { x: 0, y: 0, w: 3, h: 2 });
+  const smithy = gridPlan('settlers', 'smithy', { x: 0, y: 0, w: 3, h: 2 })!;
+  assert.ok(smithy.shrink < 1);
+  assert.equal(yardCells({ x: 0, y: 0, w: 3, h: 2 }, smithy.sub).length, 2);
+  // (its door on the front-left face: its yard is beside it, not before it)
+  assert.deepEqual(doorCells(smithy.sub), [{ x: 0, y: 2 }, { x: 1, y: 2 }]);
 });
