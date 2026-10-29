@@ -11,6 +11,7 @@ import { hkLayers, hkWhoOf, hkWhoOfLook } from '../art/hkFolk';
 import { eventCast, SLOT } from './eventCast';
 import { EVENT_SCENES, sceneFor } from './eventScenes';
 import { playScene, sceneCue, type Folk } from './scenePlayer';
+import { withFoes } from './sceneFoes';
 import type { PortraitWho } from '../art/folkPortrait';
 import type { EventSceneId } from '../../shared/data/eventSceneIds';
 import { findFounderArt } from '../iso/founderArt';
@@ -34,11 +35,13 @@ export interface PlayedEvent {
 export function playEventScene(container: HTMLElement, p: PromptView, snap: Snapshot): PlayedEvent | null {
   void findFounderArt(); // (the phone page's own copy of the drawn looks: it may not have looked yet)
   const id = sceneFor({ kind: p.kind, title: p.title, text: p.text, eventId: p.eventId, about: p.about });
-  const home = snap.people.filter((q) => q.away === null);
-  const byId = new Map<number, PersonView>(home.map((q) => [q.id, q]));
-  const founder = byId.has(snap.mainId) ? snap.mainId : (home[0]?.id ?? null);
+  // (a question put to someone away, a party's on the road, is played by that party, not by strangers in their places)
+  const away = snap.people.find((q) => q.id === p.who)?.away ?? null;
+  const here = snap.people.filter((q) => q.away === away);
+  const byId = new Map<number, PersonView>(here.map((q) => [q.id, q]));
+  const founder = byId.has(snap.mainId) ? snap.mainId : (here[0]?.id ?? null);
   const lead = p.who != null && byId.has(p.who) ? p.who : null;
-  const cast = eventCast(p.id, home.map((q) => ({ id: q.id, grown: q.growsUpIn === null })), lead, founder);
+  const cast = eventCast(p.id, here.map((q) => ({ id: q.id, grown: q.growsUpIn === null })), lead, founder);
   const rng = new Rng(hashSeed(`outsiders:${p.id}`));
   // (an outsider wears a settler's look: the town's own people theirs)
   const folk: (PortraitWho | null)[] = [];
@@ -59,7 +62,7 @@ export function playEventScene(container: HTMLElement, p: PromptView, snap: Snap
   [SLOT.elder, SLOT.elder2, SLOT.elder3].forEach((at, i) => (dolls[at] = doll(cast.elders[i], at)));
   for (const [at, o] of OUTSIDERS) dolls[at] = outsider(at, o);
   cast.crowd.forEach((pid, i) => (dolls[SLOT.crowd + i] = doll(pid, SLOT.crowd + i)));
-  const canvas = playScene(container, EVENT_SCENES[id], dolls, {}, folk as Folk);
+  const canvas = playScene(container, withFoes(EVENT_SCENES[id], p.foes), dolls, {}, folk as Folk);
   if (!canvas) return null;
   canvas.dataset.scene = id;
   return { canvas, answered: () => VOTES.has(id) && sceneCue(canvas, 'vote') };

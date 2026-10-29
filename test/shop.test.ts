@@ -413,6 +413,7 @@ test('a specialty shop: its own customers come for its line, buy what the town h
   assert.ok((s.coins ?? 0) > 0, 'a customer bought something');
   assert.ok((s.items[blade.id] ?? 0) < 4, 'a weapon was sold');
   assert.ok((store.shop?.log ?? []).some((l) => /came for a weapon/.test(l.text)), 'they came for a weapon');
+  assert.ok(!(store.shop?.log ?? []).some((l) => /\d\.\d+ coins/.test(l.text)), 'told in whole coins (the playthrough saw "21.832 coins")');
   assert.ok((s.travellers ?? []).every((tr) => tr.line === 'weapons'), 'only the store\'s own customers came (there is no general store)');
 });
 

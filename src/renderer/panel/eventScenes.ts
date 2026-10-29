@@ -516,6 +516,8 @@ export function sceneFor(p: SceneAsk): EventSceneId {
     case 'debrief': return /chronicle/i.test(p.title) ? 'study' : 'road';
     case 'village': return p.about === 'beset' ? 'raid_warning' : 'leaving';
     case 'secret': return 'gate';
+    // (a naming is talked over at home: by its words a creature's fell to the raid warning, a watchman on the gate)
+    case 'name': return 'home';
   }
   return FAMILY_SCENE[eventFamily(p.kind, p.title, p.text)];
 }

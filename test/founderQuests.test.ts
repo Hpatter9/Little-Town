@@ -9,7 +9,7 @@ import { leadQuest, waitingOnFounder } from '../src/shared/sim/founderQuests';
 import { beginSaga, sagaDestinations, sagaTripHome } from '../src/shared/sim/sagas';
 import { Sim } from '../src/shared/sim/sim';
 import { stewardOf } from '../src/shared/sim/steward';
-import { storyShop, storyView, writeChapter } from '../src/shared/sim/story';
+import { storyRaid, storyShop, storyView, writeChapter } from '../src/shared/sim/story';
 import { maxHp, type Expedition, type GameState } from '../src/shared/sim/state';
 import { TICKS_PER_DAY, TICKS_PER_HOUR } from '../src/shared/sim/time';
 import { Rng } from '../src/shared/rng';
@@ -112,10 +112,34 @@ test('the steward: the heir minds the town while the founder is away, and a card
   assert.match(card.story!, /gained 40 coins/);
 });
 
+test('a short trip with nothing changed is told in hours, in the news, not on one more card', () => {
+  const s = town('fq-steward-short');
+  s.autopilot = true;
+  const f = s.people[0];
+  const sim = new Sim(s);
+  f.away = 1;
+  s.tick = 10 * TICKS_PER_HOUR - 1;
+  sim.step();
+  s.tick += 3 * TICKS_PER_HOUR;
+  f.away = null;
+  sim.step();
+  assert.ok(!s.prompts.some((p) => p.title === 'While you were gone'), 'no card');
+  assert.ok(s.journal.some((l) => /home after 3 hours\..*Nothing much changed/.test(l.text)), s.journal.map((l) => l.text).slice(-4).join(' | '));
+});
+
 test('with no named heir the best grown-up at home stands in', () => {
   const s = town('fq-steward2');
   s.people[3].skills.social.level = 20;
   assert.equal(stewardOf(s)?.id, s.people[3].id);
+});
+
+test('a raid survived is told in sentences that start with a capital, the town unnamed', () => {
+  const s = town('fq-story-raid');
+  s.autopilot = true;
+  s.townName = undefined;
+  storyRaid(s, 'wolf pack', 'All 3 were killed.');
+  const lines = s.story!.chapters.at(-1)!.lines;
+  for (const l of lines) assert.match(l, /^[A-Z]/, l);
 });
 
 test('chapters: the founding, a shop bought, and the old story closing for the heir on a death', () => {
