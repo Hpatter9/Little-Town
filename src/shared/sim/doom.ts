@@ -14,6 +14,15 @@ import {
   PLAGUE_HOURS,
   PLAGUE_HP_PER_HOUR,
   PLAGUE_SPREAD,
+  PLAGUE_ABED,
+  PLAGUE_CHILD,
+  PLAGUE_HEALER_MOST,
+  PLAGUE_HEALER_PER_LEVEL,
+  PLAGUE_HERBS,
+  PLAGUE_HUNGRY,
+  PLAGUE_HUNGRY_BELOW,
+  PLAGUE_OLD,
+  PLAGUE_TENDED,
   SMOG_HP_PER_HOUR,
   SMOG_MIN_WORKS,
   SMOKY_WORKS,
@@ -53,6 +62,10 @@ import { ENEMIES } from '../data/enemies';
 import { tireless, addStock, ERA_MULTIPLIER, notify, personFx, type GameState, type Person } from './state';
 import { TICKS_PER_DAY, TICKS_PER_HOUR } from './time';
 import { closeCall } from './closeCalls';
+import { lifeStage } from './ageing';
+import { sickbedHealing } from './sickbeds';
+import { operatorSkill } from './operators';
+import { isChild } from './social';
 
 export interface Doom {
   kind: DoomKind;
@@ -67,6 +80,8 @@ export interface Doom {
   cold?: boolean;
   heatOwed?: number;
   bossAgainTick?: number;
+  /** Plague: who has had it and got over it, spared it till it ends (left out: nobody yet). */
+  spared?: number[];
 }
 
 /** Disasters come less often in later eras (by the era multiplier) and last longer (by its square root). But not
@@ -224,17 +239,48 @@ export const sicken = (s: GameState, p: Person, rng: Rng) => infect(s, p, rng);
 
 function infect(s: GameState, p: Person, rng: Rng): void {
   if (isSick(p) || tireless(p)) return; // (the dead, and machines, can't sicken)
-  p.sick = { until: s.tick + rng.int(PLAGUE_HOURS[0], PLAGUE_HOURS[1]) * TICKS_PER_HOUR };
+  p.sick = { until: s.tick + rng.int(PLAGUE_HOURS[0], PLAGUE_HOURS[1]) * TICKS_PER_HOUR, ...(s.autopilot !== false ? { wasting: true } : {}) };
   notify(s, `${p.name} has fallen sick.`);
 }
 
-/** The plague runs its course: the sick lose health and pass it on; some recover, some don't. */
+/** Wasting with the plague: the body doesn't mend while it lasts (health.ts `heal`, by sim/hardship.ts `noMending`). */
+export const wasting = (p: Person) => !!p.sick?.wasting;
+
+/** What the plague takes from someone this hour: more from the old, the hungry and children, less in a sickbed (and
+ *  less again with a healer at hand) and after a draught of herbs (one bundle from the stores, the first hour they
+ *  can have it). With the autopilot off, the plain toll. */
+export function plagueToll(s: GameState, p: Person): number {
+  if (!p.sick?.wasting) return PLAGUE_HP_PER_HOUR;
+  const herbs = p.sick.herbs ? undefined : storages(s).find((b) => (b.store.herbs ?? 0) > 0);
+  if (herbs) {
+    addStock(herbs.store, 'herbs', -1);
+    p.sick.herbs = true;
+  }
+  const stage = lifeStage(s, p);
+  let f = stage === 'old' ? PLAGUE_OLD : stage === 'elder' ? 1 + (PLAGUE_OLD - 1) / 2 : 1;
+  if (p.needs.food < PLAGUE_HUNGRY_BELOW || p.starving) f *= PLAGUE_HUNGRY;
+  if (isChild(p)) f *= PLAGUE_CHILD;
+  if (sickbedHealing(s, p) !== null) f *= PLAGUE_TENDED * (1 - Math.min(PLAGUE_HEALER_MOST, operatorSkill(s, 'infirmary') * PLAGUE_HEALER_PER_LEVEL));
+  if (p.sick.herbs) f *= PLAGUE_HERBS;
+  return PLAGUE_HP_PER_HOUR * f;
+}
+
+/** The plague runs its course: the sick lose health and pass it on; some recover, some don't. With the autopilot on,
+ *  those abed pass it on less, it reaches only those near them on the land (not along the whole strip), and who got
+ *  over it is spared it till it's done, so it burns out. */
 function spreadPlague(s: GameState, rng: Rng): void {
   const guard = (built(s, 'infirmary') || built(s, 'hospital') ? 0.5 : 1) * (s.research.done.includes('sanitation') ? 0.3 : 1);
+  const rules = s.autopilot !== false;
+  const spared = new Set(s.doom?.spared ?? []);
   for (const p of [...s.people]) {
     if (!isSick(p) || p.away !== null) continue;
-    for (const o of s.people) if (o !== p && o.away === null && !isSick(o) && Math.abs(o.x - p.x) <= NEAR_PX && rng.chance(PLAGUE_SPREAD * guard)) infect(s, o, rng);
-    p.hp -= PLAGUE_HP_PER_HOUR;
+    const abed = rules && p.task?.type === 'sleep' && p.activity === 'sleep' ? PLAGUE_ABED : 1;
+    const near = (o: Person) => (rules ? Math.hypot(o.x - p.x, o.y - p.y) : Math.abs(o.x - p.x)) <= NEAR_PX;
+    for (const o of s.people) if (o !== p && o.away === null && !isSick(o) && !spared.has(o.id) && near(o) && rng.chance(PLAGUE_SPREAD * guard * abed)) infect(s, o, rng);
+    const toll = plagueToll(s, p);
+    p.hp -= toll;
+    // (the founder is laid low by sickness, never killed: the owner's rule, as in sim/hardship.ts)
+    if (p.hp <= 0 && p.id === s.mainId) p.hp = Math.min(1, p.hp + toll);
     if (p.hp <= 0) {
       killPerson(s, p, 'of the plague');
       if (s.gameOver) return;
@@ -242,6 +288,7 @@ function spreadPlague(s: GameState, rng: Rng): void {
     }
     if (s.tick >= p.sick!.until) {
       p.sick = null;
+      if (rules && s.doom) (s.doom.spared ??= []).push(p.id);
       notify(s, `${p.name} has recovered.`);
       closeCall(s, p, `${p.name}'s fever turned, and the plague let go.`); // (sim/closeCalls.ts)
     }

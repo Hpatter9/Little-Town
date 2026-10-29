@@ -62,6 +62,7 @@ import { PART_IDS } from '../data/chains';
 import { researchMods, tidyPicks } from './research';
 import { chooseOffer, offerableTopics, offerOverdue, townPicksResearch } from './researchOffer';
 import { acceptVisitor, housingCapacity } from './townsfolk';
+import { firewoodWanted } from './hardship';
 import { tireless, eatersOf, foodDaysFor, addStock, tidyAmount, campCell, poolSize, type Building, type GameState } from './state';
 import { TICKS_PER_HOUR, calendarOf } from './time';
 import { LINE_ITEMS, lineOfDef, COIN_RESERVE, FARE, PIECE_RATE, saleValue, FARE_STOCK, furnishes, isShop, isTavern, PURSE_SCALE, tiersDrawn, travellerGoods, VENUE_CHAIN, venueOfDef, WARE_STOCK, WARES } from '../data/shop';
@@ -161,6 +162,8 @@ function needs(s: GameState): Needs {
   for (const [m, n] of Object.entries(ringWants(s)) as [Material, number][]) want(m, n);
   for (const o of s.crafting) for (const [m, n] of Object.entries(craftNeeded(o)) as [Material, number][]) want(m, n * o.count);
   for (const [m, n] of Object.entries(RESERVE) as [Material, number][]) if (sourceable(s, m)) want(m, n);
+  // (firewood put by for the winter's hearths, from autumn on: sim/hardship.ts)
+  want('wood', firewoodWanted(s));
   const used = MATERIALS.reduce((n, m) => n + (stock[m] ?? 0), 0);
   // (homes already started count: they're beds on the way)
   const coming = s.buildings.filter((b) => b.status === 'blueprint').reduce((k, b) => k + (BUILDING_BY_ID[b.def]?.housing ?? 0), 0);

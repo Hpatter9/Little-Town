@@ -17,10 +17,13 @@ export const sickbedsOf = (s: GameState) => s.buildings.reduce((t, b) => t + sic
 /** Whoever is lying in (or making for) a sickbed in `b`. */
 export const patientsIn = (s: GameState, b: Building) => s.people.filter((p) => p.away === null && p.task?.type === 'sleep' && p.task.sick && p.task.building === b.id);
 
-/** Wants a sickbed: struck down, or badly hurt (the dead and machines mend themselves). */
-export const needsSickbed = (p: Person) => p.away === null && !tireless(p) && (!!p.downed || p.hp < maxHp(p) * SICK_AT);
-/** Mended enough to get up from a sickbed. */
-export const mended = (p: Person) => !p.downed && p.hp >= maxHp(p) * MENDED;
+/** Wants a sickbed: struck down, badly hurt, or down with a fever or the plague (sim/hardship.ts, sim/doom.ts; the dead
+ *  and machines mend themselves). */
+export const needsSickbed = (p: Person) => p.away === null && !tireless(p) && (!!p.downed || p.hp < maxHp(p) * SICK_AT || laidUp(p));
+/** Mended enough to get up from a sickbed (and over the sickness). */
+export const mended = (p: Person) => !p.downed && p.hp >= maxHp(p) * MENDED && !laidUp(p);
+/** A sickness that keeps them abed: a fever or the plague's wasting (both only with the autopilot on). */
+const laidUp = (p: Person) => !!p.sick?.fever || !!p.sick?.wasting;
 
 /** A free sickbed for `p` (the one they're in already, else the best-tended with room, nearest first). */
 export function sickbedFor(s: GameState, p: Person): Building | undefined {
