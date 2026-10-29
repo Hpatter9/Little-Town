@@ -92,6 +92,7 @@ export function hardshipHourly(s: GameState): void {
   if (s.gameOver) return;
   fester(s);
   if (s.gameOver) return;
+  stackWoodpile(s);
   winter(s);
   if (calendarOf(s).hour === SPOIL_HOUR) spoil(s);
 }
@@ -197,13 +198,17 @@ function winter(s: GameState): void {
   }
 }
 
-/** The winter's hearths, once an hour: the town burns `FIREWOOD_PER_HEAD` a head a day (wood, then coal), owing a
- *  part of a log to the next hour. Returns whether the hearths are lit. A heater warms the town for nothing, and in a
- *  Deep Freeze the disaster's own burning keeps the town warm or not (sim/doom.ts `keepWarm`). */
+/** The winter's hearths, once an hour: the town burns `FIREWOOD_PER_HEAD` a head a day, from the woodpile put by
+ *  (`s.woodpile`), then the stores' wood, then coal, owing a part of a log to the next hour. Returns whether the
+ *  hearths are lit. A heater warms the town for nothing, and in a Deep Freeze the disaster's own burning keeps the
+ *  town warm or not (sim/doom.ts `keepWarm`). */
 export function hearths(s: GameState): boolean {
   if (s.doom?.kind === 'deep_freeze' && s.doom.phase === 'active') return !s.doom.cold;
-  if (FREEZE_HEATERS.some((h) => s.buildings.some((b) => b.def === h && b.status === 'done'))) return true;
+  if (heated(s)) return true;
   let need = (s.hearthOwed ?? 0) + home(s).length * (FIREWOOD_PER_HEAD / 24);
+  const pile = Math.min(s.woodpile ?? 0, Math.floor(need));
+  s.woodpile = (s.woodpile ?? 0) - pile || undefined;
+  need -= pile;
   for (const m of ['wood', 'coal'] as const)
     for (const st of storages(s))
       while (need >= 1 && (st.store[m] ?? 0) > 0) {
@@ -218,15 +223,35 @@ export function hearths(s: GameState): boolean {
   return lit;
 }
 
-/** Firewood the town wants put by: a winter's burning for everyone at home, from autumn on, less each winter day gone
- *  (none with a heater). The planner gathers it (sim/planner.ts `needs`). */
-export function firewoodWanted(s: GameState): number {
+/** A heater the Deep Freeze knows (a power station) warms the town for nothing. */
+const heated = (s: GameState) => FREEZE_HEATERS.some((h) => s.buildings.some((b) => b.def === h && b.status === 'done'));
+
+/** A winter's burning for everyone at home, from autumn on, less each winter day gone (none with a heater). */
+function winterNeed(s: GameState): number {
   if (s.autopilot === false) return 0;
   const cal = calendarOf(s);
   if (cal.season !== 'autumn' && cal.season !== 'winter') return 0;
-  if (FREEZE_HEATERS.some((h) => s.buildings.some((b) => b.def === h && b.status === 'done'))) return 0;
+  if (heated(s)) return 0;
   const days = cal.season === 'winter' ? DAYS_PER_SEASON - cal.dayOfSeason + 1 : DAYS_PER_SEASON;
   return Math.ceil(home(s).length * FIREWOOD_PER_HEAD * days);
+}
+
+/** Firewood the town still wants put by: the winter's need less what's on the woodpile. The planner gathers it
+ *  (sim/planner.ts `needs`), and the wall's haulers leave it in the stores (people.ts `findJob`). */
+export const firewoodWanted = (s: GameState): number => Math.max(0, winterNeed(s) - (s.woodpile ?? 0));
+
+/** Once an hour from autumn on: wood in the stores is stacked on the woodpile till it holds the winter's need. The
+ *  woodpile is the hearths' alone: the lamps, the crafts and the builders never draw on it. */
+function stackWoodpile(s: GameState): void {
+  let want = Math.floor(firewoodWanted(s));
+  for (const st of storages(s)) {
+    if (want <= 0) return;
+    const n = Math.min(want, Math.floor(st.store.wood ?? 0));
+    if (n <= 0) continue;
+    addStock(st.store, 'wood', -n);
+    s.woodpile = (s.woodpile ?? 0) + n;
+    want -= n;
+  }
 }
 
 /** Foraging's pace in the season: the winter's land is bare (people.ts, the foragers and the hungry scrounging). */

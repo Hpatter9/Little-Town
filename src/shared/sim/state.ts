@@ -1147,6 +1147,8 @@ export interface GameState {
    *  cold for want of firewood. Left out in older saves: nothing owed, lit. */
   hearthOwed?: number;
   hearthsCold?: boolean;
+  /** The winter's firewood put by from autumn on, the hearths' alone (sim/hardship.ts `stackWoodpile`). Left out: none. */
+  woodpile?: number;
   /** State of the simulation RNG. All sim randomness draws from this, never Math.random(). */
   rngState: number;
   paused: boolean;

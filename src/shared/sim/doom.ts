@@ -14,6 +14,7 @@ import {
   PLAGUE_HOURS,
   PLAGUE_HP_PER_HOUR,
   PLAGUE_SPREAD,
+  PLAGUE_SPREAD_NEAR,
   PLAGUE_ABED,
   PLAGUE_CHILD,
   PLAGUE_HEALER_MOST,
@@ -276,7 +277,7 @@ function spreadPlague(s: GameState, rng: Rng): void {
     if (!isSick(p) || p.away !== null) continue;
     const abed = rules && p.task?.type === 'sleep' && p.activity === 'sleep' ? PLAGUE_ABED : 1;
     const near = (o: Person) => (rules ? Math.hypot(o.x - p.x, o.y - p.y) : Math.abs(o.x - p.x)) <= NEAR_PX;
-    for (const o of s.people) if (o !== p && o.away === null && !isSick(o) && !spared.has(o.id) && near(o) && rng.chance(PLAGUE_SPREAD * guard * abed)) infect(s, o, rng);
+    for (const o of s.people) if (o !== p && o.away === null && !isSick(o) && !spared.has(o.id) && near(o) && rng.chance((rules ? PLAGUE_SPREAD_NEAR : PLAGUE_SPREAD) * guard * abed)) infect(s, o, rng);
     const toll = plagueToll(s, p);
     p.hp -= toll;
     // (the founder is laid low by sickness, never killed: the owner's rule, as in sim/hardship.ts)

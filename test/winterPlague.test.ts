@@ -53,12 +53,14 @@ test('winter hearths burn firewood; with none, even those in bed grow cold', () 
   for (const p of s.people) sleepIn(p, home.id);
   campfire(s).store = { wood: 10 };
   hours(s, 24);
-  // (a day's burning for four: 0.6 a head)
-  assert.equal(campfire(s).store.wood, 10 - Math.floor(4 * FIREWOOD_PER_HEAD), 'a day of firewood burned');
+  // (stacked on the woodpile, and a day's burning for four burned: 0.6 a head)
+  assert.equal((campfire(s).store.wood ?? 0) + (s.woodpile ?? 0), 10 - Math.floor(4 * FIREWOOD_PER_HEAD), 'a day of firewood burned');
+  assert.ok((s.woodpile ?? 0) > 0, 'the wood stacked on the woodpile');
   assert.ok(!s.hearthsCold);
   assert.ok(s.people.every((p) => p.hp === maxHp(p) && !p.cold), 'warm in bed by a lit hearth');
   // the woodpile bare: the hearths go cold and the sleepers in bed with them, at half the ground's rate
   campfire(s).store = {};
+  s.woodpile = undefined;
   s.hearthOwed = 0.99;
   hours(s, 1);
   assert.ok(s.hearthsCold);
@@ -73,6 +75,7 @@ test('winter hearths burn firewood; with none, even those in bed grow cold', () 
   up.activity = 'idle';
   up.hp = maxHp(up);
   campfire(s).store = {};
+  s.woodpile = undefined;
   hours(s, 1);
   assert.ok(up.cold && up.hp === maxHp(up) - COLD_HP_PER_HOUR * COLD_AWAKE * (weatherAt(s.seed, s.tick, null).kind === 'snow' ? WINTER_SNOW : 1));
   // (no firewood burned in summer)
@@ -81,6 +84,12 @@ test('winter hearths burn firewood; with none, even those in bed grow cold', () 
   hours(t, 24);
   assert.equal(campfire(t).store.wood, 10);
   // (and nothing with the autopilot off)
+  // (the woodpile is the hearths' alone, and wanted no more once it holds the winter's need)
+  const w = town('woodpile', 4, 22);
+  campfire(w).store = { wood: 100 };
+  hours(w, 1);
+  assert.equal(w.woodpile, Math.ceil(4 * FIREWOOD_PER_HEAD * 10));
+  assert.equal(firewoodWanted(w), 0);
   const u = town('off-hearths', 6, 32);
   u.autopilot = false;
   campfire(u).store = { wood: 10 };

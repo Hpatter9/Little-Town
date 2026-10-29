@@ -159,6 +159,9 @@ export const PLAGUE_HEALER_PER_LEVEL = 0.03;
 export const PLAGUE_HEALER_MOST = 0.5;
 export const PLAGUE_HERBS = 0.6;
 export const PLAGUE_ABED = 0.4;
+/** With the autopilot on the plague passes to those near on the land, not along the whole strip: at this chance an
+ *  hour for each within `NEAR_PX` (fewer are near, so each is likelier to catch it). */
+export const PLAGUE_SPREAD_NEAR = 0.15;
 /** Hungry, for the plague: below this much food. */
 export const PLAGUE_HUNGRY_BELOW = 0.25;
 

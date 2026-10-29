@@ -338,7 +338,8 @@ test("from autumn the wall leaves the winter's firewood on the pile (docs/notes/
     p.task = null;
     p.needs = { food: 1, rest: 1 };
     updatePerson(s, p, new Rng(3), newTickContext());
-    return p.task?.type === 'fetch' ? (p.task.amounts.wood ?? 0) : 0;
+    const task = p.task as { type: string; amounts?: Record<string, number> } | null; // (set by updatePerson)
+    return task?.type === 'fetch' ? (task.amounts?.wood ?? 0) : 0;
   };
   assert.ok(carries(12) > 0, 'in summer the wood goes to the wall');
   assert.equal(carries(22), 0, 'in autumn the firewood stays on the pile');
