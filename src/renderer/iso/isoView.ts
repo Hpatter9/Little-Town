@@ -20,7 +20,7 @@ import type { Era } from '../../shared/data/eras';
 import { loadImage } from '../art/loadImage';
 import { BUILDING_BY_ID } from '../../shared/data/buildings';
 import { cellHash, gateFlip, TALL_PROPS, yardPropsFor, penSides, propFor, sceneryFor, stockHeaps, wallMaskAt, wallPieceFor, wallShape } from './isoTown';
-import { fitted, groundTile, kitOf, kitUrl, liesAlongY, pieceFor, roleOf, sharedPiece, ISO_ART, type Kit } from './isoKits';
+import { fitted, kitOf, kitUrl, liesAlongY, pieceFor, roleOf, sharedPiece, ISO_ART, type Kit } from './isoKits';
 import { IsoCastleView, type CastleIn } from './isoCastleView';
 import { anyoneNear, doorSpot, gateSpan, hasWindows, lightBox, swing, windowSpots, worldMatrix } from './isoLight';
 import { cellsInView, footBase, footDepth, footWidth, groundFit, isoBounds, isoOrigin, isoToWorld, ISO_TH, ISO_TW, standingDepth, tileToIso, worldToIso, type Rect } from './isoMath';
@@ -34,6 +34,7 @@ import { LIGHT_KIND } from '../../shared/data/lighting';
 import { footDiamond, measureBase, pictureScale, type ArtBase } from './gridAudit';
 import { doorCells, yardLayout, fenceSeg, tileFace, wallPost, gatePlan, gridPlan, gridUrl, isFencedPen, looseRec, penCorners, penEdges, snapSpots, SHARED_KIT, wallArms, wallSeg, yardCells, type GridRec } from './gridRules';
 import { HERDS } from '../../shared/data/livestock';
+import { bakeChunk, bakeRows, cellSurface, chunkPx, chunkSig, fillOut, shoreSurface, startBake, surfaceKey, type Bake, type ChunkIn, type Laid, type Surface, type TilePx } from './groundBlend';
 
 /** The grid audit's overlay (docs/notes/grid-audit.md), for developers only: on with `?grid` in the page's address,
  *  `littletown.grid` set to 1, or `__iso.setGridDebug(true)` from the console. */
@@ -63,8 +64,15 @@ const LANDMARK_PIECES: Readonly<Record<LandmarkKind, string[]>> = {
   signpost: ['settlers/signpost'],
 };
 const LANDMARK_SCALE = 0.8;
-/** Ground tiles are drawn this much over their cell so neighbours overlap and no edge shows. */
-const OVERLAP = 1.06;
+/** The ground is baked this many cells square to a texture (iso/groundBlend.ts), and at most this long a frame is spent
+ *  baking the chunks just off the screen or changed (the ones coming on screen are baked at once). */
+const CHUNK = 16;
+const BAKE_MS = 2;
+/** How long a slice of idle time bakes at most. */
+const IDLE_BAKE_MS = 8;
+/** Chunks kept baked off the screen, for panning back (each is a canvas and a texture of 768x384 px, about 1.2 MB
+ *  each). */
+const CHUNKS_SPARE = 24;
 /** How fast a window's light comes on or goes out (a share a second). */
 const LIGHT_RATE = 1.5;
 /** The stockade's stakes stand as tall as a wall's: each run drawn as wide as a one-cell wall's (a cell's diamond),
@@ -72,6 +80,22 @@ const LIGHT_RATE = 1.5;
 const PEN_CELL = footWidth({ x: 0, y: 0, w: 1, h: 1 });
 /** Props that are lights of their own (a lamp post, a brazier beside a tavern): a flame at their head after dark. */
 const LIGHT_PROP = /torch|brazier|lamp|lantern/;
+
+/** A chunk of the ground baked to a texture (iso/groundBlend.ts): its sprite and canvas, its first cell, the fingerprint
+ *  of the ground its picture shows (-2 none yet) and whether that is blended, the fingerprint wanted now (worked out at
+ *  `stamp`), the frame it was last near the screen, and its blended bake under way. */
+interface Chunk {
+  s: Sprite;
+  canvas: HTMLCanvasElement;
+  x0: number;
+  y0: number;
+  shown: number;
+  blended: boolean;
+  want: number;
+  stamp: number;
+  seen: number;
+  job: { bake: Bake; img: ImageData; sig: number } | null;
+}
 
 /** A light in a building's picture after dark (iso/windowLights.ts): its glow (`halo`, added over the night) and, for a
  *  window, the lit pane itself (`core`). */
@@ -208,11 +232,22 @@ export class IsoView {
   private readonly tex = new Map<string, Texture | null>();
   /** Bumped when a picture arrives: the ground and the buildings drawn again with it. */
   private texGen = 0;
-  private readonly tiles: Sprite[] = [];
-  /** The per-cell ground over the blocks (streets, footpaths, fields), and the land's trees, bushes and rocks. */
-  private readonly cellTiles: Sprite[] = [];
+  /** The ground baked a chunk at a time (iso/groundBlend.ts), by `cy * 4096 + cx`: its sprite, canvas, fingerprint,
+   *  the stamp it was last checked at, and the frame it was last on screen. */
+  private readonly chunks = new Map<number, Chunk>();
+  /** Bumped when anything the ground is made of may have changed (the land, fields, yards, a tile arriving, wear). */
+  private chunkStamp = 0;
+  private chunkFrame = 0;
+  private chunkTexGen = -1;
+  private chunkWear: string | undefined = undefined;
+  private chunkWearAt = 0;
+  /** The surfaces the cells are drawn with (shared), by what makes them, and the kit tiles' pixels by tile and size. */
+  private grounds: Surface[] = [];
+  private surfMemo = new Map<number, number>();
+  private surfFor = '';
+  private readonly tilePx = new Map<string, TilePx>();
+  /** The land's trees, bushes and rocks. */
   private readonly scenery: Sprite[] = [];
-  private readonly overlay = new Container();
   /** Layers laid in world px through the affine map of the diamonds (`worldMatrix`): `flat` on the ground, under the
    *  things (blood, puddles: the top-down map's `under`), `lightLayer` over them all (the light map). */
   readonly flat = new Container();
@@ -291,7 +326,7 @@ export class IsoView {
     this.overFlat.eventMode = 'none';
     this.screenFx.eventMode = 'none';
     this.gridG.eventMode = 'none';
-    this.world.addChild(this.ground, this.overlay, this.flat, this.things, this.overFlat, this.screenFx, this.lightLayer, this.glow, this.marks, this.gridG);
+    this.world.addChild(this.ground, this.flat, this.things, this.overFlat, this.screenFx, this.lightLayer, this.glow, this.marks, this.gridG);
     this.root.addChild(this.world, this.air);
     this.gridOn = gridAsked();
   }
@@ -440,6 +475,9 @@ export class IsoView {
       const b = isoBounds(land.w, land.h);
       this.width = b.w;
       this.height = b.h;
+      // (the ground's chunks stand where the old land's cells were: baked again)
+      for (const ch of this.chunks.values()) ch.s.destroy(ch.s.texture !== Texture.EMPTY ? { texture: true, textureSource: true } : undefined);
+      this.chunks.clear();
     }
     if (this.land?.version !== land.version) this.groundKey = '';
     this.land = land;
@@ -1384,61 +1422,262 @@ export class IsoView {
     this.lightsKey = '';
   }
 
-  /** The camera: the screen position (on the diamonds) of the view's top-left, and the view's size. Only the ground
-   *  in view is drawn, a kit tile to every block of `tileCells` cells. */
+  /** The camera: the screen position (on the diamonds) of the view's top-left, and the view's size. The ground in view
+   *  is baked a chunk at a time (`syncChunks`); the land's trees and rocks are laid on the cells in view. */
   setCamera(x: number, y: number, w: number, h: number): void {
     this.world.position.set(-Math.round(x), -Math.round(y));
     this.view = { x, y, w, h };
     const land = this.land;
     if (!land) return;
+    // (the ground looked at again when the land, a tile or the wear changed: the wear, which changes as people walk, at
+    // most once a second)
+    const now = performance.now();
+    const wearMoved = this.chunkWear !== land.wear && now - this.chunkWearAt > 1000;
+    if (this.groundKey === '' || this.chunkTexGen !== this.texGen || wearMoved) {
+      this.chunkStamp++;
+      this.chunkTexGen = this.texGen;
+      this.chunkWear = land.wear;
+      this.chunkWearAt = now;
+    }
+    this.syncChunks(land);
     const n = this.kit.tileCells;
     const r = cellsInView(this.view, this.ox, land.w, land.h, n + 1);
-    const bx0 = Math.floor(r.x0 / n) * n;
-    const by0 = Math.floor(r.y0 / n) * n;
-    const key = `${bx0},${by0},${r.x1},${r.y1},${this.kit.name},${this.texGen}`;
+    const key = `${r.x0},${r.y0},${r.x1},${r.y1},${this.kit.name},${this.texGen}`;
     if (key === this.groundKey) return;
     this.groundKey = key;
-    this.paintGround(bx0, by0, r.x1, r.y1, n);
+    this.paintCells(r.x0, r.y0, r.x1, r.y1);
   }
 
-  private paintGround(bx0: number, by0: number, x1: number, y1: number, n: number): void {
+  /** The surface a cell is drawn with (an index into `surfaces`), or -1 off the land: its ground, or the field, street
+   *  or yard laid on it, and a footpath's wear (iso/groundBlend.ts `cellSurface`). */
+  private surfAt(x: number, y: number): number {
     const land = this.land!;
-    const texs = this.kit.tiles.map((t) => this.surfaceOf(t));
-    const blocks: [number, number][] = [];
-    for (let by = by0; by <= y1; by += n) for (let bx = bx0; bx <= x1; bx += n) blocks.push([bx, by]);
-    // (back to front: each tile's slab edge is covered by the tiles in front of it)
-    blocks.sort((a, b) => a[0] + a[1] - (b[0] + b[1]));
-    this.ground.removeChildren();
-    let used = 0;
-    for (const [bx, by] of blocks) {
-      const g = groundTile(groundAt(land, bx, by), false, false, this.biome);
-      const tex = texs[g.tile];
-      if (!tex) continue;
-      let s = this.tiles[used];
-      if (!s) {
-        s = new Sprite();
-        s.anchor.set(0.5, 0);
-        this.tiles.push(s);
+    if (x < 0 || y < 0 || x >= land.w || y >= land.h) return -1;
+    const i = y * land.w + x;
+    const laid = this.fieldCells.has(i) ? 1 : land.roads[i] === '#' ? 2 : this.yardCells.has(i) ? 3 : 0;
+    const w = laid ? 0 : land.wear ? land.wear.charCodeAt(i) - 48 : 0;
+    // (a worn path's look in fifths, so a cell is drawn again only when its wear shows a step more)
+    const worn = w >= WEAR_SHOW ? Math.round(Math.min(1, w / WEAR_FULL) * 0.8 * 5) : 0;
+    const memo = (land.cells.charCodeAt(i) * 4 + laid) * 8 + worn;
+    const had = this.surfMemo.get(memo);
+    if (had !== undefined) return had;
+    const LAID: Laid[] = [null, 'field', 'street', 'yard'];
+    const surf = cellSurface(groundAt(land, x, y), LAID[laid], worn / 5, this.biome, this.kit.tileCells);
+    const k = surfaceKey(surf);
+    let idx = this.grounds.findIndex((o) => surfaceKey(o) === k);
+    if (idx < 0) idx = this.grounds.push(surf) - 1;
+    this.surfMemo.set(memo, idx);
+    return idx;
+  }
+
+  /** A kit tile's face as pixels at the size for `n` cells (iso/groundBlend.ts `TilePx`), or null until it has loaded. */
+  private tileOf(tile: number, n: number): TilePx | null {
+    const piece = this.kit.tiles[tile];
+    const tex = this.surfaceOf(piece);
+    if (!tex) return null;
+    const key = `${this.kit.name}:${piece}:${n}:${tex.source.uid}`;
+    const had = this.tilePx.get(key);
+    if (had) return had;
+    const w = n * ISO_TW;
+    const h = n * ISO_TH;
+    const c = document.createElement('canvas');
+    c.width = w;
+    c.height = h;
+    const g = c.getContext('2d', { willReadFrequently: true });
+    const res = tex.source.resource as CanvasImageSource | undefined;
+    if (!g || !res) return null;
+    g.imageSmoothingEnabled = true;
+    g.imageSmoothingQuality = 'high';
+    const f = tex.frame;
+    g.drawImage(res, f.x, f.y, f.width, f.height, 0, 0, w, h);
+    const px = new Uint32Array(g.getImageData(0, 0, w, h).data.buffer);
+    fillOut(px, w, h);
+    const t = { w, h, px };
+    this.tilePx.set(key, t);
+    return t;
+  }
+
+  /** The ground's chunks for the view (every frame). A chunk coming on screen with no picture yet is baked unblended at
+   *  once (each cell its tile as it is: quick); the blended picture is baked a few rows at a time, within `BAKE_MS` a
+   *  frame and in the page's idle time (`idleBake`), the chunks on screen first, then the ring just off it, and
+   *  swapped in when done. A chunk is baked again only when its ground changed (its fingerprint); off the screen it is
+   *  hidden and kept, the longest gone let go past `CHUNKS_SPARE`. */
+  private syncChunks(land: LandMap): void {
+    const surfFor = `${this.kit.name}:${this.biome}:${this.kit.tileCells}`;
+    if (surfFor !== this.surfFor) {
+      this.surfFor = surfFor;
+      this.grounds = [];
+      this.surfMemo.clear();
+      for (const ch of this.chunks.values()) {
+        ch.want = -1;
+        ch.blended = false;
+        if (ch.job) this.spareImages.push(ch.job.img);
+        ch.job = null;
       }
-      used++;
-      s.texture = tex;
-      // (a little over size so neighbours overlap, and turned about by the block's hash so the same ground doesn't repeat)
-      const k = (n * ISO_TW * OVERLAP) / tex.width;
-      s.scale.set(cellHash(bx, by, 21) < 0.5 ? k : -k, k);
-      const at = tileToIso(bx, by, this.ox);
-      s.position.set(Math.round(at.x), Math.round(at.y - (n * ISO_TH * (OVERLAP - 1)) / 2));
-      s.tint = g.tint;
-      this.ground.addChild(s);
+      this.chunkStamp++;
     }
-    this.paintCells(Math.max(0, bx0), Math.max(0, by0), x1, y1, texs);
+    this.chunkFrame++;
+    const inView = cellsInView(this.view, this.ox, land.w, land.h, 1);
+    const near = cellsInView(this.view, this.ox, land.w, land.h, CHUNK / 2);
+    const cx0 = Math.floor(near.x0 / CHUNK);
+    const cy0 = Math.floor(near.y0 / CHUNK);
+    const cx1 = Math.floor(near.x1 / CHUNK);
+    const cy1 = Math.floor(near.y1 / CHUNK);
+    const midX = (inView.x0 + inView.x1) / 2;
+    const midY = (inView.y0 + inView.y1) / 2;
+    const todo: { ch: Chunk; rank: number }[] = [];
+    for (let cy = cy0; cy <= cy1; cy++)
+      for (let cx = cx0; cx <= cx1; cx++) {
+        const key = cy * 4096 + cx;
+        const x0 = cx * CHUNK;
+        const y0 = cy * CHUNK;
+        let ch = this.chunks.get(key);
+        if (!ch) {
+          const canvas = document.createElement('canvas');
+          const { w, h } = chunkPx(CHUNK);
+          canvas.width = w;
+          canvas.height = h;
+          const s = new Sprite();
+          const at = tileToIso(x0, y0, this.ox);
+          s.position.set(Math.round(at.x - w / 2), Math.round(at.y));
+          s.visible = false;
+          this.ground.addChild(s);
+          ch = { s, canvas, x0, y0, shown: -2, blended: false, want: -1, stamp: -1, seen: 0, job: null };
+          this.chunks.set(key, ch);
+        }
+        ch.seen = this.chunkFrame;
+        if (ch.stamp !== this.chunkStamp) {
+          ch.want = chunkSig({ x0, y0, size: CHUNK, surfAt: this.surfAtFn });
+          ch.stamp = this.chunkStamp;
+        }
+        const onScreen = x0 + CHUNK > inView.x0 && x0 <= inView.x1 && y0 + CHUNK > inView.y0 && y0 <= inView.y1;
+        // (on screen with nothing to show: its tiles unblended now, the blend to follow)
+        if (onScreen && ch.shown === -2) this.bakeNow(ch, land, true);
+        ch.s.visible = ch.shown !== -2;
+        if (ch.shown !== ch.want || !ch.blended) todo.push({ ch, rank: (onScreen ? 0 : 1e6) + Math.abs(x0 + CHUNK / 2 - midX) + Math.abs(y0 + CHUNK / 2 - midY) });
+      }
+    todo.sort((a, b) => a.rank - b.rank);
+    this.bakeQueue = todo.map((t) => t.ch);
+    this.bakeFor(BAKE_MS);
+    if (this.bakeQueue.length) this.idleBake();
+    // (off the screen: hidden, and the longest gone let go)
+    let away = 0;
+    for (const ch of this.chunks.values()) {
+      if (ch.seen === this.chunkFrame) continue;
+      ch.s.visible = false;
+      if (ch.job) this.spareImages.push(ch.job.img);
+      ch.job = null;
+      away++;
+    }
+    if (away > CHUNKS_SPARE) {
+      const old = [...this.chunks].filter(([, ch]) => ch.seen !== this.chunkFrame);
+      old.sort((a, b) => a[1].seen - b[1].seen);
+      for (const [key, ch] of old.slice(0, old.length - CHUNKS_SPARE)) {
+        // (a chunk never baked still shows the shared empty texture, which stays)
+        const baked = ch.s.texture !== Texture.EMPTY;
+        ch.s.destroy(baked ? { texture: true, textureSource: true } : undefined);
+        this.chunks.delete(key);
+      }
+    }
+  }
+  private readonly surfAtFn = (x: number, y: number): number => this.surfAt(x, y);
+  /** The chunks waiting for a bake, the most wanted first (worked through by `bakeFor`, each frame and when idle). */
+  private bakeQueue: Chunk[] = [];
+  private idleAsked = false;
+
+  /** What a chunk is baked from now. */
+  private chunkIn(ch: Chunk, land: LandMap): ChunkIn {
+    return {
+      x0: ch.x0,
+      y0: ch.y0,
+      size: CHUNK,
+      landW: land.w,
+      landH: land.h,
+      surfAt: this.surfAtFn,
+      surfaces: this.grounds,
+      shore: this.grounds[this.surfIndex(shoreSurface(this.biome, this.kit.tileCells))],
+      tileOf: (t, n) => this.tileOf(t, n),
+    };
   }
 
-  /** Over the blocks, a tile to each cell of a street, a worn footpath or a field (back to front), and the land's trees,
-   *  bushes and rocks on its wild cells (sprites in `things`, sorted with everything else). */
-  private paintCells(x0: number, y0: number, x1: number, y1: number, texs: (Texture | null)[]): void {
+  /** A chunk baked whole at once (the quick unblended one, when it comes on screen with nothing to show). */
+  private bakeNow(ch: Chunk, land: LandMap, plain: boolean): void {
+    const img = this.chunkImage(ch);
+    if (!img) return;
+    if (!bakeChunk(new Uint32Array(img.data.buffer), this.chunkIn(ch, land), plain)) {
+      this.spareImages.push(img);
+      return;
+    }
+    this.showChunk(ch, img, ch.want, !plain);
+  }
+  private showChunk(ch: Chunk, img: ImageData, sig: number, blended: boolean): void {
+    ch.canvas.getContext('2d')!.putImageData(img, 0, 0);
+    this.spareImages.push(img);
+    if (ch.s.texture === Texture.EMPTY) ch.s.texture = Texture.from(ch.canvas);
+    else ch.s.texture.source.update();
+    ch.shown = sig;
+    ch.blended = blended;
+    ch.s.visible = true;
+  }
+
+  /** A chunk's pixels to bake into, reused (each is 1.2 MB: made afresh only when none is spare). */
+  private readonly spareImages: ImageData[] = [];
+  private chunkImage(ch: Chunk): ImageData | null {
+    this.spareImages.length = Math.min(this.spareImages.length, 4);
+    const had = this.spareImages.pop();
+    if (had && had.width === ch.canvas.width && had.height === ch.canvas.height) return had;
+    return ch.canvas.getContext('2d')?.createImageData(ch.canvas.width, ch.canvas.height) ?? null;
+  }
+
+  /** Bakes the queue's chunks a row of cells at a time for up to `ms`, swapping each in when it's done. */
+  private bakeFor(ms: number): void {
+    const land = this.land;
+    if (!land) return;
+    const end = performance.now() + ms;
+    while (this.bakeQueue.length && performance.now() < end) {
+      const ch = this.bakeQueue[0];
+      if (!ch.job || ch.job.sig !== ch.want) {
+        if (ch.job) this.spareImages.push(ch.job.img);
+        ch.job = null;
+        const img = this.chunkImage(ch);
+        const bake = img && startBake(new Uint32Array(img.data.buffer), this.chunkIn(ch, land));
+        // (a tile not loaded yet: tried again when it arrives, which bumps the stamp)
+        if (!img || !bake) {
+          if (img) this.spareImages.push(img);
+          this.bakeQueue.shift();
+          continue;
+        }
+        ch.job = { bake, img, sig: ch.want };
+      }
+      if (bakeRows(ch.job.bake, 1)) {
+        this.showChunk(ch, ch.job.img, ch.job.sig, true);
+        ch.job = null;
+        this.bakeQueue.shift();
+      }
+    }
+  }
+  /** More of the queue baked while the page is idle (a slice at a time, never past the idle time it's given). */
+  private idleBake(): void {
+    if (this.idleAsked) return;
+    this.idleAsked = true;
+    const run = (left: number) => {
+      this.idleAsked = false;
+      this.bakeFor(Math.min(IDLE_BAKE_MS, left));
+      if (this.bakeQueue.length) this.idleBake();
+    };
+    if (typeof requestIdleCallback === 'function') requestIdleCallback((d) => run(Math.max(0, d.timeRemaining() - 1)), { timeout: 500 });
+    else setTimeout(() => run(IDLE_BAKE_MS), 30);
+  }
+  private surfIndex(s: Surface): number {
+    const k = surfaceKey(s);
+    const idx = this.grounds.findIndex((o) => surfaceKey(o) === k);
+    return idx >= 0 ? idx : this.grounds.push(s) - 1;
+  }
+
+  /** The land's trees, bushes and rocks on its wild cells in view (sprites in `things`, sorted with everything else);
+   *  none on a field, a street, a yard or a worn footpath. */
+  private paintCells(x0: number, y0: number, x1: number, y1: number): void {
     const land = this.land!;
-    this.overlay.removeChildren();
-    let used = 0;
     let trees = 0;
     const ids = [...this.kit.pieces.keys()];
     const cells: number[] = [];
@@ -1447,38 +1686,8 @@ export class IsoView {
     for (const i of cells) {
       const x = i % land.w;
       const y = Math.floor(i / land.w);
-      let tile = -1;
-      let alpha = 1;
-      if (this.fieldCells.has(i)) tile = 3;
-      else if (land.roads[i] === '#') tile = 2;
-      else if (this.yardCells.has(i)) tile = 1;
-      else {
-        const w = land.wear ? land.wear.charCodeAt(i) - 48 : 0;
-        if (w >= WEAR_SHOW) {
-          tile = 1;
-          alpha = Math.min(1, w / WEAR_FULL) * 0.8;
-        }
-      }
-      if (tile >= 0 && texs[tile] && !wetCell(groundAt(land, x, y))) {
-        const tex = texs[tile]!;
-        let s = this.cellTiles[used];
-        if (!s) {
-          s = new Sprite();
-          s.anchor.set(0.5, 0);
-          this.cellTiles.push(s);
-        }
-        used++;
-        s.texture = tex;
-        // (a see-through one, a footpath worn part way, just its own cell: overlapping, its edges would show darker)
-        const over = alpha < 1 ? 1 : OVERLAP;
-        const k = (ISO_TW * over) / tex.width;
-        s.scale.set(cellHash(x, y, 22) < 0.5 ? k : -k, k);
-        s.alpha = alpha;
-        const at = tileToIso(x, y, this.ox);
-        s.position.set(Math.round(at.x), Math.round(at.y - (ISO_TH * (over - 1)) / 2));
-        this.overlay.addChild(s);
-        continue;
-      }
+      const laid = this.fieldCells.has(i) || land.roads[i] === '#' || this.yardCells.has(i) || (land.wear ? land.wear.charCodeAt(i) - 48 : 0) >= WEAR_SHOW;
+      if (laid && !wetCell(groundAt(land, x, y))) continue;
       if (this.wallCells.has(i)) continue;
       const g = groundAt(land, x, y);
       if (land.regrow?.[i] || land.rubble?.[i] !== undefined) continue;

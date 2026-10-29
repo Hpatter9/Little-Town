@@ -9,6 +9,9 @@
 //   polish         the grid polish's town (docs/notes/grid-polish.md): a palisade with its corners and gate round a
 //                  street, the workshops and the bigger buildings with their yards, a stone wall with its corners and
 //                  gate, and the pens; `night` after it sets the clock to ten at night
+//   blend          the ground blend's patches (docs/notes/ground-blend.md): a meadow with marsh, sand and rock in it, a
+//                  pond with its shore, and the town's edge with a street, a yard, fields and a worn footpath; a biome's
+//                  name after it (`desert`, `tundra`) founds the land there, and `night` sets the clock as above
 
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { BUILDINGS } from '../src/shared/data/buildings';
@@ -21,8 +24,10 @@ import { campCell, newGame, type Building } from '../src/shared/sim/state';
 import { TICKS_PER_HOUR } from '../src/shared/sim/time';
 import { serialize } from '../src/shared/sim/save';
 import { kitOf, pieceFor, roleOf, sharedPiece } from '../src/renderer/iso/isoKits';
+import { BIOMES, type Biome } from '../src/shared/data/biomes';
 
-const s = newGame('grid-audit');
+const biome = process.argv.slice(3).find((a) => (BIOMES as readonly string[]).includes(a)) as Biome | undefined;
+const s = newGame('grid-audit', biome ? { biome } : {});
 s.cheats.unlockAll = true;
 const c = campCell(s);
 s.explored = '1'.repeat(s.land.w * s.land.h); // (the whole land seen: no fog over the gallery)
@@ -38,7 +43,7 @@ for (let y = y0; y < y0 + H; y++)
   for (let x = x0; x < x0 + W; x++) if (x >= 0 && y >= 0 && x < s.land.w && y < s.land.h && WILD.includes(groundAt(s.land, x, y))) setGround(s.land, x, y, 'grass');
 s.land.open = Math.max(s.land.open, 60);
 
-const scene = process.argv[2] === 'town' || process.argv[2] === 'polish' ? process.argv[2] : 'gallery';
+const scene = ['town', 'polish', 'blend'].includes(process.argv[2]) ? process.argv[2] : 'gallery';
 const shots: Record<string, [string, number, number][]> = {};
 /** Townsfolk standing on the middles of cells, grown and a child (`n` of them, along x from a cell). */
 const folkAt = (x: number, y: number, n: number) => {
@@ -127,6 +132,55 @@ if (scene === 'gallery') {
     ['06-small-buildings', x0 + 10, y0 + 4],
     ['11-overview-walls-pens', x0 + 14, wy + 5],
   ];
+} else if (scene === 'blend') {
+  // (west: a meadow with marsh in it, a lone cell, a pair and a ragged patch, and a patch each of sand and rock; middle: a
+  // pond, shallows round deep water; east: the town's edge, a street out through a palisade past a yard and fields, a
+  // footpath worn across the grass)
+  const g = (x: number, y: number, k: Parameters<typeof setGround>[3]) => setGround(s.land, x, y, k);
+  const mx = x0 + 2, my = y0 + 4;
+  g(mx + 2, my + 2, 'marsh');
+  g(mx + 6, my + 2, 'marsh');
+  g(mx + 7, my + 2, 'marsh');
+  for (const [dx, dy] of [[1, 6], [2, 6], [3, 6], [1, 7], [2, 7], [3, 7], [4, 7], [2, 8], [3, 8], [4, 8], [5, 8], [3, 9], [4, 9], [0, 7], [6, 8]])
+    g(mx + dx, my + dy, 'marsh');
+  for (const [dx, dy] of [[1, 12], [2, 12], [1, 13], [2, 13], [3, 13], [2, 14], [3, 14], [4, 14]]) g(mx + dx, my + dy, 'sand');
+  for (const [dx, dy] of [[7, 12], [8, 12], [7, 13], [8, 13], [9, 13]]) g(mx + dx, my + dy, 'rock');
+  const px0 = x0 + 15, py0 = y0 + 4;
+  for (let dy = 0; dy < 9; dy++)
+    for (let dx = 0; dx < 11; dx++) {
+      const r = Math.hypot((dx - 5) / 5.5, (dy - 4) / 4.5);
+      if (r < 0.62) g(px0 + dx, py0 + dy, 'water');
+      else if (r < 1) g(px0 + dx, py0 + dy, 'shallows');
+    }
+  const ex = x0 + 30, ey = y0 + 2;
+  for (let j = 0; j < 14; j++) if (j !== 6 && j !== 7) put('palisade_wall', ex, ey + j);
+  put('palisade_gate', ex, ey + 6);
+  for (let i = -6; i < 12; i++) setRoad(s.land, ex + i, ey + 7, true);
+  put('cottage', ex - 5, ey + 3);
+  put('smithy', ex - 5, ey + 9);
+  put('garden_plot', ex + 3, ey + 2);
+  put('vegetable_patch', ex + 3, ey + 9);
+  put('goat_pen', ex + 8, ey + 2);
+  s.land.wear = '0'.repeat(s.land.w * s.land.h);
+  const wear = (x: number, y: number, n: number) => {
+    const i = y * s.land.w + x;
+    s.land.wear = s.land.wear!.slice(0, i) + String.fromCharCode(48 + n) + s.land.wear!.slice(i + 1);
+  };
+  for (let k = 0; k < 9; k++) wear(ex + 3 + k, ey + 13 - (k >> 1), k < 2 || k > 6 ? 10 : 30);
+  for (let k = 0; k < 6; k++) wear(ex + 8, ey + 8 + k, 18);
+  s.land.version++;
+  shots['1.5'] = [
+    ['meadow-marsh', mx + 4, my + 5],
+    ['sand-rock', mx + 5, my + 12],
+    ['shore', px0 + 5, py0 + 4],
+    ['town-edge', ex + 3, ey + 8],
+  ];
+  shots['0.75'] = [['overview', x0 + 18, y0 + 9]];
+  if (process.argv.includes('night')) {
+    s.tick += 15 * TICKS_PER_HOUR;
+    s.torches = [];
+    for (let i = -5; i < 12; i += 4) s.torches.push({ id: s.nextId++, x: ex + i, y: ey + 8, fuel: 12 });
+  }
 } else if (scene === 'polish') {
   // (a palisade round a street: the workshops, the tavern and the town hall north of it, the houses along it, the store,
   // the stockpile, the granary and the temple south of it, the barracks and the elder lodge behind them; its gate east,
