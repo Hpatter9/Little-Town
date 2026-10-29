@@ -55,7 +55,7 @@ export const carriesKit = armed;
 /** Once an hour, with the autopilot: the stores' battle items go into the pouches, those first in line served first, one
  *  round at a time (so the best-placed don't take everything). Hands out only what the stores hold. */
 export function restockKits(s: GameState): void {
-  if (!s.autopilot || s.tick % TICKS_PER_HOUR !== 0) return;
+  if (s.autopilot === false || s.tick % TICKS_PER_HOUR !== 0) return;
   if (!Object.keys(s.items).some((id) => KIT_BY_ID[id])) return;
   const people = order(s);
   for (let round = 0; round < 3; round++) {

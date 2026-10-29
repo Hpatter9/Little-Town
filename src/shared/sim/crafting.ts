@@ -410,7 +410,7 @@ export function wearTools(s: GameState): void {
 /** Once an hour: snares may catch something, poultices go to anyone badly hurt, and tools wear. */
 export function hourlyItems(s: GameState, rng: Rng): void {
   if (s.tick % TICKS_PER_HOUR !== 0) return;
-  if (s.autopilot) wearTools(s);
+  if (s.autopilot !== false) wearTools(s);
   const snares = s.items.snare ?? 0;
   let caught = 0;
   for (let i = 0; i < snares; i++) {
