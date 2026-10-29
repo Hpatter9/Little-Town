@@ -5,6 +5,7 @@
 // (no Pixi, no page), so the tests can check it.
 
 import { flicker, GENTLE_AMOUNT } from '../map/flicker';
+import made from '../art/iso/made.json';
 
 /** Where the flame is painted in a hearth piece, [x0, y0, x1, y1] in the piece's own px (the flame's foot is y1, on
  *  the logs). A piece with no entry has its flame guessed: the middle of its upper part (`flameBox`). */
@@ -53,4 +54,19 @@ export function emberAt(i: number, t: number, phase: number): { dx: number; dy: 
 /** A hearth's glow, 0..1 of its full: always a little by day (a fire glows in the shade), full after dark, wavering. */
 export function hearthGlow(t: number, phase: number, night: boolean, gentle = false): number {
   return (night ? 1 : 0.35) * flicker('campfire', t * 1.3, phase, gentle);
+}
+
+/** The small flame for the torches on stakes (PixelLab, docs/notes/pixellab-plan.md): a strip of square frames side by
+ *  side, its foot at the bottom middle of each, served beside the settlers' kit. Asked for only once it is in
+ *  (art/iso/made.json `flame`, set by tools/pixellab/assemble_nov.py); until then a torch's flame is drawn as before. */
+export const FLAME_URL: string | null = made.flame ? 'iso/kits/settlers/flame.png' : null;
+/** Its frames a second. */
+export const FLAME_FPS = 9;
+/** How many square frames a strip `w` by `h` holds. */
+export const stripFrames = (w: number, h: number): number => Math.max(1, Math.round(w / Math.max(1, h)));
+/** The frame shown at time `t` (seconds) by a flame on its own `phase` (so the torches don't flicker as one); held on
+ *  one frame when motion is to be gentle. */
+export function flameFrame(t: number, phase: number, count: number, gentle = false): number {
+  if (count <= 1 || gentle) return 0;
+  return Math.floor(t * FLAME_FPS + phase * count) % count;
 }

@@ -22,7 +22,7 @@ import { loadImage } from '../art/loadImage';
 import barrowUrl from '../art/shops/gb_barrow.png';
 import pailUrl from '../art/packs/v_bucket.png';
 import { sowThrow } from './workSeen';
-import { hauls, heapColour, mainLoad } from './haul';
+import { barrowLoad, barrowPlace, hauls, isoBarrowUrl, heapColour, ISO_BARROW_AHEAD, ISO_BARROW_SCALE, mainLoad } from './haul';
 import appleUrl from '../art/life/apple.png';
 import orangeUrl from '../art/life/orange.png';
 import pearUrl from '../art/life/pear.png';
@@ -126,6 +126,22 @@ const CRY_FOR = 6500;
 const BARROW_SCALE = 0.62;
 const BARROW_AHEAD = 13;
 let barrowTex: Texture | null = null;
+/** The isometric barrows (PixelLab's, by view and load: map/haul.ts `isoBarrowUrl`), loaded the first time each is wanted;
+ *  null while loading or not made. */
+const isoBarrows = new Map<string, Texture | null>();
+function isoBarrowTex(url: string): Texture | null {
+  const had = isoBarrows.get(url);
+  if (had !== undefined) return had;
+  isoBarrows.set(url, null);
+  loadImage(url)
+    .then((im) => {
+      const t = Texture.from(im);
+      t.source.scaleMode = 'nearest';
+      isoBarrows.set(url, t);
+    })
+    .catch(() => undefined);
+  return null;
+}
 /** The founder's crown: DawnLike's crown (the Hat sheet's, as the class emblems' crown: art/emblems.ts). */
 let crownTex: Texture | null = null;
 {
@@ -189,6 +205,8 @@ interface Drawn {
   horse: Sprite;
   horseFront: Sprite;
   load: Graphics;
+  /** PixelLab's isometric barrow, where it is made (map/haul.ts `isoBarrowUrl`). */
+  isoBarrow?: Sprite;
   /** The wheelbarrow pushed with a heavy load (map/haul.ts), and its heap's key. */
   barrow?: Container;
   /** The bucket of water carried home from the well (sim/pastimes.ts). */
@@ -413,7 +431,7 @@ export class MapPeople {
     }
     for (const [id, d] of this.drawn)
       if (!seen.has(id)) {
-        for (const o of [d.cough, d.sprite, d.shadow, d.ring.g, d.horse, d.horseFront, d.load, d.bubble, d.spray, d.barrow, d.pail, d.reflect, d.kite, d.props, d.blood, d.emote, d.levelUp, d.aura, d.crown, d.crownRing, d.lamp, d.tail, d.folk, d.speech, d.marks, d.work, d.hpBar]) o?.destroy();
+        for (const o of [d.cough, d.sprite, d.shadow, d.ring.g, d.horse, d.horseFront, d.load, d.bubble, d.spray, d.barrow, d.isoBarrow, d.pail, d.reflect, d.kite, d.props, d.blood, d.emote, d.levelUp, d.aura, d.crown, d.crownRing, d.lamp, d.tail, d.folk, d.speech, d.marks, d.work, d.hpBar]) o?.destroy();
         this.drawn.delete(id);
       }
   }
@@ -932,7 +950,25 @@ export class MapPeople {
       }
       // (what they carry is in their pack, not a bundle over their head: the owner's call; a heavy load goes in a
       // wheelbarrow pushed ahead of them, heaped with it: map/haul.ts)
-      const pushing = !!barrowTex && hauls(v, moving) && !hidden;
+      const hauling = hauls(v, moving) && !hidden;
+      if (d.folk) d.folk.hauling = hauling && this.isoFolk;
+      // (in the isometric view, PixelLab's barrow for their facing and load once it is made, pushed ahead of them)
+      const place = hauling && this.isoFolk && d.folk ? barrowPlace(d.folk.facing) : null;
+      const isoUrl = place ? isoBarrowUrl(place.view, barrowLoad(mainLoad(v.carrying)[0])) : null;
+      const isoTex = isoUrl ? isoBarrowTex(isoUrl) : null;
+      if (d.isoBarrow) d.isoBarrow.visible = !!isoTex && !!place;
+      if (isoTex && place) {
+        if (!d.isoBarrow) {
+          d.isoBarrow = this.layer.addChild(new Sprite(isoTex));
+          d.isoBarrow.anchor.set(0.5, 0.85);
+        }
+        d.isoBarrow.texture = isoTex;
+        d.isoBarrow.scale.set(place.flip ? -ISO_BARROW_SCALE : ISO_BARROW_SCALE, ISO_BARROW_SCALE);
+        d.isoBarrow.position.set(Math.round(x + place.dx * ISO_BARROW_AHEAD), Math.round(y + place.dy * ISO_BARROW_AHEAD));
+        // (in front of them when it goes down the screen, behind when it goes up)
+        d.isoBarrow.zIndex = place.dx + place.dy > 0 ? z + 0.12 : z - 0.2;
+      }
+      const pushing = !!barrowTex && hauling && !isoTex;
       if (pushing && !d.barrow) {
         d.barrow = this.layer.addChild(new Container());
         const b = d.barrow.addChild(new Sprite(barrowTex!));

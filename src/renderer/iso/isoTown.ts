@@ -118,7 +118,8 @@ export const STOCK_HEAPS = 6;
 const HEAP_PIECES: Record<PileKind, RegExp[]> = {
   logs: [/^woodpile$/, /log_pile|woodpile|driftwood_pile/],
   stone: [/ore_pile/, /^rocks$|boulders|scrap_pile/],
-  sacks: [/hay_bales|sack|meat_pile/],
+  // (the settlers' grain sacks, PixelLab's, before the hay bales that stood in for them)
+  sacks: [/^grain_sacks$/, /hay_bales|sack|meat_pile/],
   barrels: [/^barrels$/, /barrel/],
   crates: [/^crates$/, /crate/],
 };
@@ -163,7 +164,8 @@ export function stockHeaps(ids: readonly string[], store: Stock, capacity: numbe
   const out: { piece: string; x: number; y: number; kind: PileKind }[] = [];
   for (const k of PILE_ORDER)
     for (let j = 0; j < counts[k] && out.length < n; j++) {
-      const piece = pick(k);
+      // (every other heap of wood a stack of planks, where the kit has one)
+      const piece = (k === 'logs' && j % 2 === 1 && ids.find((i) => i === 'lumber_stack')) || pick(k);
       if (!piece) continue;
       const [u, v] = HEAP_SPOTS[out.length];
       out.push({ piece, x: f.x + f.w * u, y: f.y + f.h * v, kind: k });

@@ -183,7 +183,7 @@ export const LIFE_EVENTS: readonly EventDef[] = [
     options: [dflt('Someone\'s joke', mood(1, 24, 'A joke'), mod('crops', 0.97, 24, 'Nobody wants to go near the scarecrow')), opt('Burn it', mood(-1, 12, 'Nerves'), mod('guard', 1.03, 24, 'Watchful'))] },
 
   /* ---------------------------------------------------------- the wilds */
-  { id: 'l_bear_tracks', scene: 'beast', title: 'Bear tracks', text: 'Tracks wider than a hand, right up to the pens.', when: pens,
+  { id: 'l_bear_tracks', scene: 'bear', title: 'Bear tracks', text: 'Tracks wider than a hand, right up to the pens.', when: pens,
     options: [opt('Hunt it', chance(0.6, [gain({ meat: 10, hide: 4 }), mood(3, 36, 'A bear brought down')], [{ wound: 'random', hp: 25 }, note('The bear fought.')])), dflt('Keep the fires high', take('stores', 0.02), mod('guard', 1.05, 48, 'Fires against the bear'))] },
   { id: 'l_fairy_ring', scene: 'magic', title: 'A ring of mushrooms', text: 'A perfect ring of mushrooms in the clearing. The children dare each other to step in.', 
     options: [dflt('Pick them for the pot', gain({ herbs: 3 }), chance(0.2, [{ sick: 1 }])), opt('Leave the ring be', mood(1, 24, 'Ring left be'), gain({ herbs: 4 }), note('Mushrooms for the pot from round its edge.'))] },

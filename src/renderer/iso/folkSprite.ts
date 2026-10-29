@@ -8,7 +8,7 @@ import { ITEM_BY_ID } from '../../shared/data/items';
 import { emoteFrame, EMOTE_SIZE } from '../art/effects';
 import { loadFolkSet, type FolkSet } from './folkLoader';
 import {
-  CHILD_SCALE, feetAnchor, armedSuffix, breathAt, sleepDir, sleepsOut, facingFromVector, otherTool, frameAt, isFighting, lookPath, play, wantedAnim, type FolkAnim, type FolkDir, type FolkPlay, type FolkState,
+  CHILD_SCALE, feetAnchor, armedSuffix, breathAt, sleepPose, sleepsOut, facingFromVector, otherTool, frameAt, isFighting, lookPath, play, wantedAnim, type FolkAnim, type FolkDir, type FolkPlay, type FolkState,
 } from './folkRules';
 import { tintKey, type FolkTint } from './folkTint';
 import { folkWho } from './folkWho';
@@ -24,6 +24,12 @@ export class FolkSprite extends Container {
   /** The "z"s over someone asleep out of doors (5000 Pixel Effects' zzz, the emote the map shows over a sleeper). */
   private zzz: Sprite | null = null;
   private dir: FolkDir = 'south';
+  /** Pushing a barrow this frame (map/mapPeople.ts sets it: map/haul.ts `hauls`): they walk in the push. */
+  hauling = false;
+  /** The way they face on screen (the barrow goes ahead of them that way). */
+  get facing(): FolkDir {
+    return this.dir;
+  }
   private lastX = NaN;
   private lastY = NaN;
   private speed = 0;
@@ -85,7 +91,7 @@ export class FolkSprite extends Container {
 
     // an armed look that isn't here (yet) is the bare one; and the armed looks are drawn with their one move only (a
     // swing, a shot, a cast), so for everything else (walking, flinching, falling) the bare look's own sheets play
-    const want = board?.anim ?? wantedAnim(st, this.speed, family);
+    const want = board?.anim ?? wantedAnim(st, this.speed, family, this.hauling);
     const held = this.set && this.set !== this.bare ? this.set : null;
     const armedPlays = held ? play(want, (a) => held.has(a)).anim : 'stand';
     const armed = armedPlays !== 'stand' && armedPlays !== 'idle' ? held : null;
@@ -98,8 +104,9 @@ export class FolkSprite extends Container {
     // a child's art stands higher in its frame than the grown looks')
     this.sprite.anchor.set(0.5, feetAnchor(set.index.frame[1], who.child && !turned));
     // asleep on the ground: their look's fall held at its end, lying still and breathing, the z's rising over them
-    if (sleepsOut(st, this.speed) && !board && set.has('death')) {
-      this.sleep(set, st.id, now);
+    const lying = sleepsOut(st, this.speed) && !board ? sleepPose(st.id, (a) => set.has(a)) : null;
+    if (lying) {
+      this.sleep(set, lying, st.id, now);
       return;
     }
     if (this.zzz) this.zzz.visible = false;
@@ -117,15 +124,17 @@ export class FolkSprite extends Container {
     if (tex) this.sprite.texture = tex;
   }
 
-  /** Lying asleep: the death sheet's last frame (it ends lying flat) in one of the calm facings, breathing. */
-  private sleep(set: FolkSet, id: number, now: number): void {
-    const tex = set.texture('death', sleepDir(id), set.count('death') - 1);
+  /** Lying asleep: their look's sleep loop, breathing in its own frames; or the death sheet's last frame (it ends
+   *  lying flat) in one of the calm facings, breathing by a stretch (iso/folkRules.ts `sleepPose`). */
+  private sleep(set: FolkSet, pose: NonNullable<ReturnType<typeof sleepPose>>, id: number, now: number): void {
+    const n = pose.anim === 'sleep' ? frameAt(set.count('sleep'), pose.fps, now + (Math.abs(id) % 97) / 10, true) : set.count('death') - 1;
+    const tex = set.texture(pose.anim, pose.dir, n);
     this.sprite.visible = !!tex;
     if (tex) this.sprite.texture = tex;
     this.sprite.rotation = 0;
     this.anim = '';
     const k = Math.abs(this.sprite.scale.x);
-    this.sprite.scale.y = k * breathAt(now, id).sy;
+    this.sprite.scale.y = k * (pose.breathe ? breathAt(now, id).sy : 1);
     const f = emoteFrame('zzz', now * 7 + id);
     if (f && !this.zzz) this.zzz = this.addChild(new Sprite());
     if (this.zzz) {

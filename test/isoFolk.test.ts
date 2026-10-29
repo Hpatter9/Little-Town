@@ -267,7 +267,9 @@ test('a child wears a child look, and whatever they do they never show a grown l
   const kid = (a: FolkAnim) => a === 'walk' || a === 'idle' || a === 'death';
   const FALLS: Record<FolkAnim, FolkAnim> = {
     stand: 'stand', walk: 'walk', run: 'walk', idle: 'idle', death: 'death', hurt: 'idle', cast_1h: 'idle', cast_2h: 'idle',
-    chop: 'idle', hammer: 'idle', attack_1h: 'idle', attack_bow: 'idle', attack_2h: 'idle',
+    chop: 'idle', hammer: 'idle', attack_1h: 'idle', attack_bow: 'idle', attack_2h: 'idle', push: 'walk',
+    // (lying asleep is drawn by sleepPose, the fall held, not by play)
+    sleep: 'stand',
   };
   for (const [want, got] of Object.entries(FALLS)) assert.equal(play(want as FolkAnim, kid).anim, got, want);
   assert.ok(play('run', kid).rate > 1);

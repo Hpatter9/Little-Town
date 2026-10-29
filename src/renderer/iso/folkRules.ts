@@ -25,7 +25,7 @@ export const facingToward = (fromX: number, fromY: number, toX: number, toY: num
 /* ------------------------------------------------------------ animations */
 
 /** Every animation a look may have ('stand' is the still rotation frame: every look has it). */
-export type FolkAnim = 'stand' | 'walk' | 'run' | 'idle' | 'death' | 'hurt' | 'cast_1h' | 'cast_2h' | 'chop' | 'hammer' | 'attack_1h' | 'attack_bow' | 'attack_2h';
+export type FolkAnim = 'stand' | 'walk' | 'run' | 'idle' | 'death' | 'hurt' | 'cast_1h' | 'cast_2h' | 'chop' | 'hammer' | 'attack_1h' | 'attack_bow' | 'attack_2h' | 'sleep' | 'push';
 
 /** What the snapshot says about a person that decides their animation (a PersonView has all of it). */
 export type FolkState = Pick<PersonView, 'id' | 'activity' | 'sinceHit' | 'sinceBlow' | 'defending' | 'downed' | 'hp'> & {
@@ -57,7 +57,7 @@ export interface FolkPlay {
   loop: boolean;
 }
 
-const FPS: Record<FolkAnim, number> = { stand: 1, walk: 8, run: 12, idle: 4, death: 8, hurt: 10, cast_1h: 8, cast_2h: 8, chop: 8, hammer: 8, attack_1h: 10, attack_bow: 10, attack_2h: 10 };
+const FPS: Record<FolkAnim, number> = { stand: 1, walk: 8, run: 12, idle: 4, death: 8, hurt: 10, cast_1h: 8, cast_2h: 8, chop: 8, hammer: 8, attack_1h: 10, attack_bow: 10, attack_2h: 10, sleep: 3, push: 8 };
 const ONCE: ReadonlySet<FolkAnim> = new Set(['death', 'hurt']);
 
 /** What to try, in order, when a look lacks an animation. `run` falls back to a faster walk (see `play`). */
@@ -80,6 +80,10 @@ const FALLBACK: Record<FolkAnim, FolkAnim[]> = {
   attack_2h: ['attack_1h', 'chop', 'hammer', 'cast_1h', 'idle', 'stand'],
   // (a bow where the look has none: its punch, else its thrown spell)
   attack_bow: ['attack_1h', 'attack_2h', 'cast_1h', 'idle', 'stand'],
+  // (lying asleep with no sheet of its own is the fall held at its end: `sleepPose`)
+  sleep: ['stand'],
+  // (a look with no push drawn walks behind the barrow)
+  push: ['walk', 'stand'],
 };
 
 /** Weapon families (data/weapons.ts) by the armed look that holds them. */
@@ -104,8 +108,9 @@ export function armedSuffix(st: Pick<FolkState, 'activity' | 'work'>, family: st
 export const isFighting = (st: Pick<FolkState, 'activity' | 'sinceBlow' | 'defending'>): boolean =>
   st.activity === 'fight' || st.activity === 'spar' || st.sinceBlow < BLOW_TICKS || (st.defending && st.sinceBlow < 30);
 
-/** The animation they'd like now, before checking what the look has. `speed` is how fast they moved lately (map px/s). */
-export function wantedAnim(st: FolkState, speed: number, family: string | undefined): FolkAnim {
+/** The animation they'd like now, before checking what the look has. `speed` is how fast they moved lately (map px/s);
+ *  `hauling`: pushing a barrow (map/haul.ts `hauls`), they walk behind it in the push. */
+export function wantedAnim(st: FolkState, speed: number, family: string | undefined, hauling = false): FolkAnim {
   if (st.downed || st.hp <= 0) return 'death';
   if (st.sinceHit < HURT_TICKS) return 'hurt';
   // (in a fight but on the move, between blows: they run or walk to the foe rather than swing as they slide)
@@ -121,6 +126,7 @@ export function wantedAnim(st: FolkState, speed: number, family: string | undefi
   if (st.activity === 'pray' || st.activity === 'draw' || st.activity === 'research' || st.activity === 'fish') return 'cast_1h';
   if (st.activity === 'chop') return 'chop';
   if (st.activity === 'build' || st.activity === 'mine' || st.activity === 'till' || st.activity === 'reap' || st.activity === 'forage' || st.work?.kind === 'craft') return 'hammer';
+  if (hauling && speed > 1 && !isFighting(st)) return 'push';
   if (speed > 1 || st.activity === 'walk' || st.activity === 'stroll') {
     if (speed <= 1) return st.activity === 'walk' || st.activity === 'stroll' ? 'idle' : 'stand'; // (the walk task, but not moving: held up)
     return speed >= RUN_SPEED || st.rally === 'on' ? 'run' : 'walk';
@@ -129,12 +135,21 @@ export function wantedAnim(st: FolkState, speed: number, family: string | undefi
 }
 
 /** Asleep out of doors (no bed: sim/roughSleep.ts lays them by the fire), on their feet and still: they lie down on
- *  the ground (the owner: "sleeping on the ground animation"). Until a lying-asleep sheet is drawn, each look's
- *  death sheet's last frame stands in: it ends lying flat, and is held still, breathing (`breathAt`). */
+ *  the ground (the owner: "sleeping on the ground animation"). A look with a lying-asleep sheet (`sleep`, PixelLab:
+ *  docs/notes/pixellab-plan.md) plays it, slowly breathing; until then its death sheet's last frame stands in: it ends
+ *  lying flat, and is held still, breathing (`breathAt`). See `sleepPose`. */
 export const sleepsOut = (st: FolkState, speed: number): boolean => st.activity === 'sleep' && !st.indoors && !st.downed && st.hp > 0 && speed <= 1;
 /** The facings whose fall ends lying calmly on the back or side (others end with a leg in the air), one by the id. */
 export const SLEEP_DIRS: readonly FolkDir[] = ['south', 'south-east'];
 export const sleepDir = (id: number): FolkDir => SLEEP_DIRS[Math.abs(id) % SLEEP_DIRS.length];
+/** How a sleeper is drawn: their look's own sleep loop, in any facing (by the id), breathing in its frames; else its
+ *  fall's last frame in one of the calm facings (`SLEEP_DIRS`), the breath added by stretching it (`breathAt`); else
+ *  nothing (a look with neither stands, as before). `has` says whether the look has an animation. */
+export function sleepPose(id: number, has: (a: FolkAnim) => boolean): { anim: 'sleep'; dir: FolkDir; fps: number; breathe: false } | { anim: 'death'; dir: FolkDir; held: true; breathe: true } | null {
+  if (has('sleep')) return { anim: 'sleep', dir: FOLK_DIRS[Math.abs(id) % FOLK_DIRS.length], fps: FPS.sleep, breathe: false };
+  if (has('death')) return { anim: 'death', dir: sleepDir(id), held: true, breathe: true };
+  return null;
+}
 /** A sleeper's breath: about one every `BREATH_S` seconds, the chest rising (the figure stretched up a little from the
  *  ground, `sy`), each on their own beat. */
 export const BREATH_S = 4;

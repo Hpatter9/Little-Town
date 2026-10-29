@@ -5,7 +5,7 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { test } from 'node:test';
 import { STOCK_HEAPS, fillOf, heapCount, stockHeaps } from '../src/renderer/iso/isoTown';
-import { pieceFor, kitOf } from '../src/renderer/iso/isoKits';
+import { pieceFor, kitOf, SHARED_PIECES } from '../src/renderer/iso/isoKits';
 
 const SETTLERS: string[] = JSON.parse(readFileSync(join('src', 'renderer', 'art', 'iso', 'kits', 'settlers', 'index.json'), 'utf8')).map((p: { id: string }) => p.id);
 const foot = { x: 10, y: 10, w: 3, h: 2 };
@@ -33,7 +33,8 @@ test('an empty stockpile has no heaps; one fills in stages to all of them', () =
 test("the heaps are of what it holds, from the settlers' own kit, beside the shelter", () => {
   const h = stockHeaps(SETTLERS, { wood: 15, stone: 15, grain: 15, milk: 15, cloth: 15 }, 100, foot);
   const pieces = h.map((x) => x.piece);
-  for (const p of ['woodpile', 'rocks', 'hay_bales', 'barrels', 'crates']) assert.ok(pieces.includes(p), p);
+  // (grain in the kit's grain sacks and stone on its ore heap once PixelLab's are in: docs/notes/pixellab-plan.md)
+  for (const p of ['woodpile', SETTLERS.includes('ore_pile') ? 'ore_pile' : 'rocks', SETTLERS.includes('grain_sacks') ? 'grain_sacks' : 'hay_bales', 'barrels', 'crates']) assert.ok(pieces.includes(p), p);
   for (const p of pieces) assert.ok(SETTLERS.includes(p));
   for (const x of h) assert.ok(x.x >= foot.x + foot.w || x.y >= foot.y + foot.h || x.x < foot.x, 'outside the shelter, along its front');
   assert.deepEqual(stockHeaps(SETTLERS, { wood: 40, stone: 20 }, 100, foot), stockHeaps(SETTLERS, { wood: 40, stone: 20 }, 100, foot), 'the same every time');
@@ -44,7 +45,8 @@ test("the stockade is a closed square of the kit's palisade with its gate in fro
   const { PEN_EDGE, penSides } = await import('../src/renderer/iso/isoTown');
   assert.deepEqual(roleOf('stockade'), { role: 'stockade' });
   assert.ok(fitted('stockade'));
-  assert.equal(pieceFor(kitOf('settlers'), 'stockade'), 'palisade_gate');
+  // (its gate, until a picture of its own is in: iso/gridRules.ts ownPlan)
+  assert.equal(pieceFor(kitOf('settlers'), 'stockade'), SHARED_PIECES.has('stockade') ? 'stockade' : 'palisade_gate');
   const f = { x: 4, y: 6, w: 3, h: 2 };
   const sides = penSides(f);
   assert.equal(sides.filter((s) => s.part === 'gate').length, 1, 'one gate');

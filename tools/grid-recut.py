@@ -10,7 +10,9 @@ and its record in that folder's `grid.json`:
   bake    how much the copy was scaled from the original, so it is drawn at the kit's own scale like everything else
 
 Everything below the footprint's front edges (the slab of soil, a plinth running onto the cells in front) is cut off.
-The originals are left as they were: the raid board and the menus still draw them. A dev tool, run by hand after
+The originals are left as they were: the raid board and the menus still draw them. Pieces drawn later by PixelLab
+(tools/pixellab/assemble_nov.py: the shared buildings, the heaps in MADE_LOOSE, the corner pieces in MADE_POSTS) are
+cut the same way once their pictures are in. A dev tool, run by hand after
 `node tools/grid-audit.mjs` (which writes out/grid-defs.json, the buildings' footprints):
 `python3 tools/grid-recut.py`. A piece already in grid.json keeps its record (only its copy is cut again);
 `--fresh` measures everything again."""
@@ -38,6 +40,8 @@ SOLID = 24
 BUILDINGS = ['cottage', 'longhouse', 'stockpile', 'workshop', 'tavern', 'well', 'chapel', 'granary', 'watchtower', 'market_stall', 'campfire']
 LOOSE = {'oak_tree': 0.73, 'pine_tree': 0.73, 'bush': 0.7, 'rocks': 0.58, 'barrels': 0.6, 'crates': 0.6, 'woodpile': 0.6, 'hay_bales': 0.6,
          'cart': 0.6, 'lamp_post': 0.6, 'signpost': 0.6}
+# the stockpile's heaps drawn by PixelLab (tools/pixellab/assemble_nov.py), cut once their pictures are in the kit
+MADE_LOOSE = {'grain_sacks': 0.6, 'lumber_stack': 0.6, 'ore_pile': 0.6}
 # walls and fences: a cell cut from the middle of the kit's run (a fence's centred on a post, so each cell has one);
 # gates: their middle, this many cells long
 SEGS = {'stone_wall_seg': 'stone_wall_run', 'palisade_seg': 'palisade_run', 'fence_seg': 'fence'}
@@ -50,6 +54,10 @@ LOWER = {'palisade_run': 28, 'palisade_gate': 28}
 LOWER_KEEP = 45
 # the stone wall's corner: one of the stone gate's towers, a cell across, on the corner cell's middle
 POSTS = {'stone_wall_post': 'stone_gate'}
+# corner pieces drawn for the purpose by PixelLab, each a cell on its own plinth, cut in place of the above once its
+# picture is in the kit: the stone wall's corner tower, the palisade's and the fence's corner posts (iso/gridRules.ts
+# `wallPost` finds them by their seg's name)
+MADE_POSTS = {'stone_wall_post': 'stone_corner_tower', 'palisade_post': 'palisade_corner_post', 'fence_post': 'fence_corner_post'}
 # the kit's pieces drawn lying along y (iso/isoKits.ts ALONG_Y): mirrored first, so every cut lies along x
 ALONG_Y = {'stone_wall_run', 'stone_gate', 'fence'}
 # a gate's middle is cut this much wider than its cells, a quarter cell each side (rule 4's eaves)
@@ -341,7 +349,7 @@ def main():
         cut_below(im, rec['anchor'], *rec['foot'])
         save(im, os.path.join(out_kit, pid + '.png'))
         kit_rec[pid] = rec
-    for pid, f in LOOSE.items():
+    for pid, f in {**LOOSE, **{k: v for k, v in MADE_LOOSE.items() if os.path.exists(os.path.join(KIT, k + '.png'))}}.items():
         im = bake(Image.open(os.path.join(KIT, pid + '.png')).convert('RGBA'), f)
         rec = kit_rec.get(pid) or {**loose_record(im), 'kind': 'loose', 'bake': f}
         cut_below(im, rec['anchor'], *rec['foot'])
@@ -352,9 +360,22 @@ def main():
         save(cut, os.path.join(out_kit, pid + '.png'))
         kit_rec[pid] = {'anchor': anchor, 'foot': foot, 'kind': 'seg', 'bake': 1, 'from': src, 'slope': slope}
     for pid, src in POSTS.items():
+        if os.path.exists(os.path.join(KIT, MADE_POSTS[pid] + '.png')):
+            continue
         cut, anchor = post_cut(os.path.join(KIT, src + '.png'), src in ALONG_Y)
         save(cut, os.path.join(out_kit, pid + '.png'))
         kit_rec[pid] = {'anchor': anchor, 'foot': [1, 1], 'kind': 'post', 'bake': 1, 'from': src}
+    for pid, src in MADE_POSTS.items():
+        path = os.path.join(KIT, src + '.png')
+        if not os.path.exists(path):
+            continue
+        im = Image.open(path).convert('RGBA')
+        rec = kit_rec.get(pid) if kit_rec.get(pid, {}).get('from') == src else None
+        rec = rec or {**building_record(im, (1, 1)), 'kind': 'post', 'bake': 1, 'from': src}
+        rec['foot'] = [1, 1]
+        cut_below(im, rec['anchor'], 1, 1)
+        save(im, os.path.join(out_kit, pid + '.png'))
+        kit_rec[pid] = rec
     for pid, (src, cells) in GATES.items():
         cut, anchor, foot, slope = seg_cut(os.path.join(KIT, src + '.png'), cells, src in ALONG_Y)
         save(cut, os.path.join(out_kit, pid + '.png'))
