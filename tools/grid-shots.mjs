@@ -6,6 +6,7 @@
 //   node tools/grid-shots.mjs --plain    the same without it
 //   --scene town     the town as a player might build it (tools/grid-town.ts), not the gallery (or `polish`)
 //   --night          its clock at ten at night (the shots named `-night`)
+//   --biome <name>   the land founded in that biome (`blend` only; the shots named after it)
 //   --only <names>   only these shots (comma between)
 //   --size 393x852   the phone upright (852x393, on its side, by default)
 //   --web <dir>      another build of the phone page (an older one, for before and after)
@@ -25,11 +26,12 @@ const arg = (flag, or) => {
 };
 const scene = arg('--scene', 'gallery');
 const night = process.argv.includes('--night');
+const biome = arg('--biome', '');
 const only = arg('--only', '').split(',').filter(Boolean);
 const [vw, vh] = arg('--size', '852x393').split('x').map(Number);
 const web = arg('--web', 'out/web');
 await esbuild.build({ entryPoints: ['tools/grid-town.ts'], outfile: 'out/grid-town.cjs', bundle: true, platform: 'node', format: 'cjs', target: 'es2023', logLevel: 'warning', loader: { '.png': 'empty' } });
-if (spawnSync(process.execPath, ['out/grid-town.cjs', scene, ...(night ? ['night'] : [])], { stdio: 'inherit' }).status) process.exit(1);
+if (spawnSync(process.execPath, ['out/grid-town.cjs', scene, ...(night ? ['night'] : []), ...(biome ? [biome] : [])], { stdio: 'inherit' }).status) process.exit(1);
 const town = JSON.parse(readFileSync('out/grid-town.json', 'utf8'));
 if (!existsSync(`${web}/index.html`)) throw new Error('build the phone version first: npm run web');
 
@@ -85,7 +87,7 @@ async function shoot(name, cx, cy) {
     cam.centreOn({ x: (cx + 0.5) * 32, y: (cy + 0.5) * 32 }, window.innerWidth, window.innerHeight); // (world px: the camera puts them on the diamonds)
   }, [cx, cy]);
   await page.waitForTimeout(1500);
-  await page.screenshot({ path: `${out}/${name}${plain ? '-plain' : ''}${night ? '-night' : ''}${vw < vh ? '-upright' : ''}.jpg`, type: 'jpeg', quality: 78 });
+  await page.screenshot({ path: `${out}/${name}${biome ? `-${biome}` : ''}${plain ? '-plain' : ''}${night ? '-night' : ''}${vw < vh ? '-upright' : ''}.jpg`, type: 'jpeg', quality: 78 });
   console.log(`shot ${name}`);
 }
 const shots = town.shots;
