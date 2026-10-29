@@ -54,6 +54,9 @@ export const COLD_IN_BED = 0.5;
 export const COLD_AWAKE = 0.1;
 /** Winter's lean land: foraging (berries off the bush, a forager's wild food) at this pace. */
 export const WINTER_FORAGE = 0.35;
+/** And lean: the herds give this share of their milk, eggs and wool, and the hunters bring home this share of the
+ *  game (the slaughter is as it was). */
+export const WINTER_YIELD = 0.4;
 /** Food left out spoils: the share of a pile lost a day in an open store (a campfire's cache, a stockpile), and in a
  *  granary (`SPOIL_GRANARY` of that). Fresh food goes fastest; grain slowly; what's dried, baked or packed keeps.
  *  The winter's cold slows it (`SPOIL_WINTER`). */

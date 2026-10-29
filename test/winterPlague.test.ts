@@ -1,9 +1,9 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { COLD_AWAKE, COLD_HP_PER_HOUR, COLD_IN_BED, WINTER_SNOW, FIREWOOD_PER_HEAD, SPOIL_DAILY, WINTER_FORAGE } from '../src/shared/data/hardship';
+import { COLD_AWAKE, COLD_HP_PER_HOUR, COLD_IN_BED, WINTER_SNOW, FIREWOOD_PER_HEAD, SPOIL_DAILY, WINTER_FORAGE, WINTER_YIELD } from '../src/shared/data/hardship';
 import { PLAGUE_HP_PER_HOUR, PLAGUE_SHARE } from '../src/shared/data/doom';
 import { LIFESPANS } from '../src/shared/data/lifespans';
-import { firewoodWanted, hardshipHourly, noMending, winterForage } from '../src/shared/sim/hardship';
+import { firewoodWanted, hardshipHourly, noMending, winterForage, winterYield } from '../src/shared/sim/hardship';
 import { plagueToll, updateDoom } from '../src/shared/sim/doom';
 import { heal } from '../src/shared/sim/health';
 import { mended, needsSickbed } from '../src/shared/sim/sickbeds';
@@ -109,14 +109,17 @@ test('the town wants a winter of firewood put by from autumn on', () => {
   assert.equal(firewoodWanted(s), 0);
 });
 
-test('the winter land forages slowly', () => {
+test('the winter land forages slowly, and the herds and the hunt give less', () => {
   const s = town('forage', 2, 32);
   assert.equal(winterForage(s), WINTER_FORAGE);
+  assert.equal(winterYield(s), WINTER_YIELD);
   s.tick = 12 * TICKS_PER_DAY;
   assert.equal(winterForage(s), 1);
+  assert.equal(winterYield(s), 1);
   s.tick = 32 * TICKS_PER_DAY;
   s.autopilot = false;
   assert.equal(winterForage(s), 1);
+  assert.equal(winterYield(s), 1);
 });
 
 test('food left in the open spoils; a granary keeps it better, dried food keeps, and the winter slows it', () => {

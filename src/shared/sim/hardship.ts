@@ -17,6 +17,7 @@ import {
   SPOIL_GRANARY,
   SPOIL_WINTER,
   WINTER_FORAGE,
+  WINTER_YIELD,
   FESTER_BEDLESS,
   FESTER_CHANCE,
   FESTER_CLEARS,
@@ -256,6 +257,8 @@ function stackWoodpile(s: GameState): void {
 
 /** Foraging's pace in the season: the winter's land is bare (people.ts, the foragers and the hungry scrounging). */
 export const winterForage = (s: GameState): number => (s.autopilot !== false && calendarOf(s).season === 'winter' ? WINTER_FORAGE : 1);
+/** The herds' yield and the hunt's in the season: lean in winter (sim/livestock.ts `workPen`, expeditions.ts). */
+export const winterYield = (s: GameState): number => (s.autopilot !== false && calendarOf(s).season === 'winter' ? WINTER_YIELD : 1);
 
 /** The hour food spoils, once a day. */
 const SPOIL_HOUR = 6;
