@@ -49,6 +49,9 @@ export const WINTER_SNOW = 1.5;
  *  rate. The town gathers this much a head for each winter day to come from autumn on (sim/planner.ts). */
 export const FIREWOOD_PER_HEAD = 0.6;
 export const COLD_IN_BED = 0.5;
+/** The woodpile shown (docs/notes/founder-delves.md): from this day of autumn on (and all winter), a woodpile and
+ *  stores that won't last the rest of the winter at the present burning are warned of, once a season. */
+export const WOODPILE_WARN_FROM = 6;
 /** With the hearths cold, those awake at home are chilled too: they don't mend, and lose this share of the ground's
  *  rate an hour. */
 export const COLD_AWAKE = 0.1;

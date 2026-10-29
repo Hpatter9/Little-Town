@@ -31,7 +31,15 @@ export function renderMuster(m: MusterView, s: Snapshot, bridge: Bridge | undefi
   said.append(el('div', 'muster-leader', leader ? `${leader.name} will lead` : 'Nobody to lead'), el('div', 'muster-odds', `“${m.odds}”`));
   brief.append(said);
   sheet.append(brief);
-  if (m.powerLine) sheet.append(el('div', 'hint muster-power', m.powerLine));
+  // (a dungeon's own box below says it boss by boss, on the same scale)
+  if (m.powerLine && !m.risk) sheet.append(el('div', 'hint muster-power', m.powerLine));
+  // (a dungeon: who may wait at the bottom against this party: sim/founderDelves.ts)
+  if (m.risk) {
+    const r = el('div', `muster-risk risk-${m.risk.tone}`);
+    r.append(el('b', '', m.risk.word), el('span', '', ` ${m.risk.line}`));
+    if (m.risk.tone !== 'fair') r.append(el('div', 'muster-risk-warn', m.risk.tone === 'risky' ? 'Some of them may not come back.' : 'The bottom of it may kill them all.'));
+    sheet.append(r);
+  }
   sheet.append(stakeCard(m, s));
 
   // the party

@@ -26,8 +26,9 @@ import { parseDevOrder, type DevOrder } from './devOrders';
 export type CreatureOp = 'feed' | 'rest' | 'praise' | 'scold';
 const CREATURE_OPS: readonly CreatureOp[] = ['feed', 'rest', 'praise', 'scold'];
 
-export type MusterOp = 'raise' | 'add' | 'drop' | 'lead' | 'persuade' | 'order' | 'set' | 'send' | 'cancel';
-const MUSTER_OPS: readonly MusterOp[] = ['raise', 'add', 'drop', 'lead', 'persuade', 'order', 'set', 'send', 'cancel'];
+/** `founder`: raise a party with the founder at its head (sim/founderDelves.ts `raiseFounderParty`). */
+export type MusterOp = 'raise' | 'founder' | 'add' | 'drop' | 'lead' | 'persuade' | 'order' | 'set' | 'send' | 'cancel';
+const MUSTER_OPS: readonly MusterOp[] = ['raise', 'founder', 'add', 'drop', 'lead', 'persuade', 'order', 'set', 'send', 'cancel'];
 
 /** The most cells one `markClear` (a drag across the map) may mark or unmark. */
 export const MARK_CLEAR_CAP = 150;

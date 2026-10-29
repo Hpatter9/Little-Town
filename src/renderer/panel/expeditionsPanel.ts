@@ -7,7 +7,7 @@ import { powerLine } from '../../shared/sim/power';
 import { AIRSHIP_BY_KIND } from '../../shared/data/skies';
 import { renderRealm } from './realmPanel';
 import { renderMuster } from './musterPanel';
-import { acceptedQuests, questBoard, questLog } from './questBoardPanel';
+import { acceptedQuests, founderHome, questBoard, questLog } from './questBoardPanel';
 import { goTo } from './townOverview';
 import { BOAT_BY_KIND } from '../../shared/data/boats';
 import { eraReached } from '../../shared/data/eras';
@@ -268,6 +268,8 @@ function destinationCard(d: Destination, v: DestinationView, s: Snapshot, bridge
   if (!going && !v.vetoed) {
     const row = el('div', 'row stakes');
     row.append(button('Send a party…', () => bridge?.command({ type: 'muster', op: 'raise', dest: d.id }), { cls: 'place go', disabled: !!s.muster || s.expeditions.length >= MAX_EXPEDITIONS, title: 'Choose who goes, how boldly, and what they take' }));
+    // (a dungeon: the founder may lead a delve into it whenever they choose: sim/founderDelves.ts)
+    if (DUNGEON_BY_ID[d.id]) row.append(button('Lead a delve…', () => bridge?.command({ type: 'muster', op: 'founder', dest: d.id }), { cls: 'place go', disabled: !!s.muster || s.expeditions.length >= MAX_EXPEDITIONS || !founderHome(s), title: founderHome(s) ? 'Go down at the head of a party yourself. You see the danger before they set off.' : 'The founder is not free to go' }));
     c.append(row);
   }
   return expandable(c, `dest:${d.id}`, () => [tripControls(d, v, s, bridge), ...destDetails(d, v, s)]);

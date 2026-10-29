@@ -1,9 +1,9 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { COLD_AWAKE, COLD_HP_PER_HOUR, COLD_IN_BED, WINTER_SNOW, FIREWOOD_PER_HEAD, SPOIL_DAILY, WINTER_FORAGE, WINTER_YIELD } from '../src/shared/data/hardship';
+import { COLD_AWAKE, COLD_HP_PER_HOUR, COLD_IN_BED, WINTER_SNOW, FIREWOOD_PER_HEAD, SPOIL_DAILY, WINTER_FORAGE, WINTER_YIELD, WOODPILE_WARN_FROM } from '../src/shared/data/hardship';
 import { PLAGUE_HP_PER_HOUR, PLAGUE_SHARE } from '../src/shared/data/doom';
 import { LIFESPANS } from '../src/shared/data/lifespans';
-import { firewoodWanted, hardshipHourly, noMending, winterForage, winterYield } from '../src/shared/sim/hardship';
+import { firewoodWanted, hardshipHourly, noMending, winterForage, winterYield, woodpileForecast } from '../src/shared/sim/hardship';
 import { plagueToll, updateDoom } from '../src/shared/sim/doom';
 import { heal } from '../src/shared/sim/health';
 import { mended, needsSickbed } from '../src/shared/sim/sickbeds';
@@ -270,4 +270,46 @@ test('the plague lays the founder low but never kills them', () => {
   }
   assert.ok(s.people.includes(main) && !s.gameOver);
   assert.ok(main.hp > 0 && main.hp <= 1);
+});
+
+test("the woodpile's forecast: shown in autumn and winter, warned of when it won't last, and when the hearths go cold", () => {
+  // (four at home: 2.4 logs a day)
+  const s = town('woodpile', 4, 12);
+  assert.equal(calendarOf(s).season, 'summer');
+  assert.equal(woodpileForecast(s), null, 'nothing to show in summer');
+  // autumn's first days: gathering, no warning yet
+  s.tick = 20 * TICKS_PER_DAY + 2 * TICKS_PER_HOUR;
+  assert.equal(calendarOf(s).season, 'autumn');
+  campfire(s).store = {};
+  let f = woodpileForecast(s)!;
+  assert.equal(f.need, Math.ceil(4 * FIREWOOD_PER_HEAD * 10), "a whole winter's burning wanted");
+  assert.equal(f.warn, null, 'too early in autumn to warn');
+  // later in autumn with nothing put by: it won't last
+  s.tick = (20 + WOODPILE_WARN_FROM - 1) * TICKS_PER_DAY;
+  assert.equal(calendarOf(s).dayOfSeason, WOODPILE_WARN_FROM);
+  f = woodpileForecast(s)!;
+  assert.equal(f.warn, 'short');
+  assert.equal(f.lastsDays, 0);
+  const told = () => s.journal.filter((j) => /firewood won't last the winter/.test(j.text)).length;
+  hours(s, 3);
+  assert.equal(told(), 1, 'warned once');
+  hours(s, 3);
+  assert.equal(told(), 1, 'and not again this season');
+  // enough on the woodpile and in the stores: no warning, and it lasts the days it should
+  s.woodpile = 12;
+  campfire(s).store = { wood: 10, coal: 2 };
+  f = woodpileForecast(s)!;
+  assert.equal(f.warn, null);
+  assert.equal(f.spare, 10 + 2 * 3, 'the stores count at their heat');
+  assert.equal(f.lastsDays, Math.round(((12 + 16) / (4 * FIREWOOD_PER_HEAD)) * 10) / 10);
+  // winter with the hearths cold
+  s.tick = 32 * TICKS_PER_DAY;
+  s.woodpile = undefined;
+  campfire(s).store = {};
+  hours(s, 12);
+  assert.ok(s.hearthsCold);
+  assert.equal(woodpileForecast(s)!.warn, 'cold');
+  // (the autopilot off: none of it)
+  s.autopilot = false;
+  assert.equal(woodpileForecast(s), null);
 });
