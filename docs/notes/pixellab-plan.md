@@ -14,7 +14,7 @@ From a work folder set up as `tools/pixellab/README.md` says (the scripts, and `
 DRY=1 python3 batch_nov.py           # every request and its estimated cost; sends nothing
 TEST_ONLY=1 python3 batch_nov.py     # the cheap test of each kind (about 56), then it stops
 python3 assemble_nov.py <repo> test  # the tests side by side: pl/nov/test/contact.png. Look before going on.
-python3 batch_nov.py                 # the rest, in the order below, skipping what's done (BUDGET=1800 by default)
+python3 batch_nov.py                 # the rest, in the order below, skipping what's done (BUDGET=2750 by default)
 python3 assemble_nov.py <repo>       # drop what's finished into the game; then typecheck, npm test, npm run web
 REDO=kiln python3 batch_nov.py bld_first   # make a picture again (the old one kept as kiln.old.png)
 ```
@@ -57,20 +57,22 @@ above), an edit 10, a create 12, a template move 1 a direction, a v3 text move 3
 
 | order | phase | what | requests | about |
 |---|---|---|---|---|
-| 1 | `test` | one of each kind: the lean-to, a sleep (man, south), a push (man, south-east), a loaded barrow, grain sacks, the flame's first frame, the card wolf's reference, the wolf's death facing north | 8 | 56 |
+| 1 | `test` | one of each kind: the lean-to, a sleep (man, south), a push (man, south-east), a loaded barrow, grain sacks, the flame's first frame, the card wolf's reference, the wolf's death facing north, the farmer's edit (the first new look) | 9 | 66 |
 | 2 | `bld_first` | the 16 first-age buildings waiting for art: lean-to, healer's hut, workbench, tanning and drying racks, smokehouse, kiln, basketry, bone carver, fireside inn, trading post, graveyard, wayside shrine, quarry, monster guild, militia post | 16 | 174 |
-| 3 | `sleep` | lying asleep, 8 facings, a slow breathing loop (v3, 8 frames): the 9 settler looks, the founder's two, the 4 children | 15 x 8 | 360 |
-| 4 | `barrow` | the wheelbarrow in two views (going down-right, up-right; mirrored for the left) with four loads (logs, stone, sacks, crates), and the 11 grown looks pushing (the mannequin's `pushing` template) | 8 + 11 x 8 | 168 |
-| 5 | `pieces` | the stockade (3x2: stakes, a gate, a prisoner's post), grain sacks, a stack of planks, an ore heap, the stone wall's corner tower, the palisade's and the fence's corner posts, the flame (6 frames) | 13 | 131 |
-| 6 | `bld_medieval` | the 29 Medieval buildings waiting (the coal mine shares the mine's picture, the armour store the weapon store's: one arms shop) | 28 | 316 |
-| 7 | `god` | the wolf's death facing north, the bear's walk, the golem's punch and miracle (templates again, under new names) | 4 | 25 |
-| 8 | `cards` | a side-on wolf (walk, attack, idle), bear (the same) and dragon (fly, walk, attack) | 15 | 94 |
-| 9 | `bld_late` | the 22 Industrial, Modern and Space buildings waiting, the launch site drawn the right way at last | 22 | 254 |
-| | | **in all** | | **1,578** |
-| | | with about a tenth more for pictures made again (`REDO`) | | **about 1,750** (`BUDGET` 1,800) |
-| 10 | `bld_yard` (optional) | the 47 drawn with a borrowed picture that fits or with a yard (hide tent, hunters' lodge, lookout, the traps, barracks, school, factory, cathedral...); five share: the alloy foundry the steelworks', the appliance plant and the chip fab the electronics plant's, the robot workshop the garage's | 42 | 603 |
+| 3 | `looks` | six new settler looks (nov-new-looks.md): a farmer, a smith, a hunter, an old man and an old woman, a young woman. Each an edit of a settler look's front view, turned to 8 facings, walk, idle, run, hurt, death and cast_1h (templates), and one tool (axe or hammer: edited in, turned, its v3 move) | 6 x 11 | 696 |
+| 4 | `sleep` | lying asleep, 8 facings, a slow breathing loop (v3, 8 frames): the 9 settler looks, the founder's two, the 4 children, the 6 new looks | 21 x 8 | 504 |
+| 5 | `barrow` | the wheelbarrow in two views (going down-right, up-right; mirrored for the left) with four loads (logs, stone, sacks, crates), and the 17 grown looks pushing (the mannequin's `pushing` template) | 8 + 17 x 8 | 216 |
+| 6 | `pieces` | the stockade (3x2: stakes, a gate, a prisoner's post), grain sacks, a stack of planks, an ore heap, the stone wall's corner tower, the palisade's and the fence's corner posts, the flame (6 frames) | 13 | 131 |
+| 7 | `bld_medieval` | the 29 Medieval buildings waiting (the coal mine shares the mine's picture, the armour store the weapon store's: one arms shop) | 28 | 316 |
+| 8 | `god` | the wolf's death facing north, the bear's walk, the golem's punch and miracle (templates again, under new names) | 4 | 25 |
+| 9 | `cards` | a side-on wolf (walk, attack, idle), bear (the same) and dragon (fly, walk, attack) | 15 | 94 |
+| 10 | `bld_late` | the 22 Industrial, Modern and Space buildings waiting, the launch site drawn the right way at last | 22 | 254 |
+| | | **in all** | | **2,476** |
+| | | with about a tenth more for pictures made again (`REDO`) | | **about 2,720** (`BUDGET` 2,750) |
+| 11 | `bld_yard` (optional) | the 47 drawn with a borrowed picture that fits or with a yard (hide tent, hunters' lodge, lookout, the traps, barracks, school, factory, cathedral...); five share: the alloy foundry the steelworks', the appliance plant and the chip fab the electronics plant's, the robot workshop the garage's | 42 | 603 |
 
-So the month's planned run is about a sixth of it; with the optional phase, about a quarter.
+So the month's planned run is about a quarter of it; with the optional phase, about a third. (The six new looks came
+to 888 of it: 696 in `looks`, 144 asleep and 48 pushing; see nov-new-looks.md.)
 
 The prompts are in `batch_nov.py` (each item's `desc`, then `GROUND` for a building: a w by h grass plinth like the
 first picture, nothing past its edges, no text, no people; `STYLE` as the style description). Lying asleep (`SLEEP`):
@@ -87,6 +89,7 @@ again (`GOD_FIX`); `GOD_KEEP` is the wording for v3 moves if the templates come 
 | corner pieces | `stone_corner_tower`, `palisade_corner_post`, `fence_corner_post` in the kit folder (not its index), baked to one cell; cut as `stone_wall_post`, `palisade_post`, `fence_post` (`MADE_POSTS`) | the pier cut from the stone gate; the half runs meeting |
 | flame | `art/iso/kits/settlers/flame.png` (a strip, `FLAME_PX` 12 tall), `art/iso/made.json` `flame` | the torch's flame drawn by code |
 | barrow | `barrow_<view>_<load>.png` beside the kit (`BARROW_W` 52 px long), `made.json` `barrow` | the side-on barrow and its painted heap |
+| new looks | `art/iso/folk/settlers/<look>/` and `<look>+<tool>/` (sheets, `index.json`, `roles.json`), `art/iso/made.json` `looks`; only a look with all its moves done | nobody wears them: the looks as before (nov-new-looks.md) |
 | sleep, push | `art/iso/folk/settlers/<look>/sleep.png`, `push.png` + the look's `index.json`, their colours labelled for the tints (`tools/folk-roles.py`); only the frames lying down are kept for sleep (`lying`), a facing with too few holds its fall's last frame | the fall held at its end, breathing by a stretch; walking |
 | God creature fixes | the new frames laid over the old rows of `art/iso/creature/<kind>/<move>.png` | the old frames |
 | cards | `art/creatures/packs/pl_<kind>.png` + `packs.json` (rows walk, attack, idle; the dragon's fly is its walk and idle, its ground walk kept as `stride`) | the black werewolf; the demon lord as the dragon |

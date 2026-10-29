@@ -52,3 +52,7 @@ pieces, the God creatures' weak spots and the side-on card beasts: `DRY=1` print
 again. State: `pl/nov_state.json`; pictures in `pl/nov/<phase>/`. `assemble_nov.py <repo> [kinds]` drops what's finished
 into the game and checks it (a building that doesn't fit its footprint is left out); `assemble_nov.py <repo> test` lays
 the tests side by side in `pl/nov/test/contact.png`.
+
+Oct 29, later: six new settler looks (farmer, smith, hunter, old man, old woman, young woman) in `batch_nov.py`'s
+`looks` phase (`LOOKS`), each with the six template moves and one tool, then asleep and pushing in those phases;
+`assemble_nov.py <repo> looks` lays them out and lists them in `art/iso/made.json` `looks` (docs/notes/nov-new-looks.md).

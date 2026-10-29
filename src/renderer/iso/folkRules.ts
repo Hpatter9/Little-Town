@@ -5,6 +5,7 @@
 
 import type { Slot } from '../../shared/data/items';
 import type { PersonView } from '../../shared/sim/snapshot';
+import made from '../art/iso/made.json';
 
 /** The eight facings, in the order the art's index.json lists them: the way the person faces on screen. */
 export const FOLK_DIRS = ['south', 'south-east', 'east', 'north-east', 'north', 'north-west', 'west', 'south-west'] as const;
@@ -41,6 +42,9 @@ export type FolkState = Pick<PersonView, 'id' | 'activity' | 'sinceHit' | 'since
   founder?: boolean;
   /** Indoors (asleep in a bed, at work in a mine): not drawn lying out on the ground. */
   indoors?: boolean;
+  /** What they came to town as ('Hunter', 'Crafter', 'Gatherer'; 'Child' for the town-born): fixed for life, so the
+   *  fitted looks (FITTED_LOOKS) rest on it. */
+  typeName?: PersonView['typeName'];
 };
 
 /** The speed (map pixels a second) from which a walker is running. */
@@ -188,6 +192,45 @@ export const FOLK_LOOKS: Record<string, readonly string[]> = {
   knights: ['man_knight', 'woman_knight', 'man_squire', 'child_boy', 'child_girl'],
 };
 
+/** The settlers' looks drawn for particular folk (tools/pixellab/batch_nov.py `LOOKS`). Each joins the settlers'
+ *  drawn looks only once its art is in (art/iso/made.json `looks`, set by tools/pixellab/assemble_nov.py), so until then
+ *  nobody's look changes. */
+export const FITTED_LOOKS = ['man_farmer', 'man_smith', 'woman_hunter', 'man_elder', 'woman_elder', 'woman_maiden'] as const;
+const MADE_LOOKS: readonly string[] = ((made as { looks?: string[] }).looks ?? []).filter((l) => (FITTED_LOOKS as readonly string[]).includes(l));
+FOLK_LOOKS.settlers = [...FOLK_LOOKS.settlers, ...MADE_LOOKS.filter((l) => !FOLK_LOOKS.settlers.includes(l))];
+
+/** What each fitted look is for, by what they came to town as (fixed for life). */
+const FIT_BY_TYPE: Record<string, { m?: string; f?: string }> = {
+  Gatherer: { m: 'man_farmer' },
+  Crafter: { m: 'man_smith' },
+  Hunter: { f: 'woman_hunter' },
+};
+/** The rest of a sex share the fitted looks of their sex by a stable hash of their id: SHARE_OF of them, a slot each. */
+const SHARED: { m: readonly string[]; f: readonly string[] } = { m: ['man_farmer', 'man_smith'], f: ['woman_maiden', 'woman_hunter'] };
+export const SHARE_OF = 6;
+
+/** The fitted look a grown settler is meant for, drawn or not: the elder looks in the last stages of life, else the
+ *  one for what they came to town as, else (for about a third) one of their sex's by their id. Null: none. It rests
+ *  only on what never changes or only moves on (their id, sex, what they came as, their stage of life), never on
+ *  their work or what they're doing, so a look once worn stays theirs; the one change is turning elder, like growing up. */
+export function fittedLook(st: Pick<FolkState, 'id' | 'look'> & Partial<Pick<FolkState, 'typeName' | 'lifeStage'>>): string | null {
+  const sex = st.look.gender === 'f' ? 'f' : 'm';
+  if (st.lifeStage === 'elder' || st.lifeStage === 'old') return sex === 'f' ? 'woman_elder' : 'man_elder';
+  const byType = st.typeName ? FIT_BY_TYPE[st.typeName]?.[sex] : undefined;
+  if (byType) return byType;
+  const slot = idHash(st.id, 29) % SHARE_OF;
+  return SHARED[sex][slot] ?? null;
+}
+
+/** A grown settler's fitted look where it's drawn (they wear it out of armour), else null: whose colours it sets
+ *  (iso/folkTint.ts LOOK_DYES), the same in armour or out, so putting armour on never changes them. */
+export function ownFittedLook(st: Pick<FolkState, 'id' | 'look'> & Partial<Pick<FolkState, 'origin' | 'typeName' | 'lifeStage' | 'growsUpIn'>>, looks: Record<string, readonly string[]> = FOLK_LOOKS): string | null {
+  const people = st.origin && looks[st.origin]?.length ? st.origin : 'settlers';
+  if (people !== 'settlers' || st.origin === 'dwarves' || isFolkChild(st)) return null;
+  const fit = fittedLook(st);
+  return fit && looks.settlers?.includes(fit) ? fit : null;
+}
+
 /** The founder's own looks (the player's character), by sex: a signature costume, drawn in its own colours (never
  *  tinted: iso/folkWho.ts). Not in FOLK_LOOKS until the art is found (iso/founderArt.ts adds them to the settlers'
  *  list), so a town whose build lacks them dresses the founder as anyone else. */
@@ -248,9 +291,10 @@ export interface FolkLookPick {
 
 /** Which look a person wears: their people's folder (settlers where their own isn't drawn yet); a child the boy or girl
  *  look (CHILD_LOOKS; dwarf children the settlers' dwarf boy and girl); the grown founder their own (FOUNDER_LOOKS,
- *  where `looks` has it); a grown person a look of their sex (a look named `man_*` or
+ *  where `looks` has it); a grown settler in everyday dress the look drawn for them (fittedLook), once it's drawn; else a
+ *  grown person a look of their sex (a look named `man_*` or
  *  `woman_*`), the one in their outfit's colour first, else a stable pick by id. */
-export function pickLook(st: Pick<FolkState, 'id' | 'origin' | 'look'> & Partial<Pick<FolkState, 'lifeStage' | 'growsUpIn' | 'founder'>>, looks: Record<string, readonly string[]> = FOLK_LOOKS, dress?: 'plate' | 'leather' | 'base'): FolkLookPick {
+export function pickLook(st: Pick<FolkState, 'id' | 'origin' | 'look'> & Partial<Pick<FolkState, 'lifeStage' | 'growsUpIn' | 'founder' | 'typeName'>>, looks: Record<string, readonly string[]> = FOLK_LOOKS, dress?: 'plate' | 'leather' | 'base'): FolkLookPick {
   const people = st.origin && looks[st.origin]?.length ? st.origin : 'settlers';
   const drawn = looks[people] ?? [];
   if (isFolkChild(st)) {
@@ -264,8 +308,12 @@ export function pickLook(st: Pick<FolkState, 'id' | 'origin' | 'look'> & Partial
   // founder keeps the dwarf looks)
   const own = FOUNDER_LOOKS[st.look.gender === 'f' ? 'f' : 'm'];
   if (st.founder && people === 'settlers' && st.origin !== 'dwarves' && drawn.includes(own)) return { people, look: own };
-  // (a grown person never wears a child's look, whatever else the folder lacks; nor anyone but the founder theirs)
-  const every = drawn.filter((l) => !isChildLook(l) && !isFounderLook(l));
+  // (a grown settler in everyday dress wears the look drawn for them, once it's drawn: the dwarves keep their own)
+  const fit = dress !== 'plate' && dress !== 'leather' ? ownFittedLook(st, looks) : null;
+  if (fit) return { people, look: fit };
+  // (a grown person never wears a child's look, whatever else the folder lacks; nor anyone but the founder theirs, nor
+  // a fitted look meant for someone else)
+  const every = drawn.filter((l) => !isChildLook(l) && !isFounderLook(l) && !(FITTED_LOOKS as readonly string[]).includes(l));
   // (dwarves wear the dwarf looks, where a folder has them; everyone else the human ones)
   const dwarf = st.origin === 'dwarves' && every.some((l) => l.startsWith('dwarf_'));
   const kin = every.filter((l) => l.startsWith('dwarf_') === dwarf);

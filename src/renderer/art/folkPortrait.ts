@@ -22,6 +22,8 @@ export interface PortraitWho {
   gear: Partial<Record<Slot, string>>;
   /** A child wears a child's look and stands shorter (iso/folkRules.ts). */
   lifeStage?: LifeStage;
+  /** What they came to town as (the snapshot's `typeName`): the looks drawn for some folk rest on it. */
+  typeName?: string;
   growsUpIn?: number | null;
   /** The founder (or not), said outright: else it's whether their id is the last snapshot's `mainId` (iso/folkWho.ts). */
   founder?: boolean;
@@ -174,9 +176,9 @@ export function drawFigureAt(g: CanvasRenderingContext2D, f: FolkFigure, cx: num
 /** The townsfolk as of the last snapshot (panel.ts, main.ts: `folkKnow`), so a view that has only someone's id and
  *  look (a party member, a shop's keeper) wears the look the map gives them. */
 const known = new Map<number, PortraitWho>();
-export function folkKnow(people: { id: number; origin?: OriginId; look: Look; gear: Partial<Record<Slot, string>>; lifeStage?: LifeStage; growsUpIn?: number | null }[]): void {
+export function folkKnow(people: { id: number; origin?: OriginId; look: Look; gear: Partial<Record<Slot, string>>; lifeStage?: LifeStage; growsUpIn?: number | null; typeName?: string }[]): void {
   known.clear();
-  for (const p of people) known.set(p.id, { id: p.id, origin: p.origin, look: p.look, gear: p.gear, lifeStage: p.lifeStage, growsUpIn: p.growsUpIn });
+  for (const p of people) known.set(p.id, { id: p.id, origin: p.origin, look: p.look, gear: p.gear, lifeStage: p.lifeStage, growsUpIn: p.growsUpIn, typeName: p.typeName });
 }
 /** Someone by their id (with the gear given, which may be what they carry); a stranger is a settler in plain dress. */
 export function folkWhoById(id: number, look: Look, gear?: Partial<Record<Slot, string>>, origin?: OriginId): PortraitWho {
