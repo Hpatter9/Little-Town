@@ -21,6 +21,7 @@ import { storyDeath } from './story';
 import { TICKS_PER_DAY, TICKS_PER_HOUR } from './time';
 import { closeCall } from './closeCalls';
 import { tally } from './deeds';
+import { noMending } from './hardship';
 
 /** How long someone downed has before they bleed out, unless a medic (or the camp) tends them. */
 export const BLEED_TICKS = 2 * TICKS_PER_HOUR;
@@ -210,6 +211,8 @@ export function heal(s: GameState, p: Person): void {
   }
   if (p.starving && p.needs.food > STARVING) p.starving = false;
   if (p.hp >= max) return;
+  // (a fever, a festering wound or a night on the winter ground: no mending meanwhile, sim/hardship.ts)
+  if (noMending(p) && !p.downed) return;
   const asleep = p.task?.type === 'sleep' && p.activity === 'sleep';
   const rate = asleep ? (p.task?.type === 'sleep' && p.task.building !== null ? REGEN_BED : REGEN_GROUND) : REGEN_AWAKE;
   // (a healing building's care is for those in its sickbeds: sim/sickbeds.ts; a healer on hand adds to it)
