@@ -1247,6 +1247,36 @@
       #raid-recap .rr-line.bad b {
         color: #e07a5a;
       }
+      /* the firsts the raid earned and the founder's chapter, on the summary (sim/summaries.ts) */
+      #raid-recap .rr-first {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        margin-top: 6px;
+        padding: 4px 8px;
+        text-align: left;
+        background: rgba(255, 224, 138, 0.1);
+        border-left: 3px solid #ffe08a;
+        border-radius: 3px;
+      }
+      #raid-recap .rr-first b {
+        color: var(--heading, #f0c870);
+      }
+      #raid-recap .rr-chapter {
+        margin-top: 6px;
+        text-align: left;
+        font-style: italic;
+        color: var(--text-dim);
+      }
+      #raid-recap .rr-more {
+        margin: 8px 6px 4px 0;
+        width: auto;
+        display: inline-block;
+        padding: 3px 14px;
+      }
+      #raid-recap .rr-rows {
+        margin-top: 4px;
+      }
       #raid-recap .rr-close {
         margin-top: 8px;
         width: auto;

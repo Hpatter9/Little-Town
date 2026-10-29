@@ -37,6 +37,7 @@ import { holdForFounder } from './founderQuests';
 import { destinationOf, destinationUnlocked, partyCarry, planParty, rolesFor, sendExpedition, STAKES, type SendCheck, type Stakes } from './expeditions';
 import { dangerOf, fitToGo, mostFor, partRole, recruit, strengthOf } from './parties';
 import { storyTrip } from './story';
+import { firstsSoFar, foldFirsts, marksNow } from './summaries';
 import { foesToExpect, powerLine, powerOfParty } from './power';
 import { seaTown } from './sea';
 import { stakeCard, type StakeCard } from './stakes';
@@ -466,7 +467,13 @@ export function debrief(s: GameState, e: Expedition, d: Destination): void {
   if (e.rations === 'lean') lines.push('The packs ran thin by the end.');
   const leader = byId(s, e.leader ?? ids[0]);
   const lostWord = !lost.length ? '' : back.length ? `${back.length} of ${ids.length} came home` : 'None came home';
-  if (ids.includes(s.mainId)) storyTrip(s, d.name, (e.leader ?? ids[0]) === s.mainId, !!e.cleared, lost.map((l) => l.name), e.crashed || e.wrecked ? [] : (Object.entries(e.loot) as [Material, number][]).filter(([, n]) => n > 0).map(([m, n]) => `${n} ${MATERIAL_NAMES[m]?.toLowerCase() ?? m}`));
+  const haul = e.crashed || e.wrecked ? [] : (Object.entries(e.loot) as [Material, number][]).filter(([, n]) => n > 0);
+  const haulWords = haul.map(([m, n]) => `${n} ${MATERIAL_NAMES[m]?.toLowerCase() ?? m}`);
+  // (one summary card: the founder's chapter named on it, the firsts it earned as lines on it: sim/summaries.ts)
+  const since = firstsSoFar(s);
+  const chapter = ids.includes(s.mainId) ? storyTrip(s, d.name, (e.leader ?? ids[0]) === s.mainId, !!e.cleared, lost.map((l) => l.name), haulWords) : null;
+  marksNow(s, lost.length > 0);
+  const firsts = foldFirsts(s, since);
   const prompt: Prompt = {
     id: s.nextId++,
     kind: 'debrief',
@@ -481,8 +488,12 @@ export function debrief(s: GameState, e: Expedition, d: Destination): void {
       ...(e.cleared ? { cleared: true } : {}),
       back,
       lost,
-      haul: e.crashed || e.wrecked ? [] : (Object.entries(e.loot) as [Material, number][]).filter(([, n]) => n > 0).map(([m, n]) => `${n} ${MATERIAL_NAMES[m]?.toLowerCase() ?? m}`),
+      haul: haulWords,
       ending: e.crashed ? 'Their airship came down; what they found was lost with her.' : e.wrecked ? 'Their boat went down; what they found went with her.' : null,
+      trip: e.id,
+      ...(haul.length ? { loot: Object.fromEntries(haul) } : {}),
+      ...(chapter ? { chapter } : {}),
+      ...(firsts.length ? { firsts } : {}),
     },
     picture: eventPicture(`debrief:${d.id}`, 'town home square welcome', { hour: calendarOf(s).hour, season: calendarOf(s).season, weather: weatherAt(s.seed, s.tick, null).kind, biome: s.biome ?? 'forest', era: s.era, sea: seaTown(s) }),
     ...(leader ? { who: leader.id } : {}),

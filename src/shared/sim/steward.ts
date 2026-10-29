@@ -1,12 +1,14 @@
 // A steward for the founder (step 4 of playing the founder). While the founder is away on a trip, the heir (or else the
 // best grown-up at home) minds the town for them, and the town carries on as normal. When the founder is home again a
-// short "While you were gone" card lists what changed: buildings finished, deaths, raids and the treasury.
+// short "While you were gone" card lists what changed: buildings finished, deaths, raids and the treasury (on the trip's
+// own card while that is still to be read: sim/summaries.ts).
 
 import { BUILDING_BY_ID } from '../data/buildings';
 import { DEBRIEF_HOURS } from '../data/muster';
 import { founderOf } from './founder';
 import { heirOf } from './health';
 import { isChild } from './social';
+import { founderTripCard } from './summaries';
 import { notify, type GameState, type Person, type Prompt } from './state';
 import { TICKS_PER_DAY, TICKS_PER_HOUR } from './time';
 
@@ -89,6 +91,14 @@ function homeAgain(s: GameState, f: Person, g: Gone): void {
   if (coins !== 0) lines.push(`The treasury ${coins > 0 ? 'gained' : 'lost'} ${Math.abs(coins)} coins.`);
   // (nothing changed: a line in the news, not one more card after the trip's own)
   if (lines.length === 1) return notify(s, `${lines[0]} Nothing much changed.`);
+  // (the founder's trip card still waits: the news joins it, one card not two: sim/summaries.ts)
+  const trip = founderTripCard(s);
+  if (trip?.debrief) {
+    trip.debrief.home = [...(steward ? [`${steward.name} minded the town.`] : []), ...lines.slice(1)];
+    trip.story = `${trip.story ?? trip.text} ${lines.join(' ')}`;
+    s.nextId++; // (the id its own card took, kept so a town plays out as it did)
+    return notify(s, lines.join(' '));
+  }
   const prompt: Prompt = {
     id: s.nextId++,
     kind: 'debrief',

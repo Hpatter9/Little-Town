@@ -284,8 +284,10 @@ export function startReveals(bridge: { onSnapshot(cb: (s: Snapshot) => void): vo
       // a party home: its haul, with any unique found as it came home last in the chest (its own card left out)
       const now = new Set(snap.expeditions.map((e) => e.id));
       const inChest = new Set<string>();
+      // (a party the player sent has its summary card, which tells the haul: no chest after it, sim/summaries.ts)
+      const summed = new Set(snap.prompts.map((p) => p.debrief?.trip).filter((t): t is number => t !== undefined));
       for (const [id, a] of away) {
-        if (now.has(id)) continue;
+        if (now.has(id) || summed.has(id)) continue;
         const uniques = fresh.filter((w) => w.key.startsWith('unique:')).map((w) => w.key.slice(7));
         const hoard = fresh.filter((w) => w.key.startsWith('dweller:')).map((w) => DEPTH_BY_N[Number(w.key.slice(8))]?.hoard ?? {});
         const loot: Record<string, number> = { ...a.loot };
