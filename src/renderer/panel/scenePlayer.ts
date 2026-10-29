@@ -9,6 +9,8 @@ import { drawFolk } from '../art/folkCanvas';
 import type { PortraitWho } from '../art/folkPortrait';
 import type { FolkAnim, FolkDir } from '../iso/folkRules';
 import { PACK_LAYOUT, packUrl } from '../art/creatures/packs';
+import { SHEETS, sheetFrame } from '../art/creatureSheets';
+import { parseCreatureWho } from './sceneFoes';
 import { loadImage } from '../art/loadImage';
 import manifest from '../art/backdrops.json';
 import { LOOP, VIEW_H, VIEW_W, type Actor, type Anim, type Crowd, type Fx, type Prop, type SceneScript } from './sceneScripts';
@@ -18,6 +20,9 @@ import batsUrl from '../art/fx_bat.png';
 import smokeUrl from '../art/effects/smoke.png';
 
 const ACTOR_SCALE = 1.3;
+/** A creature sheet's frame on a card, by its scale on the fight screen: drawn as much bigger than there as the card's
+ *  townsfolk are than the fight screen's (44 px a person here, by `ACTOR_SCALE`; 36 there at 0.9 a creature's px). */
+const CREATURE_CARD = (44 * ACTOR_SCALE * 0.9) / 36;
 const FPS = 24;
 /** The paper doll's cell for each pose: [column, row] by facing (left 1, right 2). */
 const WALK = [1, 0, 2, 0];
@@ -103,6 +108,11 @@ export function animScene(script: SceneScript, dolls: string[][], folk: Folk = [
     if (typeof a.who === 'string' && PACK_LAYOUT[a.who] && !sheets.has(a.who)) {
       const id = a.who;
       void image(packUrl(id)).then((im) => sheets.set(id, im));
+    } else if (typeof a.who === 'string' && !sheets.has(a.who)) {
+      // (a beast from a creature sheet: sceneFoes.ts `creatureWho`)
+      const cr = parseCreatureWho(a.who);
+      const id = a.who;
+      if (cr) void image(SHEETS[cr.sheet].url).then((im) => sheets.set(id, im));
     }
 
   let seen = false;
@@ -259,6 +269,24 @@ function actor(g: CanvasRenderingContext2D, a: Actor, dolls: string[][], folk: F
     g.shadowOffsetY = 1;
     const who = folk[Math.min(a.who, dolls.length - 1)];
     if (!who || !drawFolk(g, who, FOLK_ANIM[as ?? a.anim ?? 'idle'] ?? 'idle', DIR[face], t + (a.phase ?? 0) * 3, x, feet, h)) hkDraw(g, keys, col, row, x, feet + hop, h);
+    g.restore();
+    return;
+  }
+  const cr = parseCreatureWho(a.who);
+  if (cr) {
+    // (a beast from a creature sheet, side-on and at the fight screen's size for it, feet on the ground)
+    const im = sheets.get(a.who);
+    if (!im) return;
+    const want = a.anim === 'attack' || a.anim === 'shoot' ? 'attack' : a.anim === 'walk' ? 'walk' : 'idle';
+    const fr = sheetFrame(cr.sheet, cr.block, face === 'l' ? 'left' : 'right', t * (want === 'walk' ? 7 : 4) + (a.phase ?? 0) * 7, want);
+    const k = cr.scale * CREATURE_CARD;
+    const w = fr.w * k;
+    const fh = fr.h * k;
+    const foot = SHEETS[cr.sheet].feet ?? 1;
+    g.save();
+    g.translate(Math.round(x), Math.round(feet));
+    if (fr.flip) g.scale(-1, 1);
+    g.drawImage(im, fr.x, fr.y, fr.w, fr.h, Math.round(-w / 2), Math.round(-fh * foot), Math.round(w), Math.round(fh));
     g.restore();
     return;
   }

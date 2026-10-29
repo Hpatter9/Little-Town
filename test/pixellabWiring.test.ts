@@ -2,6 +2,7 @@
 // keeps today's look until its picture is in, and takes the picture up by itself once it is.
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
+import { creatureWho } from '../src/renderer/panel/sceneFoes';
 import { join } from 'node:path';
 import { test } from 'node:test';
 import { AWAITING_ART, gridPlan, hasOwnPicture, ownPlan, penCorners, stillWaiting } from '../src/renderer/iso/gridRules';
@@ -108,7 +109,9 @@ test("the stockpile's grain sacks, ore heap and planks are used once the kit has
 
 test('the event cards draw the PixelLab beasts once their sheets are in, the stand-ins until then; the bear has a scene', () => {
   assert.equal(made('pl_no_such_sheet', 'werewolf_black'), 'werewolf_black');
-  assert.ok(EVENT_SCENES.bear.actors.some((a) => a.who === made('pl_bear', 'werewolf_black')));
+  // (the stand-in until then is the creature sheets' own brown bear, drawn side-on: panel/sceneFoes.ts)
+  assert.ok(EVENT_SCENES.bear.actors.some((a) => a.who === creatureWho({ sheet: 'bear', block: 0, scale: 1.3 })));
+  assert.ok(EVENT_SCENES.bear.actors.some((a) => a.who === 'pl_bear' || (typeof a.who === 'string' && a.who.startsWith('cr:bear:'))));
   assert.ok(EVENT_SCENES.dragon.actors.some((a) => a.who === made('pl_dragon', 'hk_demon_lord')));
   assert.equal(EVENT_BY_ID.bear.scene, 'bear');
   assert.equal(sceneFor({ kind: 'event', title: 'A bear', text: 'A bear is sleeping under the stockpile.', eventId: 'bear' }), 'bear');
