@@ -1,8 +1,10 @@
 // The recap after a raid (the owner's ask: a fight recap for the tower-defence raids): a blue window over the town, as
 // the parties' victory screen is, with how it went (the raiders felled, fled and through, the waves), each defender's
 // raiders felled, harm dealt and taken, experience and levels, the best of them starred, the fallen, the towers' share,
-// and what was won and lost. It shows itself once when a raid ends (the last one seen is kept, `SEEN_KEY`), and
-// `window.__showRecap` brings it back while it's fresh (the feed's card).
+// and what was won and lost. It is the raid's one summary card (sim/summaries.ts): the highlights, the toll, the loot, the
+// firsts and the founder's chapter show first, and the full tally is a tap away ("Full recap"). It shows itself once
+// when a raid ends (the last one seen is kept, `SEEN_KEY`), and `window.__showRecap` brings it back while it's fresh
+// (the feed's card).
 
 import { MATERIAL_NAMES, type Material, type Stock } from '../../shared/data/materials';
 import type { Snapshot } from '../../shared/sim/snapshot';
@@ -14,6 +16,7 @@ import { hkDraw, hkLayers, hkWhoOf } from '../art/hkFolk';
 import { playScene } from '../panel/scenePlayer';
 import { raiderSprites, recapScript, type RecapPanel } from '../panel/sceneScripts';
 import { addCardStyles } from '../panel/cardsStyles';
+import { icon } from '../ui/icon';
 
 const SEEN_KEY = 'littletown.recapSeen';
 
@@ -151,8 +154,49 @@ export function createRaidRecap(giveChase: () => void = () => {}): RaidRecapView
     }
   };
 
+  /** The full tally: the defenders, the best first, the God creature as a defender is, and the towers. */
+  const table = (c: Recap): HTMLElement => {
+    if (!c.rows.length && !c.beast) return el('div', 'rr-sum', 'Nobody stood against them.');
+    const table = el('div', 'rr-rows');
+    const head = el('div', 'rr-row rr-head');
+    head.append(el('span', 'rr-name', 'Defender'), el('span', 'rr-n', '⚔'), el('span', 'rr-n', 'Dealt'), el('span', 'rr-n', 'Took'), el('span', 'rr-xp', 'EXP'));
+    table.append(head);
+    for (const r of c.rows) {
+      const row = el('div', `rr-row${r.died ? ' died' : r.fell ? ' fell' : ''}${r.id === c.best ? ' best' : ''}`);
+      const name = el('span', 'rr-name', `${r.id === c.best ? '★ ' : ''}${r.name}`);
+      const gm = snap ? guildMarkOrFallen(snap, r.id) : null;
+      if (gm) name.append(' ', gm);
+      if (r.died) name.append(el('span', 'rr-mark', ' slain'));
+      else if (r.fell) name.append(el('span', 'rr-mark', ' fell'));
+      const xp = el('span', 'rr-xp', r.died ? '—' : `+${r.xp}`);
+      if (r.levelTo > r.levelFrom) xp.append(el('span', 'rr-up', ` LV ${r.levelTo}!`));
+      row.append(name, el('span', 'rr-n', String(r.kills)), el('span', 'rr-n', String(r.dealt)), el('span', 'rr-n', String(r.taken)), xp);
+      table.append(row);
+    }
+    // (the God creature, as a defender is: what it felled, the harm it did, its wounds)
+    const bt = c.beast;
+    if (bt) {
+      const row = el('div', `rr-row beast${bt.died ? ' died' : bt.fell ? ' fell' : ''}${c.beastBest ? ' best' : ''}`);
+      const name = el('span', 'rr-name', `${c.beastBest ? '★ ' : ''}${bt.name}`);
+      if (bt.died) name.append(el('span', 'rr-mark', ' slain'));
+      else if (bt.fell) name.append(el('span', 'rr-mark', ' fell'));
+      if (bt.felled) name.title = `Felled ${bt.felled}`;
+      row.append(name, el('span', 'rr-n', String(bt.kills)), el('span', 'rr-n', String(bt.dealt)), el('span', 'rr-n', String(bt.taken)), el('span', 'rr-xp', ''));
+      table.append(row);
+      if (bt.felled) table.append(el('div', 'rr-felled', `Felled ${bt.felled}.`));
+    }
+    if (c.towers) {
+      const row = el('div', 'rr-row towers');
+      row.append(el('span', 'rr-name', 'Towers and traps'), el('span', 'rr-n', String(c.towers.kills)), el('span', 'rr-n', String(c.towers.dealt)), el('span', 'rr-n', '—'), el('span', 'rr-xp', ''));
+      table.append(row);
+    }
+    return table;
+  };
+
+  /** The full tally is open (each raid's card starts with only the summary). */
+  let full = false;
   const draw = (c: NonNullable<Snapshot['raidRecap']>) => {
-    const key = `${c.tick}${snap?.chase ? 'c' : ''}`;
+    const key = `${c.tick}${snap?.chase ? 'c' : ''}${full ? 'f' : ''}`;
     box.hidden = false;
     if (key === shownKey) return;
     shownKey = key;
@@ -162,54 +206,20 @@ export function createRaidRecap(giveChase: () => void = () => {}): RaidRecapView
     const sum = [`${c.name}`, c.waves > 1 ? `${c.waves} waves` : '', `${c.killed} of ${c.came} felled`, c.fled ? `${c.fled} fled` : '', c.through ? `${c.through} got through` : ''].filter(Boolean).join(' · ');
     box.append(el('div', 'rr-sum', sum));
     box.append(strip(c, snap));
-    // what happened, told
-    if (c.story?.length) box.append(el('div', 'rr-story', c.story.join(' ')));
-    // the defenders, the best first
-    if (c.rows.length || c.beast) {
-      const table = el('div', 'rr-rows');
-      const head = el('div', 'rr-row rr-head');
-      head.append(el('span', 'rr-name', 'Defender'), el('span', 'rr-n', '⚔'), el('span', 'rr-n', 'Dealt'), el('span', 'rr-n', 'Took'), el('span', 'rr-xp', 'EXP'));
-      table.append(head);
-      for (const r of c.rows) {
-        const row = el('div', `rr-row${r.died ? ' died' : r.fell ? ' fell' : ''}${r.id === c.best ? ' best' : ''}`);
-        const name = el('span', 'rr-name', `${r.id === c.best ? '★ ' : ''}${r.name}`);
-        const gm = snap ? guildMarkOrFallen(snap, r.id) : null;
-        if (gm) name.append(' ', gm);
-        if (r.died) name.append(el('span', 'rr-mark', ' slain'));
-        else if (r.fell) name.append(el('span', 'rr-mark', ' fell'));
-        const xp = el('span', 'rr-xp', r.died ? '—' : `+${r.xp}`);
-        if (r.levelTo > r.levelFrom) xp.append(el('span', 'rr-up', ` LV ${r.levelTo}!`));
-        row.append(name, el('span', 'rr-n', String(r.kills)), el('span', 'rr-n', String(r.dealt)), el('span', 'rr-n', String(r.taken)), xp);
-        table.append(row);
-      }
-      // (the God creature, as a defender is: what it felled, the harm it did, its wounds)
-      const bt = c.beast;
-      if (bt) {
-        const row = el('div', `rr-row beast${bt.died ? ' died' : bt.fell ? ' fell' : ''}${c.beastBest ? ' best' : ''}`);
-        const name = el('span', 'rr-name', `${c.beastBest ? '★ ' : ''}${bt.name}`);
-        if (bt.died) name.append(el('span', 'rr-mark', ' slain'));
-        else if (bt.fell) name.append(el('span', 'rr-mark', ' fell'));
-        if (bt.felled) name.title = `Felled ${bt.felled}`;
-        row.append(name, el('span', 'rr-n', String(bt.kills)), el('span', 'rr-n', String(bt.dealt)), el('span', 'rr-n', String(bt.taken)), el('span', 'rr-xp', ''));
-        table.append(row);
-        if (bt.felled) table.append(el('div', 'rr-felled', `Felled ${bt.felled}.`));
-      }
-      if (c.towers) {
-        const row = el('div', 'rr-row towers');
-        row.append(el('span', 'rr-name', 'Towers and traps'), el('span', 'rr-n', String(c.towers.kills)), el('span', 'rr-n', String(c.towers.dealt)), el('span', 'rr-n', '—'), el('span', 'rr-xp', ''));
-        table.append(row);
-      }
-      box.append(table);
-    } else box.append(el('div', 'rr-sum', 'Nobody stood against them.'));
-    // what was won and lost
+    // the raid's one summary card (sim/summaries.ts): the outcome and the highlights above, then what was won and lost,
+    // the firsts it earned and the founder's chapter; the full tally a tap away
     const lines: [string, string][] = [];
+    const dead = c.rows.filter((r) => r.died).map((r) => r.name);
+    if (c.beast?.died) dead.push(c.beast.name);
+    if (dead.length) lines.push(['Lost', dead.join(', ')]);
+    const hurt = c.rows.filter((r) => r.fell && !r.died).map((r) => r.name);
+    if (c.beast?.fell && !c.beast.died) hurt.push(c.beast.name);
+    if (hurt.length) lines.push(['Wounded', hurt.join(', ')]);
     const spoils = stockLine(c.spoils);
     if (spoils) lines.push(['Spoils', spoils]);
     if (c.prisoners) lines.push(['Prisoners', String(c.prisoners)]);
     const stolen = stockLine(c.stolen);
     if (stolen) lines.push(['Taken from us', stolen]);
-    const dead = c.rows.filter((r) => r.died).map((r) => r.name);
-    if (dead.length) lines.push(['Lost', dead.join(', ')]);
     if (lines.length) {
       const foot = el('div', 'rr-foot');
       for (const [k, v] of lines) {
@@ -218,6 +228,29 @@ export function createRaidRecap(giveChase: () => void = () => {}): RaidRecapView
         foot.append(l);
       }
       box.append(foot);
+    }
+    for (const f of c.firsts ?? []) {
+      const b = el('div', 'rr-first');
+      const ic = icon(f.icon, 20);
+      if (ic) b.append(ic);
+      const words = el('span', '');
+      words.append(el('b', '', `A first: ${f.title}. `), f.line);
+      b.append(words);
+      box.append(b);
+    }
+    if (c.chapter) box.append(el('div', 'rr-chapter', `Written in ${c.chapter.replace(/: /, ': “')}”.`));
+    if (full) {
+      // what happened, told
+      if (c.story?.length) box.append(el('div', 'rr-story', c.story.join(' ')));
+      box.append(table(c));
+    } else {
+      const more = el('button', 'tab rr-more', 'Full recap ›');
+      more.addEventListener('click', () => {
+        full = true;
+        shownKey = '';
+        draw(c);
+      });
+      box.append(more);
     }
     // raiders who got away: the town may ride after them (sim/chase.ts)
     if (snap?.chase) {
@@ -246,7 +279,10 @@ export function createRaidRecap(giveChase: () => void = () => {}): RaidRecapView
         box.hidden = true;
         return;
       }
-      if (last.tick > seen) draw(last);
+      if (last.tick > seen) {
+        if (!shownKey.startsWith(String(last.tick))) full = false;
+        draw(last);
+      }
       else if (!box.hidden) draw(last);
     },
     seenNow(s) {

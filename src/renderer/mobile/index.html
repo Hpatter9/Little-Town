@@ -1421,6 +1421,52 @@
         font-style: italic;
         color: #ffe08a;
       }
+      /* the summary card's haul with its icons, its firsts, the founder's chapter and the news from home (sim/summaries.ts) */
+      .debrief-haul:has(.debrief-item) {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px 14px;
+      }
+      .debrief-item {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+      }
+      .debrief-item > * {
+        image-rendering: pixelated;
+      }
+      .debrief-firsts {
+        margin-top: 10px;
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+      }
+      .summary-first {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 6px 10px;
+        font-size: 13px;
+        background: #2a2414;
+        border-left: 4px solid #ffe08a;
+        border-radius: 4px;
+      }
+      .summary-first b {
+        color: #ffe08a;
+      }
+      .summary-chapter {
+        margin-top: 10px;
+        font-size: 13px;
+        font-style: italic;
+        color: #c8b896;
+      }
+      .debrief-home {
+        padding: 6px 12px;
+        font-size: 14px;
+        background: #1c2230;
+        border-left: 4px solid #8aa8d9;
+        border-radius: 4px;
+      }
       /* a fateful event: a heavier frame and a slower reveal (eventSheet.ts; each step under 400 ms, none with reduced motion) */
       #event-sheet.fateful .event-body {
         --ui-cut-px: calc(var(--ui-cut, 9) * 2.4px);

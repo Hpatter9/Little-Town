@@ -923,6 +923,7 @@ export const rallyPoint = (s: GameState): Pt => ({ x: townEdgeX(s, s.raid?.side 
 const theName = (name: string) => (/^the /i.test(name) ? name.slice(4) : name.toLowerCase());
 
 import { storyRaid } from './story';
+import { firstsSoFar, foldFirsts, marksNow } from './summaries';
 import { goneRaid } from './steward';
 
 function endRaid(s: GameState, rng: Rng): void {
@@ -990,7 +991,8 @@ function endRaid(s: GameState, rng: Rng): void {
           ? 'They got away.'
           : 'They were driven off.';
   notify(s, `Raid by the ${theName(kind.name)} is over. ${outcome}${took.length ? ` They took ${took.join(', ')}.` : ''}`, true);
-  storyRaid(s, theName(kind.name), outcome); // (a chapter of the founder's story: sim/story.ts)
+  const since = firstsSoFar(s); // (the firsts this raid earns are told on its recap: sim/summaries.ts)
+  const chapter = storyRaid(s, theName(kind.name), outcome); // (a chapter of the founder's story, named on the recap: sim/story.ts)
   goneRaid(s, theName(kind.name)); // (and a line for the founder back from a trip: sim/steward.ts)
   // the recap card (sim/raidRecap.ts)
   const boss = r.raiders.find((rd) => !rd.ally && ENEMIES[rd.kind]?.boss);
@@ -1010,6 +1012,11 @@ function endRaid(s: GameState, rng: Rng): void {
   // (a deed for everyone who stood and lived, when the town held: sim/deeds.ts)
   if (s.raidRecap.outcome !== 'pillaged') for (const row of s.raidRecap.rows) if (!row.died) addDeed(s.people.find((q) => q.id === row.id), 'defended');
   tallyRaid(s, s.raidRecap.outcome); // (the year's chronicle: sim/annals.ts)
+  // (the recap is the raid's one summary card: the story chapter and the firsts on it, not cards of their own)
+  marksNow(s, s.raidRecap.rows.some((row) => row.died));
+  const firsts = foldFirsts(s, since);
+  if (chapter) s.raidRecap.chapter = chapter;
+  if (firsts.length) s.raidRecap.firsts = firsts;
   if (killed && !took.length) victoryFeast(s); // (driven off with nothing: the town feasts it, sim/ceremonies.ts)
 }
 

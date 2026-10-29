@@ -826,6 +826,21 @@ export interface Debrief {
   /** What they brought, one line a kind ("12 wood"), and a word on how the trip ended (a wreck, a crash). */
   haul: string[];
   ending: string | null;
+  /** The summary card (sim/summaries.ts): the trip's id (the page's haul chest stands aside for it), the haul by kind
+   *  (for its icons), the founder's story chapter it made, the firsts it earned, and the "While you were gone" news
+   *  folded in. All optional: older saves' debriefs have none. */
+  trip?: number;
+  loot?: Partial<Record<string, number>>;
+  chapter?: string;
+  firsts?: FirstLine[];
+  home?: string[];
+}
+
+/** A first told on a summary card instead of a card of its own (sim/summaries.ts). */
+export interface FirstLine {
+  title: string;
+  line: string;
+  icon: string;
 }
 
 export interface Prompt {
@@ -1321,7 +1336,7 @@ export interface GameState {
   ring?: Ring;
   /** The firsts the town has seen (sim/milestones.ts): which, and the day. Older saves start recording from the day
    *  `milestonesFrom` (the first day it was kept). */
-  milestones?: { id: string; day: number }[];
+  milestones?: { id: string; day: number; folded?: boolean }[];
   milestonesFrom?: number;
   /** Where the rank's and milestones' news lines last sat among the ids (sim/milestones.ts `tell`). */
   tellAt?: { base: number; n: number };

@@ -15,6 +15,9 @@ import { playEventScene } from '../panel/eventScenePlay';
 import { addCardStyles } from '../panel/cardsStyles';
 import { reducedMotion } from '../ui/motion';
 import { beastLineup, type BeastLineup, type SheetOf } from './beastLineup';
+import { MATERIAL_NAMES, type Material } from '../../shared/data/materials';
+import { stockIcon } from '../art/materialIcons';
+import { icon } from '../ui/icon';
 
 const W = 576;
 const H = 324;
@@ -98,8 +101,11 @@ export function createEventSheet(
     document.body.classList.remove('event-open');
   };
 
+  /** The trip's card was drawn with the news from home on it. */
+  let shownHome = false;
   const build = (p: PromptView) => {
     shown = p.id;
+    shownHome = !!p.debrief?.home;
     current = p;
     lineup?.stop();
     lineup = null;
@@ -340,6 +346,17 @@ export function createEventSheet(
    *  of what they brought hangs: for now it lists the haul plainly. */
   const debriefBlock = (d: NonNullable<PromptView['debrief']>): HTMLElement[] => {
     const out: HTMLElement[] = [];
+    // (the summary card, sim/summaries.ts: where and how long first, and the win, then who, the haul, the firsts, the
+    // founder's story and the news from home, each told once)
+    const intro = document.createElement('p');
+    intro.textContent = current?.text ?? '';
+    if (intro.textContent) out.push(intro);
+    if (d.cleared) {
+      const c = document.createElement('div');
+      c.className = 'debrief-cleared';
+      c.textContent = `${d.place} is cleared.`;
+      out.push(c);
+    }
     const head = (text: string, cls = '') => {
       const h = document.createElement('div');
       h.className = `debrief-head ${cls}`.trim();
@@ -384,13 +401,52 @@ export function createEventSheet(
     const haul = document.createElement('div');
     haul.className = 'debrief-haul';
     haul.dataset.slot = 'loot-reveal';
-    haul.textContent = d.ending ?? (d.haul.length ? d.haul.join(', ') : 'Nothing: they come home empty-handed.');
+    const loot = Object.entries(d.loot ?? {}).filter(([, n]) => (n ?? 0) > 0);
+    if (!d.ending && loot.length) {
+      // (each kind with its icon: the haul told here once, no chest after it)
+      for (const [m, n] of loot) {
+        const one = document.createElement('span');
+        one.className = 'debrief-item';
+        const pic = stockIcon(m as Material, 24);
+        if (pic) one.append(pic);
+        one.append(`${n} ${(MATERIAL_NAMES[m as Material] ?? m).toLowerCase()}`);
+        haul.append(one);
+      }
+    } else haul.textContent = d.ending ?? (d.haul.length ? d.haul.join(', ') : 'Nothing: they come home empty-handed.');
     out.push(haul);
-    if (d.cleared) {
+    if (d.firsts?.length) {
+      const row = document.createElement('div');
+      row.className = 'debrief-firsts';
+      for (const f of d.firsts) {
+        const b = document.createElement('div');
+        b.className = 'summary-first';
+        const ic = icon(f.icon, 20);
+        if (ic) b.append(ic);
+        const words = document.createElement('span');
+        const strong = document.createElement('b');
+        strong.textContent = `A first: ${f.title}. `;
+        words.append(strong, f.line);
+        b.append(words);
+        row.append(b);
+      }
+      out.push(row);
+    }
+    if (d.chapter) {
       const c = document.createElement('div');
-      c.className = 'debrief-cleared';
-      c.textContent = `${d.place} is cleared.`;
+      c.className = 'summary-chapter';
+      c.textContent = `Written in ${d.chapter.replace(/: /, ': “')}”.`;
       out.push(c);
+    }
+    if (d.home?.length) {
+      out.push(head('While you were gone'));
+      const news = document.createElement('div');
+      news.className = 'debrief-home';
+      for (const line of d.home) {
+        const l = document.createElement('div');
+        l.textContent = line;
+        news.append(l);
+      }
+      out.push(news);
     }
     return out;
   };
@@ -454,7 +510,10 @@ export function createEventSheet(
         tell(snap);
         return;
       }
-      const p = snap.prompts.find((q) => !read.has(q.id) && !q.parked && EVENT_BOX_KINDS.has(q.kind));
+      // (the one up stays up; else a trip's summary comes before the choices that follow it, so it leads into them:
+      // the creature's pick, its naming, its first night. sim/summaries.ts)
+      const open = snap.prompts.filter((q) => !read.has(q.id) && !q.parked && EVENT_BOX_KINDS.has(q.kind));
+      const p = open.find((q) => q.id === shown) ?? open.find((q) => !!q.debrief) ?? open[0];
       const on = !!p && !away;
       el.hidden = !on;
       document.body.classList.toggle('event-open', on);
@@ -464,7 +523,8 @@ export function createEventSheet(
       }
       // (the great creature's pick is drawn again once the strip has its creature sheets to lend: on a fresh start the box
       // can come up before the strip has loaded)
-      if (p.id !== shown || (p.beasts && !lineup && !answered && win()?.__sheetOf)) build(p);
+      // (and a trip's card again when the news from home joins it: sim/steward.ts)
+      if (p.id !== shown || (p.beasts && !lineup && !answered && win()?.__sheetOf) || (!!p.debrief?.home && !shownHome)) build(p);
       if (count) count.textContent = p.secondsLeft === null ? '' : `If nobody chooses: "${p.options[p.defaultOption]}" in ${Math.ceil(p.secondsLeft)}s`;
     },
   };
