@@ -34,7 +34,7 @@ import { LIGHT_KIND } from '../../shared/data/lighting';
 import { footDiamond, measureBase, pictureScale, type ArtBase } from './gridAudit';
 import { doorCells, yardLayout, fenceSeg, tileFace, wallPost, gatePlan, gridPlan, gridUrl, isFencedPen, looseRec, penCorners, penEdges, snapSpots, SHARED_KIT, wallArms, wallSeg, yardCells, type GridRec } from './gridRules';
 import { HERDS } from '../../shared/data/livestock';
-import { bakeChunk, cellSurface, chunkPx, chunkSig, fillOut, shoreSurface, surfaceKey, type Laid, type Surface, type TilePx } from './groundBlend';
+import { bakeChunk, bakeRows, cellSurface, chunkPx, chunkSig, fillOut, shoreSurface, startBake, surfaceKey, type Bake, type ChunkIn, type Laid, type Surface, type TilePx } from './groundBlend';
 
 /** The grid audit's overlay (docs/notes/grid-audit.md), for developers only: on with `?grid` in the page's address,
  *  `littletown.grid` set to 1, or `__iso.setGridDebug(true)` from the console. */
@@ -67,9 +67,12 @@ const LANDMARK_SCALE = 0.8;
 /** The ground is baked this many cells square to a texture (iso/groundBlend.ts), and at most this long a frame is spent
  *  baking the chunks just off the screen or changed (the ones coming on screen are baked at once). */
 const CHUNK = 16;
-const BAKE_MS = 4;
-/** Chunks kept baked off the screen, for panning back (each is a canvas and a texture of 768x384 px). */
-const CHUNKS_SPARE = 12;
+const BAKE_MS = 2;
+/** How long a slice of idle time bakes at most. */
+const IDLE_BAKE_MS = 8;
+/** Chunks kept baked off the screen, for panning back (each is a canvas and a texture of 768x384 px, about 1.2 MB
+ *  each). */
+const CHUNKS_SPARE = 24;
 /** How fast a window's light comes on or goes out (a share a second). */
 const LIGHT_RATE = 1.5;
 /** The stockade's stakes stand as tall as a wall's: each run drawn as wide as a one-cell wall's (a cell's diamond),
@@ -77,6 +80,22 @@ const LIGHT_RATE = 1.5;
 const PEN_CELL = footWidth({ x: 0, y: 0, w: 1, h: 1 });
 /** Props that are lights of their own (a lamp post, a brazier beside a tavern): a flame at their head after dark. */
 const LIGHT_PROP = /torch|brazier|lamp|lantern/;
+
+/** A chunk of the ground baked to a texture (iso/groundBlend.ts): its sprite and canvas, its first cell, the fingerprint
+ *  of the ground its picture shows (-2 none yet) and whether that is blended, the fingerprint wanted now (worked out at
+ *  `stamp`), the frame it was last near the screen, and its blended bake under way. */
+interface Chunk {
+  s: Sprite;
+  canvas: HTMLCanvasElement;
+  x0: number;
+  y0: number;
+  shown: number;
+  blended: boolean;
+  want: number;
+  stamp: number;
+  seen: number;
+  job: { bake: Bake; img: ImageData; sig: number } | null;
+}
 
 /** A light in a building's picture after dark (iso/windowLights.ts): its glow (`halo`, added over the night) and, for a
  *  window, the lit pane itself (`core`). */
@@ -215,15 +234,16 @@ export class IsoView {
   private texGen = 0;
   /** The ground baked a chunk at a time (iso/groundBlend.ts), by `cy * 4096 + cx`: its sprite, canvas, fingerprint,
    *  the stamp it was last checked at, and the frame it was last on screen. */
-  private readonly chunks = new Map<number, { s: Sprite; canvas: HTMLCanvasElement; sig: number; stamp: number; seen: number }>();
+  private readonly chunks = new Map<number, Chunk>();
   /** Bumped when anything the ground is made of may have changed (the land, fields, yards, a tile arriving, wear). */
   private chunkStamp = 0;
   private chunkFrame = 0;
   private chunkTexGen = -1;
   private chunkWear: string | undefined = undefined;
+  private chunkWearAt = 0;
   /** The surfaces the cells are drawn with (shared), by what makes them, and the kit tiles' pixels by tile and size. */
   private grounds: Surface[] = [];
-  private surfMemo = new Map<string, number>();
+  private surfMemo = new Map<number, number>();
   private surfFor = '';
   private readonly tilePx = new Map<string, TilePx>();
   /** The land's trees, bushes and rocks. */
@@ -1409,10 +1429,15 @@ export class IsoView {
     this.view = { x, y, w, h };
     const land = this.land;
     if (!land) return;
-    if (this.groundKey === '' || this.chunkTexGen !== this.texGen || this.chunkWear !== land.wear) {
+    // (the ground looked at again when the land, a tile or the wear changed: the wear, which changes as people walk, at
+    // most once a second)
+    const now = performance.now();
+    const wearMoved = this.chunkWear !== land.wear && now - this.chunkWearAt > 1000;
+    if (this.groundKey === '' || this.chunkTexGen !== this.texGen || wearMoved) {
       this.chunkStamp++;
       this.chunkTexGen = this.texGen;
       this.chunkWear = land.wear;
+      this.chunkWearAt = now;
     }
     this.syncChunks(land);
     const n = this.kit.tileCells;
@@ -1429,13 +1454,15 @@ export class IsoView {
     const land = this.land!;
     if (x < 0 || y < 0 || x >= land.w || y >= land.h) return -1;
     const i = y * land.w + x;
-    const g = groundAt(land, x, y);
-    const laid: Laid = this.fieldCells.has(i) ? 'field' : land.roads[i] === '#' ? 'street' : this.yardCells.has(i) ? 'yard' : null;
+    const laid = this.fieldCells.has(i) ? 1 : land.roads[i] === '#' ? 2 : this.yardCells.has(i) ? 3 : 0;
     const w = laid ? 0 : land.wear ? land.wear.charCodeAt(i) - 48 : 0;
-    const memo = `${g}${laid ?? ''}${w >= WEAR_SHOW ? w : 0}`;
+    // (a worn path's look in fifths, so a cell is drawn again only when its wear shows a step more)
+    const worn = w >= WEAR_SHOW ? Math.round(Math.min(1, w / WEAR_FULL) * 0.8 * 5) : 0;
+    const memo = (land.cells.charCodeAt(i) * 4 + laid) * 8 + worn;
     const had = this.surfMemo.get(memo);
     if (had !== undefined) return had;
-    const surf = cellSurface(g, laid, w >= WEAR_SHOW ? Math.min(1, w / WEAR_FULL) * 0.8 : 0, this.biome, this.kit.tileCells);
+    const LAID: Laid[] = [null, 'field', 'street', 'yard'];
+    const surf = cellSurface(groundAt(land, x, y), LAID[laid], worn / 5, this.biome, this.kit.tileCells);
     const k = surfaceKey(surf);
     let idx = this.grounds.findIndex((o) => surfaceKey(o) === k);
     if (idx < 0) idx = this.grounds.push(surf) - 1;
@@ -1470,49 +1497,40 @@ export class IsoView {
     return t;
   }
 
-  /** The ground's chunks for the view: the ones on screen baked at once if they have no picture yet, the ones just off
-   *  it and any whose cells changed baked a few a frame, the rest hidden (and the oldest let go). */
+  /** The ground's chunks for the view (every frame). A chunk coming on screen with no picture yet is baked unblended at
+   *  once (each cell its tile as it is: quick); the blended picture is baked a few rows at a time, within `BAKE_MS` a
+   *  frame and in the page's idle time (`idleBake`), the chunks on screen first, then the ring just off it, and
+   *  swapped in when done. A chunk is baked again only when its ground changed (its fingerprint); off the screen it is
+   *  hidden and kept, the longest gone let go past `CHUNKS_SPARE`. */
   private syncChunks(land: LandMap): void {
     const surfFor = `${this.kit.name}:${this.biome}:${this.kit.tileCells}`;
     if (surfFor !== this.surfFor) {
       this.surfFor = surfFor;
       this.grounds = [];
       this.surfMemo.clear();
-      for (const ch of this.chunks.values()) if (ch.sig !== -2) ch.sig = -1;
+      for (const ch of this.chunks.values()) {
+        ch.want = -1;
+        ch.blended = false;
+        ch.job = null;
+      }
       this.chunkStamp++;
     }
     this.chunkFrame++;
-    const pad = CHUNK / 2;
     const inView = cellsInView(this.view, this.ox, land.w, land.h, 1);
-    const near = cellsInView(this.view, this.ox, land.w, land.h, pad);
+    const near = cellsInView(this.view, this.ox, land.w, land.h, CHUNK / 2);
     const cx0 = Math.floor(near.x0 / CHUNK);
     const cy0 = Math.floor(near.y0 / CHUNK);
     const cx1 = Math.floor(near.x1 / CHUNK);
     const cy1 = Math.floor(near.y1 / CHUNK);
-    const start = performance.now();
-    const surfAt = (x: number, y: number) => this.surfAt(x, y);
+    const midX = (inView.x0 + inView.x1) / 2;
+    const midY = (inView.y0 + inView.y1) / 2;
+    const todo: { ch: Chunk; rank: number }[] = [];
     for (let cy = cy0; cy <= cy1; cy++)
       for (let cx = cx0; cx <= cx1; cx++) {
         const key = cy * 4096 + cx;
-        let ch = this.chunks.get(key);
         const x0 = cx * CHUNK;
         const y0 = cy * CHUNK;
-        const onScreen = x0 + CHUNK > inView.x0 && x0 <= inView.x1 && y0 + CHUNK > inView.y0 && y0 <= inView.y1;
-        // (only a chunk that has never been baked, coming on screen, is baked whatever the time; the rest wait their turn)
-        const urgent = onScreen && (!ch || ch.sig === -2);
-        if (ch && ch.stamp === this.chunkStamp) {
-          ch.seen = this.chunkFrame;
-          ch.s.visible = ch.sig !== -2;
-          continue;
-        }
-        if (!urgent && performance.now() - start > BAKE_MS) {
-          if (ch) {
-            ch.seen = this.chunkFrame;
-            ch.s.visible = ch.sig !== -2;
-          }
-          continue;
-        }
-        const sig = chunkSig({ x0, y0, size: CHUNK, surfAt });
+        let ch = this.chunks.get(key);
         if (!ch) {
           const canvas = document.createElement('canvas');
           const { w, h } = chunkPx(CHUNK);
@@ -1521,45 +1539,32 @@ export class IsoView {
           const s = new Sprite();
           const at = tileToIso(x0, y0, this.ox);
           s.position.set(Math.round(at.x - w / 2), Math.round(at.y));
+          s.visible = false;
           this.ground.addChild(s);
-          ch = { s, canvas, sig: -2, stamp: -1, seen: 0 };
+          ch = { s, canvas, x0, y0, shown: -2, blended: false, want: -1, stamp: -1, seen: 0, job: null };
           this.chunks.set(key, ch);
         }
         ch.seen = this.chunkFrame;
-        if (sig !== ch.sig) {
-          const g = ch.canvas.getContext('2d');
-          if (!g) continue;
-          const img = g.createImageData(ch.canvas.width, ch.canvas.height);
-          const done = bakeChunk(new Uint32Array(img.data.buffer), {
-            x0,
-            y0,
-            size: CHUNK,
-            landW: land.w,
-            landH: land.h,
-            surfAt,
-            surfaces: this.grounds,
-            shore: this.grounds[this.surfIndex(shoreSurface(this.biome, this.kit.tileCells))],
-            tileOf: (t, n) => this.tileOf(t, n),
-          });
-          // (a tile not loaded yet: tried again when it arrives, which bumps the stamp)
-          if (!done) {
-            ch.stamp = this.chunkStamp;
-            ch.s.visible = ch.sig !== -2;
-            continue;
-          }
-          g.putImageData(img, 0, 0);
-          if (ch.s.texture === Texture.EMPTY) ch.s.texture = Texture.from(ch.canvas);
-          else ch.s.texture.source.update();
-          ch.sig = sig;
+        if (ch.stamp !== this.chunkStamp) {
+          ch.want = chunkSig({ x0, y0, size: CHUNK, surfAt: this.surfAtFn });
+          ch.stamp = this.chunkStamp;
         }
-        ch.stamp = this.chunkStamp;
-        ch.s.visible = true;
+        const onScreen = x0 + CHUNK > inView.x0 && x0 <= inView.x1 && y0 + CHUNK > inView.y0 && y0 <= inView.y1;
+        // (on screen with nothing to show: its tiles unblended now, the blend to follow)
+        if (onScreen && ch.shown === -2) this.bakeNow(ch, land, true);
+        ch.s.visible = ch.shown !== -2;
+        if (ch.shown !== ch.want || !ch.blended) todo.push({ ch, rank: (onScreen ? 0 : 1e6) + Math.abs(x0 + CHUNK / 2 - midX) + Math.abs(y0 + CHUNK / 2 - midY) });
       }
+    todo.sort((a, b) => a.rank - b.rank);
+    this.bakeQueue = todo.map((t) => t.ch);
+    this.bakeFor(BAKE_MS);
+    if (this.bakeQueue.length) this.idleBake();
     // (off the screen: hidden, and the longest gone let go)
     let away = 0;
     for (const ch of this.chunks.values()) {
       if (ch.seen === this.chunkFrame) continue;
       ch.s.visible = false;
+      ch.job = null;
       away++;
     }
     if (away > CHUNKS_SPARE) {
@@ -1572,6 +1577,79 @@ export class IsoView {
         this.chunks.delete(key);
       }
     }
+  }
+  private readonly surfAtFn = (x: number, y: number): number => this.surfAt(x, y);
+  /** The chunks waiting for a bake, the most wanted first (worked through by `bakeFor`, each frame and when idle). */
+  private bakeQueue: Chunk[] = [];
+  private idleAsked = false;
+
+  /** What a chunk is baked from now. */
+  private chunkIn(ch: Chunk, land: LandMap): ChunkIn {
+    return {
+      x0: ch.x0,
+      y0: ch.y0,
+      size: CHUNK,
+      landW: land.w,
+      landH: land.h,
+      surfAt: this.surfAtFn,
+      surfaces: this.grounds,
+      shore: this.grounds[this.surfIndex(shoreSurface(this.biome, this.kit.tileCells))],
+      tileOf: (t, n) => this.tileOf(t, n),
+    };
+  }
+
+  /** A chunk baked whole at once (the quick unblended one, when it comes on screen with nothing to show). */
+  private bakeNow(ch: Chunk, land: LandMap, plain: boolean): void {
+    const g = ch.canvas.getContext('2d');
+    if (!g) return;
+    const img = g.createImageData(ch.canvas.width, ch.canvas.height);
+    if (!bakeChunk(new Uint32Array(img.data.buffer), this.chunkIn(ch, land), plain)) return;
+    this.showChunk(ch, img, ch.want, !plain);
+  }
+  private showChunk(ch: Chunk, img: ImageData, sig: number, blended: boolean): void {
+    ch.canvas.getContext('2d')!.putImageData(img, 0, 0);
+    if (ch.s.texture === Texture.EMPTY) ch.s.texture = Texture.from(ch.canvas);
+    else ch.s.texture.source.update();
+    ch.shown = sig;
+    ch.blended = blended;
+    ch.s.visible = true;
+  }
+
+  /** Bakes the queue's chunks a row of cells at a time for up to `ms`, swapping each in when it's done. */
+  private bakeFor(ms: number): void {
+    const land = this.land;
+    if (!land) return;
+    const end = performance.now() + ms;
+    while (this.bakeQueue.length && performance.now() < end) {
+      const ch = this.bakeQueue[0];
+      if (!ch.job || ch.job.sig !== ch.want) {
+        const img = ch.canvas.getContext('2d')?.createImageData(ch.canvas.width, ch.canvas.height);
+        const bake = img && startBake(new Uint32Array(img.data.buffer), this.chunkIn(ch, land));
+        // (a tile not loaded yet: tried again when it arrives, which bumps the stamp)
+        if (!img || !bake) {
+          this.bakeQueue.shift();
+          continue;
+        }
+        ch.job = { bake, img, sig: ch.want };
+      }
+      if (bakeRows(ch.job.bake, 1)) {
+        this.showChunk(ch, ch.job.img, ch.job.sig, true);
+        ch.job = null;
+        this.bakeQueue.shift();
+      }
+    }
+  }
+  /** More of the queue baked while the page is idle (a slice at a time, never past the idle time it's given). */
+  private idleBake(): void {
+    if (this.idleAsked) return;
+    this.idleAsked = true;
+    const run = (left: number) => {
+      this.idleAsked = false;
+      this.bakeFor(Math.min(IDLE_BAKE_MS, left));
+      if (this.bakeQueue.length) this.idleBake();
+    };
+    if (typeof requestIdleCallback === 'function') requestIdleCallback((d) => run(Math.max(0, d.timeRemaining() - 1)), { timeout: 500 });
+    else setTimeout(() => run(IDLE_BAKE_MS), 30);
   }
   private surfIndex(s: Surface): number {
     const k = surfaceKey(s);

@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { bakeChunk, cellSurface, chunkPx, chunkSig, fillOut, shoreSurface, surfaceKey, GROUND_RANK, type Surface, type TilePx } from '../src/renderer/iso/groundBlend';
+import { bakeChunk, bakeRows, cellSurface, chunkPx, chunkSig, fillOut, shoreSurface, startBake, surfaceKey, GROUND_RANK, type Surface, type TilePx } from '../src/renderer/iso/groundBlend';
 import type { Ground } from '../src/shared/sim/land';
 import { ISO_TH, ISO_TW } from '../src/renderer/iso/isoMath';
 
@@ -13,7 +13,7 @@ const flatTile = (tile: number, n: number): TilePx => {
 };
 
 /** A little land of grounds (rows of letters: g grass, m marsh, w water, s street) baked as one chunk. */
-function bake(rows: string[]): { out: Uint32Array; surfaces: Surface[]; at: (x: number, y: number) => Surface } {
+function bake(rows: string[], plain = false): { out: Uint32Array; surfaces: Surface[]; at: (x: number, y: number) => Surface; input: Parameters<typeof bakeChunk>[1] } {
   const kinds: Record<string, [Ground, 'street' | null]> = { g: ['grass', null], m: ['marsh', null], w: ['water', null], s: ['grass', 'street'] };
   const surfaces: Surface[] = [];
   const idx = (s: Surface) => {
@@ -27,9 +27,10 @@ function bake(rows: string[]): { out: Uint32Array; surfaces: Surface[]; at: (x: 
   const { w, h } = chunkPx(size);
   const out = new Uint32Array(w * h);
   const shore = shoreSurface('forest', 2);
-  const done = bakeChunk(out, { x0: 0, y0: 0, size, landW: size, landH: size, surfAt, surfaces, shore, tileOf: flatTile });
+  const input = { x0: 0, y0: 0, size, landW: size, landH: size, surfAt, surfaces, shore, tileOf: flatTile };
+  const done = bakeChunk(out, input, plain);
   assert.ok(done);
-  return { out, surfaces, at: (x, y) => surfaces[grid[y][x]] };
+  return { out, surfaces, at: (x, y) => surfaces[grid[y][x]], input };
 }
 /** The pixel at a point of a cell (fractions of the cell along x and y). */
 const px = (out: Uint32Array, size: number, x: number, y: number): number => {
@@ -144,4 +145,26 @@ test('a tile\'s see-through rim is filled from inside', () => {
   const px = new Uint32Array([0, 0, 0, 0, 0xff112233, 0, 0, 0, 0]);
   fillOut(px, 3, 3);
   assert.ok([...px].every((c) => c === 0xff112233));
+});
+
+test('a chunk baked a row at a time (a slice a frame) comes out the same as baked whole', () => {
+  const rows = ['ggwwg', 'gmwwg', 'ssssg', 'gggmg', 'wgggg'];
+  const { out, input } = bake(rows);
+  const sliced = new Uint32Array(out.length).fill(123);
+  const b = startBake(sliced, input);
+  assert.ok(b);
+  let slices = 0;
+  while (!bakeRows(b, 1)) slices++;
+  assert.equal(slices, rows.length - 1);
+  assert.deepEqual(sliced, out);
+  // (a tile not loaded yet: nothing started)
+  assert.equal(startBake(sliced, { ...input, tileOf: () => null }), null);
+});
+
+test('the quick unblended picture (shown until the blend is ready) is each cell its own tile, edges hard', () => {
+  const rows = ['ggggg', 'ggggg', 'ggmgg', 'ggggg', 'ggggg'];
+  const { out } = bake(rows, true);
+  const marsh = px(out, 5, 2.5, 2.5);
+  for (const [x, y] of [[2.04, 2.04], [2.96, 2.96], [2.02, 2.5]]) assert.equal(px(out, 5, x, y), marsh);
+  assert.notEqual(px(out, 5, 1.98, 2.5), marsh);
 });

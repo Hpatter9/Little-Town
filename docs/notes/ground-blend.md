@@ -44,17 +44,32 @@ on bare earth); and the town's edge and the overview at ten at night (`-night`).
   the sand (`SAND`), a water pixel with enough land near (`FOAM`) runs paler (`PALE`). The tiles keep their old turns
   (salt 21 a block, 22 a cell), and the dither and wobble are by screen px, so chunks meet without a seam.
   `chunkSig` (a chunk's cells and the ring round it), `fillOut` (a tile's see-through rim filled from inside).
-- **`iso/isoView.ts`**: the ground is chunks of `CHUNK` (16) cells, each a canvas and a texture (768x384) in `ground`.
-  `syncChunks` (every frame, from `setCamera`): a chunk coming on screen that has never been baked is baked at once;
-  the ones just off it (`CHUNK / 2` cells) and any whose fingerprint changed (checked when the land, its fields, yards,
-  wear, kit, biome or a tile changed: `chunkStamp`) are baked within `BAKE_MS` (4 ms) a frame; off-screen chunks are
-  hidden, and past `CHUNKS_SPARE` (12) the longest gone are let go. `surfAt` (a cell's surface, memoised by ground,
-  laid and wear), `tileOf` (a kit tile's clean face drawn at the size for 1 or 2 cells, smoothed, as pixels).
-  `paintCells` now only lays the land's trees, bushes and rocks (none on a field, street, yard or worn path, as
-  before); the per-block ground sprites, the per-cell overlay sprites and `OVERLAP` are gone. A worn path now shows
-  as it wears (the wear is in the stamp), not only when the land next changed.
+- **Baking a slice at a time** (`iso/groundBlend.ts`): `startBake` (a chunk's cells' surfaces read and its tiles made
+  ready: null while a tile hasn't loaded) and `bakeRows` (a few rows of cells more; whether it's finished), so a bake
+  can be spread over frames and idle time; `bakeChunk` does both at once. `Bake.plain`: the quick unblended picture,
+  each cell its own tile with the edges left hard (the old look), about a fifth of a blended bake's time.
+- **`iso/isoView.ts`**: the ground is chunks of `CHUNK` (16) cells, each a canvas and a texture (768x384) in `ground`
+  (`Chunk`: the fingerprint its picture shows, `shown`, whether blended, the one wanted, `want`, and its bake under way,
+  `job`). `syncChunks` (every frame, from `setCamera`): a chunk coming on screen with no picture at all gets the quick
+  unblended one at once (`bakeNow`); every chunk on screen or in the ring just off it (`CHUNK / 2` cells) whose picture
+  isn't blended or shows ground that has since changed joins `bakeQueue`, the ones on screen first, then the nearest;
+  `bakeFor` works through it a row of cells at a time for `BAKE_MS` (2 ms) a frame and, in the page's idle time
+  (`idleBake`: `requestIdleCallback`, else a timer), up to `IDLE_BAKE_MS` (8 ms) a slice, never past the idle time
+  given; a finished bake is swapped in (`showChunk`). A chunk is baked again only when its fingerprint changes (a field
+  laid, land cleared, a footpath worn a step more), never for scrolling back into view: off the screen it is hidden and
+  kept, the longest gone let go past `CHUNKS_SPARE` (24; about 1.2 MB of canvas and 1.2 MB of texture each). The
+  fingerprints are looked at again when the land, its fields or yards, the kit, the biome or a tile change
+  (`chunkStamp`), and for the wear, which changes as people walk, at most once a second; a worn path's look steps in
+  fifths (`cellSurface` rounds the wear), so walking re-bakes a chunk only when a path shows a step more. `surfAt` (a
+  cell's surface, memoised by a number from its ground, what's laid and its wear step), `tileOf` (a kit tile's clean
+  face drawn at the size for 1 or 2 cells, smoothed, as pixels). `paintCells` now only lays the land's trees, bushes
+  and rocks (none on a field, street, yard or worn path, as before); the per-block ground sprites, the per-cell overlay
+  sprites and `OVERLAP` are gone.
+- The bake isn't moved to a worker: the tiles' pixels and every cell's surface would have to be sent across, and
+  slicing it already keeps each frame's share small.
 - **`tools/grid-town.ts`** `blend` (and a biome's name, `night`), **`tools/grid-shots.mjs`** `--biome`,
-  **`tools/ground-perf.mjs`** (the ground's cost on `test/fixtures/late-town.json.gz`, panned at two zooms).
+  **`tools/ground-perf.mjs`** (the ground's cost on `test/fixtures/late-town.json.gz`, panned at two zooms; `--throttle`,
+  `--secs`; the worst frame's ground cost and the idle baking apart).
 
 ### Speed
 

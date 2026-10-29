@@ -64,7 +64,7 @@ export function cellSurface(g: Ground, laid: Laid, wear: number, biome: Biome, n
     return { tile, tint: 0xffffff, n: 1, rank: rank + tieBreak(tile, 0xffffff), wet: false, shore: true, wear: 0 };
   }
   const t = groundTile(g, false, false, biome);
-  const w = wet ? 0 : Math.round(wear * 20) / 20;
+  const w = wet ? 0 : Math.round(wear * 5) / 5;
   return { tile: t.tile, tint: t.tint, n, rank: GROUND_RANK[g] - w * WEAR_SINK + tieBreak(t.tile, t.tint), wet, shore: !wet && g !== 'marsh', wear: w };
 }
 
@@ -275,11 +275,23 @@ function lookup(n: number, a: number, b: number, flip: boolean): Int32Array {
 const DX = DIRS.map((d) => d[0]);
 const DY = DIRS.map((d) => d[1]);
 
-/** Bakes a chunk of the ground into `out` (`chunkPx(size)`, the canvas's byte order). Whether every tile it needs
- *  had loaded (if not, bake it again later). */
-export function bakeChunk(out: Uint32Array, c: ChunkIn): boolean {
+/** A chunk's bake under way: what it is baked from, its picture, its cells' surfaces (and the ring round them), each
+ *  surface ready to sample, the shore's sand, the next row of cells to bake, and whether it is the quick unblended one
+ *  (each cell its tile as it is, the edges left hard: shown until the blended one is ready). */
+export interface Bake {
+  c: ChunkIn;
+  out: Uint32Array;
+  S: Int32Array;
+  rd: (Ready | null)[];
+  shore: Ready;
+  row: number;
+  plain: boolean;
+}
+
+/** Starts baking a chunk of the ground into `out` (`chunkPx(size)`, the canvas's byte order), cleared: null if a tile it
+ *  needs hasn't loaded (start it again later). `bakeRows` does the work a few rows of cells at a time. */
+export function startBake(out: Uint32Array, c: ChunkIn, plain = false): Bake | null {
   const { x0, y0, size, surfaces, tileOf } = c;
-  const { w } = chunkPx(size);
   // (each cell's surface, a ring of neighbours round the chunk too)
   const R = size + 2;
   const S = new Int32Array(R * R);
@@ -288,19 +300,37 @@ export function bakeChunk(out: Uint32Array, c: ChunkIn): boolean {
   for (const si of new Set(S)) {
     if (si < 0) continue;
     const r = ready(surfaces[si], tileOf);
-    if (!r) return false;
+    if (!r) return null;
     rd[si] = r;
   }
   const shore = ready(c.shore, tileOf);
-  if (!shore) return false;
+  if (!shore) return null;
   out.fill(0);
+  return { c, out, S, rd, shore, row: 0, plain };
+}
+
+/** Bakes a whole chunk at once (`startBake`, then every row). Whether every tile it needs had loaded. */
+export function bakeChunk(out: Uint32Array, c: ChunkIn, plain = false): boolean {
+  const b = startBake(out, c, plain);
+  if (!b) return false;
+  bakeRows(b, c.size);
+  return true;
+}
+
+/** Bakes up to `rows` more rows of a chunk's cells (along y). Whether it's finished. */
+export function bakeRows(b: Bake, rows: number): boolean {
+  const { c, out, S, rd, shore } = b;
+  const { x0, y0, size, surfaces } = c;
+  const { w } = chunkPx(size);
+  const R = size + 2;
   const m = CELL_PX.at.length;
   const offs = offsetsFor(w);
   const half = (size * ISO_TW) / 2;
   // (the screen px of the chunk's picture's top-left, for the dither and the wobble: whole px, the same in every chunk)
   const gx0 = ((x0 - y0) * ISO_TW) / 2 - half;
   const gy0 = ((x0 + y0) * ISO_TH) / 2;
-  for (let j = 0; j < size; j++)
+  const until = Math.min(size, b.row + rows);
+  for (let j = b.row; j < until; j++)
     for (let i = 0; i < size; i++) {
       const x = x0 + i;
       const y = y0 + j;
@@ -317,7 +347,7 @@ export function bakeChunk(out: Uint32Array, c: ChunkIn): boolean {
       const look1 = lookup(1, 0, 0, cellHash(x, y, 22) >= 0.5);
       const lookMine = N === 1 ? look1 : lookup(N, x % N, y % N, cellHash(x - (x % N), y - (y % N), 21) >= 0.5);
       let unlike = false;
-      for (let d = 0; d < 8 && !unlike; d++) {
+      for (let d = 0; d < 8 && !unlike && !b.plain; d++) {
         const o = S[at + DY[d] * R + DX[d]];
         unlike = o >= 0 && o !== me;
       }
@@ -405,7 +435,8 @@ export function bakeChunk(out: Uint32Array, c: ChunkIn): boolean {
         }
       }
     }
-  return true;
+  b.row = until;
+  return until >= size;
 }
 /** Each of a cell's px (`CELL_PX`) as an offset from its box's top-left in a picture `w` px wide, made once. */
 const OFFSETS = new Map<number, Int32Array>();
