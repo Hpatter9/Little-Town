@@ -196,15 +196,21 @@ interface Ready {
   wear: number;
   dirt: Uint32Array | null;
 }
+/** Each surface's tile tinted, made once (again if its tile's pixels change). */
+const READY = new WeakMap<Surface, { t: TilePx; dirt: TilePx | null; r: Ready }>();
 function ready(s: Surface, tileOf: ChunkIn['tileOf']): Ready | null {
   const t = tileOf(s.tile, s.n);
   if (!t) return null;
   const dirt = s.wear > 0 ? tileOf(1, 1) : null;
   if (s.wear > 0 && !dirt) return null;
+  const had = READY.get(s);
+  if (had && had.t === t && had.dirt === dirt) return had.r;
   const px = new Uint32Array(t.px.length);
   for (let k = 0; k < px.length; k++) px[k] = tinted(t.px[k], s.tint);
   if (dirt) for (let k = 0; k < px.length; k++) px[k] = px[k] | 0xff000000;
-  return { px, n: s.n, wear: s.wear, dirt: dirt ? dirt.px : null };
+  const r = { px, n: s.n, wear: s.wear, dirt: dirt ? dirt.px : null };
+  READY.set(s, { t, dirt, r });
+  return r;
 }
 
 /** A cell's pixels, the same for every cell: the px of its diamond inside the box `ISO_TW` by `ISO_TH` below its top

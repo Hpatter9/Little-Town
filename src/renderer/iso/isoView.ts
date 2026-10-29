@@ -1511,6 +1511,7 @@ export class IsoView {
       for (const ch of this.chunks.values()) {
         ch.want = -1;
         ch.blended = false;
+        if (ch.job) this.spareImages.push(ch.job.img);
         ch.job = null;
       }
       this.chunkStamp++;
@@ -1564,6 +1565,7 @@ export class IsoView {
     for (const ch of this.chunks.values()) {
       if (ch.seen === this.chunkFrame) continue;
       ch.s.visible = false;
+      if (ch.job) this.spareImages.push(ch.job.img);
       ch.job = null;
       away++;
     }
@@ -1600,19 +1602,31 @@ export class IsoView {
 
   /** A chunk baked whole at once (the quick unblended one, when it comes on screen with nothing to show). */
   private bakeNow(ch: Chunk, land: LandMap, plain: boolean): void {
-    const g = ch.canvas.getContext('2d');
-    if (!g) return;
-    const img = g.createImageData(ch.canvas.width, ch.canvas.height);
-    if (!bakeChunk(new Uint32Array(img.data.buffer), this.chunkIn(ch, land), plain)) return;
+    const img = this.chunkImage(ch);
+    if (!img) return;
+    if (!bakeChunk(new Uint32Array(img.data.buffer), this.chunkIn(ch, land), plain)) {
+      this.spareImages.push(img);
+      return;
+    }
     this.showChunk(ch, img, ch.want, !plain);
   }
   private showChunk(ch: Chunk, img: ImageData, sig: number, blended: boolean): void {
     ch.canvas.getContext('2d')!.putImageData(img, 0, 0);
+    this.spareImages.push(img);
     if (ch.s.texture === Texture.EMPTY) ch.s.texture = Texture.from(ch.canvas);
     else ch.s.texture.source.update();
     ch.shown = sig;
     ch.blended = blended;
     ch.s.visible = true;
+  }
+
+  /** A chunk's pixels to bake into, reused (each is 1.2 MB: made afresh only when none is spare). */
+  private readonly spareImages: ImageData[] = [];
+  private chunkImage(ch: Chunk): ImageData | null {
+    this.spareImages.length = Math.min(this.spareImages.length, 4);
+    const had = this.spareImages.pop();
+    if (had && had.width === ch.canvas.width && had.height === ch.canvas.height) return had;
+    return ch.canvas.getContext('2d')?.createImageData(ch.canvas.width, ch.canvas.height) ?? null;
   }
 
   /** Bakes the queue's chunks a row of cells at a time for up to `ms`, swapping each in when it's done. */
@@ -1623,10 +1637,13 @@ export class IsoView {
     while (this.bakeQueue.length && performance.now() < end) {
       const ch = this.bakeQueue[0];
       if (!ch.job || ch.job.sig !== ch.want) {
-        const img = ch.canvas.getContext('2d')?.createImageData(ch.canvas.width, ch.canvas.height);
+        if (ch.job) this.spareImages.push(ch.job.img);
+        ch.job = null;
+        const img = this.chunkImage(ch);
         const bake = img && startBake(new Uint32Array(img.data.buffer), this.chunkIn(ch, land));
         // (a tile not loaded yet: tried again when it arrives, which bumps the stamp)
         if (!img || !bake) {
+          if (img) this.spareImages.push(img);
           this.bakeQueue.shift();
           continue;
         }

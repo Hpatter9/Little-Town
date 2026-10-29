@@ -1,9 +1,9 @@
 // The ground's cost on a big town (docs/notes/ground-blend.md): opens the phone build (out/web: `npm run web` first)
 // in the pre-installed Chromium with test/fixtures/late-town.json.gz as its save (paused), drags the camera round the
 // town a fixed step a frame at two zooms with the CDP CPU profiler running, and prints the JS time spent in the
-// ground's functions and in all named functions, the frames' times, and the ground's cost in the worst frame (a frame:
-// one run of the strip's ticker in the profile; the ground's work outside any frame, the idle-time baking, counted
-// apart). Run by hand. (This container has no GPU: the frame times are software rasterising, so compare a before and
+// ground's functions and in all named functions, the frames' times, and the view's work in the worst frame (timed in
+// the page: `setCamera`, the ground and the land's trees; the idle-time baking apart; and, rougher, from the profile:
+// a run of the ticker's samples). Run by hand. (This container has no GPU: the frame times are software rasterising, so compare a before and
 // an after build, never read them as a phone's.)
 //
 //   node tools/ground-perf.mjs               out/web
@@ -78,6 +78,37 @@ for (const zoom of ['0.5', '0.25']) {
     if (clicked) break;
     await page.waitForTimeout(500);
   }
+  // (the camera put where the drag starts and left to settle, so the first frame measured isn't a jump across the map;
+  // and each frame's view work timed in the page: `setCamera` (the ground, and the land's trees laid), and the
+  // ground's baking in idle time apart, where the build has it)
+  await strip.evaluate(() => {
+    const cam = window.__camera;
+    cam.touchedAt = performance.now() + 1e9;
+    cam.centreOn({ x: 96 * 32 + 40 * 32, y: 96 * 32 }, window.innerWidth, window.innerHeight);
+    const iso = window.__iso;
+    const proto = Object.getPrototypeOf(iso);
+    const m = (window.__groundCost = { frame: 0, idle: 0, inCam: false });
+    iso.setCamera = function (...a) {
+      const t = performance.now();
+      m.inCam = true;
+      try {
+        return proto.setCamera.apply(this, a);
+      } finally {
+        m.inCam = false;
+        m.frame += performance.now() - t;
+      }
+    };
+    if (proto.bakeFor)
+      iso.bakeFor = function (ms) {
+        if (m.inCam) return proto.bakeFor.call(this, ms);
+        const t = performance.now();
+        try {
+          return proto.bakeFor.call(this, ms);
+        } finally {
+          m.idle += performance.now() - t;
+        }
+      };
+  });
   await page.waitForTimeout(8000);
   const cdp = await page.context().newCDPSession(page);
   if (throttle > 1) await cdp.send('Emulation.setCPUThrottlingRate', { rate: throttle });
@@ -89,12 +120,17 @@ for (const zoom of ['0.5', '0.25']) {
     const cam = window.__camera;
     cam.touchedAt = performance.now() + 1e9;
     const times = [];
+    const views = [];
+    const m = window.__groundCost;
+    m.idle = 0;
     let last = performance.now();
     const r = 40 * 32;
     await new Promise((done) => {
       let k = 0;
       const tick = (now) => {
         times.push(now - last);
+        views.push(m.frame);
+        m.frame = 0;
         last = now;
         const a = (k * step) / r;
         cam.centreOn({ x: 96 * 32 + Math.cos(a) * r, y: 96 * 32 + Math.sin(a) * r }, window.innerWidth, window.innerHeight);
@@ -103,8 +139,13 @@ for (const zoom of ['0.5', '0.25']) {
       };
       requestAnimationFrame(tick);
     });
-    return times.slice(1);
+    return { times: times.slice(1), views: views.slice(2), idle: m.idle };
   }, [steps, step]);
+  const views = frames.views.sort((a, b) => a - b);
+  const worstView = views[views.length - 1] ?? 0;
+  const p95View = views[Math.floor(views.length * 0.95)] ?? 0;
+  const idleBake = frames.idle;
+  frames.times.sort((a, b) => a - b);
   const { profile } = await cdp.send('Profiler.stop');
   if (throttle > 1) await cdp.send('Emulation.setCPUThrottlingRate', { rate: 1 });
   const dt = profile.timeDeltas;
@@ -154,9 +195,8 @@ for (const zoom of ['0.5', '0.25']) {
       top.push([name, Math.round(ms)]);
     }
   }
-  frames.sort((a, b) => a - b);
-  const q = (p) => Math.round(frames[Math.floor(frames.length * p)] ?? 0);
-  results.push({ zoom, throttle, frames: frames.length, worstFrameGround: Math.round(worstFrame * 10) / 10, idleGround: Math.round(idleGround), median: q(0.5), p95: q(0.95), worst: Math.round(frames[frames.length - 1] ?? 0), named: Math.round(named), ground: Math.round(ground), parts: top.sort((a, b) => b[1] - a[1]) });
+  const q = (p) => Math.round(frames.times[Math.floor(frames.times.length * p)] ?? 0);
+  results.push({ zoom, throttle, frames: frames.times.length, worstView: Math.round(worstView * 10) / 10, p95View: Math.round(p95View * 10) / 10, idleBake: Math.round(idleBake), worstFrameGroundProfile: Math.round(worstFrame * 10) / 10, idleGroundProfile: Math.round(idleGround), median: q(0.5), p95: q(0.95), worst: Math.round(frames.times[frames.times.length - 1] ?? 0), named: Math.round(named), ground: Math.round(ground), parts: top.sort((a, b) => b[1] - a[1]) });
   await cdp.detach();
 }
 console.log(JSON.stringify(results, null, 1));
