@@ -38,6 +38,7 @@ import {
   FEVER_WINTER,
   WINTER_APPETITE,
   WINTER_SNOW,
+  WOODPILE_WARN_FROM,
 } from '../data/hardship';
 import { FREEZE_HEATERS, HEAT_VALUE } from '../data/doom';
 import { WOUNDS } from '../data/injuries';
@@ -95,6 +96,7 @@ export function hardshipHourly(s: GameState): void {
   if (s.gameOver) return;
   stackWoodpile(s);
   winter(s);
+  warnWoodpile(s);
   if (calendarOf(s).hour === SPOIL_HOUR) spoil(s);
 }
 
@@ -253,6 +255,49 @@ function stackWoodpile(s: GameState): void {
     s.woodpile = (s.woodpile ?? 0) + n;
     want -= n;
   }
+}
+
+/** The woodpile as the town sees it (the stores readout and the Stores tab; docs/notes/founder-delves.md), in
+ *  autumn and winter: the logs put by, the winter's burning still to come and a day's, the logs the hearths would fall
+ *  back on (the stores' wood, and coal at its heat), how many winter days it all lasts at the present burning, and
+ *  the warning: `cold` with the hearths out, `short` when it won't last the winter (all winter, and in autumn from
+ *  `WOODPILE_WARN_FROM`, when the gathering should be well along). Null in spring and summer, and with the autopilot
+ *  off. */
+export interface WoodpileForecast {
+  pile: number;
+  need: number;
+  perDay: number;
+  spare: number;
+  /** Null: for ever (a heater, or nobody home). */
+  lastsDays: number | null;
+  heated: boolean;
+  warn: 'cold' | 'short' | null;
+}
+export function woodpileForecast(s: GameState): WoodpileForecast | null {
+  if (s.autopilot === false) return null;
+  const cal = calendarOf(s);
+  if (cal.season !== 'autumn' && cal.season !== 'winter') return null;
+  const pile = Math.floor(s.woodpile ?? 0);
+  const perDay = home(s).length * FIREWOOD_PER_HEAD;
+  const hot = heated(s) || (s.doom?.kind === 'deep_freeze' && s.doom.phase === 'active' && !s.doom.cold);
+  if (hot) return { pile, need: 0, perDay, spare: 0, lastsDays: null, heated: true, warn: null };
+  const spare = storages(s).reduce((n, st) => n + Math.floor(st.store.wood ?? 0) * HEAT_VALUE.wood + Math.floor(st.store.coal ?? 0) * HEAT_VALUE.coal, 0);
+  const need = winterNeed(s);
+  const lastsDays = perDay > 0 ? Math.round(((pile + spare) / perDay) * 10) / 10 : null;
+  const late = cal.season === 'winter' || cal.dayOfSeason >= WOODPILE_WARN_FROM;
+  const warn = s.hearthsCold && cal.season === 'winter' ? 'cold' : late && pile + spare < need ? 'short' : null;
+  return { pile, need, perDay, spare, lastsDays, heated: false, warn };
+}
+
+/** Once an hour: the woodpile that won't last the winter is warned of, once a season. */
+function warnWoodpile(s: GameState): void {
+  const f = woodpileForecast(s);
+  if (f?.warn !== 'short') return;
+  const season = Math.floor((calendarOf(s).day - 1) / DAYS_PER_SEASON);
+  if (s.woodWarned === season) return;
+  s.woodWarned = season;
+  const days = Math.floor(f.lastsDays ?? 0);
+  notify(s, `The firewood won't last the winter: ${f.pile} logs on the woodpile${f.spare ? ` and ${f.spare} more in the stores` : ''}, about ${days} day${days === 1 ? '' : 's'} of burning, and ${f.need} wanted. Gather wood before the hearths go cold.`, true);
 }
 
 /** Foraging's pace in the season: the winter's land is bare (people.ts, the foragers and the hungry scrounging). */

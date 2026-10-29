@@ -1149,6 +1149,9 @@ export interface GameState {
   hearthsCold?: boolean;
   /** The winter's firewood put by from autumn on, the hearths' alone (sim/hardship.ts `stackWoodpile`). Left out: none. */
   woodpile?: number;
+  /** The season (counted from the first) the town was last warned its firewood won't last the winter
+   *  (sim/hardship.ts `warnWoodpile`). Left out: never. */
+  woodWarned?: number;
   /** State of the simulation RNG. All sim randomness draws from this, never Math.random(). */
   rngState: number;
   paused: boolean;

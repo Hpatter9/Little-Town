@@ -100,7 +100,7 @@ function entries(s: Snapshot): Entry[] {
 const timeLeft = (h: number) => (h >= 48 ? `${Math.round(h / 24)} days` : h >= 1 ? `${h} hours` : 'under an hour');
 
 /** Is the founder at home and well enough to lead a party? */
-const founderHome = (s: Snapshot) => {
+export const founderHome = (s: Snapshot) => {
   const f = s.people.find((p) => p.id === s.mainId);
   return !!f && !f.away && !f.downed;
 };

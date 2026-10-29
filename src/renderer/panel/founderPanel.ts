@@ -25,7 +25,7 @@ let sheet: Sheet = 'home';
 function keyOfCard(s: Snapshot): string {
   const f = s.people.find((p) => p.id === s.mainId);
   if (!f || !s.founder) return 'none';
-  return [f.name, f.clsName, f.level, Math.round(f.hp), f.maxHp, Math.round(f.morale), f.coins, nowKey(founderNow(f, s.founder, s.muster)), s.founder.order, s.founder.winds.map((w) => (w.open ? 1 : 0)).join(''), s.founder.heir?.id, s.founder.heir?.named, s.founder.heirs.map((h) => h.id).join(','), s.founder.shops.map((x) => [x.id, x.manager?.id, x.stock, x.price, x.today, x.last, x.seasonNet].join(':')).join(';'), s.founder.buyable.map((x) => `${x.id}:${x.price}`).join(','), s.founder.hires.map((h) => h.id).join(','), Object.values(f.gear).join(','), s.coins, dealingsKey(s)].join('|');
+  return [f.name, f.clsName, f.level, Math.round(f.hp), f.maxHp, Math.round(f.morale), f.coins, nowKey(founderNow(f, s.founder, s.muster)), s.founder.order, s.founder.winds.map((w) => (w.open ? 1 : 0)).join(''), s.founder.heir?.id, s.founder.heir?.named, s.founder.heirs.map((h) => h.id).join(','), s.founder.shops.map((x) => [x.id, x.manager?.id, x.stock, x.price, x.today, x.last, x.seasonNet].join(':')).join(';'), s.founder.buyable.map((x) => `${x.id}:${x.price}`).join(','), s.founder.hires.map((h) => h.id).join(','), Object.values(f.gear).join(','), s.coins, dealingsKey(s), s.founder.delves.map((x) => `${x.dest}:${x.strength}:${x.tone}`).join(','), s.founder.delveBlock].join('|');
 }
 
 /** The founder's Character tab: their character sheet (portrait, bars, calling and titles, story, skills, kin, kit) and
@@ -147,6 +147,31 @@ export function renderFounder(s: Snapshot, bridge: Bridge, redraw: () => void = 
     o.push(gifts);
     o.push(el('div', 'hint', 'Rest: go home to heal and lift their spirits.'));
     o.push(tall(button('Rest at home', () => bridge.command({ type: 'founderRest' }))));
+    o.push(...delves());
+    return o;
+  }
+
+  /** Lead a delve: each dungeon on the board with its danger against who'd go (sim/founderDelves.ts); a tap raises the
+   *  party on the Expeditions tab, to look over before sending. */
+  function delves(): HTMLElement[] {
+    const o: HTMLElement[] = [el('h2', '', 'Lead a delve')];
+    if (!v!.delves.length) {
+      o.push(el('div', 'hint', 'No dungeon is on the board yet. Scouts find them as they map the land.'));
+      return o;
+    }
+    o.push(el('div', 'hint', `Go down into a dungeon at the head of a party, with whoever will come. ${v!.heir ? `If you fall, ${v!.heir.name} takes up the town.` : 'You have no heir: if you fall, the town ends with you.'}`));
+    if (v!.delveBlock) o.push(el('div', 'hint warn', `${v!.delveBlock}.`));
+    for (const r of v!.delves) {
+      const card = el('div', 'founder-delve');
+      const top = el('div');
+      top.append(el('b', '', r.place), el('span', `delve-word risk-${r.tone}`, ` · ${r.word}`));
+      card.append(top, el('div', 'hint', r.line));
+      card.append(tall(button('Lead a party here…', () => {
+        bridge.command({ type: 'muster', op: 'founder', dest: r.dest });
+        bridge.openPanel?.('expeditions');
+      }, { disabled: !!v!.delveBlock })));
+      o.push(card);
+    }
     return o;
   }
 

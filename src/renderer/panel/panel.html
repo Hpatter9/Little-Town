@@ -614,6 +614,48 @@
         background: rgba(212, 87, 74, 0.16);
         border-radius: 4px;
       }
+      /* a dungeon's danger on the muster sheet (musterPanel.ts; sim/founderDelves.ts) */
+      .muster-risk {
+        margin: 8px 0;
+        padding: 8px 10px;
+        font-size: 13px;
+        line-height: 1.4;
+        border-left: 4px solid #6aa86a;
+        border-radius: 4px;
+        background: rgba(106, 168, 106, 0.12);
+      }
+      .muster-risk.risk-risky {
+        border-left-color: #e0a040;
+        background: rgba(224, 160, 64, 0.14);
+      }
+      .muster-risk.risk-grim,
+      .muster-risk.risk-deadly {
+        border-left-color: #d4574a;
+        background: rgba(212, 87, 74, 0.18);
+      }
+      .muster-risk-warn {
+        margin-top: 4px;
+        font-style: italic;
+      }
+      .founder-delve {
+        border: 1px solid rgba(255, 255, 255, 0.2);
+        border-radius: 6px;
+        padding: 8px;
+        margin: 6px 0;
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+      }
+      .founder-delve .delve-word.risk-fair {
+        color: #8fd08f;
+      }
+      .founder-delve .delve-word.risk-risky {
+        color: #f0b860;
+      }
+      .founder-delve .delve-word.risk-grim,
+      .founder-delve .delve-word.risk-deadly {
+        color: #f08070;
+      }
       .muster-h {
         margin: 14px 0 6px;
         font-family: var(--font-display);
