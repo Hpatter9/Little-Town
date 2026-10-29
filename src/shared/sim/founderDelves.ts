@@ -18,7 +18,7 @@ import { bossName } from './delves';
 import { destinationOf, destinationUnlocked, type SendCheck } from './expeditions';
 import { holdForFounder } from './founderQuests';
 import { heirOf } from './health';
-import { addMember, askable, cancelMuster, dropMember, makeLeader, raiseParty, willing } from './muster';
+import { askable, willing } from './muster';
 import { fitToGo, mostFor, recruit } from './parties';
 import { matchupOf, powerLine, powerOfGroup, powerOfParty, type Matchup } from './power';
 import { maxHp, notify, type Expedition, type GameState, type Person, type Prompt } from './state';
@@ -60,6 +60,9 @@ export interface DelveRisk {
   heirLine: string | null;
 }
 
+/** A foe's name mid-sentence: "The Rat King" as "the Rat King", "Gnasher, the Goblin King" as it is. */
+const foe = (name: string) => name.replace(/^The /, 'the ');
+
 /** A dungeon's possible bosses, mildest first. */
 export function bossesOf(destId: string): BossOdds[] {
   const d = DUNGEON_BY_ID[destId];
@@ -70,7 +73,7 @@ export function bossesOf(destId: string): BossOdds[] {
       const head = ids.find((id) => ENEMIES[id]?.boss) ?? ids[0];
       const guard = ids.filter((id) => id !== head).map((id) => `${g[id]} ${(ENEMIES[id]?.name ?? id).toLowerCase()}${g[id] > 1 ? 's' : ''}`);
       const name = ENEMIES[head]?.name ?? 'something terrible';
-      return { name, group: guard.length ? `${the(name)} and ${guard.join(', ')}` : the(name), power: Math.round(powerOfGroup(g)) };
+      return { name, group: guard.length ? `${foe(name)} and ${guard.join(', ')}` : foe(name), power: Math.round(powerOfGroup(g)) };
     })
     .sort((a, b) => a.power - b.power || a.name.localeCompare(b.name));
 }
@@ -116,28 +119,17 @@ export const knownDungeons = (s: GameState): string[] => DUNGEONS.filter((d) => 
   return !!dest && destinationUnlocked(s, dest);
 }).map((d) => d.id);
 
-/** Raise a party for a place with the founder at its head (the founder takes the place of the last one picked if it's
- *  full). Not sent: the muster sheet is the player's to look over. */
+/** Raise a party for a place with the founder at its head and whoever is willing behind them: the party
+ *  `founderPartyFor` shows on the Orders list. Not sent: the muster sheet is the player's to look over. */
 export function raiseFounderParty(s: GameState, dest: string): SendCheck {
   const f = s.people.find((p) => p.id === s.mainId);
   if (!f || !askable(s).includes(f)) return { ok: false, reason: `${f?.name ?? 'The founder'} can't go just now` };
   if (s.muster) return { ok: false, reason: 'A party is already being raised' };
   const d = destinationOf(s, dest);
-  if (!d) return { ok: false, reason: 'Not on the board' };
-  const raised = raiseParty(s, dest);
-  if (!raised.ok) return raised;
-  const m = s.muster!;
-  if (!m.members.includes(f.id)) {
-    if (m.members.length >= mostFor(s, d)) dropMember(s, m.members[m.members.length - 1]);
-    const added = addMember(s, f.id);
-    if (!added.ok) {
-      cancelMuster(s);
-      return added;
-    }
-  }
-  makeLeader(s, f.id);
+  if (!d || !destinationUnlocked(s, d)) return { ok: false, reason: 'Not on the board' };
   // (the founder's own nature sets how boldly they go, as a leader's does)
-  m.stakes = ['bold', 'restless', 'proud'].includes(natureOf(f).id) ? 'risky' : 'safe';
+  const stakes = ['bold', 'restless', 'proud'].includes(natureOf(f).id) ? 'risky' : 'safe';
+  s.muster = { dest, leader: f.id, members: founderPartyFor(s, dest).map((p) => p.id), stakes, rations: 'normal', torches: 0, horses: true, refused: {}, agreed: [] };
   return { ok: true };
 }
 
@@ -167,7 +159,7 @@ export function askFounder(s: GameState, e: Expedition, v: Delve, ask: DelveAsk)
   const text =
     ask === 'delve_fork'
       ? `Deep in ${the(d.name)} the way splits. One passage drops into the dark, and something glints down there: more to find, and every fight after it harder. The other climbs toward a dry ledge where they could rest. ${state}`
-      : `${The(d.name)}'s last door. Behind it, ${the(bossName(v))} waits${boss ? ` (${powerLine(powerOfParty(up), boss.power)})` : ''}. ${state} ${heirLineFor(s, founder)}`;
+      : `${The(d.name)}'s last door. Behind it, ${foe(bossName(v))} waits${boss ? ` (${powerLine(powerOfParty(up), boss.power)})` : ''}. ${state} ${heirLineFor(s, founder)}`;
   const cal = calendarOf(s);
   const prompt: Prompt = {
     id: s.nextId++,
@@ -209,7 +201,7 @@ export function answerDelveAsk(s: GameState, prompt: Prompt, option: number): st
   }
   if (option === 1) {
     v.turnBack = true;
-    return `They leave ${the(bossName(v))} to the dark and turn for home with what they found.`;
+    return `They leave ${foe(bossName(v))} to the dark and turn for home with what they found.`;
   }
   return `They open the last door.`;
 }

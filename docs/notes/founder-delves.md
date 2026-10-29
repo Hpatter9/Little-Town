@@ -13,8 +13,8 @@ The town's own parties still go into a dungeon only under an adventurer and only
   reached, not lying quiet; the same rule as the Expeditions board, `destinationUnlocked`), and each dungeon's card on
   the Expeditions tab has **Lead a delve…** next to Send a party…. Either raises a party (`raiseFounderParty`, the
   muster op `founder`, sim/commands.ts and sim/sim.ts) with the founder at its head and whoever is willing behind them
-  (sim/muster.ts `raiseParty`, then the founder made leader, taking the last place if it's full); how boldly they go
-  follows the founder's nature. It is not sent: the muster sheet opens on the Expeditions tab to look over, change and
+  (`founderPartyFor`: picked as the town picks a party, sim/parties.ts `recruit`, from those `willing`, so the Orders
+  list and the muster sheet show the same party); how boldly they go follows the founder's nature. It is not sent: the muster sheet opens on the Expeditions tab to look over, change and
   send, or call off. Nothing checks the party's strength (`sendMuster` never did). Disabled, with the reason, while the
   founder is away or down, a party is being raised, or `MAX_EXPEDITIONS` are out (`FounderView.delveBlock`).
 - **The danger, shown first** (`delveRisk`): the dungeon's possible bosses with their guards, mildest first
