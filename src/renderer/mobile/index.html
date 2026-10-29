@@ -401,6 +401,13 @@
       body.menu-open #hint {
         display: none;
       }
+      /* (a tap card stands aside while a fight, a scene or the event box has the screen: it lay over the fight's
+         fighters; it comes back after) */
+      body.battle #inspect,
+      body.scene #inspect,
+      body.event-open #inspect {
+        display: none;
+      }
       /* a castle town's taller strip leaves no room for the hint */
       body.castle #hint {
         display: none;
@@ -842,7 +849,11 @@
       body.menu-open #stores-readout,
       body.battle #stores-readout,
       body.event-open #stores-readout,
-      body.scene #stores-readout {
+      body.scene #stores-readout,
+      body.menu-open #beast-ask,
+      body.battle #beast-ask,
+      body.event-open #beast-ask,
+      body.scene #beast-ask {
         display: none;
       }
       #notice-sheet {

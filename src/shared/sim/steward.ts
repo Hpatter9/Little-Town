@@ -74,9 +74,12 @@ const listOf = (names: string[]) => {
 
 function homeAgain(s: GameState, f: Person, g: Gone): void {
   if (s.tick - g.since < TICKS_PER_HOUR) return;
-  const days = Math.max(1, Math.round((s.tick - g.since) / TICKS_PER_DAY));
+  const days = Math.round((s.tick - g.since) / TICKS_PER_DAY);
+  const hours = Math.max(1, Math.round((s.tick - g.since) / TICKS_PER_HOUR));
   const steward = g.steward !== null ? s.people.find((p) => p.id === g.steward) : undefined;
-  const lines = [`${f.name} is home after ${days === 1 ? 'a day' : `${days} days`}.${steward ? ` ${steward.name} minded the town.` : ''}`];
+  // (a trip of an afternoon is told in hours: a three-hour trip was "home after a day")
+  const long = days >= 1 ? (days === 1 ? 'a day' : `${days} days`) : hours === 1 ? 'an hour' : `${hours} hours`;
+  const lines = [`${f.name} is home after ${long}.${steward ? ` ${steward.name} minded the town.` : ''}`];
   const built = s.buildings.filter((b) => b.status === 'done' && !g.built.includes(b.id)).map((b) => BUILDING_BY_ID[b.def]?.name ?? b.def);
   if (built.length) lines.push(`Finished while you were gone: ${listOf(built)}.`);
   const dead = (s.fallen ?? []).filter((q) => !g.fallen.includes(q.id));
@@ -84,7 +87,8 @@ function homeAgain(s: GameState, f: Person, g: Gone): void {
   if (g.raids.length) lines.push(`Raids: ${g.raids.length === 1 ? g.raids[0] : `${g.raids.length}, the last by the ${g.raids[g.raids.length - 1]}`}.`);
   const coins = (s.coins ?? 0) - g.coins;
   if (coins !== 0) lines.push(`The treasury ${coins > 0 ? 'gained' : 'lost'} ${Math.abs(coins)} coins.`);
-  if (lines.length === 1) lines.push('Nothing much changed.');
+  // (nothing changed: a line in the news, not one more card after the trip's own)
+  if (lines.length === 1) return notify(s, `${lines[0]} Nothing much changed.`);
   const prompt: Prompt = {
     id: s.nextId++,
     kind: 'debrief',

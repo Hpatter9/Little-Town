@@ -928,12 +928,14 @@ function serveCustomer(s: GameState, shop: Building, t: Traveller, town: ShopTow
   // (to the owner's purse, or the treasury's; the keeper's cut out of it: sim/ambition.ts)
   takeSale(s, shop, spent, keeper, 'shop', t.name);
   const also = poolSize(sold) ? list(sold) : '';
+  // (told in whole coins: a market price makes the sum a fraction, "21.832 coins")
+  const paid = Math.round(spent);
   const text = met
-    ? `${who} came for ${wantText(want)}: bought ${[...bought, ...(also ? [also] : [])].join(', ')}${talked ? `. ${talked}` : ''} (${spent} coins).`
-    : `${who} came for ${wantText(want)} and found none${also ? `, but bought ${also}` : ''}${tier.tier > 1 ? `; left disappointed` : ''}${spent ? ` (${spent} coins)` : ''}.`;
+    ? `${who} came for ${wantText(want)}: bought ${[...bought, ...(also ? [also] : [])].join(', ')}${talked ? `. ${talked}` : ''} (${paid} coins).`
+    : `${who} came for ${wantText(want)} and found none${also ? `, but bought ${also}` : ''}${tier.tier > 1 ? `; left disappointed` : ''}${spent ? ` (${paid} coins)` : ''}.`;
   log(s, shop, text);
-  t.talk = talkOf(want, ordered ? 'order' : met ? 'sold' : 'no', ordered ? `${ordered.maker} can make you one: ${ordered.price} coins` : said ? `${said} (${spent} coins)` : bought[0] ? `the ${bought[0]}, ${spent} coins` : '');
-  if (keeper) remember(s, keeper, met ? `Served ${t.name} the ${t.kind}: ${bought.join(', ')} (${spent} coins)${talked ? ', talked them round' : ''}` : `Had nothing for ${t.name}, who wanted ${wantText(want)}`);
+  t.talk = talkOf(want, ordered ? 'order' : met ? 'sold' : 'no', ordered ? `${ordered.maker} can make you one: ${ordered.price} coins` : said ? `${said} (${paid} coins)` : bought[0] ? `the ${bought[0]}, ${paid} coins` : '');
+  if (keeper) remember(s, keeper, met ? `Served ${t.name} the ${t.kind}: ${bought.join(', ')} (${paid} coins)${talked ? ', talked them round' : ''}` : `Had nothing for ${t.name}, who wanted ${wantText(want)}`);
   if (first && spent > 0) notify(s, `The ${BUILDING_BY_ID[shop.def].name} made its first sale: ${text}`, true);
 
   if (!line) buyFrom(s, shop, t, town, who);
@@ -1053,11 +1055,12 @@ function serveGuest(s: GameState, tavern: Building, t: Traveller, rng: Rng): voi
     asked(tavern, wantKey(want));
   }
   takeSale(s, tavern, spent, keeper, 'tavern', t.name);
+  const paid = Math.round(spent);
   const text = met
-    ? `${who} wanted ${wantText(want)}: had the ${had.join(' and the ')}${talked ? `. ${talked}` : ''} (${spent} coins).`
+    ? `${who} wanted ${wantText(want)}: had the ${had.join(' and the ')}${talked ? `. ${talked}` : ''} (${paid} coins).`
     : `${who} wanted ${wantText(want)}, found nothing to their taste, and left hungry.`;
   log(s, tavern, text);
-  if (keeper) remember(s, keeper, met ? `Served ${t.name} the ${t.kind}: ${had.join(' and ')} (${spent} coins)${talked ? ', and talked them into more' : ''}` : `Had nothing ${t.name} wanted (${wantText(want)})`);
+  if (keeper) remember(s, keeper, met ? `Served ${t.name} the ${t.kind}: ${had.join(' and ')} (${paid} coins)${talked ? ', and talked them into more' : ''}` : `Had nothing ${t.name} wanted (${wantText(want)})`);
   if (first && spent > 0) notify(s, `The ${BUILDING_BY_ID[tavern.def].name} served its first guest: ${text}`, true);
   lodge(s, tavern, t, spent, rng);
 }

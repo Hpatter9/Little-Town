@@ -58,6 +58,7 @@ test('the town names it: three names that fit its kind or one typed, and every l
   sim.command({ type: 'name', kind: 'creature', id: CREATURE_NAMING, name: 'Old Barnaby' });
   sim.step();
   assert.equal(c.name, 'Old Barnaby');
+  assert.match(s.eventOutcome?.text ?? '', /named Old Barnaby/, 'the event box tells what came of it');
   const v = snapshot(s).creature!;
   assert.equal(v.name, 'Old Barnaby');
   assert.match(creatureCard(v).title, /Old Barnaby/);

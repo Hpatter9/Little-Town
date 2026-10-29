@@ -26,7 +26,8 @@ import { killPerson } from './health';
 import { minorWound } from './injuries';
 import { addItems } from './crafting';
 import { describeFoes } from './places';
-import { adoptCreature, learn } from './creature';
+import { adoptCreature, deedName, learn } from './creature';
+import { CREATURE_DEFS } from '../data/creature';
 import { leadTo } from './founderQuests';
 import { REGION_BY_ID } from '../data/regions';
 
@@ -271,7 +272,9 @@ export function answerSaga(s: GameState, run: number | undefined, option: number
   r.flags.push(...(o.set ?? []));
   const from = r.log.length;
   const out = effects(s, r, o.effects ?? []);
-  say(s, r, `${sagaText(s, r, o.label)}${out.length ? ` (${out.join(', ')})` : ''}.`);
+  // (an answer that ends its own sentence gets no second full stop: "bare its teeth..")
+  const said = sagaText(s, r, o.label).replace(/\.$/, '');
+  say(s, r, `${said}${out.length ? ` (${out.join(', ')})` : ''}${/[!?]$/.test(said) && !out.length ? '' : '.'}`);
   goTo(s, r, o.next);
   // (an ending tells its own story: finish)
   if (!(s.sagas ?? []).includes(r)) return;
@@ -376,12 +379,16 @@ function effects(s: GameState, r: SagaRun, list: readonly SagaEffect[]): string[
         out.push(`${h.name} is called ${e.title}`);
       }
     } else if ('creature' in e) {
-      adoptCreature(s, e.creature);
+      const c = adoptCreature(s, e.creature);
+      out.push(`the young ${CREATURE_DEFS[c.kind].name.toLowerCase()} is the town's now`);
     } else if ('creatureAlign' in e) {
       if (s.creature && !s.creature.dead) s.creature.align = Math.max(-100, Math.min(100, s.creature.align + e.creatureAlign));
       out.push(e.creatureAlign >= 0 ? 'the beast is gentler for it' : 'the beast is crueller for it');
     } else if ('creatureTeach' in e) {
-      if (s.creature && !s.creature.dead) learn(s.creature, e.creatureTeach, e.by);
+      if (s.creature && !s.creature.dead) {
+        learn(s.creature, e.creatureTeach, e.by);
+        out.push(`it ${e.by >= 0 ? 'takes to' : 'learns to leave'} ${deedName(e.creatureTeach)}`);
+      }
     } else if ('unique' in e) {
       if (ITEM_BY_ID[e.unique] && !(s.uniques ?? []).includes(e.unique)) {
         (s.uniques ??= []).push(e.unique);
