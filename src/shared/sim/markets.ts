@@ -510,8 +510,8 @@ export function goBust(s: GameState, mk: MarketState): void {
   mk.bustUntil = s.tick + BUST_DAYS * TICKS_PER_DAY;
   (s.marks ??= []).push({ lever: 'morale', value: BUST_MORALE, until: s.tick + BUST_HOURS * TICKS_PER_HOUR, text: 'The trade house went bust' });
   const took = list(seized);
-  const story = `The moneylenders of ${l.from} came for their ${l.owed} coins, and the trade house could not pay. They took ${paid} coins from the treasury${took !== 'nothing' ? ` and carted off ${took} from the stores` : ''}. The wagons stand idle in the yard; no merchant will deal with us for ${BUST_DAYS} days, and the house must begin again as peddlers.`;
-  log(s, mk, `Gone bust: the moneylenders of ${l.from} seized ${paid} coins${took !== 'nothing' ? ` and ${took}` : ''}.`);
+  const story = `The moneylenders of ${l.from} came for their ${l.owed} coins, and the trade house could not pay. They took ${Math.round(paid)} coins from the treasury${took !== 'nothing' ? ` and carted off ${took} from the stores` : ''}. The wagons stand idle in the yard; no merchant will deal with us for ${BUST_DAYS} days, and the house must begin again as peddlers.`;
+  log(s, mk, `Gone bust: the moneylenders of ${l.from} seized ${Math.round(paid)} coins${took !== 'nothing' ? ` and ${took}` : ''}.`);
   tell(s, 'The trade house goes bust', story, 'bankrupt debt ruin');
 }
 

@@ -2156,8 +2156,11 @@ export function poolSize(pool: Stock): number {
   return n;
 }
 
+/** An amount with the drift of adding up fractions taken off (0.1 + 0.2 is 0.3, 489.99999999999994 is 490). */
+export const tidyAmount = (n: number): number => Math.round(n * 1e6) / 1e6;
+
 export function addStock(to: Stock, m: Material, n: number): void {
-  const v = (to[m] ?? 0) + n;
+  const v = tidyAmount((to[m] ?? 0) + n);
   if (v > 0) to[m] = v;
   else delete to[m];
 }

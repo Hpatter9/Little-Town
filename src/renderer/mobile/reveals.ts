@@ -107,7 +107,7 @@ export const RARE_WORTH = 9;
  *  glows when it's a unique, or dear enough. */
 export function haulOrder(loot: Stock, uniques: readonly string[] = []): HaulLine[] {
   const mats = (Object.entries(loot) as [Material, number][])
-    .filter(([, n]) => n > 0)
+    .filter(([m, n]) => n > 0 && MATERIAL_NAMES[m])
     .sort((a, b) => worth(a[0]) - worth(b[0]) || a[1] - b[1] || a[0].localeCompare(b[0]))
     .map(([m, n]): HaulLine => ({ id: m, name: MATERIAL_NAMES[m] ?? m, n: Math.round(n) }));
   const out = [...mats, ...uniques.map((id): HaulLine => ({ id, name: ITEM_BY_ID[id]?.name ?? id, n: 1, unique: true }))];

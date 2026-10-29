@@ -3,6 +3,7 @@
 // themselves, craftingPanel.ts renderStores, and the treasury) and More (the levers, then faith, villages, council, the
 // people's ways and magic, each once the town has it).
 
+import { amount } from '../../shared/format';
 import { calendarKey, renderCalendar } from './calendarStrip';
 import { faithKey, faithSection } from './faithPanel';
 import { villagesSection } from './villagesPanel';
@@ -342,7 +343,7 @@ function costLine(s: Snapshot, cost: Stock): HTMLElement {
   const entries = (Object.entries(cost) as [Material, number][]).filter(([, n]) => n);
   const short = entries.filter(([m, n]) => (s.stock[m] ?? 0) < n);
   if (!entries.length) return el('div', 'brow-cost', 'No materials');
-  if (short.length) return el('div', 'brow-cost short', `needs ${short.map(([m, n]) => `${n - (s.stock[m] ?? 0)} ${MATERIAL_NAMES[m].toLowerCase()}`).join(', ')}`);
+  if (short.length) return el('div', 'brow-cost short', `needs ${short.map(([m, n]) => `${amount(n - (s.stock[m] ?? 0))} ${MATERIAL_NAMES[m].toLowerCase()}`).join(', ')}`);
   return el('div', 'brow-cost', entries.map(([m, n]) => `${MATERIAL_NAMES[m]} ${n}`).join(' · '));
 }
 
@@ -400,7 +401,7 @@ function underway(s: Snapshot, bridge: Bridge | undefined): HTMLElement[] {
 function siteStatus(b: Snapshot['buildings'][number]): string {
   const def = BUILDING_BY_ID[b.def];
   const need = (Object.entries(def.cost) as [Material, number][]).filter(([m, n]) => (b.delivered[m] ?? 0) < n);
-  return b.progress > 0 ? `${Math.floor(b.progress * 100)}% built` : need.length ? `waiting on ${need.map(([m, n]) => `${MATERIAL_NAMES[m].toLowerCase()} ${b.delivered[m] ?? 0}/${n}`).join(', ')}` : 'ready to build';
+  return b.progress > 0 ? `${Math.floor(b.progress * 100)}% built` : need.length ? `waiting on ${need.map(([m, n]) => `${MATERIAL_NAMES[m].toLowerCase()} ${Math.floor(b.delivered[m] ?? 0)}/${n}`).join(', ')}` : 'ready to build';
 }
 
 /** A building's details (tap its card): its size and age, what it gives the town, what it fights with, the job it

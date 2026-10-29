@@ -5,6 +5,7 @@
 // (`__eventSheet` on the strip's window, read in main.ts). Answered, the box stays: the answer taken and what came of it
 // (`snapshot.eventOutcome`, set by `setOutcome` in the sim) take the answers' place, and Continue closes it.
 
+import { amount } from '../../shared/format';
 import { holdWhileUp } from './popupHold';
 import { EVENT_BOX_KINDS } from '../../shared/sim/popups';
 import { BACKDROPS, type BackdropId } from '../../shared/data/backdrops';
@@ -401,7 +402,7 @@ export function createEventSheet(
     const haul = document.createElement('div');
     haul.className = 'debrief-haul';
     haul.dataset.slot = 'loot-reveal';
-    const loot = Object.entries(d.loot ?? {}).filter(([, n]) => (n ?? 0) > 0);
+    const loot = Object.entries(d.loot ?? {}).filter(([m, n]) => (n ?? 0) > 0 && MATERIAL_NAMES[m as Material]);
     if (!d.ending && loot.length) {
       // (each kind with its icon: the haul told here once, no chest after it)
       for (const [m, n] of loot) {
@@ -409,7 +410,7 @@ export function createEventSheet(
         one.className = 'debrief-item';
         const pic = stockIcon(m as Material, 24);
         if (pic) one.append(pic);
-        one.append(`${n} ${(MATERIAL_NAMES[m as Material] ?? m).toLowerCase()}`);
+        one.append(`${amount(n ?? 0)} ${(MATERIAL_NAMES[m as Material] ?? m).toLowerCase()}`);
         haul.append(one);
       }
     } else haul.textContent = d.ending ?? (d.haul.length ? d.haul.join(', ') : 'Nothing: they come home empty-handed.');

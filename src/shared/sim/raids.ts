@@ -537,7 +537,11 @@ export function updateRaid(s: GameState, rng: Rng): void {
     if (rd.down && rd.captive) release(s, rd); // cut down while carrying someone off: they're dropped
     if (rd.down || rd.gone) continue;
     const step = stepFor * speedOf(rd, s.tick); // (slowed by a trap, it limps)
-    if (rd.bt && !rd.bt.out) continue;
+    if (rd.bt && !rd.bt.out) {
+      // (still standing once the board is over and off it, as one raised after its last turn: on into the town)
+      if (r.tactics?.phase !== 'done' || rd.ally) continue;
+      rd.bt.out = true;
+    }
     if (rd.ally) {
       if (battling) continue; // (the town's allies are on the battle map)
       allyAct(s, r, rd, rng, step);

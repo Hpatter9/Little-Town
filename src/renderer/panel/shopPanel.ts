@@ -3,6 +3,7 @@
 // or sitting over their food; and beside or below it, who's in and what they came for, what the venue has to offer,
 // what's been asked for, and what's happened lately. It only shows: the town runs its venues itself.
 
+import { amount } from '../../shared/format';
 import { hkDraw, hkLayers, hkWhoById, hkWhoOfLook } from '../art/hkFolk';
 import { drawFigureAt, folkFigure, folkWhoById } from '../art/folkPortrait';
 import { drawFolk } from '../art/folkCanvas';
@@ -310,7 +311,7 @@ function stockRow(st: Stock, none: string): HTMLElement {
     const c = el('span', 'chip');
     const icon = materialIcon(m, 12);
     if (icon) c.append(icon);
-    c.append(`${MATERIAL_NAMES[m]} ${n}`);
+    c.append(`${MATERIAL_NAMES[m]} ${amount(n)}`);
     row.append(c);
   }
   return row;

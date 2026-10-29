@@ -467,7 +467,7 @@ export function debrief(s: GameState, e: Expedition, d: Destination): void {
   if (e.rations === 'lean') lines.push('The packs ran thin by the end.');
   const leader = byId(s, e.leader ?? ids[0]);
   const lostWord = !lost.length ? '' : back.length ? `${back.length} of ${ids.length} came home` : 'None came home';
-  const haul = e.crashed || e.wrecked ? [] : (Object.entries(e.loot) as [Material, number][]).filter(([, n]) => n > 0);
+  const haul = e.crashed || e.wrecked ? [] : (Object.entries(e.loot) as [Material, number][]).filter(([m, n]) => n > 0 && MATERIAL_NAMES[m]);
   const haulWords = haul.map(([m, n]) => `${n} ${MATERIAL_NAMES[m]?.toLowerCase() ?? m}`);
   // (one summary card: the founder's chapter named on it, the firsts it earned as lines on it: sim/summaries.ts)
   const since = firstsSoFar(s);

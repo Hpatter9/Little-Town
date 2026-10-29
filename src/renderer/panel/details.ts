@@ -4,6 +4,7 @@
 // caller gives, and is part of the panel's redraw key (panel.ts), so an open card stays open as the snapshot moves on.
 // Buttons, inputs and links inside a card keep working as before: a tap on them never opens or closes it.
 
+import { amount } from '../../shared/format';
 import { BUILDING_BY_ID, BUILDINGS } from '../../shared/data/buildings';
 import { DESTINATIONS } from '../../shared/data/expeditions';
 import { FOOD_VALUE } from '../../shared/data/people';
@@ -110,7 +111,7 @@ export const groupLine = (g: Record<string, number>): string =>
 export const stockLine = (st: Partial<Record<Material, number>>): string =>
   (Object.entries(st) as [Material, number][])
     .filter(([, n]) => n)
-    .map(([m, n]) => `${n} ${MATERIAL_NAMES[m]?.toLowerCase() ?? m}`)
+    .map(([m, n]) => `${amount(n)} ${MATERIAL_NAMES[m]?.toLowerCase() ?? m}`)
     .join(', ');
 
 /** What a piece of gear does, line by line, at its grade and +N (`qn`, data/quality.ts). */
@@ -198,7 +199,7 @@ export function materialDetails(m: Material, s: Snapshot): More[] {
   const few = (xs: string[], n = 10) => (xs.length > n ? `${xs.slice(0, n).join(', ')} and ${xs.length - n} more` : xs.join(', '));
   return [
     facts([
-      ['In store', String(s.stock[m] ?? 0)],
+      ['In store', amount(s.stock[m] ?? 0)],
       ['Worth', WORTH[m] ? `${WORTH[m]} coin${WORTH[m] === 1 ? '' : 's'} a unit` : null],
       ['Food', FOOD_VALUE[m] ? `feeds ${FOOD_VALUE[m]} a unit` : null],
       ['From the land', land.length ? land.join(', ') : null],

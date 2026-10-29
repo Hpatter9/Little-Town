@@ -62,7 +62,7 @@ import { PART_IDS } from '../data/chains';
 import { researchMods, tidyPicks } from './research';
 import { chooseOffer, offerableTopics, offerOverdue, townPicksResearch } from './researchOffer';
 import { acceptVisitor, housingCapacity } from './townsfolk';
-import { tireless, eatersOf, foodDaysFor, addStock, campCell, poolSize, type Building, type GameState } from './state';
+import { tireless, eatersOf, foodDaysFor, addStock, tidyAmount, campCell, poolSize, type Building, type GameState } from './state';
 import { TICKS_PER_HOUR, calendarOf } from './time';
 import { LINE_ITEMS, lineOfDef, COIN_RESERVE, FARE, PIECE_RATE, saleValue, FARE_STOCK, furnishes, isShop, isTavern, PURSE_SCALE, tiersDrawn, travellerGoods, VENUE_CHAIN, venueOfDef, WARE_STOCK, WARES } from '../data/shop';
 import { WAGE_SHARE, wageBill } from './wages';
@@ -1455,6 +1455,7 @@ export function forSale(s: GameState): Stock {
       spare = Math.min(have, Math.floor(spareFood / value));
       spareFood -= spare * value;
     } else spare = have - Math.max(n.demand[m] ?? 0, (RESERVE[m] ?? 6) * 2, AMMO.includes(m) ? AMMO_KEEP : 0);
+    spare = tidyAmount(spare);
     if (spare > 0) out[m] = spare;
   }
   return out;
@@ -1475,7 +1476,7 @@ export function shoppingList(s: GameState): { m: Material; n: number; essential:
   const building: Stock = {};
   for (const b of s.buildings) if (inWork(b)) for (const [m, k] of Object.entries(stillNeeded(b)) as [Material, number][]) addStock(building, m, k);
   for (const m of MATERIALS) {
-    const short = (n.demand[m] ?? 0) - (n.stock[m] ?? 0);
+    const short = tidyAmount((n.demand[m] ?? 0) - (n.stock[m] ?? 0));
     if (short <= 0 || m === 'totem') continue;
     const essential = !sourceable(s, m, 0, false);
     const k = essential || rich ? short : Math.min(short, building[m] ?? 0);

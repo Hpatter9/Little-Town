@@ -167,6 +167,52 @@ test('a raid led by a chief breaks when the chief falls', () => {
   assert.equal(t.broken, true);
 });
 
+test('a raider struck down on the board and raised again (the Lich Lord\'s spell) comes back on to be fought, and the raid ends', () => {
+  const s = town('tac-risen', 6);
+  const r = startRaid(s, RAID_KIND_BY_ID.bandits, 120, new Rng(5));
+  s.prompts = [];
+  r.arrivesTick = s.tick;
+  const rng = new Rng(11);
+  updateRaid(s, rng);
+  const t = r.tactics as Tactics;
+  run(s, rng, 400, () => t.units.filter((u) => u.foe).length + t.waiting.length >= 3);
+  assert.ok(t.units.some((u) => u.foe), 'a raider on the board');
+  const u = t.units.find((x) => x.foe)!;
+  const rd = r.raiders.find((q) => `r${q.id}` === u.key)!;
+  rd.hp = 0;
+  rd.down = true;
+  run(s, rng, 2);
+  assert.ok(!t.units.some((x) => x.key === u.key), 'off the board once down');
+  // (as sim/rivals.ts raise does)
+  rd.down = false;
+  rd.hp = Math.round(rd.maxHp / 2);
+  run(s, rng, 2);
+  assert.ok(t.waiting.includes(rd.id) || t.units.some((x) => x.key === u.key), 'back on the board, or waiting to come on');
+  run(s, rng, 40000);
+  assert.equal(s.raid, null, 'the raid ends');
+});
+
+test('a raider still standing off the board once it is over walks on into the town, and the raid can end', () => {
+  const s = town('tac-risen-late', 6);
+  const r = startRaid(s, RAID_KIND_BY_ID.bandits, 120, new Rng(5));
+  s.prompts = [];
+  r.arrivesTick = s.tick;
+  const rng = new Rng(11);
+  updateRaid(s, rng);
+  const t = r.tactics as Tactics;
+  run(s, rng, 400, () => t.units.some((u) => u.foe));
+  // (the board over with raiders standing that it never let off it, as one raised after its last turn)
+  t.phase = 'done';
+  t.units = t.units.filter((u) => !u.foe);
+  t.waiting = [];
+  const left = r.raiders.filter((q) => !q.ally && !q.down && !q.gone);
+  assert.ok(left.length && left.every((q) => q.bt && !q.bt.out), 'standing, with their board places');
+  run(s, rng, 2);
+  assert.ok(left.every((q) => q.bt!.out || q.down || q.gone), 'let on to the map');
+  run(s, rng, 40000);
+  assert.equal(s.raid, null, 'the raid ends');
+});
+
 test('the board stays up a moment after the raid is over, with the outcome across it', () => {
   const s = town('tac-linger', 6);
   const r = startRaid(s, RAID_KIND_BY_ID.wolves, 10, new Rng(4));

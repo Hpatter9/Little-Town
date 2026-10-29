@@ -2,6 +2,7 @@
 // of what was just done (or where the party is going); along the bottom, the foes' names on the left, and the party on
 // the right, each with health and the time gauge till their next turn. "Back to town" stops watching.
 
+import { amount } from '../../shared/format';
 import type { ExpeditionView, MineView, Snapshot } from '../../shared/sim/snapshot';
 import { guildMark } from '../art/guildMarks';
 import { itemIcon } from '../art/icons';
@@ -152,7 +153,7 @@ export function createFightHud(on: { back(): void; speed(n: number): void }): Fi
       rows.append(row);
     }
     result.append(rows);
-    const spoils = Object.entries(r.loot).filter(([, n]) => (n ?? 0) > 0).map(([m, n]) => `${n} ${MATERIAL_NAMES[m as Material] ?? m}`);
+    const spoils = Object.entries(r.loot).filter(([, n]) => (n ?? 0) > 0).map(([m, n]) => `${amount(n ?? 0)} ${MATERIAL_NAMES[m as Material] ?? m}`);
     if (r.coins > 0) spoils.unshift(`${r.coins} coins`);
     if (r.outcome === 'won') {
       const got = document.createElement('div');
