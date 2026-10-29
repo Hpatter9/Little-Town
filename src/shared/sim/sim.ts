@@ -143,6 +143,7 @@ import { festivalsHourly } from './festivals';
 import { cultureHourly } from './culture';
 import { diaryTick } from './diary';
 import { injuriesHourly } from './injuries';
+import { hardshipHourly } from './hardship';
 import { partiesHourly, postBounty, setVeto, withdrawBounty } from './parties';
 import { boatsHourly } from './boats';
 import { seafaringHourly } from './seafaring';
@@ -284,6 +285,7 @@ export class Sim {
     tiersHourly(s); // (the town's rank, the firsts it sees, its generations: sim/tiers.ts)
     memorialsHourly(s); // (homes named, ruins cleared, statues to the famous dead: sim/statues.ts)
     injuriesHourly(s, this.rng);
+    hardshipHourly(s); // (fevers in a crowded town, festering wounds, the winter's cold: sim/hardship.ts)
     if (s.tick % TICKS_PER_HOUR === 0) for (const p of s.people) if (p.autoPriorities) p.priorities = autoPriorities(p.skills, p.id === s.mainId);
     if (s.tick % TICKS_PER_HOUR === 0) classesHourly(s);
     if (s.tick % TICKS_PER_HOUR === 0) decayWear(s.land, s.tick / TICKS_PER_HOUR); // (footpaths grass over where nobody walks)

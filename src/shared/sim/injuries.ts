@@ -45,6 +45,8 @@ export interface Wound {
   /** How bad it is now (0..1), and how bad it got (for the chance it scars). */
   sev: number;
   peak: number;
+  /** Turned bad, left untended: it takes health till it clears (sim/hardship.ts). */
+  fester?: boolean;
 }
 export interface Lasting {
   part: BodyPart;

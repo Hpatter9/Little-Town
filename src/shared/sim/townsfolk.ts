@@ -226,7 +226,7 @@ export function mood(s: GameState, p: Person, here?: TownMood): { target: number
     if (im.pain) add('In pain', im.pain);
     if (im.comfort) add('A glass eye', im.comfort);
   }
-  if (p.sick) add('Sick with the plague', PLAGUE_MORALE);
+  if (p.sick) add(p.sick.fever ? 'Down with a fever' : 'Sick with the plague', PLAGUE_MORALE);
   if (s.doom?.phase === 'active' && s.doom.kind === 'ash_winter') add('Ash blots out the sun', ASH_MORALE);
   if (s.doom?.phase === 'active' && s.doom.kind === 'smog' && p.away === null) add('Choking smog', SMOG_MORALE);
   if (s.doom?.phase === 'active' && s.doom.kind === 'meltdown' && p.away === null && !tireless(p)) add('Fallout sickness', FALLOUT_MORALE);
