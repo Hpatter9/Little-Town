@@ -81,6 +81,7 @@ import { enemyDestination, enemyPlaceCleared, isEnemyDest } from './greatEnemy';
 import { HUNT_DEST, HUNT_PARTY, isPackDest } from '../data/pack';
 import { packDestinationOf, packDestUnlocked, packHome } from './pack';
 import { tireless, townFull, addStock, carryCapacity, earn, ERA_MULTIPLIER, makePerson, maxHp, meet, notify, poolSize, type Expedition, type FightResult, type GameState, type Person } from './state';
+import { winterYield } from './hardship';
 import { TICK_HZ, TICKS_PER_DAY, TICKS_PER_HOUR } from './time';
 import { askToWatch } from './watchAsk';
 import { huntedUnit, huntFactors } from './wild';
@@ -516,7 +517,7 @@ export function updateExpeditions(s: GameState, rng: Rng): void {
           break;
         }
         const cap = partyCarry(s, e);
-        const game = d.type === 'hunt' ? huntFactors(s).yield : 1; // (real game: sim/wild.ts)
+        const game = d.type === 'hunt' ? huntFactors(s).yield * winterYield(s) : 1; // (real game: sim/wild.ts; lean in winter: sim/hardship.ts)
         const lodge = d.type === 'hunt' && s.buildings.some((b) => b.def === 'hunters_lodge' && b.status === 'done') ? HUNTERS_LODGE_BONUS : 1;
         for (const p of members) {
           if (p.downed || e.roles[p.id] === 'porter') continue;

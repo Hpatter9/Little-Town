@@ -13,6 +13,7 @@ import { skillSpeed } from '../data/skills';
 import type { Rng } from '../rng';
 import { buildingCentreX, depositNear, storages, totalStock } from './buildings';
 import { addStock, foodDaysFor, carryCapacity, notify, poolSize, type Building, type GameState, type Person } from './state';
+import { winterYield } from './hardship'; // (lean in winter)
 import { TICK_HZ, TICKS_PER_HOUR, calendarOf } from './time';
 import { gainSkill, workFactor } from './townsfolk';
 
@@ -113,7 +114,7 @@ export function workPen(s: GameState, p: Person, b: Building): boolean {
   h.work = 0;
   h.tended = s.tick;
   const got: Stock = {};
-  for (const [m, per] of Object.entries(def.yields) as [Material, number][]) addStock(got, m, Math.max(1, Math.round(h.head * per * hillGrazing(s, b))));
+  for (const [m, per] of Object.entries(def.yields) as [Material, number][]) addStock(got, m, Math.max(1, Math.round(h.head * per * hillGrazing(s, b) * winterYield(s))));
   // a full pen (that couldn't be widened) sells one to a drover when food is plenty, else one goes to the pot; a meat
   // pen sends one to the pot each tending, and any pen does when food is short (a breeding pair is always kept)
   const full = h.head >= penRoom(b);

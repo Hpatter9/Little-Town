@@ -34,7 +34,7 @@ import { SHAFT } from '../data/deep';
 import { shaftHasWork } from './deep';
 import { guardEngages, roamerToHunt } from './roamers';
 import { onNightWatch, watchHour } from './nightWatch';
-import { buildingCentre, buildingDoor, defOf, distToBuilding, footprint, stillNeeded, storageFree, storages, townRadius, inWork, overgrownCells, cellCleared, buildableNow, deliveredShare, layoutOf, sameLayout, type BuildingsLayout } from './buildings';
+import { buildingCentre, buildingDoor, defOf, distToBuilding, footprint, stillNeeded, storageFree, storages, totalStock, townRadius, inWork, overgrownCells, cellCleared, buildableNow, deliveredShare, layoutOf, sameLayout, type BuildingsLayout } from './buildings';
 import { FEED_SECONDS } from '../data/lighting';
 import { feedLight, lightToFeed } from './lighting';
 import { roughSpot } from './roughSleep';
@@ -67,6 +67,7 @@ import { stabilize } from './health';
 import { mended, needsSickbed, sickbedFor } from './sickbeds';
 import { drainNeeds, gainSkill, GROUND_SLEEP, HUNGRY, SLEEP_PER_HOUR, SUPPER, SULK_MORALE, wantsSleep, wantsToWake, workFactor } from './townsfolk';
 import { buildSpeed, craftSpeed, forageSpeed, researchSpeed } from './origin';
+import { firewoodWanted, winterForage } from './hardship'; // (the winter's bare land and its firewood)
 import { accruePay, accruePayFrom, loadPrice, moneyTown, payForMeal, payFromTreasury, spareForPay } from './economy';
 import { BUILD_PACE, BUILD_PER_HOUR, buildPower, HIRE_PER_HOUR, STUDY_PER_HOUR } from '../data/economy';
 import { canWork, skillPace } from './property';
@@ -959,7 +960,7 @@ function workGather(s: GameState, p: Person, task: Extract<Task, { type: 'gather
   }
   if (p.activity !== def.anim) pickTool(s, p, def.anim);
   p.activity = def.anim;
-  const speed = skillSpeed(p.skills.gathering.level) * researchMods(s.research).gather[def.anim] * toolSpeed(p, def.anim) * workFactor(s, p) * (def.anim === 'forage' ? doomForage(s) * biomeOf(s).forage * forageSpeed(s) : 1);
+  const speed = skillSpeed(p.skills.gathering.level) * researchMods(s.research).gather[def.anim] * toolSpeed(p, def.anim) * workFactor(s, p) * (def.anim === 'forage' ? doomForage(s) * winterForage(s) * biomeOf(s).forage * forageSpeed(s) : 1);
   // (the land is the same in every era: a tree takes no longer to fell in the Medieval era)
   task.progress += speed / (def.secondsPerUnit * TICK_HZ);
   while (task.progress >= 1 && p.task === task) {
@@ -977,7 +978,7 @@ function scrounge(s: GameState, p: Person, task: Extract<Task, { type: 'gather' 
     return;
   }
   p.activity = 'forage';
-  task.progress += (skillSpeed(p.skills.gathering.level) * doomForage(s) * biomeOf(s).forage * forageSpeed(s)) / (SCROUNGE_SECONDS * TICK_HZ);
+  task.progress += (skillSpeed(p.skills.gathering.level) * doomForage(s) * winterForage(s) * biomeOf(s).forage * forageSpeed(s)) / (SCROUNGE_SECONDS * TICK_HZ);
   if (task.progress < 1) return;
   task.progress = 0;
   addStock(pool, 'berries', -1);
@@ -1542,9 +1543,11 @@ function findJob(s: GameState, p: Person, job: Job): Task | null {
       // (a site with a builder at it, or walls going up, is carried to first, so the builder never stops for want)
       for (const b0 of haulOrder(s)) {
         const need = unreserved(s, p, b0);
-        if (!poolSize(need)) continue;
         // (the wall going up is one site: carried to the part of it nearest the hauler)
         const ringS = ringSite(s, b0);
+        // (and from autumn on it leaves the winter's firewood on the pile: sim/hardship.ts)
+        if (ringS && need.wood) need.wood = Math.max(0, Math.min(need.wood, (totalStock(s).wood ?? 0) - firewoodWanted(s)));
+        if (!poolSize(need)) continue;
         const b = (ringS && ringHaulTarget(s, ringS, { x: p.x, y: p.y })) || b0;
         const from = storeOnTheWay(s, p, buildingDoor(b), (st) => (Object.keys(need) as Material[]).some((m) => (st.store[m] ?? 0) > 0));
         if (!from) continue;
