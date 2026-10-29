@@ -389,3 +389,21 @@ test('the God creature stands on the board by the name the town gave it', () => 
   assert.ok(names.includes('Fenn'), names.join(', '));
   assert.ok(!names.includes('God Wolf'), names.join(', '));
 });
+
+import { Sim } from '../src/shared/sim/sim';
+import { fightOnScreen } from '../src/shared/sim/raidWait';
+
+test('a raid\'s question runs out while its finished board is up, so the raid is not held for good', () => {
+  const { s, r, t } = boardNow('tac-mercy-held', 4);
+  // (the board over, and the raiders asked about: "They break!", left unanswered)
+  t.phase = 'done';
+  t.outcome = 'won';
+  const id = s.nextId++;
+  s.prompts.push({ id, kind: 'raid', expedition: null, title: 'They break!', text: '', options: ['Let them go', 'Hunt them down'], defaultOption: 0, expiresTick: s.tick + 10 });
+  r.mercyAsk = id;
+  assert.ok(fightOnScreen(s));
+  const sim = new Sim(s);
+  for (let i = 0; i < 30; i++) sim.step('fight');
+  assert.ok(!s.prompts.some((q) => q.id === id), 'answered with its default once its time ran out');
+  assert.ok(r.mercy, 'the town let them go');
+});
