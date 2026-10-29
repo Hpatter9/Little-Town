@@ -140,7 +140,7 @@ export const DROUGHT_FORAGE = 0.5;
 /** Plague: chance per game hour a sick person passes it to each person near them (halved with an
  *  infirmary), health lost per hour, how long it lasts (game hours), and its toll on work and morale. */
 export const PLAGUE_SPREAD = 0.06;
-export const PLAGUE_HP_PER_HOUR = 1.3;
+export const PLAGUE_HP_PER_HOUR = 1.5;
 export const PLAGUE_HOURS: [number, number] = [24, 48];
 export const PLAGUE_WORK = 0.6;
 export const PLAGUE_MORALE = -8;
