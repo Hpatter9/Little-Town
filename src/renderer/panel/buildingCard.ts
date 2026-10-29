@@ -4,6 +4,7 @@
 // it under a building's title (mobile/mobile.ts); the page gives it the town's pictures (`BuildingArt`) because the strip
 // holds the sheets, and this card holds no game state of its own.
 
+import { amount } from '../../shared/format';
 import { BUILDING_BY_ID } from '../../shared/data/buildings';
 import { ITEM_BY_ID } from '../../shared/data/items';
 import { MATERIAL_NAMES, type Material } from '../../shared/data/materials';
@@ -142,7 +143,7 @@ export function buildingCard(s: Snapshot, id: number, art: BuildingArt, onName?:
     if (role && !op) needs.push([`A ${role.title.toLowerCase()}`, false]);
     if (def.housing && !living.length) needs.push(['Someone to live here', false]);
     if (def.storage) needs.push([`Stored ${poolSize(b.store)}/${def.storage}`, poolSize(b.store) < def.storage]);
-    for (const o of orders) for (const [m, n] of Object.entries(o.needed) as [Material, number][]) if (n > 0) needs.push([`${n} ${MATERIAL_NAMES[m].toLowerCase()} for ${ITEM_BY_ID[o.item]?.name ?? o.item}`, false]);
+    for (const o of orders) for (const [m, n] of Object.entries(o.needed) as [Material, number][]) if (n > 0) needs.push([`${amount(n)} ${MATERIAL_NAMES[m].toLowerCase()} for ${ITEM_BY_ID[o.item]?.name ?? o.item}`, false]);
   }
   // (the town lays no path of its own: the player draws one to the door with ⛙, sim/pathPlans.ts)
   if (!hasPath(s, b)) needs.push(['A path to its door (⛙)', false]);

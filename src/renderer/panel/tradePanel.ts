@@ -2,6 +2,7 @@
 // one is at the market), the workshops' orders and recipes (craftingPanel.ts renderWorkshops), and the animals: the
 // pens' herds and the horses.
 
+import { amount } from '../../shared/format';
 import { storePanel } from '../../shared/ipc';
 const STORE_MARKS: Record<string, string> = { furniture: '🪑', weapons: '⚔️', armour: '🛡️', medicine: '⚗️' };
 import { MATERIAL_NAMES, type Material, type Stock } from '../../shared/data/materials';
@@ -21,7 +22,7 @@ export const tradeKey = (s: Snapshot) =>
 
 const list = (st: Stock) =>
   (Object.entries(st) as [Material, number][])
-    .map(([m, n]) => `${n} ${MATERIAL_NAMES[m].toLowerCase()}`)
+    .map(([m, n]) => `${amount(n)} ${MATERIAL_NAMES[m].toLowerCase()}`)
     .join(', ');
 
 export function renderTrade(s: Snapshot, bridge: Bridge | undefined): HTMLElement[] {
@@ -115,7 +116,7 @@ function dealDetails(o: NonNullable<Snapshot['caravan']>['offers'][number], s: S
   const worth = (st: Stock) => Math.round((Object.entries(st) as [Material, number][]).reduce((n, [m, k]) => n + (at.get(m) ?? WORTH[m] ?? 1) * k, 0));
   const have = (st: Stock) =>
     (Object.keys(st) as Material[])
-      .map((m) => `${s.stock[m] ?? 0} ${MATERIAL_NAMES[m].toLowerCase()}`)
+      .map((m) => `${amount(s.stock[m] ?? 0)} ${MATERIAL_NAMES[m].toLowerCase()}`)
       .join(', ');
   const give = worth(o.wants);
   const get = o.horse ? 0 : worth(o.gives);

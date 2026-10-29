@@ -522,7 +522,10 @@ export function updateExpeditions(s: GameState, rng: Rng): void {
           if (p.downed || e.roles[p.id] === 'porter') continue;
           e.work += (skillSpeed(p.skills[workSkill(d, p)].level) * workFactor(s, p) * lodge * game) / (d.secondsPerUnit * ERA_MULTIPLIER[s.era] * TICK_HZ);
         }
-        while (e.work >= 1 && poolSize(e.loot) < cap) {
+        // (a trip with nothing to gather, a hunt for a beast or a fight to clear a place, brings home only what it wins:
+        // drawn from an empty table, its work came home as "19 undefined")
+        const gathers = Object.values(d.loot).some((w) => (w ?? 0) > 0);
+        while (gathers && e.work >= 1 && poolSize(e.loot) < cap) {
           e.work -= 1;
           addStock(e.loot, rng.weighted(d.loot as Record<Material, number>), 1);
           if (d.type === 'hunt') huntedUnit(s, 1); // (a head falls from the nearest herd)

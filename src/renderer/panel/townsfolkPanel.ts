@@ -35,7 +35,7 @@ import type { PersonView, Snapshot, VisitorView } from '../../shared/sim/snapsho
 import type { CreatureView } from '../../shared/sim/creature';
 import { creatureCard, creatureNow, natureBar } from '../map/creatureCard';
 import { CREATURE_ROOT } from '../iso/creatureRules';
-import { bleedLeft } from '../../shared/format';
+import { bleedLeft, amount } from '../../shared/format';
 import { button, el } from './dom';
 import { openCard } from './infoCard';
 import { tapLink } from './structure';
@@ -701,7 +701,7 @@ function bag(p: PersonView): HTMLElement {
     if (st) {
       const [m, n] = st;
       cell.classList.add('full');
-      cell.title = `${MATERIAL_NAMES[m]} ×${n}`;
+      cell.title = `${MATERIAL_NAMES[m]} ×${amount(n)}`;
       const icon = stockIcon(m, 24);
       cell.append(icon ?? el('span', 'bag-word', MATERIAL_NAMES[m].slice(0, 3)));
       cell.append(el('span', 'bag-count', String(n)));

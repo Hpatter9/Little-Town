@@ -1109,6 +1109,10 @@ function tidy(s: GameState, r: Raid, t: Tactics, rng: Rng): void {
       rd.bt = { d: 0, lane: 0, wave: 0 };
       t.waiting.push(rd.id);
     }
+  // (a raider fell on the board and got up again, raised by a lord's spell (sim/rivals.ts): it comes on again with the
+  // next wave; left off the board, nobody could fight it and the raid never ended)
+  for (const rd of r.raiders)
+    if (!rd.ally && !rd.down && !rd.gone && rd.bt && !rd.bt.out && !t.waiting.includes(rd.id) && !t.units.some((u) => u.key === `r${rd.id}`)) t.waiting.push(rd.id);
   spawn(s, r, t);
 }
 

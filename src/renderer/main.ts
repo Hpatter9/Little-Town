@@ -176,7 +176,7 @@ const travellerDoing = (t: TravellerView) => {
   const where = t.venue === 'tavern' ? 'tavern' : 'shop';
   return t.phase === 'arriving' ? `On the way to the ${where}` : t.phase === 'shopping' ? `In the ${where}` : 'Moving on';
 };
-import { bleedLeft } from '../shared/format';
+import { bleedLeft, amount } from '../shared/format';
 import { poolSize } from '../shared/sim/state';
 import { hashSeed } from '../shared/rng';
 import { MARK_CLEAR_CAP } from '../shared/sim/commands';
@@ -337,7 +337,7 @@ const SHOW_PANE = false;
 
 const listStock = (s: Stock) =>
   MATERIALS.filter((m) => (s[m] ?? 0) > 0)
-    .map((m) => `${MATERIAL_NAMES[m]} ${s[m]}`)
+    .map((m) => `${MATERIAL_NAMES[m]} ${amount(s[m] ?? 0)}`)
     .join(' · ');
 
 /** Names for the open kinds of ground (the wild kinds are named by TERRAIN). */
@@ -1290,7 +1290,7 @@ async function start(): Promise<void> {
     if (menu === 'demolish') return [{ label: 'Demolish (refund half)', onClick: doIt, danger: true }, { label: 'Keep', onClick: () => setMenu('main') }];
     if (menu === 'empty' && held.length) {
       const list: Action[] = held.map((m) => ({
-        label: `Throw out ${MATERIAL_NAMES[m]} (${b.store[m]})`,
+        label: `Throw out ${MATERIAL_NAMES[m]} (${amount(b.store[m] ?? 0)})`,
         onClick: () => bridge.command({ type: 'discardStock', building: b.id, material: m }),
         danger: true,
       }));

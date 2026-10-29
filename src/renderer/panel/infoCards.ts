@@ -3,6 +3,7 @@
 // the Chronicle. Each from the data and the snapshot, a few lines and the people in it as portraits to tap. They also
 // tell infoCard.ts which names to find in a line of text (`registerNames`), so the Chronicle and the cards link them.
 
+import { amount } from '../../shared/format';
 import { BUILDING_BY_ID, BUILDINGS } from '../../shared/data/buildings';
 import { CLASS_DEFS, type ClassId } from '../../shared/data/classes';
 import { MATERIAL_NAMES, type Material } from '../../shared/data/materials';
@@ -29,7 +30,7 @@ const list = (lines: string[]): HTMLElement => {
 const stockWords = (st: Partial<Record<Material, number>>) =>
   (Object.entries(st) as [Material, number][])
     .filter(([, n]) => n)
-    .map(([m, n]) => `${n} ${MATERIAL_NAMES[m]?.toLowerCase() ?? m}`)
+    .map(([m, n]) => `${amount(n)} ${MATERIAL_NAMES[m]?.toLowerCase() ?? m}`)
     .join(', ');
 
 /* ---- a kind of building ---- */

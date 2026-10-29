@@ -1,5 +1,6 @@
 // Crafting panel: the craft queue, the spare items in town, and every recipe by station.
 
+import { amount } from '../../shared/format';
 import { RARE_SET } from '../../shared/data/chains';
 import { BUILDING_BY_ID } from '../../shared/data/buildings';
 import { eraReached } from '../../shared/data/eras';
@@ -159,7 +160,7 @@ function inventory(s: Snapshot, worn: Map<string, number>, rerender: () => void)
     const chip = el('div', 'inv-item');
     const icon = stockIcon(m, 16);
     if (icon) chip.append(icon);
-    chip.append(el('span', '', `${MATERIAL_NAMES[m]} ×${s.stock[m]}`));
+    chip.append(el('span', '', `${MATERIAL_NAMES[m]} ×${amount(s.stock[m] ?? 0)}`));
     inv.append(pickable(chip, 'inv', `m:${m}`));
   }
   for (const id of items) {
@@ -182,7 +183,7 @@ function inventory(s: Snapshot, worn: Map<string, number>, rerender: () => void)
     if (pick.startsWith('m:') && MATERIAL_NAMES[id as Material]) {
       const m = id as Material;
       const top = el('div', 'card-top');
-      top.append(el('span', 'card-name', MATERIAL_NAMES[m]), el('span', 'card-size', `×${s.stock[m] ?? 0}`));
+      top.append(el('span', 'card-name', MATERIAL_NAMES[m]), el('span', 'card-size', `×${amount(s.stock[m] ?? 0)}`));
       c.append(top);
       for (const x of materialDetails(m, s)) if (x) c.append(typeof x === 'string' ? el('div', 'more-line', x) : x);
       out.push(c);
