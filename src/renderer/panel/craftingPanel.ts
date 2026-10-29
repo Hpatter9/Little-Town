@@ -20,7 +20,7 @@ import { expandable, itemDetails, materialDetails, pickable, pickedIn } from './
 import { topicName } from '../../shared/data/originResearch';
 
 /** What the stores show: every count in stock, the spare items and what's worn. */
-export const storesKey = (s: Snapshot) => JSON.stringify([invTab, s.era, s.storageUsed, s.storageCapacity, s.stock, s.items, s.people.map((p) => p.gear)]);
+export const storesKey = (s: Snapshot) => JSON.stringify([invTab, s.era, s.storageUsed, s.storageCapacity, s.stock, s.items, s.people.map((p) => p.gear), s.firewood]);
 
 /** Changes whenever something this panel shows changes (progress to the whole percent). */
 export const craftingKey = (s: Snapshot) =>
@@ -46,7 +46,22 @@ export function renderStores(s: Snapshot, rerender: () => void = () => {}): HTML
   fill.append(f);
   const room = el('div', 'panel-head');
   room.append(el('span', '', `Stored ${s.storageUsed} of ${s.storageCapacity}`), el('span', '', s.storageUsed >= s.storageCapacity * 0.9 ? 'Nearly full: the town builds more storage' : ''));
-  return [el('h2', '', 'Stores'), room, fill, ...inventory(s, worn, rerender)];
+  return [el('h2', '', 'Stores'), room, fill, ...woodpileLine(s), ...inventory(s, worn, rerender)];
+}
+
+/** The winter's woodpile, in autumn and winter (sim/hardship.ts `woodpileForecast`): what's put by, what the winter
+ *  still wants, how long it all lasts, and the warning. */
+function woodpileLine(s: Snapshot): HTMLElement[] {
+  const fw = s.firewood;
+  if (!fw) return [];
+  const line = el('div', `lock short woodpile${fw.warn ? ' warn' : ''}`);
+  if (fw.heated) line.textContent = `Firewood: the town is heated, and its hearths burn nothing (${fw.pile} logs on the woodpile).`;
+  else if (fw.warn === 'cold') line.textContent = 'Firewood: none left, and the hearths have gone cold! Everyone at home is freezing. Gather wood or bring in coal.';
+  else {
+    const days = fw.lastsDays === null ? '' : ` With the stores' wood and coal it lasts about ${Math.floor(fw.lastsDays)} day${Math.floor(fw.lastsDays) === 1 ? '' : 's'} at ${Math.round(fw.perDay * 10) / 10} a day.`;
+    line.textContent = `Firewood: ${fw.pile} logs on the woodpile, ${fw.need} wanted for the rest of the winter.${days}${fw.warn === 'short' ? " It won't last the winter: gather wood." : ''}`;
+  }
+  return [line];
 }
 
 /** The Market's Workshops: what's on order at the stations, and every recipe the town knows (it orders them itself). */

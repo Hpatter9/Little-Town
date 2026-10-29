@@ -34,6 +34,7 @@ import { ambitionOf } from './ambition';
 import { startBattle } from './combat';
 import { giveCoins } from './economy';
 import { holdForFounder } from './founderQuests';
+import { answerDelveAsk, delveRisk, type DelveRisk } from './founderDelves';
 import { destinationOf, destinationUnlocked, partyCarry, planParty, rolesFor, sendExpedition, STAKES, type SendCheck, type Stakes } from './expeditions';
 import { dangerOf, fitToGo, mostFor, partRole, recruit, strengthOf } from './parties';
 import { storyTrip } from './story';
@@ -416,6 +417,13 @@ export function crossroads(s: GameState, e: Expedition, members: Person[], rng: 
 
 /** The answer to a road question (the player's, or the leader's when nobody answered). */
 export function answerCrossroads(s: GameState, prompt: Prompt, option: number, rng: Rng): void {
+  // (the founder's choice down in a delve: sim/founderDelves.ts)
+  const delve = answerDelveAsk(s, prompt, option);
+  if (delve !== null) {
+    notify(s, `${prompt.title}: ${delve}`, true);
+    setOutcome(s, prompt.title, prompt.options[option] ?? null, delve);
+    return;
+  }
   const e = s.expeditions.find((q) => q.id === prompt.expedition);
   const c = CROSSROADS.find((x) => x.id === prompt.road);
   if (!e || !c) return;
@@ -544,6 +552,9 @@ export interface MusterView {
   rations: Rations;
   torches: number;
   delve: boolean;
+  /** A dungeon's danger against this party: the likeliest and worst at the bottom, and the founder's heir if they go
+   *  (sim/founderDelves.ts). */
+  risk: DelveRisk | null;
   horses: boolean;
   horsesHome: number;
   treasury: number;
@@ -578,6 +589,7 @@ export function musterView(s: GameState, calling: (p: Person) => string | null):
     rations: m.rations,
     torches: m.torches,
     delve: d.type === 'delve',
+    risk: delveRisk(s, m.dest, m.members.map((id) => byId(s, id)).filter((p): p is Person => !!p)),
     horses: m.horses,
     horsesHome: s.horses.length,
     treasury: s.coins ?? 0,

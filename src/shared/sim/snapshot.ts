@@ -76,6 +76,8 @@ import { natureOf, type NatureId } from '../data/natures';
 import { ageDays, ageLine, ageYears, isElder, lifeStage, type LifeStage } from './ageing';
 import { ROOM_SECONDS, TWISTS } from '../data/dungeons';
 import { bossName, delveRoomTicks, quietHours } from './delves';
+import { woodpileForecast, type WoodpileForecast } from './hardship';
+import { delveRisk, founderPartyFor, knownDungeons, type DelveRisk } from './founderDelves';
 import { LOOK_OF_TYPE } from './delveFloors';
 import { storyPlaceOf } from './storyPlaces';
 import { HOME_REGION } from '../data/regions';
@@ -268,6 +270,10 @@ export interface FounderView {
   uniqueNames: Record<string, string>;
   /** The visitor's terms, apprentices, matches and feasts (sim/founderDealings.ts). */
   dealings: DealingsView;
+  /** The dungeons on the board the founder could lead a delve into, each with its danger against who'd go with them
+   *  (sim/founderDelves.ts), and why they can't just now (null: they can). */
+  delves: DelveRisk[];
+  delveBlock: string | null;
 }
 export interface FounderShopView {
   id: number;
@@ -1063,6 +1069,8 @@ export interface Snapshot {
   companies: CompanyView[];
   /** A party the player is raising (sim/muster.ts). */
   muster: MusterView | null;
+  /** The winter's woodpile in autumn and winter (sim/hardship.ts `woodpileForecast`), else null. */
+  firewood: WoodpileForecast | null;
   /** The powers of the realm (sim/factions.ts), and the town's might they weigh against. */
   realm: RealmView;
   /** The seasons of war: the War tab's map of provinces, the realm's wars, campaigns, the siege and occupation, the
@@ -1461,7 +1469,7 @@ function founderView(s: GameState): FounderView | null {
     .sort((a, b) => rank[a.role] - rank[b.role]);
   const open = windsOpen(s);
   const winds = EXPLORE_DIRS.map((name, dir) => ({ dir, name, open: open[dir] }));
-  return { id: f.id, winds, order, orderKind: o?.kind, trip: founderTrip(s, f), heir: next ? { id: next.id, name: next.name, named: next.id === s.heirId } : null, heirs, jobs: JOBS.filter((j) => j !== 'defend'), ...founderShopsView(s), duels: slow(s, 'duels', () => duelChoices(s)), duelBlock: duelBlock(s), duel: s.duel ? { foe: s.duel.foe.name, to: s.duel.to, over: s.duel.ended !== undefined, text: s.duel.text ?? null } : null, uniqueNames: { ...(s.uniqueNames ?? {}) }, dealings: dealingsView(s) };
+  return { id: f.id, winds, order, orderKind: o?.kind, trip: founderTrip(s, f), heir: next ? { id: next.id, name: next.name, named: next.id === s.heirId } : null, heirs, jobs: JOBS.filter((j) => j !== 'defend'), ...founderShopsView(s), duels: slow(s, 'duels', () => duelChoices(s)), duelBlock: duelBlock(s), duel: s.duel ? { foe: s.duel.foe.name, to: s.duel.to, over: s.duel.ended !== undefined, text: s.duel.text ?? null } : null, uniqueNames: { ...(s.uniqueNames ?? {}) }, dealings: dealingsView(s), delves: slow(s, 'founderDelves', () => knownDungeons(s).map((id) => delveRisk(s, id, founderPartyFor(s, id))).filter((r): r is DelveRisk => !!r)), delveBlock: f.away !== null ? `${f.name} is away` : f.downed ? `${f.name} is down` : s.muster ? 'A party is already being raised' : s.expeditions.length >= MAX_EXPEDITIONS ? 'Too many parties are out' : null };
 }
 
 
@@ -1564,6 +1572,7 @@ function snapshotOf(s: GameState): Snapshot {
     trips: tripsView(s),
     companies: companiesView(s),
     muster: musterView(s, (p) => callingName(p, stageOf(p))),
+    firewood: woodpileForecast(s),
     envoyRider: s.envoyRider ? { id: s.envoyRider.id, name: s.envoyRider.name, look: s.envoyRider.look, x: s.envoyRider.x, y: s.envoyRider.y, dir: s.envoyRider.dir, leaving: s.envoyRider.leaving } : null,
     realm: realmView(s, (id) => !destinationHidden(s, id) && !!DEST_BY_ID[id] && destinationUnlocked(s, DEST_BY_ID[id])),
     places: placeViews(s),

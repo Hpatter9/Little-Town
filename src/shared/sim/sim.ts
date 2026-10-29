@@ -39,6 +39,7 @@ import { dragonTick } from './dragon';
 import { holdForFight } from './raidWait';
 import { fightClock, openPrompt, parkPrompt, stoodTick, type Hold } from './popups';
 import { leadQuest, waitingOnFounder } from './founderQuests';
+import { raiseFounderParty } from './founderDelves';
 import { creatureArrives, creatureTick, feedCreature, restCreature, teachCreature } from './creature';
 import { nudgeLiking } from './creatureFolk';
 import { stewardTick } from './steward';
@@ -504,6 +505,7 @@ export class Sim {
       case 'muster': {
         const say = (r: { ok: boolean; reason?: string }) => r.ok || notify(s, `${r.reason}.`);
         if (c.op === 'raise' && c.dest) say(raiseParty(s, c.dest));
+        else if (c.op === 'founder' && c.dest) say(raiseFounderParty(s, c.dest));
         else if (c.op === 'add' && c.person !== undefined) say(addMember(s, c.person));
         else if (c.op === 'drop' && c.person !== undefined) dropMember(s, c.person);
         else if (c.op === 'lead' && c.person !== undefined) makeLeader(s, c.person);

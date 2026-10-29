@@ -6,6 +6,7 @@
 // are down; a lost or fled fight sends them home as on any trip (expeditions.ts). Deaths are real.
 
 import { addDeed } from './deeds';
+import { askFounder, founderDelving } from './founderDelves';
 import { floorKinds, floorName, pickFloor } from './delveFloors';
 import { payParty } from './economy';
 /** The party's people (still in the town's list while away). */
@@ -46,6 +47,9 @@ export interface Delve {
   log: string[];
   /** The hand-made floor it goes down (sim/delveFloors.ts; its rooms are the floor's), or none: rolled room by room. */
   floor?: string;
+  /** A delve the founder leads: they were asked at the boss's door (sim/founderDelves.ts), and chose to turn back. */
+  askedBoss?: boolean;
+  turnBack?: boolean;
 }
 
 /** Room odds (the first is always a fight, the one before the boss a rest camp). */
@@ -134,6 +138,8 @@ export function stepDelve(s: GameState, e: Expedition, members: Person[], hooks:
     v.ticks++;
     return;
   }
+  // (the founder chose to leave the boss be)
+  if (v.turnBack) return hooks.back();
   // the room's done with: the boss's means the dungeon is theirs
   if (v.at >= 0 && v.rooms[v.at] === 'boss' && v.bossFought) {
     cleared(s, e, d, v, hooks);
@@ -148,6 +154,12 @@ export function stepDelve(s: GameState, e: Expedition, members: Person[], hooks:
   if (up.length * 2 <= members.length) {
     say(s, v, `Too many of ${the(d.name)} party are down to go on. They turn back with what they found.`, true);
     return hooks.back();
+  }
+  // (a delve the founder leads: they choose at the boss's door, and the game waits: sim/founderDelves.ts)
+  if (v.rooms[v.at + 1] === 'boss' && !v.askedBoss && founderDelving(s, e)) {
+    v.askedBoss = true;
+    askFounder(s, e, v, 'delve_boss');
+    return;
   }
   v.at++;
   v.ticks = 0;
@@ -254,6 +266,12 @@ function enter(s: GameState, e: Expedition, d: DungeonDef, v: Delve, members: Pe
       say(s, v, `${where}: a dry corner to rest in. They bind their wounds and eat.`);
       return;
     case 'fork': {
+      // (the founder chooses the way: sim/founderDelves.ts)
+      if (founderDelving(s, e)) {
+        say(s, v, `${where}: the way splits.`);
+        askFounder(s, e, v, 'delve_fork');
+        return;
+      }
       const next = v.at + 1 < v.rooms.length - 1 ? v.at + 1 : -1;
       if (e.stakes === 'risky') {
         v.deeper = true;

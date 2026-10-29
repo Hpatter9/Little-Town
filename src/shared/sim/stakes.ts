@@ -10,6 +10,7 @@ import { MATERIAL_NAMES, type Material } from '../data/materials';
 import { RATIONS } from '../data/muster';
 import { levelOf } from '../data/levels';
 import { foodNeeded } from './expeditions';
+import { heirOf } from './health';
 import { bountyOn, dangerOf, strengthOf } from './parties';
 import { ERA_MULTIPLIER, type GameState, type Muster, type Person } from './state';
 
@@ -60,7 +61,11 @@ const list = (xs: string[]) => (xs.length < 2 ? xs.join('') : `${xs.slice(0, -1)
 /** The warning for who goes: the founder, then a favourite, then the leader (always someone leads). */
 export function warningFor(s: GameState, party: Person[], leader: Person | undefined): string | null {
   const founder = party.find((p) => p.id === s.mainId);
-  if (founder) return `${founder.name} founded the town and goes with them: if they fall, an heir takes the town.`;
+  if (founder) {
+    // (with no heir the town ends with them: sim/health.ts `heirOf`)
+    const heir = heirOf(s, founder);
+    return `${founder.name} founded the town and goes with them: ${heir ? `if they fall, ${heir.name} takes the town.` : 'they have no heir, and if they fall the town ends with them.'}`;
+  }
   const favs = favouritesOf(s);
   const dear = party.filter((p) => favs.includes(p.id));
   if (dear.length) return `${list(dear.map((p) => p.name))} ${dear.length > 1 ? 'are favourites' : 'is a favourite'} of yours${dear.some((p) => p === leader) ? ', and leads them' : ''}. The road does not know that.`;
