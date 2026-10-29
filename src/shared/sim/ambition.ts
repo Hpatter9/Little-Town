@@ -77,12 +77,12 @@ export function takeSale(s: GameState, b: Building, spent: number, keeper: Perso
   const cut = keeper && keeper !== owner ? Math.round(spent * KEEPER_CUT) : 0;
   if (owner) {
     giveCoins(s, owner, spent - cut - houseCut(s, owner, spent - cut), `${name}'s takings: ${who} (${spent - cut} coins)`); // (a tithe to the owner's house: sim/intrigue.ts)
-    if (cut && keeper) giveCoins(s, keeper, cut, `Kept the ${name} for ${owner.name}: a cut of ${who}'s ${spent} coins`);
+    if (cut && keeper) giveCoins(s, keeper, cut, `Kept the ${name} for ${owner.name}: a cut of ${who}'s ${Math.round(spent)} coins`);
     return;
   }
   s.coins = (s.coins ?? 0) + spent;
   earn(s, line, spent);
-  if (cut && keeper) payFromTreasury(s, keeper, cut, 'wages', `Kept the ${name}: a cut of ${who}'s ${spent} coins`);
+  if (cut && keeper) payFromTreasury(s, keeper, cut, 'wages', `Kept the ${name}: a cut of ${who}'s ${Math.round(spent)} coins`);
 }
 
 /** What a venue's purse can spend on it now: the owner's coins above their keep, else the treasury's. */

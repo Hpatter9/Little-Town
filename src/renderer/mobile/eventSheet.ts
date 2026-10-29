@@ -323,7 +323,7 @@ export function createEventSheet(
     // the town's own pick and why (sim/alignment.ts), under the answers
     const advice = document.createElement('div');
     advice.className = 'event-advice';
-    if (p.recommended != null && p.why && !evolve) advice.textContent = `The town recommends "${p.options[p.recommended]}": ${p.why}.`;
+    if (p.recommended != null && p.why && !evolve) advice.textContent = `The town recommends "${p.options[p.recommended]}": ${p.why.replace(/\.$/, '')}.`;
     body.append(title, text, ...(more ? [more] : []), options, ...(nameForm ? [nameForm] : []), advice, count);
     if (p.waits) {
       const hold = document.createElement('div');

@@ -127,3 +127,19 @@ test('a focus widens the pool', () => {
   p.gear.charm = 'ley_crystal';
   assert.ok(manaMax(p) > bare);
 });
+
+test('a spell cast on the raid board is counted to its caster in the recap\'s tally', () => {
+  const { s, r, t, rng } = boardNow('mana-credit');
+  run(s, rng, 3000, () => !!t.await);
+  const me = t.units.find((u) => u.key === t.await!.key)!;
+  const p = s.people.find((q) => `p${q.id}` === me.key)!;
+  me.kit = { ...(me.kit ?? { actions: [], passive: NO_PASSIVE }), actions: [wave(12)] };
+  const at: [number, number] = [Math.max(0, me.u - 3), me.v];
+  t.units.filter((u) => u.foe).forEach((f, i) => ([f.u, f.v] = i === 0 ? at : [0, (i * 2) % t.h]));
+  delete t.tiles[at[1] * t.w + at[0]].block;
+  setMana(p, 40);
+  const was = r.tally?.[p.id]?.dealt ?? 0;
+  assert.ok(tacticsOrder(s, { op: 'skill', skill: 'test_wave', at }), 'cast');
+  run(s, rng, 60, () => !!t.await?.acted);
+  assert.ok((r.tally?.[p.id]?.dealt ?? 0) > was, `the caster is credited (${was} → ${r.tally?.[p.id]?.dealt ?? 0})`);
+});

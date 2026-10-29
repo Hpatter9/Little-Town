@@ -74,6 +74,12 @@ test('the wall is not recommended for widening until the inside is mostly built 
 test('ordering the ring wall sets the founder\'s order; there is no order to lay the streets (the player draws them)', () => {
   const s = newGame('orders');
   const sim = new Sim(s);
+  // (before the palisade is studied the order is refused, and said so: it used to be taken, and nothing came of it)
+  sim.command({ type: 'orderRing' });
+  sim.step();
+  assert.equal(s.ringOrder, undefined);
+  assert.ok(s.notices.some((n) => /palisade isn't studied/.test(n.text)));
+  s.research.done.push('palisades');
   sim.command({ type: 'orderRing' });
   sim.step();
   assert.equal(s.ringOrder, true);

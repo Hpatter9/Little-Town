@@ -10,7 +10,7 @@ import { startStoresReadout } from './storesReadout';
 import { createBeastAsk } from '../overlayUi';
 import { watchFavourites } from './obituaryReveal';
 import { createEventSheet } from './eventSheet';
-import { startPopupHold } from './popupHold';
+import { cardUp, startPopupHold } from './popupHold';
 import { startWaitingChoices } from './waitingChoices';
 import { revealsOn, setItemOpener, setRevealsOn, showReveal, startReveals } from './revealCard';
 import { openCardInMenu, setMenuFrame } from './cardLink';
@@ -483,8 +483,10 @@ void bridge.getState().then(applyState); // (a first run opens on the New town p
 document.body.append(startStoresReadout(bridge));
 // the great creature's Praise or Scold for its last deed (sim/creature.ts): a small card that never holds the town
 const beastAsk = createBeastAsk((praise) => bridge.command?.({ type: 'creature', op: praise ? 'praise' : 'scold' }));
-// (it stands aside while a tap card is up: the creature's own card has Praise and Scold too)
-bridge.onSnapshot((snap) => (snap.creature?.ask && document.getElementById('inspect')?.hidden !== false ? beastAsk.show(snap.creature.ask.id, snap.creature.ask.text) : beastAsk.hide()));
+// (it stands aside while a tap card is up: the creature's own card has Praise and Scold too; and while a card of the
+// page's or the strip's is up, a raid's recap or a reveal, whose buttons it lay over)
+const pageCardUp = () => cardUp() || !!(strip.contentWindow as (Window & { __cardUp?: () => boolean }) | null)?.__cardUp?.();
+bridge.onSnapshot((snap) => (snap.creature?.ask && document.getElementById('inspect')?.hidden !== false && !pageCardUp() ? beastAsk.show(snap.creature.ask.id, snap.creature.ask.text) : beastAsk.hide()));
 
 // (a favourite's death: their obituary card, once: mobile/obituaryReveal.ts)
 bridge.onSnapshot(watchFavourites(strip));
@@ -515,7 +517,22 @@ bridge.onSnapshot((snap) => {
   lastSnap = snap;
   drawCard();
 });
+// (a tap on the map that opens the card is followed by the browser's own click at the same spot: where the card comes
+// up under the finger, that click landed on its ✕ or a button and closed it at once. Clicks just after it opens are
+// dropped.)
+const GHOST_CLICK_MS = 400;
+let cardShownAt = 0;
+inspect.addEventListener(
+  'click',
+  (e) => {
+    if (performance.now() - cardShownAt >= GHOST_CLICK_MS) return;
+    e.stopPropagation();
+    e.preventDefault();
+  },
+  true,
+);
 bridge.onInspect?.((info) => {
+  if (info && inspect.hidden) cardShownAt = performance.now();
   inspect.hidden = !info;
   $('hint').hidden = !!info;
   cardFor = info?.building ?? null;

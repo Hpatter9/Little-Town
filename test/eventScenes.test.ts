@@ -38,6 +38,8 @@ test('the questions that are not choice events find a scene by their kind, and t
   assert.equal(sceneFor({ kind: 'trial', title: 'The trial of Ann', text: '' }), 'trial');
   assert.equal(sceneFor({ kind: 'village', title: 'A parting', text: '', about: 'parting' }), 'leaving');
   assert.equal(sceneFor({ kind: 'debrief', title: 'The chronicle of Year 1', text: '' }), 'study');
+  // (the God creature's naming had a watchman on the gate, the raid warning)
+  assert.equal(sceneFor({ kind: 'name', title: 'Name the God creature', text: 'The young wolf follows the founder about.' }), 'home');
   // (an unknown event id, or none, falls back to the guess from the words)
   assert.equal(sceneFor({ kind: 'saga', title: 'A plague ship', text: 'Fever aboard.', eventId: 'no_such_event' }), 'plague');
   assert.equal(eventFamily('saga', 'Nothing much', 'at all'), 'generic');

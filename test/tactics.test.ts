@@ -324,3 +324,22 @@ test('the Enemy\'s last siege is fought out: its clock never draws it off the fi
   run(sg.s, sg.rng, 1);
   assert.ok(sg.r.leavesTick <= sg.s.tick, 'after the limit it ends like any raid');
 });
+
+import { adoptCreature } from '../src/shared/sim/creature';
+
+test('the God creature stands on the board by the name the town gave it', () => {
+  const s = town('tac-creature', 4);
+  s.autopilot = true;
+  s.raidOdds = { streak: 3 };
+  adoptCreature(s, 'wolf').name = 'Fenn';
+  s.prompts = [];
+  const r = startRaid(s, RAID_KIND_BY_ID.bandits, 30, new Rng(5));
+  s.prompts = [];
+  r.arrivesTick = s.tick;
+  updateRaid(s, new Rng(11));
+  const v = tacticsView(s)!;
+  assert.ok(v, 'the board is laid');
+  const names = v.units.map((u) => u.name);
+  assert.ok(names.includes('Fenn'), names.join(', '));
+  assert.ok(!names.includes('God Wolf'), names.join(', '));
+});

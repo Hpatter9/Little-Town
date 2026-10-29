@@ -111,13 +111,16 @@ test('finishing the quest: the lineup, the creature home and named, its first ni
   assert.ok(nest.beasts && nest.waits && nest.options.length === 5, 'the five in their lineup, holding the game');
   answerPrompt(s, nest.id, nest.options.findIndex((o) => /Wolf/.test(o)), new Rng(1));
   assert.equal(s.creature?.kind, 'wolf', 'the creature is the town\'s');
+  assert.match(s.eventOutcome?.text ?? '', /young wolf is the town's now/, 'and the card says so (it said "Nothing more came of it")');
   assert.ok(s.prompts.some((p) => p.kind === 'name' && p.naming?.kind === 'creature'), 'and the town names it');
   assert.ok(snapshot(s).creature, 'seen, so the build menu shows its pen');
   const night = sagaAsk(s)!;
   assert.ok(night.waits && /first night/.test(night.text), 'its first night is a question');
+  assert.ok(!/\.\./.test(night.text), `one full stop after the pick: ${night.text}`);
   const align = s.creature!.align;
   answerPrompt(s, night.id, 0, new Rng(1));
   assert.ok(s.creature!.align > align, 'sat up with: it is gentler for it');
+  assert.match(s.eventOutcome?.text ?? '', /gentler.*takes to keeping at the founder's side/, s.eventOutcome?.text ?? '');
   assert.equal(run(s)?.ch, 'young', 'the saga goes on as it did');
   // (no pen yet: it beds down at the camp, near the founder, and Rest takes it there)
   doDeed(s, s.creature!, 'sleep', new Rng(2));

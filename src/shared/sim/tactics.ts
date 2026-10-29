@@ -1571,8 +1571,12 @@ function cast(s: GameState, r: Raid, t: Tactics, me: TacUnit, id: string, at: Ti
         }),
       }
     : act;
+  // (what a townsperson's spell or skill did, for the raid's recap: only their plain blows were counted)
+  const was = before(r.raiders);
   if (!useAction(arena, arena.me, use)) return false;
   act.ready = use.ready;
+  const caster = personOf(s, me.key);
+  if (caster) credit(s, caster.id, was, false);
   // (why each one touched took it as they did: a crit, a shield, a spell sent back...)
   const whys = new Map<string, Proc>();
   for (const c of arena.all()) if (c.pop?.why && c.pop.tick === s.tick) whys.set(c.kind === 'person' ? `p${c.ref}` : `r${c.ref}`, c.pop.why);
@@ -1924,7 +1928,8 @@ export function tacticsView(s: GameState): TacticsView | null {
       v: u.v,
       facing: u.facing,
       ct: Math.round(u.ct),
-      name: p ? p.name : rd ? ENEMIES[rd.kind].name : tw ? BUILDING_BY_ID[tw.def].name : '?',
+      // (the God creature by the name the town gave it, as in its fights' lines: it was "God Wolf")
+      name: p ? p.name : rd ? (rd.creature && s.creature ? s.creature.name : ENEMIES[rd.kind].name) : tw ? BUILDING_BY_ID[tw.def].name : '?',
       title: p ? `${callingName(p, stageOf(p)) ?? 'Townsperson'}` : rd ? (rd.ally ? 'Ally' : ENEMIES[rd.kind].boss || ENEMIES[rd.kind].kit ? 'Boss' : 'Raider') : 'Tower',
       level: p ? levelOf(p) : 0,
       hp: Math.round(p ? p.hp : (rd?.hp ?? 0)),
