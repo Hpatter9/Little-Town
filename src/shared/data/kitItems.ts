@@ -2,7 +2,7 @@
 // their own inventory too and use them in battle: potions, or special items to help with the fight"). Each is crafted
 // at a station that exists already (the apothecary, the smithy, the kiln, the bone carver's, the pharmacy) under the
 // research its station asks for, sits in the town's stores like any item, and the town hands it out to its fighters
-// (sim/kit.ts `restockKits`). In a fight `useKitItem` (sim/kit.ts) drinks, throws or lights it when it helps, once.
+// (sim/kit.ts `restockKits`) until it uses coin; then the townsfolk buy it at the shop (sim/wages.ts `buyKit`). In a fight `useKitItem` (sim/kit.ts) drinks, throws or lights it when it helps, once.
 
 import { cleanse, grant, heal, hit, inflict, type Effect } from './effects';
 import type { IconSheet, ItemDef, Station } from './items';

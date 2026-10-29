@@ -87,6 +87,7 @@ import { LINES, SHOP_LINES, type ShopLine } from '../data/stores';
 import { DECOR_APPEAL, DECOR_COST, DECOR_LEVELS, DECOR_MAX, DECOR_OF_NATURE, DECOR_STYLES, STARTERS } from '../data/decor';
 import { natureOf } from '../data/natures';
 import { payForVenue, takeSale } from './ambition';
+import { treasuryKeep } from './economy';
 import { biomeOf } from '../data/biomes';
 import { randomLook } from '../data/people';
 import type { Rng } from '../rng';
@@ -1101,7 +1102,7 @@ function buyFrom(s: GameState, shop: Building, t: Traveller, town: ShopTown, who
   for (const w of town.wants(s)) {
     if (!has.has(w.m) || room <= 0) continue;
     const price = priceOf(s, w.m) * BUY_MARKUP;
-    const keep = w.essential ? 0 : COIN_RESERVE * PURSE_SCALE[s.era];
+    const keep = w.essential ? 0 : Math.max(COIN_RESERVE * PURSE_SCALE[s.era], treasuryKeep(s)); // (what it could do without waits, like the pay for work: sim/economy.ts)
     const afford = Math.floor(((s.coins ?? 0) - paid - keep) / price);
     const n = Math.min(w.n, MAX_SELL_EACH, afford, room);
     if (n <= 0) continue;

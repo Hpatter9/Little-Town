@@ -5,7 +5,7 @@ import { PURSE_SCALE } from '../data/shop';
 import { BUILDING_BY_ID } from '../data/buildings';
 import { WORTH } from '../data/trade';
 import type { Material, Stock } from '../data/materials';
-import { GATHER_SHARE, TREASURY_KEEP } from '../data/economy';
+import { GATHER_SHARE, MEAL_SHARE, TREASURY_KEEP } from '../data/economy';
 import { earn, remember, type GameState, type LedgerLine, type Person } from './state';
 import { TICKS_PER_DAY } from './time';
 
@@ -27,9 +27,20 @@ export function giveCoins(s: GameState, p: Person, n: number, why?: string): voi
   if (why) remember(s, p, why);
 }
 
+/** What a day's pay for work might come to, a head (times the era's scale): the treasury keeps about this back. */
+export const PAY_A_HEAD = 2;
+/** What a day's pay for work might come to (the treasury's reserve against it). */
+export const wageBill = (s: GameState) => Math.round(s.people.filter((p) => p.bornTick == null).length * PAY_A_HEAD * PURSE_SCALE[s.era]);
+/** What the treasury keeps back from the pay for work and from goods it could do without: TREASURY_KEEP and a day's
+ *  wage bill, so it grows with the town and has coins in hand for its guards, what it must buy and the founder's
+ *  orders. (Guards' wages and goods the town must have come first and may take it below this.) */
+export const treasuryKeep = (s: GameState): number => TREASURY_KEEP + wageBill(s);
+/** What the treasury can spare for pay for work (what it holds above what it keeps back). */
+export const spareForPay = (s: GameState): number => Math.max(0, (s.coins ?? 0) - treasuryKeep(s));
+
 /** The treasury pays a person for work, as far as it can above what it keeps back. Returns what was paid. */
 export function payFromTreasury(s: GameState, p: Person, want: number, line: LedgerLine, why?: string): number {
-  const spare = Math.max(0, (s.coins ?? 0) - TREASURY_KEEP);
+  const spare = spareForPay(s);
   const n = Math.min(Math.round(want), spare);
   if (n <= 0) return 0;
   s.coins = (s.coins ?? 0) - n;
@@ -68,6 +79,21 @@ export function loadPrice(s: GameState, load: Stock): number {
   let n = 0;
   for (const [m, k] of Object.entries(load) as [Material, number][]) n += (WORTH[m] ?? 0) * k;
   return Math.round(n * GATHER_SHARE * Math.sqrt(PURSE_SCALE[s.era]));
+}
+
+/** What a meal of this food costs a grown-up at the stores (at least a coin). */
+export const mealPrice = (s: GameState, food: Material): number => Math.max(1, Math.round((WORTH[food] ?? 1) * MEAL_SHARE * Math.sqrt(PURSE_SCALE[s.era])));
+
+/** A grown-up eats from the stores in a town with coin: they pay the treasury for the meal, if they have the coins.
+ *  Nobody goes hungry for want of them: short of the price, they eat on the town. Returns what was paid. */
+export function payForMeal(s: GameState, p: Person, food: Material): number {
+  if (s.autopilot === false || p.bornTick != null || !moneyTown(s)) return 0;
+  const price = mealPrice(s, food);
+  if ((p.coins ?? 0) < price) return 0;
+  p.coins = (p.coins ?? 0) - price;
+  s.coins = (s.coins ?? 0) + price;
+  earn(s, 'meals', price);
+  return price;
 }
 
 /** Split a sum among a party, evenly (the odd coins to the first named). */

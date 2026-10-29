@@ -12,7 +12,7 @@ import { type Building, type GameState, campCell } from '../src/shared/sim/state
 import { TICKS_PER_DAY, TICKS_PER_HOUR, calendarOf } from '../src/shared/sim/time';
 import { buyGear, TAVERN_NIGHT } from '../src/shared/sim/wages';
 import { drinkAt, nightOut } from '../src/shared/sim/nightOut';
-import { incomeOf, loadPrice, payFromTreasury, payParty } from '../src/shared/sim/economy';
+import { incomeOf, loadPrice, payFromTreasury, payParty, treasuryKeep, wageBill } from '../src/shared/sim/economy';
 import { TREASURY_KEEP } from '../src/shared/data/economy';
 import { Rng } from '../src/shared/rng';
 import { plainGame, row } from './helpers';
@@ -105,10 +105,11 @@ test('people earn by their work: a load sold to the stores, pay from the treasur
   assert.equal(s.coins, 500 - price, 'and the treasury paid');
   assert.equal(incomeOf(s, p).today, price);
   assert.ok(p.recent?.some((r) => /Sold 10 wood/.test(r.text)));
-  // the treasury keeps a little back
+  // the treasury keeps a little back, and a day's wage bill (docs/notes/economy-balance.md)
   s.coins = 10;
   assert.equal(payFromTreasury(s, p, 50, 'wages'), 0);
-  s.coins = TREASURY_KEEP + 5;
+  assert.equal(treasuryKeep(s), TREASURY_KEEP + wageBill(s));
+  s.coins = treasuryKeep(s) + 5;
   assert.equal(payFromTreasury(s, p, 50, 'wages'), 5);
   // a party's spoils are split, the odd coin to the first
   const q = { ...p, id: 999, coins: 0, pay: undefined, recent: [] };

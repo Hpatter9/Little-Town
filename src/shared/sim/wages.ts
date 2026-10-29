@@ -1,13 +1,14 @@
 // The townsfolk's own coins. Once the town has a shop (and so money), people earn by their work (sim/economy.ts: what
-// they bring in, build, study, make and sell) and keep a purse. The townsfolk spend it: on their own gear, bought from what the shop has in stock
-// (for less than strangers pay), the best upgrade each can afford, fighters first for weapons and armour; and, with a
-// tavern, on a drink or a meal of an evening, which cheers them. What they pay goes back to the town. Before there's a
-// shop, gear is still shared out from the common store for free (see crafting.ts equipAll).
+// they bring in, build, study, make and sell) and keep a purse. The townsfolk spend it: on their own gear and battle
+// items, bought from what the shop has in stock (for less than strangers pay), the best upgrade each can afford,
+// fighters first for weapons and armour; with a tavern, on a drink or a meal of an evening, which cheers them; and on
+// their meals from the stores (economy.ts `payForMeal`). What they pay goes back to the town. Before there's a shop,
+// gear and battle items are still shared out from the common store for free (see crafting.ts equipAll, kit.ts
+// restockKits).
 
 import { ITEM_BY_ID, SLOTS, type ItemDef, type Slot } from '../data/items';
 import { COMMON, gradeOf } from '../data/quality';
 import { canWear } from './classes';
-import { PURSE_SCALE } from '../data/shop';
 import { addItems, gearScore } from './crafting';
 import { itemPrice, offers, pieceName, SALE_GEAR, takeOffer, type Offer } from './shop';
 import { nightOut } from './nightOut';
@@ -19,8 +20,6 @@ import { isChild } from './social';
 import { earn, notify, remember, type GameState, type Person } from './state';
 import { TICKS_PER_HOUR, calendarOf } from './time';
 
-/** What a day's pay for work might come to, a head (times the era's scale): the treasury keeps about this back. */
-export const PAY_A_HEAD = 2;
 /** The most of its purse the town lets a day's pay for work take. */
 export const WAGE_SHARE = 0.5;
 /** The hour the townsfolk go to the tavern (sim/nightOut.ts), and the lift a night there gives their morale. */
@@ -34,10 +33,7 @@ const RARE = 3;
 /** A piece has to be at least this much better than what they wear to be worth buying. */
 const WORTH_BUYING = 1.1;
 
-export { moneyTown } from './economy';
-const earners = (s: GameState) => s.people.filter((p) => !isChild(p));
-/** What a day's pay for work might come to (the treasury's reserve against it). */
-export const wageBill = (s: GameState) => Math.round(earners(s).length * PAY_A_HEAD * PURSE_SCALE[s.era]);
+export { moneyTown, PAY_A_HEAD, wageBill } from './economy';
 
 /** What a townsperson pays for a piece from the shop. */
 export const localPrice = (i: ItemDef, q: number) => Math.max(1, Math.round(itemPrice(i, q) * LOCAL_PRICE));
@@ -73,7 +69,8 @@ export function buyGear(s: GameState): void {
 
 /** Battle items (potions, draughts, charms: data/kitItems.ts) on the shop's shelves: with the autopilot, each grown-up with a
  *  calling and room in their pouch buys the next one they would carry with their own coins, fighters first, one an hour
- *  and at the same local price as gear (the stores' own hand-out is sim/kit.ts `restockKits`). */
+ *  and at the same local price as gear (before the town uses coin the stores hand them out instead: sim/kit.ts
+ *  `restockKits`). */
 export function buyKit(s: GameState): void {
   if (s.autopilot === false) return;
   const defs = Object.keys(s.items).filter((id) => KIT_BY_ID[id] && ITEM_BY_ID[id]).map((id) => ITEM_BY_ID[id]);

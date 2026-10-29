@@ -206,7 +206,7 @@ export function saleValue(i: ItemDef, q: number | undefined): number {
 
 /** A crafter is paid this share of what a piece they make to sell is worth (all of it, for a furnishing: the town
  *  buys those outright). */
-export const PIECE_RATE = 0.3;
+export const PIECE_RATE = 0.2;
 
 /** A keeper's chance to talk a customer into more (a better piece, something extra, a better price) or, when the
  *  shop hasn't what they came for, into something else: this much per Social level over 2, up to a cap. */
