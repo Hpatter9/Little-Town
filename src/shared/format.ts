@@ -33,3 +33,12 @@ export function bleedLeft(minutes: number | null): string {
   const h = Math.floor(minutes / 60);
   return h ? `${h}h ${minutes % 60}m` : `${minutes}m`;
 }
+
+/** A store or trade amount as the menus show it: a whole number, or one decimal where a fraction matters (under ten,
+ *  and not within a tenth of a whole), so the drift of adding up fractions never shows ("490.00000000000114" is 490). */
+export function amount(n: number): string {
+  if (!Number.isFinite(n)) return '0';
+  const tenths = Math.round(n * 10) / 10;
+  if (Math.abs(n) >= 10 || Number.isInteger(tenths)) return String(Math.round(n) || 0);
+  return tenths.toFixed(1);
+}

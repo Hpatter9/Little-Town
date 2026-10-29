@@ -15,7 +15,7 @@ import { DESTINATIONS, EXPEDITION_TYPE_NAMES, MAX_EXPEDITIONS, ROLES, type Desti
 import { MATERIAL_NAMES, MATERIALS, type Material, type Stock } from '../../shared/data/materials';
 import type { Bridge } from '../../shared/ipc';
 import type { DestinationView, ExpeditionView, Snapshot } from '../../shared/sim/snapshot';
-import { bleedLeft, tripProgress } from '../../shared/format';
+import { bleedLeft, tripProgress, amount } from '../../shared/format';
 import { button, duration, el } from './dom';
 import { openCard, personLink } from './infoCard';
 import { tapLink } from './structure';
@@ -89,7 +89,7 @@ export const expeditionsKey = (s: Snapshot) =>
 
 const listStock = (st: Stock) =>
   MATERIALS.filter((m) => (st[m] ?? 0) > 0)
-    .map((m) => `${MATERIAL_NAMES[m]} ${st[m]}`)
+    .map((m) => `${MATERIAL_NAMES[m]} ${amount(st[m] ?? 0)}`)
     .join(', ');
 
 export function renderExpeditions(s: Snapshot, bridge: Bridge | undefined, rerender: () => void): HTMLElement[] {

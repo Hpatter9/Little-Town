@@ -1,5 +1,6 @@
 // The save file format: the whole GameState (plain JSON by design) plus when it was written (shown in the save list; no game time passes for the time between).
 
+import { MATERIAL_NAMES } from '../data/materials';
 import { packExplored, unpackExplored } from './fog';
 import type { GameState } from './state';
 
@@ -108,6 +109,9 @@ export function parseSave(text: string): ParsedSave {
     (s as { version: number }).version++;
   }
   if (s.version !== SAVE_VERSION) return { ok: false, reason: 'old-version', version: typeof from === 'number' ? from : undefined };
+  // (a trip with nothing to gather once brought home a kind with no name, "19 undefined": sim/expeditions.ts; dropped)
+  for (const st of [...(s.buildings ?? []).map((b) => b.store), ...(s.expeditions ?? []).map((e) => e.loot)])
+    if (st) for (const m of Object.keys(st)) if (!(m in MATERIAL_NAMES)) delete (st as Record<string, number>)[m];
   const shaped =
     typeof s.seed === 'string' &&
     Number.isInteger(s.tick) &&

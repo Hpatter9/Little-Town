@@ -6,6 +6,7 @@
 // when a raid ends (the last one seen is kept, `SEEN_KEY`), and `window.__showRecap` brings it back while it's fresh
 // (the feed's card).
 
+import { amount } from '../../shared/format';
 import { MATERIAL_NAMES, type Material, type Stock } from '../../shared/data/materials';
 import type { Snapshot } from '../../shared/sim/snapshot';
 import { holdWhileUp } from '../mobile/popupHold';
@@ -25,7 +26,7 @@ const TITLES = { victory: 'Victory!', driven: 'Driven off', pillaged: 'Pillaged'
 const stockLine = (st: Stock) =>
   Object.entries(st)
     .filter(([, n]) => (n ?? 0) > 0)
-    .map(([m, n]) => `${n} ${MATERIAL_NAMES[m as Material] ?? m}`)
+    .map(([m, n]) => `${amount(n ?? 0)} ${MATERIAL_NAMES[m as Material] ?? m}`)
     .join(', ');
 
 const el = <K extends keyof HTMLElementTagNameMap>(tag: K, cls: string, text?: string) => {
