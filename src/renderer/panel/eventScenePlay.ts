@@ -12,6 +12,7 @@ import { eventCast, SLOT } from './eventCast';
 import { EVENT_SCENES, sceneFor } from './eventScenes';
 import { playScene, sceneCue, type Folk } from './scenePlayer';
 import { withFoes } from './sceneFoes';
+import { fitScene } from './sceneWords';
 import type { PortraitWho } from '../art/folkPortrait';
 import type { EventSceneId } from '../../shared/data/eventSceneIds';
 import { findFounderArt } from '../iso/founderArt';
@@ -62,7 +63,8 @@ export function playEventScene(container: HTMLElement, p: PromptView, snap: Snap
   [SLOT.elder, SLOT.elder2, SLOT.elder3].forEach((at, i) => (dolls[at] = doll(cast.elders[i], at)));
   for (const [at, o] of OUTSIDERS) dolls[at] = outsider(at, o);
   cast.crowd.forEach((pid, i) => (dolls[SLOT.crowd + i] = doll(pid, SLOT.crowd + i)));
-  const canvas = playScene(container, withFoes(EVENT_SCENES[id], p.foes), dolls, {}, folk as Folk);
+  // (the fight's own foes, and the time of day and the weather the card's words speak of: sceneWords.ts)
+  const canvas = playScene(container, fitScene(withFoes(EVENT_SCENES[id], p.foes), `${p.title}. ${p.story ?? p.text}`), dolls, {}, folk as Folk);
   if (!canvas) return null;
   canvas.dataset.scene = id;
   return { canvas, answered: () => VOTES.has(id) && sceneCue(canvas, 'vote') };

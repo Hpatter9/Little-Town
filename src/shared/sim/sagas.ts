@@ -28,6 +28,7 @@ import { addItems } from './crafting';
 import { describeFoes } from './places';
 import { adoptCreature, deedName, learn } from './creature';
 import { CREATURE_DEFS } from '../data/creature';
+import { CROPS } from '../data/crops';
 import { leadTo } from './founderQuests';
 import { REGION_BY_ID } from '../data/regions';
 
@@ -46,9 +47,17 @@ const chapterOf = (r: SagaRun): Chapter => defOf(r).chapters[r.ch];
 export const heroOf = (s: GameState, r: SagaRun): Person | undefined => person(s, r.hero) ?? person(s, s.mainId) ?? s.people[0];
 
 /** A saga's words with its people in them. */
+/** What a saga's words may hang on, so they fit the town as it is (`[[gardens:with them|without]]`): a new town has
+ *  no gardens to trample and no children to climb on the beast. */
+export const TOWN_HAS: Readonly<Record<string, (s: GameState) => boolean>> = {
+  gardens: (s) => s.buildings.some((b) => b.status === 'done' && (!!CROPS[b.def] || /garden/.test(b.def))),
+  children: (s) => s.people.some((p) => p.type === 'child'),
+};
+
 export function sagaText(s: GameState, r: SagaRun, text: string): string {
   const founder = person(s, s.mainId);
   const out = text
+    .replace(/\[\[(\w+):([^|\]]*)\|([^\]]*)\]\]/g, (_m, what: string, yes: string, no: string) => (TOWN_HAS[what]?.(s) ? yes : no))
     .replace(/\{hero\}/g, heroOf(s, r)?.name ?? 'the hero')
     .replace(/\{founder\}/g, founder?.name ?? 'the founder')
     .replace(/\{a\}/g, person(s, r.a)?.name ?? 'one of them')

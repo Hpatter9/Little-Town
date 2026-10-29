@@ -10,6 +10,7 @@ import { EVENT_BY_ID, EVENTS, type EventDef } from '../../shared/data/events';
 import type { EventSceneId } from '../../shared/data/eventSceneIds';
 import { SLOT } from './eventCast';
 import { PACK_LAYOUT } from '../art/creatures/packs';
+import { creatureWho } from './sceneFoes';
 import { eventFamily, type Actor, type Anim, type Crowd, type EventFamily, type Prop, type SceneScript } from './sceneScripts';
 
 const { lead: L, founder: F, elder: E1, elder2: E2, elder3: E3, stranger: S, stranger2: S2, stranger3: S3, knight: K, priest: PR, merchant: M } = SLOT;
@@ -22,6 +23,10 @@ const C = (n: number, x: [number, number], y: [number, number], h: number, face:
 /** The side-on beasts drawn for the cards with PixelLab (`pl_wolf`, `pl_bear`, `pl_dragon`: art/creatures/packs.json,
  *  tools/pixellab/assemble_nov.py), once their sheets are in; the packs' stand-ins until then. */
 export const made = (id: string, stand: string): string => (PACK_LAYOUT[id] ? id : stand);
+/** The beast scenes' own wolf and bear: the PixelLab sheet once it is in, the creature sheets' wolf and brown bear till
+ *  then (drawn side-on from their frames: sceneFoes.ts `creatureWho`), not the black werewolf for both. */
+const WOLF = creatureWho({ sheet: 'wolf', block: 1, scale: 1 }) ?? made('pl_wolf', 'werewolf_black');
+const BEAR = creatureWho({ sheet: 'bear', block: 0, scale: 1.3 }) ?? made('pl_bear', 'werewolf_black');
 const AUDIENCE = (n: number, x: [number, number] = [0.05, 0.95]): Crowd => C(n, x, [1.04, 1.04], 34, 'b', undefined, 1);
 /** A row of the same prop: a fence, a field of crops. */
 const row = (id: string, from: number, to: number, step: number, y: number, o: Partial<Prop> = {}): Prop[] => {
@@ -195,6 +200,15 @@ export const EVENT_SCENES: Record<EventSceneId, SceneScript> = {
     actors: [A(K, 'shoot', 0.5, 36, { y: 0.47, face: 'r' }), A(F, 'idle', 0.24, 44, { y: 0.93, face: 'r' }), A(L, 'idle', 0.76, 42, { y: 0.92, face: 'r' })],
     fx: [{ kind: 'smoke', n: 9, at: [0.9, 0.5], colour: '#3a3a3a' }, { kind: 'smoke', n: 6, at: [0.75, 0.52], colour: '#4a4a4a' }, { kind: 'embers', n: 6, at: [0.88, 0.58], colour: '#ff7a2a' }, { kind: 'birds', n: 4 }],
   },
+  // a raid lived through: the palisade still standing behind them, the last smoke thinning, the townsfolk cheering
+  aftermath: {
+    back: 'summer_5',
+    tint: ['#2a1a10', 0.12],
+    props: [...row('fence', 0.02, 0.98, 0.07, 0.86, { k: 0.8 }), P('rock', 0.82, 0.99, { k: 0.6 })],
+    actors: [A(F, 'idle', 0.44, 44, { y: 0.97, face: 'r' }), A(L, 'work', 0.6, 42, { y: 0.98, face: 'l' })],
+    crowd: [C(3, [0.26, 0.38], [0.94, 0.96], 38, 'r', 'cheer')],
+    fx: [{ kind: 'smoke', n: 5, at: [0.86, 0.55], colour: '#6a6a6a' }, { kind: 'ash', n: 4 }, { kind: 'birds', n: 2 }],
+  },
   // the townsfolk at the fence fighting off the raiders
   battle: {
     back: 'battle_ruins',
@@ -207,7 +221,7 @@ export const EVENT_SCENES: Record<EventSceneId, SceneScript> = {
     back: 'forest_2',
     tint: ['#102418', 0.18],
     props: [P('tree', 0.92, 0.97, { k: 0.8 }), P('fence', 0.06, 0.95), P('fence', 0.16, 0.95), P('sheep', 0.1, 0.92, { flip: true })],
-    actors: [A(L, 'shoot', 0.32, 44, { y: 0.94, face: 'r' }), A(K, 'shoot', 0.2, 42, { y: 0.97, face: 'r' }), A(made('pl_wolf', 'werewolf_black'), 'walk', [1.05, 0.72], 50, { y: 0.94, face: 'l' })],
+    actors: [A(L, 'shoot', 0.32, 44, { y: 0.94, face: 'r' }), A(K, 'shoot', 0.2, 42, { y: 0.97, face: 'r' }), A(WOLF, 'walk', [1.05, 0.72], 50, { y: 0.94, face: 'l' })],
     crowd: [C(2, [0.4, 0.48], [0.88, 0.9], 38, 'r')],
     fx: [{ kind: 'leaves', n: 8 }, { kind: 'mist', n: 2, colour: '#6fa97a' }],
   },
@@ -216,7 +230,7 @@ export const EVENT_SCENES: Record<EventSceneId, SceneScript> = {
     back: 'forest_2',
     tint: ['#102418', 0.18],
     props: [P('tree', 0.92, 0.97, { k: 0.8 }), P('fence', 0.06, 0.95), P('fence', 0.16, 0.95), P('sheep', 0.1, 0.92, { flip: true })],
-    actors: [A(L, 'shoot', 0.32, 44, { y: 0.94, face: 'r' }), A(K, 'shoot', 0.2, 42, { y: 0.97, face: 'r' }), A(made('pl_bear', 'werewolf_black'), 'walk', [1.05, 0.7], 56, { y: 0.95, face: 'l' })],
+    actors: [A(L, 'shoot', 0.32, 44, { y: 0.94, face: 'r' }), A(K, 'shoot', 0.2, 42, { y: 0.97, face: 'r' }), A(BEAR, 'walk', [1.05, 0.7], 56, { y: 0.95, face: 'l' })],
     crowd: [C(2, [0.4, 0.48], [0.88, 0.9], 38, 'r')],
     fx: [{ kind: 'leaves', n: 8 }, { kind: 'mist', n: 2, colour: '#6fa97a' }],
   },
@@ -499,6 +513,22 @@ export function eventByWords(title: string, text: string): EventDef | undefined 
 }
 
 /** The scene for a question on the event card. */
+/** A chapter of the founder's story ("Maren's story: A raid survived") or a party's tale, by its title's words. */
+const DEBRIEF_SCENES: [RegExp, EventSceneId][] = [
+  [/chronicle/i, 'study'],
+  [/\braid|attack|siege|besieged|sacked|pillaged/i, 'aftermath'],
+  [/\bwed|married|marriage/i, 'wedding'],
+  [/\b(child|born|birth|son|daughter)\b/i, 'birth'],
+  [/\b(heir|leader|died|death|dead|mourn|funeral|last chapter)\b/i, 'funeral'],
+  [/\b(title|named|knighted|honour)/i, 'feast'],
+  [/\b(shop|stall|trade)/i, 'market'],
+  [/\b(found|founding|first day|a new town)/i, 'home'],
+];
+export function debriefScene(title: string): EventSceneId {
+  const what = title.replace(/^.*?\bstory:\s*/i, ''); // (not the founder's own name)
+  return DEBRIEF_SCENES.find(([re]) => re.test(what))?.[1] ?? 'road';
+}
+
 export function sceneFor(p: SceneAsk): EventSceneId {
   const def = p.eventId ? EVENT_BY_ID[p.eventId] : p.kind === 'event' ? eventByWords(p.title, p.text) : undefined;
   if (def?.scene) return def.scene;
@@ -512,8 +542,9 @@ export function sceneFor(p: SceneAsk): EventSceneId {
     case 'enemy': return 'raid_warning';
     case 'watch': return 'battle';
     case 'road': return 'road';
-    // (a party's result is told on the road home; the year's chronicle at the chronicler's desk)
-    case 'debrief': return /chronicle/i.test(p.title) ? 'study' : 'road';
+    // (a party's result is told on the road home; the year's chronicle at the chronicler's desk; a chapter of the
+    // founder's story (sim/story.ts) by what it tells: a raid lived through at the gate, a wedding, a birth...)
+    case 'debrief': return debriefScene(p.title);
     case 'village': return p.about === 'beset' ? 'raid_warning' : 'leaving';
     case 'secret': return 'gate';
     // (a naming is talked over at home: by its words a creature's fell to the raid warning, a watchman on the gate)

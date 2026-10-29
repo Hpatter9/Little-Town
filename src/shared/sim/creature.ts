@@ -35,6 +35,7 @@ import { killPerson } from './health';
 import { CELL, type Pt } from './land';
 import { beginSaga } from './sagas';
 import { isChild } from './social';
+import { beastOut } from './raidRecap';
 import { campXY, maxHp, notify, type Building, type GameState, type Raid, type Raider } from './state';
 import { TICKS_PER_DAY, TICKS_PER_HOUR, calendarOf } from './time';
 import { walk, type Walker } from './walk';
@@ -542,6 +543,7 @@ export function creatureAllies(s: GameState, raid: Raid, make: (kind: string) =>
   a.might = k;
   a.creature = true;
   raid.raiders.push(a);
+  beastOut(raid, a.hp); // (for its wounds in the recap: sim/raidRecap.ts)
   notify(s, `${c.name} the ${def(c).name} goes out to meet the raiders.`);
   return true;
 }

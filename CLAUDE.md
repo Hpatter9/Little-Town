@@ -38,8 +38,10 @@ read that part before changing anything.
   passed in) or a side stream: `new Rng(hashSeed(`${s.seed}:<your-system>:${s.tick}`))` (`src/shared/rng.ts`).
   A **new** system should use its own side stream. Drawing extra numbers from the town's stream changes how every
   existing town plays out and breaks balance tests.
-- **New systems run only with the autopilot on** (`if (!s.autopilot) return;`). The tests' `plainGame` turns it off
-  so single mechanics can be tested alone. A test of your system sets `s.autopilot = true` itself.
+- **New systems run only with the autopilot on** (`if (s.autopilot === false) return;`). Real games leave
+  `autopilot` unset, which means on: never write `if (!s.autopilot)`, or the system never runs on the phone. The
+  tests' `plainGame` turns it off so single mechanics can be tested alone. A test of your system sets
+  `s.autopilot = true` itself.
 - **Save compatibility.** New `GameState` fields are optional (`field?: T`), and code must cope with them being
   missing (older saves). Don't bump the save version unless the owner asks.
 - **The renderer never changes the game state.** It reads the snapshot (`sim/snapshot.ts`). The player acts through

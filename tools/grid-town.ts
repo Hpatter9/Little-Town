@@ -6,6 +6,9 @@
 //                  still going up; the land's woods left round it
 //   town           a town as a player might build it: a street of houses inside a palisade with its gate, the
 //                  workshops, a store, a granary and a temple, and fields and pens outside
+//   polish         the grid polish's town (docs/notes/grid-polish.md): a palisade with its corners and gate round a
+//                  street, the workshops and the bigger buildings with their yards, a stone wall with its corners and
+//                  gate, and the pens; `night` after it sets the clock to ten at night
 
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { BUILDINGS } from '../src/shared/data/buildings';
@@ -15,6 +18,7 @@ import { randomLook } from '../src/shared/data/people';
 import { hashSeed, Rng } from '../src/shared/rng';
 import { adoptCreature } from '../src/shared/sim/creature';
 import { campCell, newGame, type Building } from '../src/shared/sim/state';
+import { TICKS_PER_HOUR } from '../src/shared/sim/time';
 import { serialize } from '../src/shared/sim/save';
 import { kitOf, pieceFor, roleOf, sharedPiece } from '../src/renderer/iso/isoKits';
 
@@ -34,7 +38,7 @@ for (let y = y0; y < y0 + H; y++)
   for (let x = x0; x < x0 + W; x++) if (x >= 0 && y >= 0 && x < s.land.w && y < s.land.h && WILD.includes(groundAt(s.land, x, y))) setGround(s.land, x, y, 'grass');
 s.land.open = Math.max(s.land.open, 60);
 
-const scene = process.argv[2] === 'town' ? 'town' : 'gallery';
+const scene = process.argv[2] === 'town' || process.argv[2] === 'polish' ? process.argv[2] : 'gallery';
 const shots: Record<string, [string, number, number][]> = {};
 /** Townsfolk standing on the middles of cells, grown and a child (`n` of them, along x from a cell). */
 const folkAt = (x: number, y: number, n: number) => {
@@ -123,6 +127,67 @@ if (scene === 'gallery') {
     ['06-small-buildings', x0 + 10, y0 + 4],
     ['11-overview-walls-pens', x0 + 14, wy + 5],
   ];
+} else if (scene === 'polish') {
+  // (a palisade round a street: the workshops, the tavern and the town hall north of it, the houses along it, the store,
+  // the stockpile, the granary and the temple south of it, the barracks and the elder lodge behind them; its gate east,
+  // where the street goes out past a stone wall's corner to the pens)
+  const tx = x0, ty = y0 + 6;
+  const W2 = 24, H2 = 16;
+  for (let i = 0; i <= W2; i++) {
+    put('palisade_wall', tx + i, ty);
+    put('palisade_wall', tx + i, ty + H2);
+  }
+  for (let j = 1; j < H2; j++) {
+    put('palisade_wall', tx, ty + j);
+    if (j !== 8 && j !== 9) put('palisade_wall', tx + W2, ty + j);
+  }
+  put('palisade_gate', tx + W2, ty + 8, { turned: true });
+  for (let i = 1; i < W2 + 18; i++) setRoad(s.land, tx + i, ty + 8, true);
+  for (const [id, dx] of [['smithy', 2], ['sawmill', 6]] as const) put(id, tx + dx, ty + 3);
+  put('tavern', tx + 10, ty + 2);
+  put('town_hall', tx + 16, ty + 1);
+  for (const dx of [2, 6, 10, 14, 18]) put('cottage', tx + dx, ty + 6);
+  put('general_store', tx + 2, ty + 9);
+  put('stockpile', tx + 7, ty + 9, { store: { wood: 30, stone: 20, grain: 20 } });
+  put('granary', tx + 11, ty + 9);
+  put('well', tx + 15, ty + 9);
+  put('temple', tx + 17, ty + 9);
+  put('elder_lodge', tx + 2, ty + 12);
+  put('barracks', tx + 8, ty + 12);
+  put('steelworks', tx + 13, ty + 12);
+  // (a stone wall's corner and its gate outside the palisade, north of the street)
+  const sx = tx + W2 + 3, sy = ty + 1;
+  for (let i = 0; i < 9; i++) if (i !== 3 && i !== 4) put('stone_wall', sx + i, sy);
+  put('stone_gate', sx + 3, sy);
+  for (let j = 1; j < 6; j++) put('stone_wall', sx, sy + j);
+  for (let j = 1; j < 6; j++) put('stone_wall', sx + 8, sy + j);
+  // (the pens south of the street)
+  const fx = tx + W2 + 3, fy = ty + 10;
+  put('goat_pen', fx, fy);
+  put('pig_sty', fx + 4, fy);
+  put('chicken_coop', fx + 8, fy);
+  put('sheep_fold', fx, fy + 4);
+  put('cattle_pasture', fx + 5, fy + 4);
+  folkAt(tx + 3, ty + 8, 5);
+  shots['1.5'] = [
+    ['street', tx + W2 + 7, ty + 6],
+    ['walls-gate', tx + W2, ty + 9],
+    ['wall-corner', tx + W2 - 1, ty + H2 - 1],
+    ['stone-wall', sx + 4, sy + 3],
+    ['pens', fx + 5, fy + 4],
+    ['yards-workshops', tx + 6, ty + 2],
+    ['yards-tavern-hall', tx + 16, ty + 1],
+    ['yards-store-barracks', tx + 8, ty + 10],
+  ];
+  shots['0.75'] = [['town', tx + 18, ty + 9]];
+  if (process.argv[3] === 'night') {
+    s.tick += 15 * TICKS_PER_HOUR;
+    // (the street's torches, lit, as a town that has stood a few nights has them: the light map darkens the night
+    // only where a town has its lights, map/lightMap.ts)
+    s.torches = [];
+    for (let i = 3; i < W2 + 14; i += 4) s.torches.push({ id: s.nextId++, x: tx + i, y: ty + 8, fuel: 12 });
+    s.torches.push({ id: s.nextId++, x: tx + W2 + 1, y: ty + 10, fuel: 12 });
+  }
 } else {
   // (a palisade round a street of houses, the workshops behind them, a store, a granary, a well, a market and a temple
   // in front, its gate where the street goes out east to the fields and pens)

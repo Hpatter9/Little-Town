@@ -14,7 +14,7 @@
 // the raid. Spots, trails and aims are in the land's cells (CELL px each); the raiders' px positions follow them.
 
 import { highSight } from './hills';
-import { before, credit, TOWERS } from './raidRecap';
+import { before, credit, creditAlly, TOWERS } from './raidRecap';
 import { RUN_DOWN_CELLS, tryRunDown } from './raiderWounds';
 import { ringGate } from './ringWall';
 import { fireAt, speedOf } from './defenses';
@@ -1042,7 +1042,11 @@ export function stepBattle(s: GameState, r: Raid, rng: Rng): boolean {
       const ad = ENEMIES[a.kind];
       u.cooldown = Math.round(ad.interval * TICK_HZ);
       a.lastAction = s.tick;
-      if (rng.next() < ad.accuracy - ENEMIES[target.kind].dodge) hurt(target, rng.int(ad.damage[0], ad.damage[1]), s, b);
+      if (rng.next() < ad.accuracy - ENEMIES[target.kind].dodge) {
+        const was = before([target]);
+        hurt(target, rng.int(ad.damage[0], ad.damage[1]), s, b);
+        creditAlly(s, a, was); // (the God creature's blows, for the recap)
+      }
     }
   }
 

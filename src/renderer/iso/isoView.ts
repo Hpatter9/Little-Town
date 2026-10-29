@@ -19,7 +19,7 @@ import { LAMP_LOOK } from '../map/lampRules';
 import type { Era } from '../../shared/data/eras';
 import { loadImage } from '../art/loadImage';
 import { BUILDING_BY_ID } from '../../shared/data/buildings';
-import { cellHash, propsFor, gateFlip, penSides, propFor, sceneryFor, stockHeaps, wallMaskAt, wallPieceFor, wallShape } from './isoTown';
+import { cellHash, gateFlip, TALL_PROPS, yardPropsFor, penSides, propFor, sceneryFor, stockHeaps, wallMaskAt, wallPieceFor, wallShape } from './isoTown';
 import { fitted, groundTile, kitOf, kitUrl, liesAlongY, pieceFor, roleOf, sharedPiece, ISO_ART, type Kit } from './isoKits';
 import { IsoCastleView, type CastleIn } from './isoCastleView';
 import { anyoneNear, doorSpot, gateSpan, hasWindows, lightBox, swing, windowSpots, worldMatrix } from './isoLight';
@@ -32,7 +32,7 @@ import { EMBERS, emberAt, flameBox, flameFrame, FLAME_URL, hearthGlow, stripFram
 import { reducedMotion } from '../ui/motion';
 import { LIGHT_KIND } from '../../shared/data/lighting';
 import { footDiamond, measureBase, pictureScale, type ArtBase } from './gridAudit';
-import { fenceSeg, wallPost, gatePlan, gridPlan, gridUrl, isFencedPen, looseRec, penCorners, penEdges, snapSpots, SHARED_KIT, wallArms, wallSeg, yardCells, type GridRec } from './gridRules';
+import { doorCells, yardLayout, fenceSeg, tileFace, wallPost, gatePlan, gridPlan, gridUrl, isFencedPen, looseRec, penCorners, penEdges, snapSpots, SHARED_KIT, wallArms, wallSeg, yardCells, type GridRec } from './gridRules';
 import { HERDS } from '../../shared/data/livestock';
 
 /** The grid audit's overlay (docs/notes/grid-audit.md), for developers only: on with `?grid` in the page's address,
@@ -621,6 +621,9 @@ export class IsoView {
   /** A ground tile's top face alone (the slab under it cut off, so no edge shows as a line between neighbours). */
   private surfaces = new Map<string, { of: Texture; face: Texture }>();
   private surfaceOf(piece: string): Texture | null {
+    // (cut to the grid: its clean face, iso/gridRules.ts `tileFace`)
+    const clean = tileFace(this.kit.name, piece);
+    if (clean) return this.texUrl(clean);
     const tex = this.texOf(piece);
     if (!tex) return null;
     const key = `${this.kit.name}:${piece}`;
@@ -856,7 +859,7 @@ export class IsoView {
     // (a borrowed picture too big for its footprint, made smaller while it waits for its own: on the footprint's middle)
     const small = plan.shrink < 1;
     const main: Placed = small
-      ? { url: gridUrl(kit, plan.piece, plan.shared), rec: plan.rec, flip: plan.flip, at: { x: foot.x + foot.w / 2, y: foot.y + foot.h / 2 }, z: footDepth(foot), centreHc: ISO_TW / 2 / pk }
+      ? { url: gridUrl(kit, plan.piece, plan.shared), rec: plan.rec, flip: plan.flip, at: { x: plan.sub.x + plan.sub.w / 2, y: plan.sub.y + plan.sub.h / 2 }, z: footDepth(foot), centreHc: ISO_TW / 2 / pk }
       : { url: gridUrl(kit, plan.piece, plan.shared), rec: plan.rec, flip: plan.flip, at: front(plan.sub), z: footDepth(foot) };
     return {
       kind: 'building',
@@ -975,18 +978,25 @@ export class IsoView {
     const land = this.land;
     const free = (x: number, y: number) => inMap(land, x, y) && land.roads[y * land.w + x] !== '#' && !this.wallCells.has(y * land.w + x) && !wetCell(groundAt(land, x, y)) && !this.builtOn(x, y);
     const ids = [...this.kit.pieces.keys()];
-    let pieces: string[];
-    if (heaps.length) pieces = heaps.map((h) => h.piece);
-    else {
-      // (a prop beside it now and then, as before; one to every other cell of its yard)
-      const one = propFor(ids, role.role, b.id, d.foot);
-      const kinds = propsFor(ids, role.role);
-      const yardOnes = kinds.length ? look.yard.filter((_, i) => cellHash(b.id, i, 31) < 0.5).map((_, i) => kinds[(i + b.id) % kinds.length]) : [];
-      pieces = [...yardOnes, ...(one ? [one.piece] : [])];
+    let placed: { piece: string; x: number; y: number }[];
+    if (heaps.length) {
+      const spots = snapSpots(heaps.length, d.foot, look.yard, free);
+      placed = spots.map((at, i) => ({ piece: heaps[i].piece, ...at }));
+    } else {
+      // (its yard's props, its own kind of work, the cells before its doors left clear; with no yard, one now and then
+      // beside its front-right face, as before)
+      const kinds = yardPropsFor(b.def, role.role, ids, (p) => !!looseRec(this.kit.name, p));
+      const pic = look.pic;
+      placed = yardLayout(pic, look.main.flip, look.yard, kinds, (p) => TALL_PROPS.has(p), (i) => cellHash(b.id, i, 31)).map((c) => ({ piece: c.piece, x: c.x + 0.5, y: c.y + 0.5 }));
+      const one = !look.yard.length ? propFor(ids, role.role, b.id, d.foot) : null;
+      if (one) {
+        const low = kinds.find((p) => !TALL_PROPS.has(p)) ?? one.piece;
+        const doors = doorCells(pic, look.main.flip);
+        const at = snapSpots(1, d.foot, [], (x, y) => free(x, y) && !doors.some((c) => c.x === x && c.y === y))[0];
+        if (at) placed.push({ piece: low, ...at });
+      }
     }
-    const spots = snapSpots(pieces.length, d.foot, heaps.length ? look.yard : look.yard.filter((_, i) => cellHash(b.id, i, 31) < 0.5), free);
-    spots.forEach((at, i) => {
-      const piece = pieces[i];
+    placed.forEach(({ piece, ...at }, i) => {
       const rec = looseRec(this.kit.name, piece);
       const tex = rec ? this.texUrl(gridUrl(this.kit.name, piece, false)) : null;
       if (!rec || !tex) return;
@@ -1441,10 +1451,7 @@ export class IsoView {
       let alpha = 1;
       if (this.fieldCells.has(i)) tile = 3;
       else if (land.roads[i] === '#') tile = 2;
-      else if (this.yardCells.has(i)) {
-        tile = 1;
-        alpha = 0.85;
-      }
+      else if (this.yardCells.has(i)) tile = 1;
       else {
         const w = land.wear ? land.wear.charCodeAt(i) - 48 : 0;
         if (w >= WEAR_SHOW) {
@@ -1462,11 +1469,13 @@ export class IsoView {
         }
         used++;
         s.texture = tex;
-        const k = (ISO_TW * OVERLAP) / tex.width;
+        // (a see-through one, a footpath worn part way, just its own cell: overlapping, its edges would show darker)
+        const over = alpha < 1 ? 1 : OVERLAP;
+        const k = (ISO_TW * over) / tex.width;
         s.scale.set(cellHash(x, y, 22) < 0.5 ? k : -k, k);
         s.alpha = alpha;
         const at = tileToIso(x, y, this.ox);
-        s.position.set(Math.round(at.x), Math.round(at.y - (ISO_TH * (OVERLAP - 1)) / 2));
+        s.position.set(Math.round(at.x), Math.round(at.y - (ISO_TH * (over - 1)) / 2));
         this.overlay.addChild(s);
         continue;
       }

@@ -477,6 +477,14 @@
         content: attr(data-short);
         font-size: 10.5px;
       }
+      /* (eight tabs, the Dev tab among them: "STUDIE", "MARKE" were cut; a smaller name fits them all) */
+      #tabs.many button {
+        padding: 2px 0 0;
+      }
+      #tabs.many .tab-label::after {
+        font-size: 9px;
+        letter-spacing: -0.2px;
+      }
       #strip-box {
         bottom: calc(var(--tabs-h) + env(safe-area-inset-bottom));
       }
@@ -1730,11 +1738,10 @@
       }
       #top.top-quiet .top-name {
         overflow: hidden;
-        text-overflow: ellipsis;
-        white-space: nowrap;
+        white-space: normal;
         font-family: var(--font-display);
         font-size: var(--ui-fs-head, 15px);
-        line-height: 1.2;
+        line-height: 1.1;
       }
       #top.top-quiet .top-sub {
         display: flex;
@@ -1783,6 +1790,9 @@
         overflow: hidden;
         text-overflow: ellipsis;
         white-space: nowrap;
+      }
+      #top.top-quiet .top-rank {
+        flex: none;
       }
       #top.top-quiet .top-line::before {
         content: '\00b7';
@@ -1841,9 +1851,10 @@
           gap: 8px;
         }
         #top.top-quiet .top-name {
-          display: block;
-          max-width: 120px;
+          max-width: 150px;
+          max-height: 38px;
           font-size: var(--ui-fs-body, 13px);
+          line-height: 1.05;
         }
         #top.top-quiet .top-mark {
           width: 26px;

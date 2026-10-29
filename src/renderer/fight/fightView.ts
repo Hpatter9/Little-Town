@@ -55,6 +55,10 @@ const SEE_H = 150;
 /** How much land shows below the horizon at most (the rest is sky). */
 const LAND = 110;
 const MARCH = 30;
+/** The foes' line-up on a fight: the front one this share of the width across, the last no nearer the left edge than
+ *  `FOE_EDGE` px (half a big foe, and the DEV mark's width). */
+const FOE_FRONT = 0.42;
+const FOE_EDGE = 26;
 /** Where the ground strip starts below the horizon line (art px): its grass or cap tops out just over the front feet. */
 const GROUND_LIFT = 8;
 /** Down a dungeon, the share of each room's time the party stands at its thing before walking on. */
@@ -581,13 +585,17 @@ export class FightScene {
     const perCol = Math.ceil(party.length / cols);
     const partyGap = Math.min(16, (land - 24) / Math.max(1, perCol - 1));
     // (in a staggered line back from the front, spaced so the big ones don't stand in each other; a crowd in rows)
+    // (spread between the front, `FOE_FRONT` of the width, and `FOE_EDGE` in from the left edge, so none stands half off
+    // the screen or under the DEV mark: upright a phone shows only `SEE_W` px across)
     const rows = foes.length > 8 ? 3 : 2;
     const perRow = Math.ceil(foes.length / (rows - 1 || 1));
-    const spacing = Math.min(40, (vw * 0.32) / Math.max(1, (foes.length > 8 ? perRow : foes.length) - 1));
+    const front = Math.round(vw * FOE_FRONT);
+    const crowd = foes.length > 8;
+    const spacing = Math.min(40, Math.max(0, front - FOE_EDGE) / Math.max(1, (crowd ? perRow - 0.5 : foes.length) - 1));
     foes.forEach((f, i) => {
-      const k = foes.length > 8 ? Math.floor(i / perRow) : i % 2;
-      const j = foes.length > 8 ? i % perRow : i;
-      at.set(`enemy:${f.ref}`, [Math.round(vw * 0.36 - j * spacing - (k % 2) * spacing * 0.5), Math.round(hy + 18 + k * foeGap * (foes.length > 8 ? 1.1 : 1.6))]);
+      const k = crowd ? Math.floor(i / perRow) : i % 2;
+      const j = crowd ? i % perRow : i;
+      at.set(`enemy:${f.ref}`, [Math.round(front - j * spacing - (crowd ? (k % 2) * spacing * 0.5 : 0)), Math.round(hy + 18 + k * foeGap * (crowd ? 1.1 : 1.6))]);
     });
     party.forEach((f, i) => {
       // a slanting column, as in the old games (side by side when there are many)

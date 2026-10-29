@@ -602,7 +602,7 @@ export interface Person {
   /** Grieving someone close, until a tick. */
   grief?: { until: number; value: number; text: string } | null;
   /** Wounds on the body, lasting scars and lost parts, prosthetics fitted for them, and a surgery's rest (sim/injuries.ts). */
-  wounds?: { part: import('../data/injuries').BodyPart; kind: import('../data/injuries').WoundKind; sev: number; peak: number }[];
+  wounds?: { part: import('../data/injuries').BodyPart; kind: import('../data/injuries').WoundKind; sev: number; peak: number; fester?: boolean }[];
   lasting?: { part: import('../data/injuries').BodyPart; kind: 'scar' | 'lost' }[];
   fitted?: Partial<Record<import('../data/injuries').BodyPart, string>>;
   surgeryUntil?: number;
@@ -674,8 +674,12 @@ export interface Person {
   /** Today's doings, counted a quarter-hour at a time for their diary (sim/diary.ts): the hours at each thing, and
    *  the hours beside each townsperson at the same thing. */
   diary?: { day: number; hours: Record<string, number>; with: Record<number, number> };
-  /** Sick with the plague until a tick. */
-  sick?: { until: number; treated?: boolean } | null;
+  /** Sick with the plague until a tick (or a fever, from a crowded, dirty town: sim/hardship.ts). */
+  sick?: { until: number; treated?: boolean; fever?: boolean } | null;
+  /** Over a fever: spared another till this tick (sim/hardship.ts). */
+  feverSpared?: number;
+  /** Asleep on the ground in winter: losing health to the cold, and not mending (sim/hardship.ts). */
+  cold?: boolean;
   /** A machine (the Machine Colony origin): never eats, sleeps or sickens, and its spirits hold steady. */
   machine?: boolean;
   /** The lich: dead in body as the raised are (never eats, sleeps, sickens or ages), but keeps their own shape. */
