@@ -142,3 +142,29 @@ export const SHEETS: Record<CreatureSheet, SheetDef> = {
   mimic: { url: mimicUrl, w: 64, h: 64, blocksAcross: 1, feet: 0.88, strip: { perRow: 6, walk: [0, 1, 2, 3, 4, 5], attack: [6, 7, 8], idle: [12, 13, 14, 15] } },
   horror: { url: horrorUrl, w: 80, h: 64, blocksAcross: 1, strip: { perRow: 5, walk: [4, 5, 6, 7, 8, 9], attack: [11, 13, 15, 17], idle: [0, 1, 2, 3] } },
 };
+
+/** Where one frame of a creature lies on its sheet, seen side-on, and whether to mirror it to face that way. Pixi's
+ *  frames (art/creatures.ts `creatureFrame`) cut the same places; this is for a plain canvas (the event and watch
+ *  cards: panel/scenePlayer.ts). `frame` counts up; `anim` picks a strip's row (a block sheet only walks). */
+export function sheetFrame(sheet: CreatureSheet, block: number, facing: 'left' | 'right', frame: number, anim: 'walk' | 'attack' | 'idle' = 'walk'): { x: number; y: number; w: number; h: number; flip: boolean } {
+  const def = SHEETS[sheet];
+  const seq = def.strip ? (anim === 'attack' ? def.strip.attack : anim === 'idle' && def.strip.idle.length ? def.strip.idle : def.strip.walk) : null;
+  const n = def.pairs ? 2 : seq ? seq.length : 3;
+  const f = ((Math.floor(frame) % n) + n) % n;
+  let x: number;
+  let y: number;
+  if (def.pairs) {
+    x = ((block % def.pairs) * 2 + f) * def.w;
+    y = Math.floor(block / def.pairs) * def.h;
+  } else if (seq) {
+    x = (seq[f] % def.strip!.perRow) * def.w;
+    y = Math.floor(seq[f] / def.strip!.perRow) * def.h;
+  } else {
+    // (an RPG Maker block: three walking frames across, a row for each facing: down, left, right, up)
+    x = ((block % def.blocksAcross) * 3 + f) * def.w;
+    y = (Math.floor(block / def.blocksAcross) * 4 + (facing === 'left' ? 1 : 2)) * def.h;
+  }
+  // (the DawnLike pairs and the strips face one way: mirrored to face the other)
+  const flip = def.pairs ? facing === 'right' : def.strip ? (facing === 'right') !== !!def.facesRight : false;
+  return { x, y, w: def.w, h: def.h, flip };
+}

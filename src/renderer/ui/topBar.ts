@@ -16,6 +16,8 @@ import { STAT_TIPS, tipFor } from './tips';
 
 /** How long each line of the turn stays (ms). */
 const LINE_MS = 6000;
+/** The smallest the town's name is shrunk to (px) before it wraps instead. */
+const NAME_LEAST = 11;
 
 const el = <K extends keyof HTMLElementTagNameMap>(tag: K, cls: string, text?: string): HTMLElementTagNameMap[K] => {
   const e = document.createElement(tag);
@@ -79,10 +81,12 @@ export function createTopBar(top: HTMLElement, bridge: Bridge): TopBar {
   title.classList.add('top-name');
   const nameEl = el('span', 'top-town');
   const rankEl = el('span', 'top-rank');
+  // (the whole name, never cut (the playthrough: "Chronos …, a Camp" upright): it has its line to itself and shrinks
+  // to fit it (`fitName`), and the rank is told on the day's line under it)
   Object.assign(title.style, { display: 'flex', minWidth: '0' });
-  Object.assign(nameEl.style, { minWidth: '0', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'pre' });
-  Object.assign(rankEl.style, { flex: 'none', whiteSpace: 'pre', opacity: '0.8', fontSize: '0.8em', alignSelf: 'baseline' });
-  title.replaceChildren(nameEl, rankEl);
+  Object.assign(nameEl.style, { minWidth: '0', overflow: 'hidden', whiteSpace: 'nowrap', overflowWrap: 'anywhere' });
+  Object.assign(rankEl.style, { flex: 'none', whiteSpace: 'pre' });
+  title.replaceChildren(nameEl);
   const mark = el('span', 'top-mark');
   tipFor(mark, 'people');
   const main = el('div', 'top-main');
@@ -97,7 +101,7 @@ export function createTopBar(top: HTMLElement, bridge: Bridge): TopBar {
   tipFor(when, 'day');
   const line = el('span', 'top-line');
   tipFor(line, 'news');
-  sub.append(when, line);
+  sub.append(when, rankEl, line);
   main.append(title, sub);
   const pause = el('button', 'top-btn top-pause');
   const fast = el('button', 'top-btn top-speed', '1×');
@@ -136,15 +140,41 @@ export function createTopBar(top: HTMLElement, bridge: Bridge): TopBar {
     show(lines[at]);
   }, LINE_MS);
 
+  /** The name shrunk until it fits its line (to `NAME_LEAST` px); a name too long even then wraps. */
+  const fitName = () => {
+    nameEl.style.fontSize = '';
+    nameEl.style.whiteSpace = 'nowrap';
+    let px = parseFloat(getComputedStyle(nameEl).fontSize) || 15;
+    while (nameEl.scrollWidth > nameEl.clientWidth + 1 && px > NAME_LEAST) {
+      px -= 0.5;
+      nameEl.style.fontSize = `${px}px`;
+    }
+    if (nameEl.scrollWidth > nameEl.clientWidth + 1) nameEl.style.whiteSpace = 'normal';
+  };
+  let fitW = -1;
+  addEventListener('resize', () => {
+    fitW = -1;
+  });
+  void document.fonts?.ready.then(() => {
+    fitW = -1; // (the display font in: measured again)
+  });
+
   let markKey = '';
   return {
     update(s) {
       snap = s;
       const look = lookOf(s.theme);
-      // ("Willowmere, a Market Town": sim/tiers.ts; a long name is cut, the rank after it is not)
-      const rank = `, ${s.rank.phrase}`;
-      if (nameEl.textContent !== s.townName) nameEl.textContent = s.townName;
+      // ("Willowmere · a Market Town": sim/tiers.ts; the rank on the day's line, so the name has room)
+      const rank = `· ${s.rank.phrase}`;
+      if (nameEl.textContent !== s.townName) {
+        nameEl.textContent = s.townName;
+        fitW = -1;
+      }
       if (rankEl.textContent !== rank) rankEl.textContent = rank;
+      if (title.clientWidth > 0 && fitW !== title.clientWidth) {
+        fitName();
+        fitW = title.clientWidth;
+      }
       if (markKey !== s.theme) {
         markKey = s.theme;
         mark.textContent = look.mark;

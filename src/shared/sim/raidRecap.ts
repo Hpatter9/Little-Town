@@ -5,6 +5,7 @@
 // `s.raidRecap`, and the snapshot carries it for `RECAP_HOURS`.
 
 import { noteFelled } from './provenance';
+import { CREATURE_DEFS } from '../data/creature';
 import { ENEMIES } from '../data/enemies';
 import { addDeed, tally } from './deeds';
 import { levelOf, xpToLevel } from '../data/levels';
@@ -16,6 +17,8 @@ import { raidCloseCalls } from './closeCalls';
 
 /** The tally's key for the town's towers and traps. */
 export const TOWERS = -1;
+/** The tally's key for the town's God creature (sim/creature.ts), which fights as an ally, not a person. */
+export const CREATURE = -2;
 /** How long (game hours) the recap stays to be seen again from the feed. */
 export const RECAP_HOURS = 6;
 
@@ -23,6 +26,24 @@ export interface RaidTally {
   dealt: number;
   kills: number;
   taken: number;
+  /** The God creature's tally only: the kinds of raider it felled, and how many of each. */
+  felled?: Record<string, number>;
+  /** The God creature's tally only: its health as it went out to fight (what it lost is its wounds). */
+  from?: number;
+}
+
+/** The God creature's line in the recap, as a defender's row is: what it felled, the harm it did, its wounds. */
+export interface BeastRow {
+  /** Its name and kind: "Fenn the Wolf". */
+  name: string;
+  dealt: number;
+  kills: number;
+  taken: number;
+  /** The raiders it felled, in words: "three orc grunts and a wolf" ('' when none). */
+  felled: string;
+  /** Beaten down in the fight, or killed. */
+  fell: boolean;
+  died: boolean;
 }
 
 export interface RecapRow {
@@ -57,6 +78,10 @@ export interface RaidRecap {
   rows: RecapRow[];
   /** The best of them (by harm dealt and raiders felled), if anyone fought. */
   best: number | null;
+  /** The town's God creature, when it fought (sim/creature.ts). */
+  beast?: BeastRow;
+  /** It fought better than any townsperson. */
+  beastBest?: boolean;
   towers: RaidTally | null;
   /** Raiders lamed by a leg wound, and of them those run down as they fled, and those taken alive (sim/raiderWounds.ts). */
   lamed: number;
@@ -98,7 +123,11 @@ export function credit(s: GameState, who: number, was: [Raider, number, boolean]
   const t = tallyOf(r, who);
   t.dealt += dealt;
   t.kills += kills;
-  if (kills && who !== TOWERS) {
+  if (kills && who === CREATURE) {
+    const f = (t.felled ??= {});
+    for (const [rd, , down] of was) if (rd.down && !down) f[rd.kind] = (f[rd.kind] ?? 0) + 1;
+  }
+  if (kills && who >= 0) {
     const p = s.people.find((q) => q.id === who);
     if (p) p.felled = (p.felled ?? 0) + kills;
     for (const [rd, , down] of was) if (rd.down && !down) tally(p, `slain:${rd.kind}`);
@@ -106,6 +135,54 @@ export function credit(s: GameState, who: number, was: [Raider, number, boolean]
     const boss = was.find(([rd, , down]) => rd.down && !down && ENEMIES[rd.kind]?.boss)?.[0];
     noteFelled(s, p, kills, boss ? ENEMIES[boss.kind].name : undefined); // (the unique in hand: sim/provenance.ts)
   }
+}
+
+/** The God creature goes out to fight: its health noted, for its wounds in the recap. */
+export function beastOut(r: Raid, hp: number): void {
+  tallyOf(r, CREATURE).from = hp;
+}
+
+/** Credit a blow struck by an ally of the town (`a`): counted only when it is the God creature. Only counted: its
+ *  blows never lamed a raider, and still don't. */
+export function creditAlly(s: GameState, a: Raider, was: [Raider, number, boolean][]): void {
+  if (a.creature) credit(s, CREATURE, was, false);
+}
+
+const NUM_WORDS = ['no', 'one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight', 'nine', 'ten', 'eleven', 'twelve'];
+const plural = (w: string) => (/(s|x|ch|sh)$/.test(w) ? `${w}es` : /[^aeiou]y$/.test(w) ? `${w.slice(0, -1)}ies` : /(wolf|elf)$/.test(w) ? `${w.slice(0, -1)}ves` : `${w}s`);
+const anOf = (w: string) => (/^[aeiou]/i.test(w) ? 'an' : 'a');
+
+/** Raiders felled, told: "three orc grunts and a wolf" (the most first). */
+export function felledWords(felled: Record<string, number>): string {
+  const parts = Object.entries(felled)
+    .filter(([, n]) => n > 0)
+    .sort((a, b) => b[1] - a[1])
+    .map(([k, n]) => {
+      const w = (ENEMIES[k]?.name ?? k).toLowerCase();
+      return n === 1 ? `${anOf(w)} ${w}` : `${NUM_WORDS[n] ?? n} ${plural(w)}`;
+    });
+  return names(parts);
+}
+
+/** The God creature's row, if it fought in the raid (its ally on the raid; its state after `creatureRaidOver`). */
+function beastRow(s: GameState, r: Raid): BeastRow | undefined {
+  const a = r.raiders.find((rd) => rd.creature);
+  const c = s.creature;
+  if (!a || !c) return undefined;
+  const t = r.tally?.[CREATURE];
+  const from = t?.from ?? a.maxHp;
+  const died = !!c.dead && c.dead.tick === s.tick;
+  const row = {
+    name: `${c.name} the ${CREATURE_DEFS[c.kind]?.name ?? 'creature'}`,
+    dealt: Math.round(t?.dealt ?? 0),
+    kills: t?.kills ?? 0,
+    taken: Math.max(0, Math.round(from - (a.down ? 0 : a.hp))),
+    felled: felledWords(t?.felled ?? {}),
+    fell: died || a.down || a.hp <= 0,
+    died,
+  };
+  // (out to meet them, and never came to blows: no row)
+  return row.dealt || row.kills || row.taken || row.fell ? row : undefined;
 }
 
 /** A townsperson took harm in the raid. */
@@ -136,7 +213,7 @@ export function raidRecap(s: GameState, r: Raid, name: string, a: { outcome: Rai
     if (!p) continue;
     rows.push({ id, name: p.name, dealt: Math.round(t.dealt), kills: t.kills, taken: Math.round(t.taken), levelFrom: levelOf(p), levelTo: levelOf(p), xp: 0, fell: !!p.downed, died: false });
   }
-  const worth = (x: RecapRow) => x.dealt + x.kills * 25;
+  const worth = (x: Pick<RecapRow, 'dealt' | 'kills'>) => x.dealt + x.kills * 25;
   rows.sort((x, y) => worth(y) - worth(x) || y.taken - x.taken);
   const best = rows.find((x) => !x.died && worth(x) > 0) ?? null;
   const b = r.battle;
@@ -163,6 +240,12 @@ export function raidRecap(s: GameState, r: Raid, name: string, a: { outcome: Rai
     takenAlive: r.raiders.filter((rd) => !rd.ally && rd.runDown && rd.taken).length,
     story: [],
   };
+  // (the God creature fought beside them: sim/creature.ts)
+  const beast = beastRow(s, r);
+  if (beast) {
+    recap.beast = beast;
+    if (worth(beast) > 0 && worth(beast) > (best ? worth(best) : 0)) recap.beastBest = true;
+  }
   recap.story = tellRaid(recap, { side: r.side, fromSea: !!a.fromSea, bossDown: !!a.bossDown, sneak: r.kind.startsWith('prowl_') });
   // (the night watch saw them coming in: sim/nightWatch.ts)
   if (r.watched) {
@@ -193,7 +276,19 @@ export function tellRaid(c: RaidRecap, o: { side: -1 | 1; fromSea: boolean; boss
   out.push(`${cap(who)} came ${where}. ${c.came === 1 ? 'There was one of them' : `There were ${c.came}`}${c.waves > 1 ? `, in ${c.waves} waves` : ''}.`);
   if (c.boss) out.push(o.bossDown ? `${c.boss} led them, and was killed.` : `${c.boss} led them, and got away.`);
   const best = c.rows.find((x) => x.id === c.best);
-  if (best) out.push(best.kills ? `${best.name} fought best. They killed ${best.kills === 1 ? 'one' : best.kills} and did ${best.dealt} damage.` : `${best.name} fought best, and did ${best.dealt} damage.`);
+  const bt = c.beast;
+  const beastDid = bt ? (bt.kills ? `killed ${bt.felled || (bt.kills === 1 ? 'one' : bt.kills)} and did ${bt.dealt} damage` : `did ${bt.dealt} damage`) : '';
+  if (bt && c.beastBest) out.push(`${bt.name} fought best. It ${beastDid}.`);
+  if (best) {
+    const lead = c.beastBest ? `Of the townsfolk, ${best.name} fought best` : `${best.name} fought best`;
+    out.push(best.kills ? `${lead}. They killed ${best.kills === 1 ? 'one' : best.kills} and did ${best.dealt} damage.` : `${lead}, and did ${best.dealt} damage.`);
+  }
+  if (bt && !c.beastBest && (bt.dealt > 0 || bt.kills > 0)) out.push(`${bt.name} fought beside them, and ${beastDid}.`);
+  if (bt) {
+    if (bt.died) out.push(`${bt.name} was killed in the fight.`);
+    else if (bt.fell) out.push(`${bt.name} was beaten down${bt.taken ? `, taking ${bt.taken} damage` : ''}, and limped home.`);
+    else if (bt.taken >= 20) out.push(`${bt.name} took ${bt.taken} damage and stayed on its feet.`);
+  }
   const stalwart = [...c.rows].filter((x) => x !== best && !x.fell && x.taken > 0).sort((a, b) => b.taken - a.taken)[0];
   if (stalwart && stalwart.taken >= 20) out.push(`${stalwart.name} took ${stalwart.taken} damage and stayed on their feet.`);
   if (c.runDown) {
@@ -206,7 +301,7 @@ export function tellRaid(c: RaidRecap, o: { side: -1 | 1; fromSea: boolean; boss
   if (died.length) out.push(`${names(died)} died defending the town.`);
   if (c.towers?.kills) out.push(`The towers and traps killed ${c.towers.kills === 1 ? 'one' : c.towers.kills}.`);
   else if (c.towers?.dealt) out.push('The towers and traps helped.');
-  if (!c.rows.length) out.push('Nobody fought them.');
+  if (!c.rows.length && !c.beast) out.push('Nobody fought them.');
   const stolen = stockWords(c.stolen);
   if (c.outcome === 'pillaged') out.push(`They escaped with ${stolen || 'what they came for'}.`);
   else if (c.killed >= c.came) out.push(c.came === 1 ? 'It did not escape.' : 'None of them escaped.');

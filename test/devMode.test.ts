@@ -6,14 +6,14 @@ import { CREATURE_SAGA } from '../src/shared/data/creature';
 import { RAID_KIND_BY_ID } from '../src/shared/data/raids';
 import { Rng } from '../src/shared/rng';
 import { parseCommand } from '../src/shared/sim/commands';
-import { DEV_CAUSE } from '../src/shared/sim/dev';
+import { DEV_CAUSE, FILL_UP_TO } from '../src/shared/sim/dev';
 import type { DevOrder } from '../src/shared/sim/devOrders';
 import { levelOf } from '../src/shared/data/levels';
 import { startRaid } from '../src/shared/sim/raids';
 import { keepOffer } from '../src/shared/sim/researchOffer';
 import { Sim } from '../src/shared/sim/sim';
-import { totalStock } from '../src/shared/sim/buildings';
-import { campXY, makePerson, maxHp, type GameState, type Person } from '../src/shared/sim/state';
+import { totalCapacity, totalStock } from '../src/shared/sim/buildings';
+import { campXY, makePerson, maxHp, poolSize, type GameState, type Person } from '../src/shared/sim/state';
 import { TICKS_PER_HOUR } from '../src/shared/sim/time';
 import { freeSpot, plainGame, put } from './helpers';
 
@@ -126,12 +126,30 @@ test('harvest: every field with a crop in is reaped into the stores', () => {
 
 test('fill: food, wood, stone and coins by the amount asked', () => {
   const { s, order } = devTown('dev-fill');
+  // (room for it all: ten stockpiles)
+  for (let i = 0; i < 10; i++) {
+    const at = freeSpot(s, 'stockpile');
+    put(s, 'stockpile', at.x, at.y);
+  }
   const was = totalStock(s);
   const coins = s.coins ?? 0;
   order({ op: 'fill', amount: 250 });
   const now = totalStock(s);
   for (const m of ['grain', 'wood', 'stone'] as const) assert.equal((now[m] ?? 0) - (was[m] ?? 0), 250, m);
   assert.equal(s.coins, coins + 250);
+});
+
+test('fill: only what the stores have room for, so the planner never throws it away', () => {
+  const { s, order } = devTown('dev-fill-room');
+  const coins = s.coins ?? 0;
+  order({ op: 'fill', amount: 100000 });
+  const used = poolSize(totalStock(s));
+  assert.ok(used <= totalCapacity(s) * FILL_UP_TO + 3, `under the line (${used} of ${totalCapacity(s)})`);
+  assert.ok(used < totalCapacity(s) * 0.9, 'below where makeRoom clears goods out');
+  assert.equal(s.coins, coins + 100000, 'coins in full');
+  const before = poolSize(totalStock(s));
+  order({ op: 'fill', amount: 100000 });
+  assert.ok(poolSize(totalStock(s)) <= before + 3, 'a second fill adds nothing to full stores');
 });
 
 test('kill: a townsperson dies, through the town\'s own death', () => {

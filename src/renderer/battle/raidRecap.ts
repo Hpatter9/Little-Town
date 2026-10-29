@@ -68,6 +68,8 @@ function strip(c: Recap, snap: Snapshot | null): HTMLElement {
     ? `${c.boss} falls!`
     : c.outcome === 'pillaged'
       ? (c.through ? `They broke through: ${c.through} got past the defences.` : 'They broke through and pillaged the town.')
+      : c.beast && c.beastBest && c.beast.kills > 0
+        ? `${c.beast.name} felled ${c.beast.kills}, and the line held.`
       : best && best.kills > 0
         ? `${best.name} felled ${best.kills}, and the line held.`
         : c.towers && c.towers.kills > 0
@@ -108,6 +110,7 @@ function strip(c: Recap, snap: Snapshot | null): HTMLElement {
     chip.append(`${r.id === c.best ? '★ ' : ''}${r.name}${r.levelTo > r.levelFrom ? ` Lv ${r.levelTo}!` : r.kills > 0 ? ` felled ${r.kills}` : ` dealt ${r.dealt}`}`);
     chips.append(chip);
   }
+  if (c.beast && (c.beastBest || c.beast.fell)) chips.append(el('span', `rs-chip ${c.beast.fell ? 'fell' : 'shone'}`, `${c.beast.died ? '✝ ' : c.beastBest ? '★ ' : ''}${c.beast.name}${c.beast.died ? ' slain' : c.beast.fell ? ' fell' : c.beast.kills ? ` felled ${c.beast.kills}` : ` dealt ${c.beast.dealt}`}`));
   if (chips.childElementCount) wrap.append(chips);
   return wrap;
 }
@@ -162,7 +165,7 @@ export function createRaidRecap(giveChase: () => void = () => {}): RaidRecapView
     // what happened, told
     if (c.story?.length) box.append(el('div', 'rr-story', c.story.join(' ')));
     // the defenders, the best first
-    if (c.rows.length) {
+    if (c.rows.length || c.beast) {
       const table = el('div', 'rr-rows');
       const head = el('div', 'rr-row rr-head');
       head.append(el('span', 'rr-name', 'Defender'), el('span', 'rr-n', '⚔'), el('span', 'rr-n', 'Dealt'), el('span', 'rr-n', 'Took'), el('span', 'rr-xp', 'EXP'));
@@ -178,6 +181,18 @@ export function createRaidRecap(giveChase: () => void = () => {}): RaidRecapView
         if (r.levelTo > r.levelFrom) xp.append(el('span', 'rr-up', ` LV ${r.levelTo}!`));
         row.append(name, el('span', 'rr-n', String(r.kills)), el('span', 'rr-n', String(r.dealt)), el('span', 'rr-n', String(r.taken)), xp);
         table.append(row);
+      }
+      // (the God creature, as a defender is: what it felled, the harm it did, its wounds)
+      const bt = c.beast;
+      if (bt) {
+        const row = el('div', `rr-row beast${bt.died ? ' died' : bt.fell ? ' fell' : ''}${c.beastBest ? ' best' : ''}`);
+        const name = el('span', 'rr-name', `${c.beastBest ? '★ ' : ''}${bt.name}`);
+        if (bt.died) name.append(el('span', 'rr-mark', ' slain'));
+        else if (bt.fell) name.append(el('span', 'rr-mark', ' fell'));
+        if (bt.felled) name.title = `Felled ${bt.felled}`;
+        row.append(name, el('span', 'rr-n', String(bt.kills)), el('span', 'rr-n', String(bt.dealt)), el('span', 'rr-n', String(bt.taken)), el('span', 'rr-xp', ''));
+        table.append(row);
+        if (bt.felled) table.append(el('div', 'rr-felled', `Felled ${bt.felled}.`));
       }
       if (c.towers) {
         const row = el('div', 'rr-row towers');

@@ -3,7 +3,8 @@
 // trip there (`search`, a trip the founder leads: `lead`), the player's pick of the five young (`{ creature: kind }`), its
 // first night in the town, then its first deed, a test of its nature, and its coming of age. Its questions hold the game
 // until they are answered (`waits`), like a question on the founder's own trip. {beast} is the creature's name, {wild}
-// the land the nest lies in (`CreatureQuest.region`). See data/sagas.ts for how a saga is built.
+// the land the nest lies in (`CreatureQuest.region`); `[[gardens:…|…]]` and `[[children:…|…]]` pick words that fit the town
+// as it is (sim/sagas.ts `TOWN_HAS`). See data/sagas.ts for how a saga is built.
 // (An older town's saga, begun by the old research and pen, may still be at `signs` or `trail`: they are kept.)
 
 import { CREATURE_DEFS, CREATURE_KINDS, CREATURE_PEN, CREATURE_SAGA } from './creature';
@@ -112,17 +113,17 @@ export const CREATURE_SAGA_DEF: SagaDef = {
       kind: 'choice',
       picture: 'meadows_2',
       waits: true,
-      text: "Before dawn {beast} drags a whole deer to {founder}'s door, proud as anything, and leaves a trail of trampled cabbages behind it. The town gathers to see what {founder} will do.",
+      text: "Before dawn {beast} drags a whole deer to {founder}'s door, proud as anything, and leaves a trail of [[gardens:trampled cabbages|churned mud and torn-up turf]] behind it. The town gathers to see what {founder} will do.",
       options: [
-        { label: 'Praise the kill, and let the cabbages go', effects: [{ creatureTeach: 'hunt', by: 1 }], next: 'growing' },
-        { label: 'Praise the kill, and scold it for the garden', effects: [{ creatureTeach: 'hunt', by: 1 }, { creatureTeach: 'eat_crops', by: -1 }], next: 'growing' },
-        { label: 'Scold it: it must keep out of the gardens', effects: [{ creatureTeach: 'eat_crops', by: -1 }, { creatureTeach: 'hunt', by: -1 }], next: 'growing' },
+        { label: 'Praise the kill, and let the [[gardens:cabbages|mess]] go', effects: [{ creatureTeach: 'hunt', by: 1 }], next: 'growing' },
+        { label: 'Praise the kill, and scold it for the [[gardens:garden|mess]]', effects: [{ creatureTeach: 'hunt', by: 1 }, { creatureTeach: 'eat_crops', by: -1 }], next: 'growing' },
+        { label: 'Scold it: it must [[gardens:keep out of the gardens|not tear up the town]]', effects: [{ creatureTeach: 'eat_crops', by: -1 }, { creatureTeach: 'hunt', by: -1 }], next: 'growing' },
       ],
     },
     growing: {
       kind: 'wait',
       hours: 120,
-      text: '{beast} grows by the week, and the children climb on it when it lets them.',
+      text: '{beast} grows by the week, and [[children:the children climb on it|{founder} rides on its back]] when it lets them.',
       next: 'test',
     },
     test: {
@@ -150,7 +151,7 @@ export const CREATURE_SAGA_DEF: SagaDef = {
     grown_good: {
       kind: 'end',
       outcome: 'triumph',
-      text: '{beast} is grown, taller than the roofs, and gentle with it. The children ride it on feast days, and raiders give the town a wide berth.',
+      text: '{beast} is grown, taller than the roofs, and gentle with it. [[children:The children ride it on feast days|It lets anyone ride it on feast days]], and raiders give the town a wide berth.',
       effects: [{ title: 'Beast-Friend' }, mood(4, 48, 'Our God creature is grown'), rep(2)],
     },
     grown_cruel: {
