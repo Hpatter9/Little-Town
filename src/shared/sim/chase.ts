@@ -38,7 +38,7 @@ export interface ChaseOffer {
 /** The raid is over (raids.ts endRaid): those who got away may be chased. */
 export function noteFugitives(s: GameState, r: Raid, name: string): void {
   s.chaseOffer = undefined;
-  if (!s.autopilot || r.chase || r.turned || r.mercy === 'spared') return;
+  if (s.autopilot === false || r.chase || r.turned || r.mercy === 'spared') return;
   const runners = r.raiders.filter((rd) => !rd.ally && rd.gone && !rd.down && !rd.runDown && !rd.taken).slice(0, CHASE_RUNNERS);
   if (!runners.length) return;
   s.chaseOffer = { tick: s.tick, until: s.tick + CHASE_HOURS * TICKS_PER_HOUR, kind: r.kind, name, side: r.side, runners: runners.map((rd) => ({ ...rd, carrying: { ...rd.carrying }, bt: undefined })) };

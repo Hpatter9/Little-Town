@@ -100,7 +100,7 @@ export interface RaidBoardDef {
  *  wants (a big raid's board is bigger: tactics.ts `BIG_W`). A chase is run over open ground, and a raid from the sea
  *  comes ashore where it lands: neither has one; nor has a town with the autopilot off (the tests' single mechanics). */
 export function boardsFor(s: GameState, r: Raid, w: number, h: number): RaidBoardDef[] {
-  if (!s.autopilot || r.chase || RAID_KIND_BY_ID[r.kind]?.fromSea) return [];
+  if (s.autopilot === false || r.chase || RAID_KIND_BY_ID[r.kind]?.fromSea) return [];
   const biome = s.biome ?? 'forest';
   return RAID_BOARDS.filter((b) => b.w === w && b.h === h && b.biomes.includes(biome) && (!b.raidKinds.length || b.raidKinds.includes(r.kind)) && !b.notRaidKinds.includes(r.kind));
 }

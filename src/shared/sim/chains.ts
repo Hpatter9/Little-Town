@@ -99,7 +99,7 @@ export const HEARTWOOD_CHANCE = 1 / 80;
 
 /** Felling: now and then the tree is an old one, with heartwood at its core (on the chains' own stream). */
 export function fellHeartwood(s: GameState, p: Person): void {
-  if (!s.autopilot || s.era === 'neolithic') return;
+  if (s.autopilot === false || s.era === 'neolithic') return;
   if (!new Rng(hashSeed(`${s.seed}:heartwood:${s.tick}:${p.id}`)).chance(HEARTWOOD_CHANCE)) return;
   addStock(p.carrying, 'heartwood', 1);
   notify(s, `${p.name} felled an old tree with heartwood at its core.`);
@@ -122,7 +122,7 @@ export const RARE_FINDS: Partial<Record<ExpeditionType, [number, Partial<Record<
  *  delve), from the Medieval age on. Rolled on the chains' own stream. */
 export function rareFind(s: GameState, e: Expedition, type: ExpeditionType): void {
   const find = RARE_FINDS[type];
-  if (!find || !s.autopilot || s.era === 'neolithic' || e.recalled) return;
+  if (!find || s.autopilot === false || s.era === 'neolithic' || e.recalled) return;
   const rng = new Rng(hashSeed(`${s.seed}:rarefind:${s.tick}:${e.id}`));
   if (!rng.chance(find[0])) return;
   const n = type === 'legendary' || (type === 'delve' && e.cleared) ? 2 : 1;

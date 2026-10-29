@@ -75,7 +75,7 @@ export function buyGear(s: GameState): void {
  *  calling and room in their pouch buys the next one they would carry with their own coins, fighters first, one an hour
  *  and at the same local price as gear (the stores' own hand-out is sim/kit.ts `restockKits`). */
 export function buyKit(s: GameState): void {
-  if (!s.autopilot) return;
+  if (s.autopilot === false) return;
   const defs = Object.keys(s.items).filter((id) => KIT_BY_ID[id] && ITEM_BY_ID[id]).map((id) => ITEM_BY_ID[id]);
   if (!defs.length) return;
   const buyers = s.people.filter((p) => p.away === null && !p.downed && carriesKit(p)).sort((a, b) => fightSkill(s, b) - fightSkill(s, a) || a.id - b.id);

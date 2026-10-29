@@ -121,7 +121,7 @@ export function pickFloor(s: GameState, e: Expedition, d: DungeonDef, count: num
   if (floorPreview.id === 'rolled') return null;
   const shown = floorPreview.id ? DELVE_FLOORS.find((m) => m.id === floorPreview.id && fieldList(m, 'types').includes(d.type)) : undefined;
   if (shown) return shown;
-  if (!s.autopilot) return null;
+  if (s.autopilot === false) return null;
   const fit = floorsFor(d, count);
   if (!fit.length) return null;
   const rng = new Rng(hashSeed(`${s.seed}:delveFloor:${e.id}`));
