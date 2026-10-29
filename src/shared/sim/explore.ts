@@ -6,20 +6,20 @@
 import { EXPLORE_BEYOND, EXPLORE_DIRS, EXPLORE_PER_PEOPLE, EXPLORE_QUOTA, FOG_NEED_HOURS, SCOUT_CLASSES } from '../data/sight';
 import { Rng, hashSeed } from '../rng';
 import { townRadius } from './buildings';
-import { CELL, inMap, isOpen, stepCost, type Pt } from './land';
+import { CELL, inMap, stepCost, type Pt } from './land';
 import { calendar, TICKS_PER_HOUR } from './time';
 import { campCell, maxHp, type GameState, type Person } from './state';
 import { isChild } from './social';
 import { isNight } from './lighting';
 
-/** How far from the camp the exploring goes (cells). */
+/** How far from the camp the exploring goes (cells): past the open land too, which a new town has all in sight from
+ *  the start (`START_EXPLORED` is wider than `OPEN_START`), so nothing was left to explore for weeks. */
 export function exploreReach(s: GameState): number {
-  return Math.min(s.land.open, townRadius(s) + EXPLORE_BEYOND);
+  return townRadius(s) + EXPLORE_BEYOND;
 }
 
 interface Edge {
   src: string | undefined;
-  open: number;
   reach: number;
   cells: Pt[];
 }
@@ -29,7 +29,7 @@ const edges = new WeakMap<GameState, Edge>();
 export function fogEdge(s: GameState): Pt[] {
   const reach = exploreReach(s);
   const e = edges.get(s);
-  if (e && e.src === s.explored && e.open === s.land.open && e.reach === reach) return e.cells;
+  if (e && e.src === s.explored && e.reach === reach) return e.cells;
   const m = s.land;
   const c = campCell(s);
   const cells: Pt[] = [];
@@ -40,11 +40,11 @@ export function fogEdge(s: GameState): Pt[] {
       for (let x = Math.max(0, c.x - reach); x <= Math.min(m.w - 1, c.x + reach); x++) {
         if (text.charCodeAt(y * m.w + x) !== 49 || Math.hypot(x - c.x, y - c.y) > reach) continue;
         if (seen(x + 1, y) && seen(x - 1, y) && seen(x, y + 1) && seen(x, y - 1)) continue;
-        if (!isOpen(m, x, y) || stepCost(m, x, y) === Infinity) continue;
+        if (stepCost(m, x, y) === Infinity) continue;
         cells.push({ x, y });
       }
   }
-  edges.set(s, { src: s.explored, open: m.open, reach, cells });
+  edges.set(s, { src: s.explored, reach, cells });
   return cells;
 }
 

@@ -14,7 +14,7 @@ import { NAMES } from '../data/people';
 import { ITEM_BY_ID } from '../data/items';
 import { hashSeed, Rng } from '../rng';
 import { isChild } from './social';
-import { notify, type GameState, type Person, type Prompt } from './state';
+import { notify, setOutcome, type GameState, type Person, type Prompt } from './state';
 import { TICKS_PER_HOUR } from './time';
 
 export const NAME_MIN = 2;
@@ -47,6 +47,12 @@ export function foundersChild(s: GameState, p: Person): boolean {
   return !!f && isChild(p) && !!p.parents?.some((id) => id === f.id || id === f.partner);
 }
 
+/** A name given: told, and what came of the question for the event box (it said "Nothing more came of it"). */
+function named(s: GameState, line: string, key = true): void {
+  notify(s, line, key);
+  setOutcome(s, 'A name', null, line);
+}
+
 /** Give a thing its name. Checks the name and that the thing may be named. */
 export function applyName(s: GameState, kind: NameKind, id: number | string, raw: unknown): NameResult {
   const name = cleanName(raw);
@@ -56,7 +62,7 @@ export function applyName(s: GameState, kind: NameKind, id: number | string, raw
     if (!b || b.status !== 'done' || b.ring !== undefined || b.room) return { ok: false, reason: 'That cannot be named' };
     b.homeName = name;
     b.named = true;
-    notify(s, `The ${(BUILDING_BY_ID[b.def]?.name ?? b.def).toLowerCase()} is named ${name}.`);
+    named(s, `The ${(BUILDING_BY_ID[b.def]?.name ?? b.def).toLowerCase()} is named ${name}.`, false);
     return { ok: true, name };
   }
   if (kind === 'person') {
@@ -65,7 +71,7 @@ export function applyName(s: GameState, kind: NameKind, id: number | string, raw
     if ([...s.people, ...s.captives].some((q) => q !== p && q.name.toLowerCase() === name.toLowerCase())) return { ok: false, reason: `Someone is already called ${name}` };
     const was = p.name;
     p.name = name;
-    notify(s, `${was} is named ${name}.`, true);
+    named(s, `${was} is named ${name}.`);
     return { ok: true, name };
   }
   if (kind === 'creature') {
@@ -75,12 +81,12 @@ export function applyName(s: GameState, kind: NameKind, id: number | string, raw
     const was = c.name;
     c.name = name;
     (c.history ??= []).push({ tick: s.tick, text: was === name ? `Named ${name} by the town.` : `Named ${name} by the town (it was called ${was}).` });
-    notify(s, `The God creature is named ${name}.`, true);
+    named(s, `The God creature is named ${name}.`);
     return { ok: true, name };
   }
   if (typeof id !== 'string' || !(s.uniques ?? []).includes(id)) return { ok: false, reason: 'That cannot be named' };
   (s.uniqueNames ??= {})[id] = name;
-  notify(s, `${ITEM_BY_ID[id]?.name ?? 'The weapon'} is named ${name}.`, true);
+  named(s, `${ITEM_BY_ID[id]?.name ?? 'The weapon'} is named ${name}.`);
   return { ok: true, name };
 }
 
@@ -142,7 +148,8 @@ export function askCreatureName(s: GameState, c: CreatureState): void {
 /** A naming question answered by tapping one of its options. */
 export function answerName(s: GameState, prompt: Prompt, option: number): void {
   const n = prompt.naming;
-  if (!n || option >= prompt.options.length - 1) return; // (keep the name)
+  if (!n) return;
+  if (option >= prompt.options.length - 1) return setOutcome(s, prompt.title, null, 'The name it has stays.'); // (keep the name)
   applyName(s, n.kind, n.id, prompt.options[option]);
 }
 

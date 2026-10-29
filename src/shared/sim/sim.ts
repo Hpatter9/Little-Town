@@ -117,7 +117,7 @@ import { TICK_MS, TICKS_PER_HOUR } from './time';
 import { acceptVisitor, assignBeds, drillGuards, driftMorale, keepKin, maybeArrive, rejectVisitor, updateVisitor } from './townsfolk';
 import { chooseOffer, keepOffer } from './researchOffer';
 import { forSale, runPlanner, shoppingList } from './planner';
-import { syncRing } from './ringWall';
+import { bestWall, syncRing } from './ringWall';
 import { chooseLich, watchLich } from './occult';
 import { castHeld, castPowers, holdPower } from './powers';
 import { lurkers } from './lurkers';
@@ -468,7 +468,9 @@ export class Sim {
         cancelResearch(s.research, c.topic, true);
         break;
       case 'orderRing':
-        s.ringOrder = true;
+        // (no wall learned yet: the order was taken and nothing came of it)
+        if (!bestWall(s)) notify(s, "Can't order that: the palisade isn't studied yet.");
+        else s.ringOrder = true;
         break;
       case 'pinBuilding': {
         const no = setPin(s, c.def, c.on, c.id);

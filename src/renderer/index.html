@@ -1744,15 +1744,11 @@
         border-top: 0;
         border-bottom: 2px solid var(--wood-edge);
       }
+      /* (below the page's news button and stores readout, which lie over the strip's top; sideways, below the clock
+         bar, as the minimap is) */
       body.embedded #prompt,
       body.embedded #banner {
-        top: 8px;
-      }
-      /* (sideways the page's clock bar lies over the strip's top: the banner goes below it, as the minimap does) */
-      @media (orientation: landscape) {
-        body.embedded #banner {
-          top: 44px;
-        }
+        top: 44px;
       }
       /* (notices go to the bottom corner, clear of a question card at the top: they fade in a few seconds) */
       body.embedded #toasts {

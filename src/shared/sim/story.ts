@@ -43,6 +43,8 @@ export const CHAPTERS_MOST = 120;
 
 const storyOn = (s: GameState) => s.autopilot !== false;
 const town = (s: GameState) => s.townName ?? 'the new town';
+/** The same, starting a sentence. */
+const Town = (s: GameState) => town(s)[0].toUpperCase() + town(s).slice(1);
 const founder = (s: GameState): Person | undefined => s.people.find((p) => p.id === s.mainId);
 const joinNames = (names: string[]) => (names.length <= 1 ? (names[0] ?? '') : `${names.slice(0, -1).join(', ')} and ${names[names.length - 1]}`);
 
@@ -149,7 +151,7 @@ export function storyShop(s: GameState, shop: string, price: number): void {
 export function storyRaid(s: GameState, name: string, outcome: string): void {
   const f = founder(s);
   if (!f || f.downed) return;
-  writeChapter(s, 'raid', 'A raid survived', [`The ${name} came for ${town(s)}, and ${f.name} was there.`, outcome, `${town(s)} is still standing.`]);
+  writeChapter(s, 'raid', 'A raid survived', [`The ${name} came for ${town(s)}, and ${f.name} was there.`, outcome, `${Town(s)} is still standing.`]);
 }
 
 /** The founder has died (`heir` takes up the leadership; none: the game is over). The old story closes, the heir's begins. */
