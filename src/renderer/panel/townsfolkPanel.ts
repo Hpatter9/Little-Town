@@ -1163,7 +1163,7 @@ function beastSection(c: CreatureView, bridge: Bridge | undefined): HTMLElement[
   input.maxLength = 24;
   input.placeholder = `Rename ${c.name}`;
   input.autocomplete = 'off';
-  input.style.cssText = 'flex:1;min-width:0;min-height:40px;padding:6px 10px;font:inherit;font-size:16px';
+  input.style.cssText = 'flex:1;min-width:0;min-height:40px;padding:6px 10px;font:inherit;font-size:16px;background:#1a120c;color:var(--text);border:1px solid #4a3522;border-radius:3px';
   const go = el('button', 'place small quiet', 'Rename');
   go.type = 'submit';
   form.append(input, go);

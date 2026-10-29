@@ -168,5 +168,7 @@ export const pack = (s: GameState) => !!s.pack;
 export const monsters = (s: GameState) => s.people.some((p) => p.monster === 'vampire' || p.monster === 'werewolf');
 export const strangers = (s: GameState) => s.people.some((p) => p.origin && p.origin !== (s.origin ?? 'settlers'));
 export const prisoners = (s: GameState) => s.prisoners.length > 0;
+/** A raid has come (its recap is kept): for the events that speak of "the last raid". */
+export const raided = (s: GameState) => !!s.raidRecap;
 export const horses = (s: GameState) => s.horses.length > 0;
 export const grown = (s: GameState, n: number) => s.people.filter((p) => p.bornTick == null).length >= n;

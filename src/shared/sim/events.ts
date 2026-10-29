@@ -272,8 +272,10 @@ export function apply(s: GameState, effects: readonly EventEffect[], rng: Rng, w
       earn(s, 'events', n);
       if (n) say(`${signed(n)} coins`);
     } else if ('renown' in e) {
-      for (const b of s.buildings) if (b.shop) b.shop.renown = Math.max(0, (b.shop.renown ?? 0) + e.renown);
-      say(`the shop's renown ${signed(e.renown)}`);
+      const shops = s.buildings.filter((b) => b.shop);
+      for (const b of shops) b.shop!.renown = Math.max(0, (b.shop!.renown ?? 0) + e.renown);
+      // (a town with no shop gains nothing here, so says nothing)
+      if (shops.length) say(`${shops.length === 1 ? "the shop's" : "the shops'"} renown ${signed(e.renown)}`);
     } else if ('reputation' in e) {
       s.reputation = Math.max(0, s.reputation + e.reputation);
       say(`reputation ${signed(e.reputation)}`);

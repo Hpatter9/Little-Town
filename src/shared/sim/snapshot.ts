@@ -640,6 +640,8 @@ export interface PromptView {
   roads?: RoadView[];
   /** The great creature's pick (sim/creature.ts): the options are the five kinds in order, shown as a lineup. */
   beasts?: boolean;
+  /** A fight's foes (enemy ids, the most first), for the card's picture (sim/watchAsk.ts). */
+  foes?: string[];
 }
 export interface RoadView {
   id: string;
@@ -1690,6 +1692,7 @@ function snapshotOf(s: GameState): Snapshot {
       ...(p.parked ? { parked: true } : {}),
       ...(p.roads ? { roads: p.roads.map(roadOf).filter((r): r is RoadView => !!r) } : {}),
       ...(p.beasts ? { beasts: true } : {}),
+      ...(p.foes ? { foes: p.foes } : {}),
     })),
     raid: s.raid && !s.raid.veil
       ? {

@@ -82,14 +82,15 @@ export function noteRoll(s: GameState, r: Raid): void {
 /** The raiders' health before a blow, to credit what it did (`credit`). */
 export const before = (raiders: Raider[]): [Raider, number, boolean][] => raiders.filter((rd) => !rd.ally).map((rd) => [rd, rd.hp, rd.down]);
 
-/** Credit `who` (a person's id, or `TOWERS`) with the harm done since `was` and the raiders it felled. */
-export function credit(s: GameState, who: number, was: [Raider, number, boolean][]): void {
+/** Credit `who` (a person's id, or `TOWERS`) with the harm done since `was` and the raiders it felled. `legs`: a blow
+ *  may find a leg (a spell or skill on the board is only counted: false). */
+export function credit(s: GameState, who: number, was: [Raider, number, boolean][], legs = true): void {
   const r = s.raid;
   if (!r) return;
   let dealt = 0;
   let kills = 0;
   for (const [rd, hp, down] of was) {
-    if (rd.hp < hp) legWound(s, rd, hp - rd.hp); // (a blow may find a leg: sim/raiderWounds.ts)
+    if (legs && rd.hp < hp) legWound(s, rd, hp - rd.hp); // (a blow may find a leg: sim/raiderWounds.ts)
     if (rd.hp < hp) dealt += hp - rd.hp;
     if (rd.down && !down) kills++;
   }

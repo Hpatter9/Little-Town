@@ -1,6 +1,6 @@
 // More choice events, part four: faith and omens, crime and law, children, elders and the dead, the land's places
 // and the roads, war and raids.
-import { bond, calm, chance, children, coin, coins, dflt, elders, eraAt, gain, graveyard, has, hero, item, later, library, mines, mod, monsters, mood, note, opt, people, prisoners, raidIn, rep, study, take, teach, walls, type EventDef } from './eventKit';
+import { bond, calm, chance, children, coin, coins, dflt, elders, eraAt, gain, graveyard, has, hero, item, later, library, mines, mod, monsters, mood, note, opt, people, prisoners, raided, raidIn, rep, study, take, teach, walls, type EventDef } from './eventKit';
 
 export const WORLD_EVENTS: readonly EventDef[] = [
   /* ---------------------------------------------------------- faith and omens */
@@ -172,7 +172,7 @@ export const WORLD_EVENTS: readonly EventDef[] = [
     options: [dflt('Feed them and send them on', take('food', 0.08), { reputation: 2 }), opt('Bar the gates', mod('guard', 1.1, 48, 'Gates barred'), chance(0.4, [{ raid: 12 }])), opt('Recruit them', { join: 2, type: 'hunter' }, take('food', 0.05), mood(-2, 48, 'Soldiers among us'))] },
   { id: 'w_siege_rumour', scene: 'raid_warning', title: 'An army coming', text: 'Travellers say an army is marching this way. Travellers say a lot of things.', 
     options: [dflt('Lay in stores', mod('forage', 1.1, 72, 'Stocking up'), mod('guard', 1.05, 120, 'Ready')), opt('Carry on', chance(0.2, [{ raid: 96 }]))] },
-  { id: 'w_war_trophy', scene: 'raid_warning', title: 'A trophy', text: 'The last raid left a banner behind. The young want to hang it over the gate.', when: walls,
+  { id: 'w_war_trophy', scene: 'raid_warning', title: 'A trophy', text: 'The last raid left a banner behind. The young want to hang it over the gate.', when: (s) => walls(s) && raided(s),
     options: [dflt('Hang it', mood(3, 120, 'A trophy over the gate'), { renown: 1 }, chance(0.2, [{ raid: 120 }, note('Its owners want it back.')])), opt('Burn it', mood(1, 24, 'The banner burned'), calm(24), note('Nothing over the gate to goad them.'))] },
   { id: 'w_peace_offer', scene: 'envoy', title: 'A peace offer', text: 'The bandits of the hills send an envoy: peace, if the town will trade with them.', 
     options: [opt('Trade', { calm: 240 }, mod('travellers', 1.05, 240, 'Bandit trade'), { reputation: -1 }), dflt('No peace with bandits', chance(0.3, [{ raid: 72 }]))] },
@@ -192,11 +192,11 @@ export const WORLD_EVENTS: readonly EventDef[] = [
     options: [dflt('Go', take('food', 0.04), chance(0.7, [{ calm: 240 }, { reputation: 3 }], [{ wound: 'random', hp: 20 }, note('A trap, half sprung.')])), opt('Decline', chance(0.3, [{ raid: 96 }]))] },
   { id: 'w_monster_ally', scene: 'raid_warning', title: 'An unlikely ally', text: 'One of the town\'s monsters offers to frighten the raiders off, if the town looks the other way.', when: monsters,
     options: [dflt('Look the other way', { calm: 120 }, mood(-2, 48, 'A bargain with a monster')), opt('No', note('The monster shrugs.'), rep(1), mod('guard', 1.05, 48, 'Our own watch, then'))] },
-  { id: 'w_captured_standard', scene: 'raid_warning', title: 'The standard', text: 'The town\'s own standard was lost in the last raid. The raiders fly it from a hill.', 
+  { id: 'w_captured_standard', scene: 'raid_warning', title: 'The standard', text: 'The town\'s own standard was lost in the last raid. The raiders fly it from a hill.', when: raided,
     options: [dflt('Take it back', chance(0.6, [mood(5, 72, 'The standard regained'), { renown: 2 }], [{ wound: 'random', hp: 20 }])), opt('Sew a new one', take('stores', 0.01), mood(1, 48, 'A new standard'))] },
   { id: 'w_night_attack_false', scene: 'raid_warning', title: 'Shapes in the dark', text: 'The watch raised the alarm at midnight: shapes at the tree line. By dawn, nothing but deer tracks.', 
     options: [dflt('Thank the watch', mood(1, 24, 'The watch thanked'), mod('guard', 1.1, 48, 'A watch that knows it is valued')), opt('Mock them', mood(-2, 48, 'A watch mocked'), mod('guard', 0.95, 72, 'A sulking watch'))] },
-  { id: 'w_veteran_tale', scene: 'children', title: 'The scar', text: 'A townsperson shows the children the scar from the last raid, and tells it bigger each time.', when: (s) => people(s, 5),
+  { id: 'w_veteran_tale', scene: 'children', title: 'The scar', text: 'A townsperson shows the children the scar from the last raid, and tells it bigger each time.', when: (s) => people(s, 5) && raided(s),
     options: [dflt('Let them', mood(2, 48, 'War stories'), mod('fight', 1.03, 120, 'Inspired youngsters')), opt('Enough war stories', mood(-1, 24, 'No war stories'), mod('work', 1.03, 24, 'Back to work'), bond(-10, 'random'))] },
   { id: 'w_arms_dealer', scene: 'shady', title: 'An arms dealer', text: 'A dealer offers a cartload of second-hand weapons, cheap, no questions about where from.', when: (s) => coins(s, 15),
     options: [dflt('Buy', { coins: -15 }, gain({ iron: 8 }), mod('fight', 1.05, 240, 'Armed')), opt('Decline', { reputation: 1 })] },

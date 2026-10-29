@@ -52,6 +52,7 @@ export function askToWatch(s: GameState, e: Expedition, d: Destination, group: R
     story: `${text} The fight waits on your word.`,
     picture: eventPicture(`watch:${e.dest}`, words, { hour: cal.hour, season: cal.season, weather: weatherAt(s.seed, s.tick, null).kind, biome: s.biome ?? 'forest', era: s.era, sea: seaTown(s) }),
     who: lead?.id,
+    foes: Object.keys(group).sort((a, b) => group[b] - group[a] || (ENEMIES[b]?.boss ? 1 : 0) - (ENEMIES[a]?.boss ? 1 : 0)),
     options: ['Watch the fight', 'Let it play out'],
     defaultOption: 1,
     expiresTick: s.tick + WATCH_ASK_HOURS * TICKS_PER_HOUR,

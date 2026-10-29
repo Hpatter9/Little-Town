@@ -12,7 +12,7 @@ import { findSpot } from '../src/shared/sim/planner';
 import { startRaid } from '../src/shared/sim/raids';
 import { Sim } from '../src/shared/sim/sim';
 import { snapshot } from '../src/shared/sim/snapshot';
-import { campCell, makePerson, type GameState } from '../src/shared/sim/state';
+import { campCell, makePerson, newGame, type GameState } from '../src/shared/sim/state';
 import { Rng } from '../src/shared/rng';
 import { clearAround, plainGame, put } from './helpers';
 
@@ -125,6 +125,15 @@ test('exploring pushes the fog back', () => {
   assert.ok(count(s.explored) > before + 150, 'the founder explored a good stretch');
   assert.ok(furthest > (campCell(s).x + 14) * CELL, 'out to the east');
   assert.equal(s.founderOrder, undefined, 'and the order ends when that way is seen, within the town\'s reach');
+});
+
+test('a new town can send its founder exploring (its sight starts wider than its open land)', () => {
+  const s = newGame('fogrules-new', { origin: 'settlers', biome: 'forest' });
+  const sim = new Sim(s);
+  for (let i = 0; i < 100; i++) sim.step();
+  assert.ok(fogEdge(s).length > 0, 'fog left to push back');
+  const winds = snapshot(s).founder!.winds;
+  assert.ok(winds.filter((w) => w.open).length >= 4, `winds open: ${winds.filter((w) => w.open).map((w) => w.name).join(', ')}`);
 });
 
 function raidSetup(seed: string): GameState {

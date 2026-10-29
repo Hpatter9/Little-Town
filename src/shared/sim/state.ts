@@ -848,6 +848,8 @@ export interface Prompt {
   saga?: number;
   /** The great creature's pick: its options are the five kinds in `CREATURE_KINDS`' order (shown as a lineup). */
   beasts?: boolean;
+  /** A fight's foes (enemy ids, the most first): the card draws them (sim/watchAsk.ts). */
+  foes?: string[];
   /** A road question on a trip the founder is on: no timer, no default, and the game is held until it is answered
    *  (sim/founderQuests.ts). */
   waits?: boolean;

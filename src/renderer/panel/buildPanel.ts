@@ -311,15 +311,18 @@ function buildMenu(s: Snapshot, bridge: Bridge | undefined, rerender: () => void
 function buildRows(s: Snapshot): (Row & { tab: BuildTab })[] {
   const have = { unlockAll: s.unlockAll, done: s.research.done, era: s.era, origin: s.origin.id };
   const rows: (Row & { tab: BuildTab })[] = [];
+  const known = (b: BuildingDef) => isUnlocked(have, b) && (s.unlockAll || !b.research || (eraReached(s.era, TOPIC_BY_ID[b.research]?.era) && topicKnown(s, b.research)));
   for (const b of BUILDINGS) {
     if (b.never || isRingPiece(b.id) || b.seat || (b.hp && b.width === 1 && !b.defense)) continue;
-    if (!isUnlocked(have, b) || (!s.unlockAll && b.research && !(eraReached(s.era, TOPIC_BY_ID[b.research]?.era) && topicKnown(s, b.research)))) continue;
+    if (!known(b)) continue;
     if (b.id === CREATURE_PEN && !s.creature) continue; // (the God creature's pen: shown once the creature is the town's)
     rows.push({ tab: tabOf(b), key: `bld:${b.id}`, icon: b.id, name: b.name, cost: b.cost, ordered: false, full: s.pins.length >= PINS_MOST, count: countOf(s, b.id), order: { type: 'pinBuilding', def: b.id, on: true }, more: () => [el('div', 'more-line', b.purpose), el('div', 'more-line', `Why: ${whyOf(b)}`), ...buildingDetails(b, s)] });
   }
   const wall = s.ringState === 'none' ? 'Raise the palisade' : s.ringState === 'building' ? 'Finish the ring wall' : 'Widen or upgrade the wall';
+  // (the wall only once the palisade is studied: before, the order was taken and nothing came of it)
+  if (s.ringState !== 'none' || known(BUILDING_BY_ID[WALL_KINDS[0]]))
+    rows.push({ tab: 'Defence', key: 'bld:ring', icon: WALL_KINDS[0], name: wall, cost: BUILDING_BY_ID[WALL_KINDS[0]].cost, ordered: s.ringOrdered, order: { type: 'orderRing' }, more: () => ['A wall round the town with gates where the roads cross: raiders have to break it. The town picks the line and works it until it stands. Worth widening once the space inside is mostly built on.'] });
   rows.push(
-    { tab: 'Defence', key: 'bld:ring', icon: WALL_KINDS[0], name: wall, cost: BUILDING_BY_ID[WALL_KINDS[0]].cost, ordered: s.ringOrdered, order: { type: 'orderRing' }, more: () => ['A wall round the town with gates where the roads cross: raiders have to break it. The town picks the line and works it until it stands. Worth widening once the space inside is mostly built on.'] },
     { tab: 'Town', key: 'bld:path', icon: null, name: 'Draw a path', cost: {}, ordered: false, act: { label: 'Draw', go: (b) => b?.startPlacement(DRAW_PATH) }, more: () => ['Press where it starts and drag to where it ends: its blueprint shows as you go, and it is laid when you lift your finger. Drag from a path to lift it. The builders pave it as they pave the streets, a bridge over a river taking wood. New buildings are put beside a path where they can be. The town lays no path of its own.'] },
   );
   return rows;

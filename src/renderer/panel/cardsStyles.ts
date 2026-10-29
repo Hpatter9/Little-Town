@@ -81,7 +81,7 @@ button.pc-fav:not(.on):not(#ui-0):not(#ui-1):not(#ui-2) { color: #e8d8c0 !import
 .bc-state .pc-chip { background: #1c140ccc; }
 .bc-name { font-size: 18px; font-weight: 700; }
 .bc-name-form { display: flex; gap: 6px; margin: 8px 0; }
-.bc-name-form input { flex: 1; min-width: 0; min-height: 40px; padding: 6px 10px; font: inherit; font-size: 16px; }
+.bc-name-form input { flex: 1; min-width: 0; min-height: 40px; padding: 6px 10px; font: inherit; font-size: 16px; background: #1a120c; color: var(--text); border: 1px solid #4a3522; border-radius: 3px; }
 .bc-people { display: flex; flex-wrap: wrap; gap: 8px; }
 .bc-making { display: flex; align-items: center; gap: 10px; padding: 6px 8px; border-radius: 8px; background: #2a1f16; border: 1px solid #4a3722; font-size: 12px; }
 .bc-ring { width: 44px; height: 44px; flex: none; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 700; background: conic-gradient(#ffd84a calc(var(--p, 0) * 1%), #00000066 0); position: relative; }
