@@ -9,6 +9,7 @@
 
 import {
   COLD_HP_PER_HOUR,
+  COLD_AWAKE,
   COLD_IN_BED,
   FEVER_WEAK,
   FIREWOOD_PER_HEAD,
@@ -179,7 +180,8 @@ function fester(s: GameState): void {
 }
 
 /** Winter: everyone burns more to keep warm, and those asleep on the cold ground lose health instead of mending. The
- *  hearths burn firewood (`hearths`): with none left, those asleep in a bed are cold too, at `COLD_IN_BED`. */
+ *  hearths burn firewood (`hearths`): with none left, everyone at home is cold, those asleep in a bed at
+ *  `COLD_IN_BED`, those up and about at `COLD_AWAKE`. */
 function winter(s: GameState): void {
   const cold = calendarOf(s).season === 'winter';
   const snow = cold && weatherAt(s.seed, s.tick, s.doom?.phase === 'active' ? s.doom.kind : null).kind === 'snow';
@@ -187,11 +189,11 @@ function winter(s: GameState): void {
   for (const p of [...home(s)]) {
     const asleep = p.task?.type === 'sleep' && p.activity === 'sleep';
     const ground = asleepOnGround(p);
-    p.cold = cold && !p.downed && (ground || (asleep && !warm)) ? true : undefined;
+    p.cold = cold && !p.downed && (ground || !warm) ? true : undefined;
     if (!cold) continue;
     p.needs.food = Math.max(0, p.needs.food - FOOD_PER_HOUR * WINTER_APPETITE);
     if (!p.cold) continue;
-    if (harm(s, p, COLD_HP_PER_HOUR * (snow ? WINTER_SNOW : 1) * (ground ? 1 : COLD_IN_BED), 'of the cold') && s.gameOver) return;
+    if (harm(s, p, COLD_HP_PER_HOUR * (snow ? WINTER_SNOW : 1) * (ground ? 1 : asleep ? COLD_IN_BED : COLD_AWAKE), 'of the cold') && s.gameOver) return;
   }
 }
 

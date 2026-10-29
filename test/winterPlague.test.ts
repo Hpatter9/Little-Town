@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { COLD_HP_PER_HOUR, COLD_IN_BED, WINTER_SNOW, FIREWOOD_PER_HEAD, SPOIL_DAILY, WINTER_FORAGE } from '../src/shared/data/hardship';
+import { COLD_AWAKE, COLD_HP_PER_HOUR, COLD_IN_BED, WINTER_SNOW, FIREWOOD_PER_HEAD, SPOIL_DAILY, WINTER_FORAGE } from '../src/shared/data/hardship';
 import { PLAGUE_HP_PER_HOUR } from '../src/shared/data/doom';
 import { LIFESPANS } from '../src/shared/data/lifespans';
 import { firewoodWanted, hardshipHourly, noMending, winterForage } from '../src/shared/sim/hardship';
@@ -67,6 +67,14 @@ test('winter hearths burn firewood; with none, even those in bed grow cold', () 
   const snow = weatherAt(s.seed, s.tick, null).kind === 'snow' ? WINTER_SNOW : 1;
   assert.equal(p.hp, maxHp(p) - COLD_HP_PER_HOUR * COLD_IN_BED * snow);
   assert.ok(noMending(p));
+  // (and one up and about is chilled too, at a lower rate)
+  const up = s.people[2];
+  up.task = null;
+  up.activity = 'idle';
+  up.hp = maxHp(up);
+  campfire(s).store = {};
+  hours(s, 1);
+  assert.ok(up.cold && up.hp === maxHp(up) - COLD_HP_PER_HOUR * COLD_AWAKE * (weatherAt(s.seed, s.tick, null).kind === 'snow' ? WINTER_SNOW : 1));
   // (no firewood burned in summer)
   const t = town('summer-hearths', 6, 12);
   campfire(t).store = { wood: 10 };

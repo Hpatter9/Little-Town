@@ -49,6 +49,9 @@ export const WINTER_SNOW = 1.5;
  *  rate. The town gathers this much a head for each winter day to come from autumn on (sim/planner.ts). */
 export const FIREWOOD_PER_HEAD = 0.6;
 export const COLD_IN_BED = 0.5;
+/** With the hearths cold, those awake at home are chilled too: they don't mend, and lose this share of the ground's
+ *  rate an hour. */
+export const COLD_AWAKE = 0.25;
 /** Winter's lean land: foraging (berries off the bush, a forager's wild food) at this pace. */
 export const WINTER_FORAGE = 0.35;
 /** Food left out spoils: the share of a pile lost a day in an open store (a campfire's cache, a stockpile), and in a
