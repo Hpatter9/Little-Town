@@ -4,6 +4,9 @@ A pixel-art town that runs itself, like an ant farm. It's played mainly as a pho
 owner's Android, hosted on GitHub Pages). There's also a Windows desktop overlay (Electron): a strip above the
 taskbar. TypeScript + PixiJS. `DESIGN.md` is the original design, and `README.md` covers how to play and build.
 
+> **Frozen (November 2026): bug fixes only.** The game is being rebuilt in Godot 4 + C# as a PC game in
+> `hpatter9/chronos-godot`. Put all new features there; here, fix bugs that stop the current game being played.
+
 ## Read this first (for every agent: Claude, Gemini or any other)
 
 Read this whole file: it is the working guide. The full record of what has been built (about 460 KB) is in
